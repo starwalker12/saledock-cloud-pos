@@ -36,9 +36,12 @@ export default async function LoginPage({
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-blue-700 text-2xl font-black text-white">
-            GZ
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/gadget-zone-logo.png"
+            alt="Gadget Zone Logo"
+            className="mx-auto mb-4 h-16 w-auto max-w-[120px] object-contain rounded-2xl"
+          />
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-blue-700">
             Gadget Zone
           </p>

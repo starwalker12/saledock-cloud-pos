@@ -25,9 +25,12 @@ export function Sidebar() {
   return (
     <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:block">
       <div className="flex h-20 items-center gap-3 border-b border-slate-200 px-6">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-blue-700 text-lg font-black text-white">
-          GZ
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/gadget-zone-logo.png"
+          alt="Gadget Zone Logo"
+          className="h-11 w-auto max-w-[80px] object-contain rounded-lg"
+        />
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">
             Gadget Zone

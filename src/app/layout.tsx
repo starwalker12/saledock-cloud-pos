@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Gadget Zone Online POS",
   description:
     "Cloud POS foundation for Gadget Zone built with Next.js, Supabase, and Vercel.",
+  icons: {
+    icon: "/gadget-zone-logo.png",
+  },
 };
 
 export default function RootLayout({
