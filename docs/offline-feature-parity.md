@@ -18,7 +18,7 @@ Statuses: **Done** · **Partial** · **Not started** · **Planned**
 | 10 | Customers | **Done** | CRUD with search/filter, archive/restore, and customer detail profile page. |
 | 11 | Customer credit / ledger | **Done** | Ledger entries are created automatically for invoice balances; general settlements are supported via `record_credit_payment` RPC; cached balance with double-entry audit history is live. |
 | 12 | Returns / refunds | **Partial** | Migration 0006 adds invoice-linked `returns`, `return_items`, `return_stock_allocations`, atomic `create_invoice_return` RPC, FIFO restock, customer debt crediting, invoice detail UI, and returns audit page. **Missing**: return cancellation, exchange flow, dedicated refund payment ledger, return receipt/PDF. |
-| 13 | Expenses | **Partial (schema only)** | Table `expenses` exists in migration 0001. No UI yet. |
+| 13 | Expenses | **Done (MVP)** | CRUD with filters (search/category/method/date range/show voided), summary cards, void/restore (no hard delete), permissions (owner/admin/manager), dashboard cards (Today expenses, Net today, Month expenses). Existing `expenses` table reused — no migration. **Missing**: attachments, recurring, approvals, budgets, audit-log wiring, dedicated reference_number column. |
 | 14 | Suppliers | **Done (MVP)** | CRUD with archive/restore. **Missing**: supplier purchase entry that creates stock lots. |
 | 15 | Repairs | **Not started (schema only)** | Tables `repairs`, `repair_status_history` exist in migration 0001. No UI. |
 | 16 | Reports | **Not started** | Daily sales, profit, payment-method breakdown, low-stock report, stock value, staff performance. |

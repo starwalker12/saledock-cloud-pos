@@ -8,6 +8,7 @@ import {
   Settings,
   ShoppingCart,
   Users,
+  Wallet,
   Wrench,
 } from "lucide-react";
 
@@ -19,6 +20,7 @@ const items = [
   { href: "/invoices", label: "Invoices", icon: ReceiptText },
   { href: "/returns", label: "Returns", icon: RotateCcw },
   { href: "/repairs", label: "Repairs", icon: Wrench },
+  { href: "/expenses", label: "Expenses", icon: Wallet },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AlertTriangle, Boxes, Coins, ReceiptText, Tag, TrendingUp, Truck, Users, Wrench } from "lucide-react";
+import { AlertTriangle, Boxes, Coins, ReceiptText, Tag, TrendingUp, Truck, Users, Wallet, Wrench } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageCard } from "@/components/ui/page-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { catalogCounts } from "@/lib/data/catalog";
 import { invoiceCounts } from "@/lib/data/invoices";
+import { expenseCounts } from "@/lib/data/expenses";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 
 async function countRows(table: string, organizationId: string) {
@@ -61,14 +62,16 @@ export default async function DashboardPage() {
   if (!profile?.organization_id) redirect("/setup");
 
   const orgId = profile.organization_id;
-  const [catalog, invoices, customersCount, repairsCount, debt, stockValue] = await Promise.all([
+  const [catalog, invoices, customersCount, repairsCount, debt, stockValue, expenses] = await Promise.all([
     catalogCounts(orgId),
     invoiceCounts(orgId),
     countRows("customers", orgId),
     countRows("repairs", orgId),
     debtorStats(orgId),
     stockValueStats(orgId),
+    expenseCounts(orgId),
   ]);
+  const todayNet = invoices.todaySalesTotal - expenses.todayTotal;
   const currency = organization?.currency_code ?? "PKR";
 
   const isPrivileged =
@@ -149,6 +152,27 @@ export default async function DashboardPage() {
           value={formatNumber(repairsCount)}
           detail={repairsCount === 0 ? "No repair jobs yet." : "Repair jobs on record."}
           icon={<Wrench className="size-5" />}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label="Today expenses"
+          value={formatCurrency(expenses.todayTotal, currency)}
+          detail={expenses.todayCount === 0 ? "No expenses today." : `${formatNumber(expenses.todayCount)} entr${expenses.todayCount === 1 ? "y" : "ies"} today.`}
+          icon={<Wallet className="size-5" />}
+        />
+        <StatCard
+          label="Net today"
+          value={formatCurrency(todayNet, currency)}
+          detail="Sales − expenses for today (refund effects pending)."
+          icon={<TrendingUp className="size-5" />}
+        />
+        <StatCard
+          label="Month expenses"
+          value={formatCurrency(expenses.monthTotal, currency)}
+          detail={expenses.monthCount === 0 ? "Nothing this month." : `${formatNumber(expenses.monthCount)} entr${expenses.monthCount === 1 ? "y" : "ies"} this month.`}
+          icon={<Wallet className="size-5" />}
         />
       </div>
 
