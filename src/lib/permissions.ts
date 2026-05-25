@@ -8,6 +8,7 @@ const RETURN_PROCESSORS: Role[] = ["owner", "admin", "manager"];
 const EXPENSE_MANAGERS: Role[] = ["owner", "admin", "manager"];
 const DAY_CLOSERS: Role[] = ["owner", "admin", "manager"];
 const DAY_REOPENERS: Role[] = ["owner", "admin"];
+const REPORTS_VIEWERS: Role[] = ["owner", "admin", "manager"];
 
 export function canWriteCatalog(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && CATALOG_WRITERS.includes(role);
@@ -31,4 +32,8 @@ export function canCloseDay(role: Role | null | undefined): boolean {
 
 export function canReopenDay(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && DAY_REOPENERS.includes(role);
+}
+
+export function canViewReports(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && REPORTS_VIEWERS.includes(role);
 }
