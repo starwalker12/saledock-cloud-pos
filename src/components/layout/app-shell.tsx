@@ -7,6 +7,7 @@ const mobileLinks = [
   ["Dashboard", "/dashboard"],
   ["POS", "/pos"],
   ["Products", "/products"],
+  ["Repairs", "/repairs"],
   ["Invoices", "/invoices"],
   ["Returns", "/returns"],
   ["Expenses", "/expenses"],

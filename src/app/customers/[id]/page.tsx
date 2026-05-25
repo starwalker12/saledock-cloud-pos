@@ -10,6 +10,7 @@ import {
   Phone,
   Mail,
   User,
+  Wrench,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
@@ -21,6 +22,7 @@ import {
   listCustomerLedger,
 } from "@/lib/data/customers";
 import { canWriteCatalog } from "@/lib/permissions";
+import { listCustomerRepairs } from "@/lib/data/repairs";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { archiveCustomerAction, restoreCustomerAction } from "../actions";
@@ -61,10 +63,11 @@ export default async function CustomerDetailPage({
   const customer = await getCustomerDetail(id, orgId);
   if (!customer) notFound();
 
-  const [invoices, ledger, payments] = await Promise.all([
+  const [invoices, ledger, payments, repairs] = await Promise.all([
     listCustomerInvoices(id, orgId),
     listCustomerLedger(id, orgId),
     listCustomerCreditPayments(id, orgId),
+    listCustomerRepairs(id, orgId),
   ]);
 
   const activeTab = p.tab ?? "ledger";
@@ -249,6 +252,7 @@ export default async function CustomerDetailPage({
             { id: "ledger", label: "Ledger", icon: History },
             { id: "invoices", label: "Invoice history", icon: Layers },
             { id: "payments", label: "Settlement history", icon: CreditCard },
+            { id: "repairs", label: "Repairs history", icon: Wrench },
           ].map((t) => {
             const active = t.id === activeTab;
             const href = `/customers/${customer.id}?tab=${t.id}`;
@@ -435,6 +439,70 @@ export default async function CustomerDetailPage({
                           <td className="px-3 py-3 text-xs text-slate-700">{pmt.received_by_name ?? "—"}</td>
                           <td className="px-3 py-3 text-xs text-slate-600 max-w-[200px] truncate" title={pmt.notes ?? ""}>
                             {pmt.notes ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "repairs" && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-bold text-slate-800">Repair History</h4>
+
+              {repairs.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-500">
+                  No repair jobs recorded yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-[700px]">
+                    <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-3">Job No</th>
+                        <th className="px-3 py-3">Device</th>
+                        <th className="px-3 py-3">Problem</th>
+                        <th className="px-3 py-3 text-right">Estimated Cost</th>
+                        <th className="px-3 py-3 text-right">Advance Paid</th>
+                        <th className="px-3 py-3">Status</th>
+                        <th className="px-3 py-3">Expected Delivery</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {repairs.map((rep) => (
+                        <tr key={rep.id} className="border-b border-slate-100 hover:bg-slate-50/55">
+                          <td className="px-3 py-3 font-bold text-slate-900">
+                            <Link href={`/repairs/${rep.id}`} className="text-blue-700 hover:underline">
+                              {rep.job_no}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <span className="font-semibold text-slate-800">{rep.device_type}</span>
+                            {rep.device_model && <span className="text-xs text-slate-500 ml-1">({rep.device_model})</span>}
+                          </td>
+                          <td className="px-3 py-3 text-xs text-slate-600 max-w-[200px] truncate" title={rep.problem_description}>
+                            {rep.problem_description}
+                          </td>
+                          <td className="px-3 py-3 text-right font-semibold text-slate-900">{formatCurrency(rep.estimated_cost, currency)}</td>
+                          <td className="px-3 py-3 text-right font-semibold text-slate-700">{formatCurrency(rep.advance_paid, currency)}</td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                              rep.status === "delivered"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : rep.status === "completed"
+                                ? "bg-blue-50 text-blue-700"
+                                : rep.status === "cancelled"
+                                ? "bg-rose-50 text-rose-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}>
+                              {rep.status.replace(/_/g, " ")}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                            {rep.expected_delivery_at ? fmtDate(rep.expected_delivery_at) : "—"}
                           </td>
                         </tr>
                       ))}

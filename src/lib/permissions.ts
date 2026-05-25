@@ -9,6 +9,9 @@ const EXPENSE_MANAGERS: Role[] = ["owner", "admin", "manager"];
 const DAY_CLOSERS: Role[] = ["owner", "admin", "manager"];
 const DAY_REOPENERS: Role[] = ["owner", "admin"];
 const REPORTS_VIEWERS: Role[] = ["owner", "admin", "manager"];
+const REPAIR_CREATORS: Role[] = ["owner", "admin", "manager", "cashier", "technician"];
+const REPAIR_EDITORS: Role[] = ["owner", "admin", "manager"];
+const REPAIR_STATUS_UPDATERS: Role[] = ["owner", "admin", "manager", "technician"];
 
 export function canWriteCatalog(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && CATALOG_WRITERS.includes(role);
@@ -37,3 +40,16 @@ export function canReopenDay(role: Role | null | undefined): boolean {
 export function canViewReports(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && REPORTS_VIEWERS.includes(role);
 }
+
+export function canCreateRepairs(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && REPAIR_CREATORS.includes(role);
+}
+
+export function canEditRepairs(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && REPAIR_EDITORS.includes(role);
+}
+
+export function canUpdateRepairStatus(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && REPAIR_STATUS_UPDATERS.includes(role);
+}
+

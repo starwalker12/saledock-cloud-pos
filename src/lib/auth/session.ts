@@ -15,12 +15,17 @@ export type OrganizationRow = {
   name: string;
   currency_code: string;
   timezone: string;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
 };
 
 export type BranchRow = {
   id: string;
   name: string;
   organization_id: string;
+  phone?: string | null;
+  address?: string | null;
 };
 
 export async function getCurrentSession() {
@@ -49,7 +54,7 @@ export async function getCurrentContext() {
   if (profile?.organization_id) {
     const { data: org } = await supabase
       .from("organizations")
-      .select("id, name, currency_code, timezone")
+      .select("id, name, currency_code, timezone, phone, email, address")
       .eq("id", profile.organization_id)
       .maybeSingle<OrganizationRow>();
     organization = org ?? null;
@@ -57,7 +62,7 @@ export async function getCurrentContext() {
   if (profile?.branch_id) {
     const { data: br } = await supabase
       .from("branches")
-      .select("id, name, organization_id")
+      .select("id, name, organization_id, phone, address")
       .eq("id", profile.branch_id)
       .maybeSingle<BranchRow>();
     branch = br ?? null;
