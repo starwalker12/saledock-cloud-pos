@@ -8,6 +8,7 @@ import {
   Settings,
   ShoppingCart,
   Users,
+  CalendarCheck,
   Wallet,
   Wrench,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const items = [
   { href: "/returns", label: "Returns", icon: RotateCcw },
   { href: "/repairs", label: "Repairs", icon: Wrench },
   { href: "/expenses", label: "Expenses", icon: Wallet },
+  { href: "/daily-closing", label: "Daily Closing", icon: CalendarCheck },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

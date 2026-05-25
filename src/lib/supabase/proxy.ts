@@ -10,6 +10,7 @@ const protectedPrefixes = [
   "/invoices",
   "/returns",
   "/expenses",
+  "/daily-closing",
   "/repairs",
   "/reports",
   "/settings",
