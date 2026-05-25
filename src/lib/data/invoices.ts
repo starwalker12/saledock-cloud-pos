@@ -20,6 +20,7 @@ export type InvoiceItemRow = {
   unit_price: number;
   item_discount: number;
   line_total: number;
+  purchase_price: number;
 };
 
 export type InvoicePaymentRow = {
@@ -104,7 +105,7 @@ export async function getInvoiceDetail(
     await Promise.all([
       supabase
         .from("invoice_items")
-        .select("id, product_name, product_type, quantity, unit_price, item_discount, line_total")
+        .select("id, product_name, product_type, quantity, unit_price, item_discount, line_total, purchase_price")
         .eq("invoice_id", invoiceId)
         .order("created_at", { ascending: true }),
       supabase
@@ -163,6 +164,7 @@ export async function getInvoiceDetail(
       unit_price: Number(i.unit_price ?? 0),
       item_discount: Number(i.item_discount ?? 0),
       line_total: Number(i.line_total ?? 0),
+      purchase_price: Number(i.purchase_price ?? 0),
     })),
     payments: (pays ?? []).map((p) => ({
       id: p.id,

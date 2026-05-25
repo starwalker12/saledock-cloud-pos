@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AlertTriangle, Boxes, ReceiptText, Tag, TrendingUp, Truck, Users, Wrench } from "lucide-react";
+import { AlertTriangle, Boxes, Coins, ReceiptText, Tag, TrendingUp, Truck, Users, Wrench } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageCard } from "@/components/ui/page-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -32,6 +32,18 @@ async function debtorStats(organizationId: string) {
   return { totalDebt, debtorCount };
 }
 
+async function stockValueStats(organizationId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_stock_lots")
+    .select("quantity_remaining, unit_cost")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .gt("quantity_remaining", 0);
+  if (error) return 0;
+  return data?.reduce((acc, lot) => acc + (Number(lot.quantity_remaining) * Number(lot.unit_cost)), 0) ?? 0;
+}
+
 export default async function DashboardPage() {
   if (!env.isSupabaseConfigured) {
     return (
@@ -49,14 +61,20 @@ export default async function DashboardPage() {
   if (!profile?.organization_id) redirect("/setup");
 
   const orgId = profile.organization_id;
-  const [catalog, invoices, customersCount, repairsCount, debt] = await Promise.all([
+  const [catalog, invoices, customersCount, repairsCount, debt, stockValue] = await Promise.all([
     catalogCounts(orgId),
     invoiceCounts(orgId),
     countRows("customers", orgId),
     countRows("repairs", orgId),
     debtorStats(orgId),
+    stockValueStats(orgId),
   ]);
   const currency = organization?.currency_code ?? "PKR";
+
+  const isPrivileged =
+    profile?.role === "owner" ||
+    profile?.role === "admin" ||
+    profile?.role === "manager";
 
   return (
     <AppShell>
@@ -72,7 +90,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${isPrivileged ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
         <StatCard
           label="Active products"
           value={formatNumber(catalog.productsActive)}
@@ -85,6 +103,14 @@ export default async function DashboardPage() {
           detail={catalog.lowStock === 0 ? "All stock above reorder level." : "At or below reorder level."}
           icon={<AlertTriangle className="size-5" />}
         />
+        {isPrivileged && (
+          <StatCard
+            label="Stock valuation"
+            value={formatCurrency(stockValue, currency)}
+            detail="Asset value at purchase cost."
+            icon={<Coins className="size-5" />}
+          />
+        )}
         <StatCard
           label="Categories"
           value={formatNumber(catalog.categories)}
