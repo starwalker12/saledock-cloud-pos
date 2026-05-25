@@ -14,6 +14,7 @@ const mobileLinks = [
   ["Closing", "/daily-closing"],
   ["Reports", "/reports"],
   ["Customers", "/customers"],
+  ["Users", "/users"],
 ];
 
 export function AppShell({ children, pageTitle }: { children: ReactNode; pageTitle?: string }) {

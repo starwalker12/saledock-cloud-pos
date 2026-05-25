@@ -11,7 +11,10 @@ import {
   CalendarCheck,
   Wallet,
   Wrench,
+  UserCog,
 } from "lucide-react";
+import { getCurrentContext } from "@/lib/auth/session";
+import { canManageUsers } from "@/lib/permissions";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -27,7 +30,12 @@ const items = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+export async function Sidebar() {
+  const { profile } = await getCurrentContext();
+  const visibleItems = canManageUsers(profile?.role)
+    ? [...items, { href: "/users", label: "Users", icon: UserCog }]
+    : items;
+
   return (
     <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:block">
       <div className="flex h-20 items-center gap-3 border-b border-slate-200 px-6">
@@ -45,7 +53,7 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="space-y-1 p-4">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
             <Link

@@ -14,6 +14,7 @@ const protectedPrefixes = [
   "/repairs",
   "/reports",
   "/settings",
+  "/users",
 ];
 
 export async function updateSession(request: NextRequest) {

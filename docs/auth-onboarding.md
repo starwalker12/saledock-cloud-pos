@@ -6,7 +6,7 @@ This document describes how login, signup, first-owner setup, and route protecti
 
 - `/login` — public. Email/password sign in and sign up (tab-switchable).
 - `/setup` — requires authentication. Creates the first organization, the first branch, and the owner profile.
-- `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/repairs`, `/reports`, `/settings` — require authentication and a profile linked to an organization.
+- `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/repairs`, `/reports`, `/settings`, `/users` — require authentication and a profile linked to an organization.
 
 ## Flow
 
@@ -42,10 +42,11 @@ The top bar shows the signed-in user's name, role, and email, plus a **Sign out*
 
 ## Service role usage
 
-`SUPABASE_SERVICE_ROLE_KEY` is used **only** in `src/lib/supabase/admin.ts`, which is `import "server-only"` and never bundled to the client. It is used in exactly two places today:
+`SUPABASE_SERVICE_ROLE_KEY` is used **only** in `src/lib/supabase/admin.ts`, which is `import "server-only"` and never bundled to the client. It is used only in trusted server-side bootstrap and admin workflows:
 
 - `src/app/setup/actions.ts` — to create the first owner's organization, branch, and profile (bypasses RLS for the one-time bootstrap).
 - `src/app/setup/page.tsx` — to count organizations and decide whether to lock the setup screen.
+- `src/app/users/actions.ts` and `src/lib/data/users.ts` — to invite staff through Supabase Auth Admin and combine auth metadata with organization-scoped profiles for owners/admins.
 
 Everything else uses the anon-key SSR client and is bound by RLS.
 
@@ -61,7 +62,7 @@ The existing policies in `supabase/migrations/0001_initial_schema.sql` rely on t
 
 - `.env.local` is git-ignored and must never be committed.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. It is never imported from a `"use client"` file and never sent to the browser.
-- First-owner setup is allowed only when **zero** organizations exist. Once the first organization exists, the setup page is locked and additional users must be invited (invite flow is a future milestone).
+- First-owner setup is allowed only when **zero** organizations exist. Once the first organization exists, the setup page is locked and additional users must be invited through `/users` by an owner/admin.
 - Password sign-up is open by default. Once the first owner exists, consider disabling self-signup in the Supabase Auth dashboard so random users cannot create dead accounts.
 
 ## Auth callback (email confirmation)
@@ -75,7 +76,7 @@ The route `src/app/auth/callback/route.ts` handles Supabase email-confirmation l
 
 The callback always rebuilds the origin from `x-forwarded-host` / `x-forwarded-proto` (Vercel injects these), so a confirmation email opened on a different machine still lands on the public site — not localhost.
 
-For sign-up, `signUpAction` passes `emailRedirectTo: ${origin}/auth/callback?next=/setup` so the user lands in `/setup` after confirming.
+For sign-up, `signUpAction` passes `emailRedirectTo: ${origin}/auth/callback?next=/setup` so the first owner lands in `/setup` after confirming. Staff invites use `/auth/callback?next=/dashboard`.
 
 ### Supabase dashboard settings (one-time)
 
@@ -98,15 +99,27 @@ Once at least one organization exists, public registration is locked:
 
 Existing users (the first owner) sign in normally.
 
+## Staff invites and roles
+
+Owners/admins can open `/users` to invite staff by email, assign a role, choose a branch, update names/roles/branches, deactivate users, reactivate users, and resend pending invites when Supabase Auth reports the account as unconfirmed.
+
+The server protects management changes:
+
+- manager/cashier/technician cannot manage users
+- an owner cannot deactivate their own active owner account
+- the last active owner/admin cannot be demoted or deactivated
+
+Public signup remains closed; new staff should use the invite email.
+
 ## Status
 
 - First owner profile created (role = `owner`).
 - Public sign-up: **closed**.
-- Future task: admin invite flow (generate signed invite links, link new auth users to the existing organization with a non-owner role).
+- Staff invite + role assignment flow: **MVP live**.
 
 ## Remaining tasks
 
-- Invite + role-assignment flow for additional staff (admins, cashiers, technicians).
 - Password reset / forgot password.
+- Dedicated invitation status columns and granular permission editor.
 - Branch switcher for multi-branch organizations.
 - Per-role RLS refinements (cashier-only insert on invoices, technician-only writes on repairs, etc.).
