@@ -123,39 +123,41 @@ export default async function InvoiceDetailPage({
           </div>
         </section>
 
-        <table className="w-full text-left text-sm">
-          <thead className="border-y border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="py-2 pr-3">Item</th>
-              <th className="py-2 px-3 text-right">Qty</th>
-              {isPrivileged && (
-                <th className="py-2 px-3 text-right print-hidden text-slate-500">Cost</th>
-              )}
-              <th className="py-2 px-3 text-right">Unit</th>
-              <th className="py-2 px-3 text-right">Discount</th>
-              <th className="py-2 pl-3 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoice.items.map((it) => (
-              <tr key={it.id} className="border-b border-slate-100">
-                <td className="py-2 pr-3">
-                  <div className="font-semibold text-slate-900">{it.product_name}</div>
-                  <div className="text-xs text-slate-500">{it.product_type === "service" ? "Service" : "Product"}</div>
-                </td>
-                <td className="py-2 px-3 text-right">{it.quantity}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[500px] text-left text-sm md:min-w-0">
+            <thead className="border-y border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="py-2 pr-3">Item</th>
+                <th className="py-2 px-3 text-right">Qty</th>
                 {isPrivileged && (
-                  <td className="py-2 px-3 text-right print-hidden text-slate-500 font-mono text-xs">
-                    {formatCurrency(it.purchase_price, currency)}
-                  </td>
+                  <th className="py-2 px-3 text-right print-hidden text-slate-500">Cost</th>
                 )}
-                <td className="py-2 px-3 text-right">{formatCurrency(it.unit_price, currency)}</td>
-                <td className="py-2 px-3 text-right">{formatCurrency(it.item_discount, currency)}</td>
-                <td className="py-2 pl-3 text-right font-bold">{formatCurrency(it.line_total, currency)}</td>
+                <th className="py-2 px-3 text-right">Unit</th>
+                <th className="py-2 px-3 text-right">Discount</th>
+                <th className="py-2 pl-3 text-right">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {invoice.items.map((it) => (
+                <tr key={it.id} className="border-b border-slate-100">
+                  <td className="py-2 pr-3">
+                    <div className="font-semibold text-slate-900">{it.product_name}</div>
+                    <div className="text-xs text-slate-500">{it.product_type === "service" ? "Service" : "Product"}</div>
+                  </td>
+                  <td className="py-2 px-3 text-right">{it.quantity}</td>
+                  {isPrivileged && (
+                    <td className="py-2 px-3 text-right print-hidden text-slate-500 font-mono text-xs">
+                      {formatCurrency(it.purchase_price, currency)}
+                    </td>
+                  )}
+                  <td className="py-2 px-3 text-right">{formatCurrency(it.unit_price, currency)}</td>
+                  <td className="py-2 px-3 text-right">{formatCurrency(it.item_discount, currency)}</td>
+                  <td className="py-2 pl-3 text-right font-bold">{formatCurrency(it.line_total, currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <section className="mt-5 ml-auto w-full max-w-sm space-y-2 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(invoice.subtotal, currency)}</span></div>

@@ -188,7 +188,7 @@ export default async function ReportsPage({
             ))}
           </div>
 
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="range" value="custom" />
             <label className="block text-left">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
