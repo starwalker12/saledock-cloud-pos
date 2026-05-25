@@ -9,28 +9,17 @@ const envSchema = z.object({
 
 const parsed = envSchema.safeParse(process.env);
 
-if (!parsed.success) {
-  console.warn("Environment validation warning:", parsed.error.flatten().fieldErrors);
-}
+const data = parsed.success ? parsed.data : ({} as Partial<z.infer<typeof envSchema>>);
+
+const isSupabaseConfigured = Boolean(
+  data.NEXT_PUBLIC_SUPABASE_URL && data.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+);
 
 export const env = {
-  NEXT_PUBLIC_SUPABASE_URL:
-    parsed.success && parsed.data.NEXT_PUBLIC_SUPABASE_URL
-      ? parsed.data.NEXT_PUBLIC_SUPABASE_URL
-      : "http://127.0.0.1:54321",
+  NEXT_PUBLIC_SUPABASE_URL: data.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321",
   NEXT_PUBLIC_SUPABASE_ANON_KEY:
-    parsed.success && parsed.data.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      ? parsed.data.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      : "supabase-anon-key-not-configured",
-  SUPABASE_SERVICE_ROLE_KEY:
-    parsed.success && parsed.data.SUPABASE_SERVICE_ROLE_KEY
-      ? parsed.data.SUPABASE_SERVICE_ROLE_KEY
-      : undefined,
-  NEXT_PUBLIC_APP_NAME:
-    parsed.success && parsed.data.NEXT_PUBLIC_APP_NAME
-      ? parsed.data.NEXT_PUBLIC_APP_NAME
-      : "Gadget Zone Online POS",
-  isSupabaseConfigured:
-    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
-    Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    data.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "supabase-anon-key-not-configured",
+  SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY,
+  NEXT_PUBLIC_APP_NAME: data.NEXT_PUBLIC_APP_NAME ?? "Gadget Zone Online POS",
+  isSupabaseConfigured,
 };
