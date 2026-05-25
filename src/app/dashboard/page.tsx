@@ -196,13 +196,18 @@ export default async function DashboardPage() {
           icon={<Wallet className="size-5" />}
         />
       </div>
-      {branchId && (
-        <div className="mt-2 text-right text-xs">
+      <div className="mt-2 flex justify-end gap-4 text-xs">
+        {isPrivileged && (
+          <Link href="/reports" className="font-semibold text-blue-700 underline">
+            View reports →
+          </Link>
+        )}
+        {branchId && (
           <Link href="/daily-closing" className="font-semibold text-blue-700 underline">
             {isTodayClosed ? "Review today's closing →" : "Open daily closing →"}
           </Link>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <PageCard
