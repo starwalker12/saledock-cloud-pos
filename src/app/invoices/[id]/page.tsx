@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getInvoiceDetail } from "@/lib/data/invoices";
 import { listReturnableInvoiceItems, listReturnsForInvoice } from "@/lib/data/returns";
+import { getBrandingSettings } from "@/lib/data/settings";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/formatters";
 import { canProcessReturns } from "@/lib/permissions";
@@ -42,13 +43,17 @@ export default async function InvoiceDetailPage({
   const { id } = await params;
   const invoice = await getInvoiceDetail(profile.organization_id, id);
   if (!invoice) notFound();
-  const [returnableItems, invoiceReturns] = await Promise.all([
+  const [returnableItems, invoiceReturns, branding] = await Promise.all([
     listReturnableInvoiceItems(profile.organization_id, id),
     listReturnsForInvoice(profile.organization_id, id),
+    getBrandingSettings(profile.organization_id, invoice.branch?.id ?? profile.branch_id),
   ]);
 
-  const currency = organization?.currency_code ?? "PKR";
-  const orgName = organization?.name ?? "Gadget Zone";
+  const currency = branding.currencyCode || organization?.currency_code || "PKR";
+  const orgName = branding.shopName || organization?.name || "Gadget Zone";
+  const branchName = invoice.branch?.name ?? branding.branchName ?? "Main Branch";
+  const branchPhone = invoice.branch?.phone ?? branding.branchPhone ?? branding.phone;
+  const branchAddress = invoice.branch?.address ?? branding.branchAddress ?? branding.address;
 
   const isPrivileged =
     profile?.role === "owner" ||
@@ -75,15 +80,26 @@ export default async function InvoiceDetailPage({
 
       <article id="invoice-print" className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8 print:max-w-none print:border-0 print:shadow-none">
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-          <div>
+          <div className="min-w-0">
+            {branding.logoUrl && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={branding.logoUrl}
+                  alt={`${orgName} logo`}
+                  className="mb-3 h-14 w-auto max-w-[120px] object-contain"
+                />
+              </>
+            )}
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-700">{orgName}</p>
-            <h1 className="text-2xl font-black text-slate-950">{invoice.branch?.name ?? "Main Branch"}</h1>
-            {invoice.branch?.address && (
-              <p className="mt-1 text-sm text-slate-600">{invoice.branch.address}</p>
+            <h1 className="text-2xl font-black text-slate-950">{branchName}</h1>
+            {branchAddress && (
+              <p className="mt-1 text-sm text-slate-600">{branchAddress}</p>
             )}
-            {invoice.branch?.phone && (
-              <p className="text-sm text-slate-600">{invoice.branch.phone}</p>
+            {branchPhone && (
+              <p className="text-sm text-slate-600">{branchPhone}</p>
             )}
+            {branding.email && <p className="text-sm text-slate-600">{branding.email}</p>}
           </div>
           <div className="sm:text-right">
             <p className="text-xs font-bold uppercase text-slate-500">Invoice</p>
@@ -285,7 +301,7 @@ export default async function InvoiceDetailPage({
         )}
 
         <footer className="mt-8 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
-          Thank you for shopping at {orgName}.
+          {branding.invoiceFooter || `Thank you for shopping at ${orgName}.`}
         </footer>
       </article>
     </AppShell>

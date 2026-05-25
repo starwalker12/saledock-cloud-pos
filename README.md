@@ -16,12 +16,14 @@ The project foundation plus the first usable authentication and onboarding miles
 - Protected routes for `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/returns`, `/repairs`, `/reports`, `/settings`
 - Dashboard reads the current organization, branch, profile, and per-org counts from Supabase
 - POS checkout, customer ledger, FIFO stock lots, loading skeletons, and returns/refunds foundation
+- Owner/admin shop settings for business profile, branch profile, invoice/receipt branding, print notes, currency, and timezone
 - Initial Supabase schema migration with RLS policies scoped by organization
 - Safe demo seed data (do not run against production unless explicitly desired)
 - CI workflow for lint, typecheck, and build
 - Desktop app audit and MVP planning docs
 
 Returns/refunds are now in foundation form; cancellation, exchanges, and return receipts are future milestones.
+Settings and branding are now in MVP form; logo upload/storage, 80mm receipt output, and WhatsApp sharing remain planned.
 
 ## Tech Stack
 
@@ -165,7 +167,8 @@ npm run build
 5. POS checkout with invoices, payments, discounts, and customer credit.
 6. Repairs workflow.
 7. Expenses, daily closing, and reports.
-8. PDF/receipt generation and print workflows.
+8. Settings, branding, and print profile management.
+9. PDF/receipt generation and print workflows.
 
 ## Audit Docs
 
@@ -173,6 +176,7 @@ See:
 
 - `docs/desktop-audit.md`
 - `docs/feature-map.md`
+- `docs/settings-branding.md`
 - `docs/business-rules.md`
 - `docs/mvp-scope.md`
 - `docs/architecture.md`

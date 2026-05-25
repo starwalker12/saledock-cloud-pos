@@ -12,6 +12,7 @@ const REPORTS_VIEWERS: Role[] = ["owner", "admin", "manager"];
 const REPAIR_CREATORS: Role[] = ["owner", "admin", "manager", "cashier", "technician"];
 const REPAIR_EDITORS: Role[] = ["owner", "admin", "manager"];
 const REPAIR_STATUS_UPDATERS: Role[] = ["owner", "admin", "manager", "technician"];
+const SETTINGS_MANAGERS: Role[] = ["owner", "admin"];
 
 export function canWriteCatalog(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && CATALOG_WRITERS.includes(role);
@@ -53,3 +54,6 @@ export function canUpdateRepairStatus(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && REPAIR_STATUS_UPDATERS.includes(role);
 }
 
+export function canManageSettings(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && SETTINGS_MANAGERS.includes(role);
+}

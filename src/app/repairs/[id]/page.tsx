@@ -4,6 +4,7 @@ import { ArrowLeft, User, Wrench, Calendar, Coins, History, Clock } from "lucide
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getRepairDetail } from "@/lib/data/repairs";
+import { getBrandingSettings } from "@/lib/data/settings";
 import { canUpdateRepairStatus } from "@/lib/permissions";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/formatters";
@@ -62,13 +63,22 @@ export default async function RepairDetailPage({
   const { id } = await params;
   const orgId = profile.organization_id;
   const canUpdate = canUpdateRepairStatus(profile.role);
-  const currency = organization?.currency_code ?? "PKR";
+  const branding = await getBrandingSettings(orgId, profile.branch_id);
+  const currency = branding.currencyCode || organization?.currency_code || "PKR";
 
   const detail = await getRepairDetail(id, orgId);
   if (!detail) notFound();
 
   const { repair, history } = detail;
   const balanceDue = Math.max((repair.final_cost || repair.estimated_cost) - repair.advance_paid, 0);
+  const receiptTerms = branding.receiptTerms
+    ? branding.receiptTerms.split(/\r?\n/).filter(Boolean)
+    : [
+        "Repairs have 7-day labor warranty. Physical/water damages void warranty.",
+        "Gadget Zone is not liable for data loss during software or hardware services. Backup recommended.",
+        "Devices uncollected after 60 days are subject to disposal or sale to recover repair costs.",
+        "Diagnostic charges may apply if device is diagnosed but not approved for repairs.",
+      ];
 
   return (
     <AppShell pageTitle={`Repair Job ${repair.job_no}`}>
@@ -328,14 +338,31 @@ export default async function RepairDetailPage({
         {/* Letterhead Header */}
         <div className="border-b-2 border-slate-800 pb-6 mb-6 flex justify-between items-start">
           <div>
+            {branding.logoUrl && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={branding.logoUrl}
+                  alt={`${branding.shopName} logo`}
+                  className="mb-3 h-14 w-auto max-w-[120px] object-contain"
+                />
+              </>
+            )}
             <h1 className="text-3xl font-black uppercase tracking-wider text-slate-900">
-              {organization?.name || "GADGET ZONE"}
+              {branding.shopName || organization?.name || "GADGET ZONE"}
             </h1>
-            <p className="text-slate-600 font-semibold">{branch?.name || "Main Branch"}</p>
+            <p className="text-slate-600 font-semibold">{branding.branchName || branch?.name || "Main Branch"}</p>
             <p className="text-xs text-slate-500 mt-1 max-w-[300px]">
-              {branch?.address || organization?.address || "Address details"}
+              {branding.branchAddress || branch?.address || branding.address || organization?.address || "Address details"}
             </p>
-            {branch?.phone && <p className="text-xs text-slate-500">Phone: {branch.phone}</p>}
+            {(branding.branchPhone || branch?.phone || branding.phone) && (
+              <p className="text-xs text-slate-500">
+                Phone: {branding.branchPhone || branch?.phone || branding.phone}
+              </p>
+            )}
+            {branding.whatsappSupport && (
+              <p className="text-xs text-slate-500">WhatsApp: {branding.whatsappSupport}</p>
+            )}
           </div>
 
           <div className="text-right">
@@ -397,10 +424,9 @@ export default async function RepairDetailPage({
           <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-[10px] text-slate-600 leading-normal">
             <h4 className="font-black uppercase tracking-wider mb-2 text-slate-800">Intake Terms & Conditions</h4>
             <ol className="list-decimal pl-4 space-y-1.5 font-medium">
-              <li>Repairs have 7-day labor warranty. Physical/water damages void warranty.</li>
-              <li>Gadget Zone is not liable for data loss during software or hardware services. Backup recommended.</li>
-              <li>Devices uncollected after 60 days are subject to disposal or sale to recover repair costs.</li>
-              <li>Diagnostic charges may apply if device is diagnosed but not approved for repairs.</li>
+              {receiptTerms.map((term) => (
+                <li key={term}>{term}</li>
+              ))}
             </ol>
             <div className="mt-8 pt-4 border-t border-slate-200 flex justify-between">
               <div className="text-center w-[120px]">
@@ -441,7 +467,7 @@ export default async function RepairDetailPage({
 
         {/* Footer letterhead */}
         <div className="mt-16 text-center text-xs text-slate-400 border-t border-slate-100 pt-4">
-          Thank you for choosing {organization?.name || "Gadget Zone"} for your device needs!
+          {branding.invoiceFooter || `Thank you for choosing ${branding.shopName || organization?.name || "Gadget Zone"} for your device needs!`}
         </div>
       </div>
     </AppShell>
