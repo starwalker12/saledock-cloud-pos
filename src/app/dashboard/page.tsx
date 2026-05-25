@@ -12,6 +12,7 @@ import { invoiceCounts } from "@/lib/data/invoices";
 import { expenseCounts } from "@/lib/data/expenses";
 import { getClosing, getDayActivity, todayLocalDate } from "@/lib/data/daily-closing";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { getRepairsStats } from "@/lib/data/repairs";
 
 async function countRows(table: string, organizationId: string) {
   const supabase = await createClient();
@@ -66,11 +67,11 @@ export default async function DashboardPage() {
   const orgId = profile.organization_id;
   const today = todayLocalDate();
   const branchId = profile.branch_id ?? null;
-  const [catalog, invoices, customersCount, repairsCount, debt, stockValue, expenses, todayActivity, todayClosing] = await Promise.all([
+  const [catalog, invoices, customersCount, repairsStats, debt, stockValue, expenses, todayActivity, todayClosing] = await Promise.all([
     catalogCounts(orgId),
     invoiceCounts(orgId),
     countRows("customers", orgId),
-    countRows("repairs", orgId),
+    getRepairsStats(orgId),
     debtorStats(orgId),
     stockValueStats(orgId),
     expenseCounts(orgId),
@@ -157,9 +158,9 @@ export default async function DashboardPage() {
           icon={<Users className="size-5" />}
         />
         <StatCard
-          label="Repairs"
-          value={formatNumber(repairsCount)}
-          detail={repairsCount === 0 ? "No repair jobs yet." : "Repair jobs on record."}
+          label="Open repairs"
+          value={formatNumber(repairsStats.openCount)}
+          detail={repairsStats.readyCount > 0 ? `${formatNumber(repairsStats.readyCount)} job(s) ready for delivery.` : "No ready jobs."}
           icon={<Wrench className="size-5" />}
         />
       </div>
@@ -197,6 +198,9 @@ export default async function DashboardPage() {
         />
       </div>
       <div className="mt-2 flex justify-end gap-4 text-xs">
+        <Link href="/repairs" className="font-semibold text-blue-700 underline">
+          View repairs →
+        </Link>
         {isPrivileged && (
           <Link href="/reports" className="font-semibold text-blue-700 underline">
             View reports →
@@ -228,10 +232,10 @@ export default async function DashboardPage() {
         </PageCard>
         <PageCard
           title="What's next"
-          description="POS checkout is live. Repairs, reports, and printable receipts can come next."
+          description="POS checkout is live. Reports, Repairs workflow, and printable receipts are active."
         >
           <div className="grid gap-3 sm:grid-cols-3">
-            {["Catalog ready", "POS live", "RLS enforced"].map((item) => (
+            {["Catalog ready", "POS live", "Repairs ready"].map((item) => (
               <div key={item} className="rounded-xl bg-blue-50 p-4 text-sm font-bold text-blue-800">
                 {item}
               </div>
