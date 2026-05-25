@@ -19,12 +19,12 @@ The Reports module lives at `/reports`. It provides owners, admins, and managers
 ## 1. Metric Sections & Formulas
 
 ### Sales Summary
-- **Gross Sales**: Sum of `subtotal` from active invoices (where status !== 'void'). This represents sales after line-item discounts but before cart-level discounts.
+- **Gross Sales**: `Product Sales Revenue + Service Commissions`. This completely excludes service principal/pass-through amounts.
 - **Invoice Count**: Count of active invoices created inside the date range.
 - **Average Invoice Value**: `Sales Revenue (Net Sales) / Invoice Count`.
 - **Total Discounts**: Sum of cart-level `discount_total` from invoices plus the sum of `item_discount` from invoice items.
 - **Open Balance / Unpaid**: Sum of `balance_due` on invoices generated during the range.
-- **Sales by Day**: Grouped active invoices count, gross, and net sales by calendar day.
+- **Sales by Day**: Grouped active invoices count, gross sales, and net sales by calendar day (fully principal-free!).
 
 ### Payment Summary
 - **Payment Method Split**: Summarizes payments received by cash drawers and digital rails:
@@ -34,14 +34,17 @@ The Reports module lives at `/reports`. It provides owners, admins, and managers
   - **JazzCash**: Sum of payment amounts where `method = 'jazzcash'`.
   - **Bank Transfer**: Sum of payment amounts where `method = 'bank_transfer'`.
   - **Customer Ledger (Outstanding Credit)**: Sum of invoice `balance_due` (representing unpaid sales credit issued at checkout).
+  - *Note: Customer credit / open balance is NOT counted as cash received.*
 
 ### Profit Summary
-- **Sales Revenue (Net Sales)**: Sum of `grand_total` from active invoices (status !== 'void').
+- **Sales Revenue (Net Sales)**: `Gross Sales - (Sum of invoice discount_totals)`. Completely principal-free.
 - **Product Cost of Sales**: Sum of `purchase_price * quantity` from invoice items of type `product`.
-- **Gross Profit (Product Trade)**: `Sales Revenue - Product Cost`.
+- **Product Profit**: `Product Sales Revenue - Product Cost`.
+- **Service Commissions (Shop Income)**: Sum of line-level `service_commission` (or `line_total` if 0) from service items.
+- **Service Principal Handled (Pass-through)**: Sum of `service_transaction_amount` from service items (not counted as store revenue or profit).
+- **Gross Profit**: `Product Profit + Service Commissions - cart-level discounts`. Matches `Sales Revenue - Product Cost`.
 - **Gross Margin %**: `(Gross Profit / Sales Revenue) * 100`.
-- **Service Revenue / Profit**: Sum of `line_total` from invoice items of type `service` (assumes service purchase price is 0).
-- **Estimated Net Profit**: `Gross Profit - Total Expenses`. Since service revenue is already included in Sales Revenue (and has 0 cost), service profit is fully reflected in Gross Profit.
+- **Estimated Net Profit**: `Gross Profit - Total Expenses - Refund Total`. Deducts active expenditures and return refund outflows to prevent double-counting.
 
 ### Returns & Refunds Summary
 - **Return Count**: Completed returns inside the range.

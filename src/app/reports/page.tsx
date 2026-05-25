@@ -252,7 +252,7 @@ export default async function ReportsPage({
               {formatCurrency(data.profit.estimatedNetProfit, currency)}
             </p>
             <p className="mt-3 text-xs font-semibold text-emerald-700 leading-5">
-              Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) − Total Expenses ({formatCurrency(data.expenses.totalExpenses, currency)})
+              Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) − Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) − Refunds ({formatCurrency(data.returns.refundTotal, currency)})
             </p>
           </div>
           <div className="rounded-xl bg-emerald-500 p-3 text-white">
@@ -306,12 +306,20 @@ export default async function ReportsPage({
               <span className="text-sm font-black text-emerald-700">{formatCurrency(data.profit.grossProfit, currency)}</span>
             </div>
             <div className="flex justify-between border-b border-slate-100 py-2">
-              <span className="text-sm font-semibold text-slate-600">Service Revenue / Commissions</span>
+              <span className="text-sm font-semibold text-slate-600">Service Commissions (Shop Income)</span>
               <span className="text-sm font-bold text-slate-900">+{formatCurrency(data.profit.serviceProfit, currency)}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-100 py-2 text-slate-500 italic bg-slate-50/50 px-2 rounded-lg">
+              <span className="text-xs font-semibold">Service Principal Handled (Pass-through)</span>
+              <span className="text-xs font-semibold">{formatCurrency(data.profit.servicePrincipalHandled, currency)}</span>
             </div>
             <div className="flex justify-between border-b border-slate-100 py-2">
               <span className="text-sm font-semibold text-slate-600">Total Operating Expenses</span>
               <span className="text-sm font-bold text-red-700">-{formatCurrency(data.expenses.totalExpenses, currency)}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-100 py-2">
+              <span className="text-sm font-semibold text-slate-600">Refund/Return Outflow Impact</span>
+              <span className="text-sm font-bold text-red-700">-{formatCurrency(data.returns.refundTotal, currency)}</span>
             </div>
             <div className="flex justify-between pt-2 border-t-2 border-dashed border-slate-200">
               <span className="text-base font-black text-slate-950">Estimated Net Profit</span>

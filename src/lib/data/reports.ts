@@ -10,6 +10,8 @@ export type InvoiceItemReportRow = {
   unit_price: number;
   item_discount: number;
   line_total: number;
+  service_commission: number;
+  service_transaction_amount: number;
 };
 
 export type SalesSummaryReport = {
@@ -37,6 +39,7 @@ export type ProfitSummaryReport = {
   grossProfit: number;
   grossMarginPercent: number;
   serviceProfit: number;
+  servicePrincipalHandled: number;
   estimatedNetProfit: number;
 };
 
@@ -134,7 +137,7 @@ export async function getReportsData(
   if (invoiceIds.length > 0) {
     const { data: items, error: itemsError } = await supabase
       .from("invoice_items")
-      .select("invoice_id, product_name, product_type, quantity, purchase_price, unit_price, item_discount, line_total")
+      .select("invoice_id, product_name, product_type, quantity, purchase_price, unit_price, item_discount, line_total, service_commission, service_transaction_amount")
       .eq("organization_id", orgId)
       .in("invoice_id", invoiceIds);
 
@@ -300,24 +303,61 @@ export async function getReportsData(
 
   // ================= CALCULATIONS =================
 
-  // 1. Sales Summary calculations
-  const grossSales = activeInvoices.reduce((sum, inv) => sum + Number(inv.subtotal ?? 0), 0);
-  const salesRevenue = activeInvoices.reduce((sum, inv) => sum + Number(inv.grand_total ?? 0), 0);
-  const openBalance = activeInvoices.reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
+  // 1. Service Principal and Commission calculations
+  const servicePrincipalHandled = invoiceItems
+    .filter((item) => item.product_type === "service")
+    .reduce((sum, item) => sum + Number(item.service_transaction_amount ?? 0), 0);
+
+  const serviceProfit = invoiceItems
+    .filter((item) => item.product_type === "service")
+    .reduce((sum, item) => {
+      const commission = Number(item.service_commission ?? 0);
+      return sum + (commission > 0 ? commission : Number(item.line_total ?? 0));
+    }, 0);
+
+  const productSalesRevenue = invoiceItems
+    .filter((item) => item.product_type === "product")
+    .reduce((sum, item) => sum + Number(item.line_total ?? 0), 0);
+
   const cartDiscounts = activeInvoices.reduce((sum, inv) => sum + Number(inv.discount_total ?? 0), 0);
+
+  // Gross Sales (Shop income before cart discounts, excluding service principal!)
+  const grossSales = productSalesRevenue + serviceProfit;
+
   const lineDiscounts = invoiceItems.reduce((sum, item) => sum + Number(item.item_discount ?? 0), 0);
   const totalDiscounts = cartDiscounts + lineDiscounts;
+
+  // Net Sales (Revenue) counts service commission only, completely excluding service principal!
+  const salesRevenue = Math.max(grossSales - cartDiscounts, 0);
+
+  const openBalance = activeInvoices.reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
   const invoiceCount = activeInvoices.length;
   const averageInvoiceValue = invoiceCount > 0 ? salesRevenue / invoiceCount : 0;
 
-  // Group sales by day
+  // Group sales by day, excluding service principal!
   const salesByDayMap = new Map<string, { date: string; count: number; gross: number; net: number }>();
   for (const inv of activeInvoices) {
     const day = inv.invoice_date.slice(0, 10);
+    const items = itemsByInvoiceId.get(inv.id) ?? [];
+    
+    const invProductTotal = items
+      .filter((item) => item.product_type === "product")
+      .reduce((sum, item) => sum + Number(item.line_total ?? 0), 0);
+      
+    const invServiceComm = items
+      .filter((item) => item.product_type === "service")
+      .reduce((sum, item) => {
+        const comm = Number(item.service_commission ?? 0);
+        return sum + (comm > 0 ? comm : Number(item.line_total ?? 0));
+      }, 0);
+
+    const invGross = invProductTotal + invServiceComm;
+    const invNet = Math.max(invGross - Number(inv.discount_total ?? 0), 0);
+
     const existing = salesByDayMap.get(day) ?? { date: day, count: 0, gross: 0, net: 0 };
     existing.count += 1;
-    existing.gross += Number(inv.subtotal ?? 0);
-    existing.net += Number(inv.grand_total ?? 0);
+    existing.gross += invGross;
+    existing.net += invNet;
     salesByDayMap.set(day, existing);
   }
   const salesByDay = [...salesByDayMap.values()].sort((a, b) => a.date.localeCompare(b.date));
@@ -348,19 +388,15 @@ export async function getReportsData(
     .filter((item) => item.product_type === "product")
     .reduce((sum, item) => sum + Number(item.purchase_price ?? 0) * Number(item.quantity ?? 0), 0);
 
-  const grossProfit = salesRevenue - productCost;
+  const grossProfit = Math.max(salesRevenue - productCost, 0);
   const grossMarginPercent = salesRevenue > 0 ? (grossProfit / salesRevenue) * 100 : 0;
-
-  const serviceProfit = invoiceItems
-    .filter((item) => item.product_type === "service")
-    .reduce((sum, item) => sum + Number(item.line_total ?? 0), 0);
-
-  const totalExpenses = activeExpenses.reduce((sum, exp) => sum + Number(exp.amount ?? 0), 0);
-  const estimatedNetProfit = grossProfit - totalExpenses;
 
   // 4. Returns / Refunds calculations
   const returnCount = completedReturns.length;
   const refundTotal = completedReturns.reduce((sum, ret) => sum + Number(ret.refund_amount ?? 0), 0);
+
+  const totalExpenses = activeExpenses.reduce((sum, exp) => sum + Number(exp.amount ?? 0), 0);
+  const estimatedNetProfit = grossProfit - totalExpenses - refundTotal;
 
   const refundsByMethodMap = new Map<string, number>();
   for (const ret of completedReturns) {
@@ -500,6 +536,7 @@ export async function getReportsData(
       grossProfit,
       grossMarginPercent,
       serviceProfit,
+      servicePrincipalHandled,
       estimatedNetProfit,
     },
     returns: {
