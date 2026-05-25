@@ -3,9 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getInvoiceDetail } from "@/lib/data/invoices";
+import { listReturnableInvoiceItems, listReturnsForInvoice } from "@/lib/data/returns";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/formatters";
+import { canProcessReturns } from "@/lib/permissions";
 import { PrintButton } from "./print-button";
+import { ReturnForm } from "./returns/return-form";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Cash",
@@ -39,6 +42,10 @@ export default async function InvoiceDetailPage({
   const { id } = await params;
   const invoice = await getInvoiceDetail(profile.organization_id, id);
   if (!invoice) notFound();
+  const [returnableItems, invoiceReturns] = await Promise.all([
+    listReturnableInvoiceItems(profile.organization_id, id),
+    listReturnsForInvoice(profile.organization_id, id),
+  ]);
 
   const currency = organization?.currency_code ?? "PKR";
   const orgName = organization?.name ?? "Gadget Zone";
@@ -55,6 +62,7 @@ export default async function InvoiceDetailPage({
   const grossProfit = invoice.grand_total - totalCost;
   const grossMargin =
     invoice.grand_total > 0 ? (grossProfit / invoice.grand_total) * 100 : 0;
+  const canReturn = canProcessReturns(profile.role);
 
   return (
     <AppShell pageTitle={`Invoice ${invoice.invoice_no}`}>
@@ -211,6 +219,65 @@ export default async function InvoiceDetailPage({
                   {grossMargin.toFixed(1)}%
                 </p>
               </div>
+            </div>
+          </section>
+        )}
+
+        <ReturnForm
+          invoiceId={invoice.id}
+          items={returnableItems}
+          currency={currency}
+          canProcess={canReturn}
+        />
+
+        {invoiceReturns.length > 0 && (
+          <section className="print-hidden mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Return history
+                </p>
+                <h2 className="text-lg font-black text-slate-950">Previous returns</h2>
+              </div>
+              <Link href="/returns" className="text-xs font-bold text-blue-700 underline">
+                View all
+              </Link>
+            </div>
+            <div className="mt-4 space-y-3">
+              {invoiceReturns.map((ret) => (
+                <div key={ret.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-black text-slate-950">{ret.return_no}</p>
+                      <p className="text-xs text-slate-500">
+                        {fmtDate(ret.created_at)}
+                        {ret.created_by_name ? ` · ${ret.created_by_name}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-sm sm:text-right">
+                      <p className="font-black text-slate-900">
+                        {formatCurrency(ret.subtotal, currency)}
+                      </p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        Payout {formatCurrency(ret.refund_amount, currency)}
+                        {ret.refund_method ? ` · ${PAYMENT_LABELS[ret.refund_method] ?? ret.refund_method}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <ul className="mt-3 space-y-1 text-sm text-slate-700">
+                    {ret.items.map((item) => (
+                      <li key={item.id} className="flex justify-between gap-3">
+                        <span>
+                          {item.quantity} × {item.item_name}
+                          {item.item_type === "service" ? " · service" : item.restock ? " · restocked" : " · no restock"}
+                        </span>
+                        <span className="font-semibold">{formatCurrency(item.line_total, currency)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {ret.notes && <p className="mt-2 text-xs text-slate-500">{ret.notes}</p>}
+                </div>
+              ))}
             </div>
           </section>
         )}

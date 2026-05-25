@@ -105,3 +105,9 @@ FIFO audit record linking sold items to their cost batches.
   `profit = sum(line_total - (allocated_cost * qty))`
 - Visible only to owner, admin, or manager roles via simple role check.
 - Cashiers and viewers will never see product costs or margins.
+
+### 3. Returns / Refunds
+- Migration `0006_returns_refunds.sql` restores returned products to the original FIFO lots recorded in `invoice_item_stock_allocations`.
+- Restocked returns create `stock_movements` rows with `movement_type = 'return_in'`.
+- `return_stock_allocations` stores the return-to-lot trace so future returns cannot restore more than the original sold allocation.
+- Services and non-restocked product returns do not create stock movements.

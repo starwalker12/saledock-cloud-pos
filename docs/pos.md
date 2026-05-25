@@ -88,17 +88,27 @@ The full customer ledger is live:
 - Walk-in checkouts with any `balance_due > 0` are blocked atomically.
 - Cashiers can record direct customer credit settlements via a clean "Receive Settlement" form on the customer detail page. This triggers the `record_credit_payment` Supabase RPC which atomically inserts a `credit_payments` row, creates a corresponding `credit` ledger entry, and decrements `outstanding_balance`, ensuring the balance never drops below zero.
 
-## Inventory (MVP)
+## Returns / Refunds
+
+Returns are started from `/invoices/[id]` and are invoice-linked only. Migration `0006_returns_refunds.sql` adds the atomic `create_invoice_return` RPC.
+
+- Owner, admin, and manager roles can process returns.
+- The RPC recomputes return totals from the original invoice item and blocks over-returning.
+- Product returns can restore stock to the original FIFO lots and write `return_in` stock movements.
+- Service refunds do not affect inventory.
+- Customer debt is reduced first through a `customer_ledger_entries` refund credit, capped so outstanding balance never drops below zero.
+- Paid-out refund method/reference are tracked on the return document.
+
+## Inventory
 
 Current behavior: `products.stock_quantity` is decremented atomically inside `pos_checkout` for `type='product'` rows only. Services never touch stock.
 
-The offline app uses FIFO across **`product_stock_lots`** with **`bill_item_batch_allocations`** snapshotted per sale, and a separate **`stock_movements`** ledger. None of those tables exist yet online — they're planned in migration `0004_stock_lots.sql`. When they land, `pos_checkout` will be updated to consume from oldest active lot first and write allocation rows; until then, single-column stock decrement is the documented simplification.
+Physical inventory now uses FIFO across `product_stock_lots`, with `invoice_item_stock_allocations` snapshotted per sale and `stock_movements` preserving sale/restock/adjustment/return history.
 
 ## What's intentionally NOT in this milestone
 
 - Per-payment receipts beyond the invoice view.
-- Refund / void invoice flow.
-- Customer ledger / running balance.
+- Void invoice flow.
 - Daily closing / Z-reports.
 - Repairs workflow.
 - Server-rendered PDF.

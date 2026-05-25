@@ -17,7 +17,7 @@ Statuses: **Done** · **Partial** · **Not started** · **Planned**
 | 9 | WhatsApp invoice sharing | **Not started** | Planned: `wa.me/<phone>?text=…` link with invoice URL once invoices are public per-org or accessible via signed link. |
 | 10 | Customers | **Done** | CRUD with search/filter, archive/restore, and customer detail profile page. |
 | 11 | Customer credit / ledger | **Done** | Ledger entries are created automatically for invoice balances; general settlements are supported via `record_credit_payment` RPC; cached balance with double-entry audit history is live. |
-| 12 | Returns / refunds | **Not started** | Planned tables: `return_refunds`, `return_items`. Will need to reverse stock and create negative payment / customer credit. |
+| 12 | Returns / refunds | **Partial** | Migration 0006 adds invoice-linked `returns`, `return_items`, `return_stock_allocations`, atomic `create_invoice_return` RPC, FIFO restock, customer debt crediting, invoice detail UI, and returns audit page. **Missing**: return cancellation, exchange flow, dedicated refund payment ledger, return receipt/PDF. |
 | 13 | Expenses | **Partial (schema only)** | Table `expenses` exists in migration 0001. No UI yet. |
 | 14 | Suppliers | **Done (MVP)** | CRUD with archive/restore. **Missing**: supplier purchase entry that creates stock lots. |
 | 15 | Repairs | **Not started (schema only)** | Tables `repairs`, `repair_status_history` exist in migration 0001. No UI. |
@@ -42,13 +42,11 @@ Statuses: **Done** · **Partial** · **Not started** · **Planned**
 
 1. **Customer detail + edit + archive** (fills out the existing Customers page).
 2. **Customer ledger** — `customer_ledger_entries`, `credit_payments`, settlement UI. Hardens "customer_credit" payment method properly.
-3. **Returns / refunds** — needed before stock-lots so we can reverse a sale cleanly.
-4. **Stock lots + movements (FIFO)** — migration `0004_stock_lots.sql`, allocate on `pos_checkout`, reverse on return.
-5. **Expenses UI** + **Daily closing**.
-6. **Reports** (after closing exists so it has authoritative day-cuts).
-7. **Audit log** — wire `audit_logs` into every mutating server action.
-8. **Repairs**.
-9. **Settings / branding UI**.
-10. **A4 PDF + 80mm receipt + WhatsApp share**.
-11. **Invite / user management**.
-12. **Global search**.
+3. **Expenses UI** + **Daily closing**.
+4. **Reports** (after closing exists so it has authoritative day-cuts).
+5. **Audit log** — wire `audit_logs` into every mutating server action.
+6. **Repairs**.
+7. **Settings / branding UI**.
+8. **A4 PDF + 80mm receipt + WhatsApp share**.
+9. **Invite / user management**.
+10. **Global search**.

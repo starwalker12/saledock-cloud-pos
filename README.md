@@ -13,14 +13,15 @@ The project foundation plus the first usable authentication and onboarding miles
 - Supabase client (browser), server, and admin (service-role) helpers
 - Real email/password authentication via Supabase Auth
 - First-owner onboarding flow at `/setup` — creates organization, branch, and owner profile
-- Protected routes for `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/repairs`, `/reports`, `/settings`
+- Protected routes for `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/returns`, `/repairs`, `/reports`, `/settings`
 - Dashboard reads the current organization, branch, profile, and per-org counts from Supabase
+- POS checkout, customer ledger, FIFO stock lots, loading skeletons, and returns/refunds foundation
 - Initial Supabase schema migration with RLS policies scoped by organization
 - Safe demo seed data (do not run against production unless explicitly desired)
 - CI workflow for lint, typecheck, and build
 - Desktop app audit and MVP planning docs
 
-The full cashier POS checkout flow is the next milestone.
+Returns/refunds are now in foundation form; cancellation, exchanges, and return receipts are future milestones.
 
 ## Tech Stack
 
@@ -175,4 +176,3 @@ See:
 - `docs/business-rules.md`
 - `docs/mvp-scope.md`
 - `docs/architecture.md`
-

@@ -79,7 +79,9 @@ Currently, `payments` requires a direct `invoice_id`. We will modify the column 
 
 ### D. Returns and Refunds
 - When an invoice item is returned:
-  - If a customer is linked, the system inserts a ledger entry of type `refund` with `amount = -refunded_value` (adding credit to their account or reducing their debt).
+  - If a customer is linked and has an outstanding balance, the system inserts a ledger entry of type `refund` with direction `credit`.
+  - The credit is capped at the current outstanding balance so `customers.outstanding_balance` never drops below zero.
+  - Paid-out refund method/reference are tracked on the `returns` table rather than as negative `payments` rows.
 
 ---
 
