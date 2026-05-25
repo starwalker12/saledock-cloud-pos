@@ -27,6 +27,7 @@ import {
 import { CategoryForm } from "./category-form";
 import { ProductForm } from "./product-form";
 import { SupplierForm } from "./supplier-form";
+import { InventorySection } from "./inventory-section";
 
 type Tab = "products" | "categories" | "suppliers";
 const TABS: { id: Tab; label: string }[] = [
@@ -279,6 +280,7 @@ async function ProductsTab({
                     p={p}
                     currency={currency}
                     canWrite={canWrite}
+                    suppliers={suppliers}
                   />
                 ))}
               </tbody>
@@ -286,7 +288,7 @@ async function ProductsTab({
           </div>
           <div className="space-y-3 md:hidden">
             {products.map((p) => (
-              <ProductCard key={p.id} p={p} currency={currency} canWrite={canWrite} />
+              <ProductCard key={p.id} p={p} currency={currency} canWrite={canWrite} suppliers={suppliers} />
             ))}
           </div>
         </>
@@ -311,10 +313,12 @@ function ProductRowDesktop({
   p,
   currency,
   canWrite,
+  suppliers,
 }: {
   p: ProductRow;
   currency: string;
   canWrite: boolean;
+  suppliers: SupplierRow[];
 }) {
   return (
     <tr className="border-b border-slate-100 align-top">
@@ -324,6 +328,15 @@ function ProductRowDesktop({
           {p.type === "service" ? "Service" : "Product"}
           {!p.is_active && " · Archived"}
         </div>
+        {p.type === "product" && p.is_active && (
+          <InventorySection
+            productId={p.id}
+            productName={p.name}
+            suppliers={suppliers}
+            currency={currency}
+            canWrite={canWrite}
+          />
+        )}
       </td>
       <td className="px-3 py-3 text-xs text-slate-600">
         <div>{p.sku ?? "—"}</div>
@@ -354,7 +367,17 @@ function ProductRowDesktop({
   );
 }
 
-function ProductCard({ p, currency, canWrite }: { p: ProductRow; currency: string; canWrite: boolean }) {
+function ProductCard({
+  p,
+  currency,
+  canWrite,
+  suppliers,
+}: {
+  p: ProductRow;
+  currency: string;
+  canWrite: boolean;
+  suppliers: SupplierRow[];
+}) {
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -402,6 +425,15 @@ function ProductCard({ p, currency, canWrite }: { p: ProductRow; currency: strin
           <dd>{p.supplier_name ?? "—"}</dd>
         </div>
       </dl>
+      {p.type === "product" && p.is_active && (
+        <InventorySection
+          productId={p.id}
+          productName={p.name}
+          suppliers={suppliers}
+          currency={currency}
+          canWrite={canWrite}
+        />
+      )}
       <div className="mt-3 flex justify-end">
         <ProductActions p={p} canWrite={canWrite} />
       </div>

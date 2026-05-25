@@ -43,6 +43,19 @@ export default async function InvoiceDetailPage({
   const currency = organization?.currency_code ?? "PKR";
   const orgName = organization?.name ?? "Gadget Zone";
 
+  const isPrivileged =
+    profile?.role === "owner" ||
+    profile?.role === "admin" ||
+    profile?.role === "manager";
+
+  const totalCost = invoice.items.reduce(
+    (sum, item) => sum + (item.purchase_price ?? 0) * item.quantity,
+    0,
+  );
+  const grossProfit = invoice.grand_total - totalCost;
+  const grossMargin =
+    invoice.grand_total > 0 ? (grossProfit / invoice.grand_total) * 100 : 0;
+
   return (
     <AppShell pageTitle={`Invoice ${invoice.invoice_no}`}>
       <div className="print-hidden mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -107,6 +120,9 @@ export default async function InvoiceDetailPage({
             <tr>
               <th className="py-2 pr-3">Item</th>
               <th className="py-2 px-3 text-right">Qty</th>
+              {isPrivileged && (
+                <th className="py-2 px-3 text-right print-hidden text-slate-500">Cost</th>
+              )}
               <th className="py-2 px-3 text-right">Unit</th>
               <th className="py-2 px-3 text-right">Discount</th>
               <th className="py-2 pl-3 text-right">Total</th>
@@ -120,6 +136,11 @@ export default async function InvoiceDetailPage({
                   <div className="text-xs text-slate-500">{it.product_type === "service" ? "Service" : "Product"}</div>
                 </td>
                 <td className="py-2 px-3 text-right">{it.quantity}</td>
+                {isPrivileged && (
+                  <td className="py-2 px-3 text-right print-hidden text-slate-500 font-mono text-xs">
+                    {formatCurrency(it.purchase_price, currency)}
+                  </td>
+                )}
                 <td className="py-2 px-3 text-right">{formatCurrency(it.unit_price, currency)}</td>
                 <td className="py-2 px-3 text-right">{formatCurrency(it.item_discount, currency)}</td>
                 <td className="py-2 pl-3 text-right font-bold">{formatCurrency(it.line_total, currency)}</td>
@@ -165,6 +186,32 @@ export default async function InvoiceDetailPage({
           <section className="mt-5">
             <p className="text-xs font-bold uppercase text-slate-500">Note</p>
             <p className="mt-1 text-sm text-slate-700 whitespace-pre-line">{invoice.note}</p>
+          </section>
+        )}
+
+        {isPrivileged && (
+          <section className="print-hidden mt-8 rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+            <h3 className="text-xs font-black uppercase tracking-[0.15em] text-slate-500 mb-3 flex items-center gap-2">
+              📊 Profitability & Cost Analysis <span className="text-[10px] font-bold text-blue-700 uppercase tracking-normal bg-blue-50 px-2 py-0.5 rounded-full">Privileged View</span>
+            </h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Purchase Cost</p>
+                <p className="mt-1 text-base font-black text-slate-900">{formatCurrency(totalCost, currency)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Profit</p>
+                <p className={`mt-1 text-base font-black ${grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {formatCurrency(grossProfit, currency)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Margin</p>
+                <p className={`mt-1 text-base font-black ${grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {grossMargin.toFixed(1)}%
+                </p>
+              </div>
+            </div>
           </section>
         )}
 
