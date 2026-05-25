@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { AlertTriangle, Boxes, Coins, ReceiptText, Tag, TrendingUp, Truck, Users, Wallet, Wrench } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Boxes, CalendarCheck, Coins, ReceiptText, Tag, TrendingUp, Truck, Users, Wallet, Wrench } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageCard } from "@/components/ui/page-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -9,6 +10,7 @@ import { env } from "@/lib/env";
 import { catalogCounts } from "@/lib/data/catalog";
 import { invoiceCounts } from "@/lib/data/invoices";
 import { expenseCounts } from "@/lib/data/expenses";
+import { getClosing, getDayActivity, todayLocalDate } from "@/lib/data/daily-closing";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 
 async function countRows(table: string, organizationId: string) {
@@ -62,7 +64,9 @@ export default async function DashboardPage() {
   if (!profile?.organization_id) redirect("/setup");
 
   const orgId = profile.organization_id;
-  const [catalog, invoices, customersCount, repairsCount, debt, stockValue, expenses] = await Promise.all([
+  const today = todayLocalDate();
+  const branchId = profile.branch_id ?? null;
+  const [catalog, invoices, customersCount, repairsCount, debt, stockValue, expenses, todayActivity, todayClosing] = await Promise.all([
     catalogCounts(orgId),
     invoiceCounts(orgId),
     countRows("customers", orgId),
@@ -70,8 +74,13 @@ export default async function DashboardPage() {
     debtorStats(orgId),
     stockValueStats(orgId),
     expenseCounts(orgId),
+    branchId ? getDayActivity(orgId, branchId, today) : Promise.resolve(null),
+    branchId ? getClosing(orgId, branchId, today) : Promise.resolve(null),
   ]);
   const todayNet = invoices.todaySalesTotal - expenses.todayTotal;
+  const expectedCashToday = todayActivity?.expectedCash ?? 0;
+  const closingDifference = todayClosing?.cash_difference ?? null;
+  const isTodayClosed = Boolean(todayClosing?.finalized_by);
   const currency = organization?.currency_code ?? "PKR";
 
   const isPrivileged =
@@ -155,7 +164,7 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Today expenses"
           value={formatCurrency(expenses.todayTotal, currency)}
@@ -165,8 +174,20 @@ export default async function DashboardPage() {
         <StatCard
           label="Net today"
           value={formatCurrency(todayNet, currency)}
-          detail="Sales − expenses for today (refund effects pending)."
+          detail="Sales − expenses for today."
           icon={<TrendingUp className="size-5" />}
+        />
+        <StatCard
+          label={isTodayClosed ? "Today closed" : "Today closing"}
+          value={isTodayClosed ? "Closed" : "Open"}
+          detail={
+            isTodayClosed && closingDifference !== null
+              ? `Cash diff: ${formatCurrency(closingDifference, currency)}`
+              : branchId
+                ? `Expected cash: ${formatCurrency(expectedCashToday, currency)}`
+                : "No branch assigned."
+          }
+          icon={<CalendarCheck className="size-5" />}
         />
         <StatCard
           label="Month expenses"
@@ -175,6 +196,13 @@ export default async function DashboardPage() {
           icon={<Wallet className="size-5" />}
         />
       </div>
+      {branchId && (
+        <div className="mt-2 text-right text-xs">
+          <Link href="/daily-closing" className="font-semibold text-blue-700 underline">
+            {isTodayClosed ? "Review today's closing →" : "Open daily closing →"}
+          </Link>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <PageCard

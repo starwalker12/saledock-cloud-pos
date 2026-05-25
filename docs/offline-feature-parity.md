@@ -22,7 +22,7 @@ Statuses: **Done** · **Partial** · **Not started** · **Planned**
 | 14 | Suppliers | **Done (MVP)** | CRUD with archive/restore. **Missing**: supplier purchase entry that creates stock lots. |
 | 15 | Repairs | **Not started (schema only)** | Tables `repairs`, `repair_status_history` exist in migration 0001. No UI. |
 | 16 | Reports | **Not started** | Daily sales, profit, payment-method breakdown, low-stock report, stock value, staff performance. |
-| 17 | Daily closing | **Not started (schema only)** | Table `daily_closings` exists in migration 0001. |
+| 17 | Daily closing | **Done (MVP)** | Branch-scoped reconciliation: server-computed sales / payments by method / refunds / expenses, expected cash = cash − cash refunds − cash expenses, counted cash entry, atomic upsert with snapshots, close + reopen (owner/admin only), recent-closings table, dashboard "Today closing" card. Migration 0007 added `finalized_at`. **Missing**: per-cashier sub-shifts, cash_movements ledger, printable closing receipt, audit-log wiring, multi-branch viewer. |
 | 18 | Audit log | **Not started (schema only)** | Table `audit_logs` exists. Checkout should emit `bill.created` events; catalog mutations should emit `product.created/updated/archived`. |
 | 19 | Settings / branding | **Partial (schema only)** | Table `app_settings` exists with shop name, logo paths, theme accent. No UI to edit yet. |
 | 20 | Backup / restore / export | **Not applicable in same form** | Online app uses Supabase for daily backups (free tier: PITR limited). Replace offline backup/restore with periodic Supabase logical backup + per-org export-to-CSV. |
