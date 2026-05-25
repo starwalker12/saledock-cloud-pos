@@ -13,10 +13,11 @@ The project foundation plus the first usable authentication and onboarding miles
 - Supabase client (browser), server, and admin (service-role) helpers
 - Real email/password authentication via Supabase Auth
 - First-owner onboarding flow at `/setup` — creates organization, branch, and owner profile
-- Protected routes for `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/returns`, `/repairs`, `/reports`, `/settings`
+- Protected routes for `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/returns`, `/repairs`, `/reports`, `/settings`, `/users`
 - Dashboard reads the current organization, branch, profile, and per-org counts from Supabase
 - POS checkout, customer ledger, FIFO stock lots, loading skeletons, and returns/refunds foundation
 - Owner/admin shop settings for business profile, branch profile, invoice/receipt branding, print notes, currency, and timezone
+- Owner/admin staff invites, role assignment, activation controls, and last-owner/admin safety checks
 - Initial Supabase schema migration with RLS policies scoped by organization
 - Safe demo seed data (do not run against production unless explicitly desired)
 - CI workflow for lint, typecheck, and build
@@ -24,6 +25,7 @@ The project foundation plus the first usable authentication and onboarding miles
 
 Returns/refunds are now in foundation form; cancellation, exchanges, and return receipts are future milestones.
 Settings and branding are now in MVP form; logo upload/storage, 80mm receipt output, and WhatsApp sharing remain planned.
+User management is now in MVP form; password reset, recovery codes, and granular permission editing remain planned.
 
 ## Tech Stack
 
@@ -177,6 +179,7 @@ See:
 - `docs/desktop-audit.md`
 - `docs/feature-map.md`
 - `docs/settings-branding.md`
+- `docs/user-management.md`
 - `docs/business-rules.md`
 - `docs/mvp-scope.md`
 - `docs/architecture.md`

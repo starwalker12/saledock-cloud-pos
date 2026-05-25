@@ -6,7 +6,7 @@ Statuses: **Done** · **Partial** · **Not started** · **Planned**
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 1 | Auth / users / permissions | **Partial** | Owner sign-in/sign-up + first-owner setup live. Public sign-up locked after first owner. **Missing**: invite flow, password reset, multi-user roles UI, recovery codes, protected-admin pattern. |
+| 1 | Auth / users / permissions | **Partial** | Owner sign-in/sign-up + first-owner setup live. Public sign-up locked after first owner. Owner/admin staff invites and role management are implemented. **Missing**: password reset, recovery codes, granular permission editor, protected-admin pattern. |
 | 2 | Dashboard | **Partial** | Live counts: active products, low stock, categories, suppliers, customers, invoices, open balances, repairs, today sales. **Missing**: profit, payment-method breakdown, staff performance, daily-closing summary. |
 | 3 | Products / services catalog | **Done (MVP)** | CRUD with search/filter, archive/restore, services flagged with `type='service'`, cost forced to 0 for services. **Missing**: batches/lots, supplier purchases UI, product history. |
 | 4 | Inventory and stock lots | **Done** | FIFO stock lots database migration 0005, atomic pos_checkout allocation, manual stock adjustments, restock lot additions, and double-entry movement ledger implemented. |
@@ -27,7 +27,7 @@ Statuses: **Done** · **Partial** · **Not started** · **Planned**
 | 19 | Settings / branding | **Partial (MVP)** | Owner/admin settings UI manages shop profile, branch contact details, logo path, invoice footer, repair receipt terms, currency/timezone, and low-stock default via existing `organizations`, `branches`, and `app_settings`. Branding now appears on invoice, repair receipt, and report print headers. **Missing**: paid/storage-backed logo upload, 80mm receipt route, WhatsApp sharing, tax policy automation. |
 | 20 | Backup / restore / export | **Not applicable in same form** | Online app uses Supabase for daily backups (free tier: PITR limited). Replace offline backup/restore with periodic Supabase logical backup + per-org export-to-CSV. |
 | 21 | Global search | **Not started** | Planned: command-palette over products / customers / invoices / repairs. |
-| 22 | User management | **Not started** | Planned: invite users, assign role, deactivate, recovery codes. Schema already supports roles. |
+| 22 | User management | **Partial (MVP)** | Owner/admin `/users` page lists staff profiles with Supabase Auth email/last sign-in, sends staff invites, assigns roles/branches, activates/deactivates users, and protects the last active owner/admin. **Missing**: dedicated invite status columns, recovery codes, password reset, granular permission editor. |
 
 ## Critical rules from the offline doc that must be preserved forever
 
