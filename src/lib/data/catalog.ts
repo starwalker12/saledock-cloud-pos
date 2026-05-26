@@ -34,6 +34,8 @@ export type ProductRow = {
   sale_price: number;
   stock_quantity: number;
   minimum_stock: number;
+  allow_sell_at_loss: boolean;
+  sell_at_loss_reason: string;
   notes: string | null;
   is_active: boolean;
 };
@@ -103,7 +105,7 @@ export async function listProducts(
     .from("products")
     .select(
       `id, name, sku, barcode, category_id, supplier_id, type, purchase_price, sale_price,
-       stock_quantity, minimum_stock, notes, is_active,
+       stock_quantity, minimum_stock, allow_sell_at_loss, sell_at_loss_reason, notes, is_active,
        product_categories(name), suppliers(name)`,
     )
     .eq("organization_id", organizationId)
@@ -140,6 +142,8 @@ export async function listProducts(
       sale_price: Number(r.sale_price ?? 0),
       stock_quantity: Number(r.stock_quantity ?? 0),
       minimum_stock: Number(r.minimum_stock ?? 0),
+      allow_sell_at_loss: Boolean(r.allow_sell_at_loss),
+      sell_at_loss_reason: r.sell_at_loss_reason ?? "",
       notes: r.notes,
       is_active: r.is_active,
     } as ProductRow;

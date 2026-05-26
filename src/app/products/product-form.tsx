@@ -12,16 +12,19 @@ export function ProductForm({
   suppliers,
   onSaved,
   canWrite,
+  canManageOverride,
 }: {
   initialValues?: Partial<ProductRow>;
   categories: CategoryRow[];
   suppliers: SupplierRow[];
   onSaved?: () => void;
   canWrite: boolean;
+  canManageOverride: boolean;
 }) {
   const [state, action, pending] = useActionState(saveProductAction, initial);
   const formRef = useRef<HTMLFormElement>(null);
   const [isService, setIsService] = useState(initialValues?.type === "service");
+  const [allowSellAtLoss, setAllowSellAtLoss] = useState(initialValues?.allow_sell_at_loss ?? false);
 
   useEffect(() => {
     if (state.success && !initialValues?.id) {
@@ -163,6 +166,46 @@ export function ProductForm({
         />
         <span className="text-sm font-semibold text-slate-700">Active</span>
       </label>
+
+      {!isService && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2 space-y-3">
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              name="allow_sell_at_loss"
+              checked={allowSellAtLoss}
+              onChange={(e) => setAllowSellAtLoss(e.currentTarget.checked)}
+              disabled={!canWrite || !canManageOverride}
+              className="size-4 mt-0.5"
+            />
+            <div>
+              <span className="text-sm font-bold text-slate-800 block">Allow selling below cost price</span>
+              <span className="text-[10px] text-slate-500 block mt-0.5">
+                Admin-only. Use only for clearance, damaged stock, promotions, or special approval.
+              </span>
+              {!canManageOverride && (
+                <span className="text-[10px] text-red-600 font-semibold block mt-1">
+                  ⚠️ Disabled: Only owners or admins can toggle below-cost settings.
+                </span>
+              )}
+            </div>
+          </label>
+
+          {allowSellAtLoss && (
+            <label className="block mt-2">
+              <span className="text-xs font-bold text-slate-700">Loss Sale Override Reason</span>
+              <input
+                required={allowSellAtLoss}
+                name="sell_at_loss_reason"
+                defaultValue={initialValues?.sell_at_loss_reason ?? ""}
+                disabled={!canWrite || !canManageOverride}
+                placeholder="e.g. Clearance sale, promotional bundle, damaged packaging..."
+                className="mt-1 h-9 w-full rounded-md border border-slate-200 px-3 text-xs outline-none focus:border-blue-600"
+              />
+            </label>
+          )}
+        </div>
+      )}
 
       {state.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 sm:col-span-2">{state.error}</p>

@@ -28,7 +28,7 @@ Statuses: **Done** · **Partial** · **Not started** · **Planned**
 | 20 | Backup / restore / export | **Not applicable in same form** | Online app uses Supabase for daily backups (free tier: PITR limited). Replace offline backup/restore with periodic Supabase logical backup + per-org export-to-CSV. |
 | 21 | Global search | **Done** | Command-palette search overlay implemented under shortcut `Cmd/Ctrl + K`. Permission-aware and organization-scoped matching across pages, products, customers, suppliers, invoices, repairs, returns, expenses, users, and audit logs. Focus-safe with keyboard navigation support. |
 | 22 | User management | **Partial (MVP)** | Owner/admin `/users` page lists staff profiles with Supabase Auth email/last sign-in, sends staff invites, assigns roles/branches, activates/deactivates users, and protects the last active owner/admin. **Missing**: dedicated invite status columns, recovery codes, password reset, granular permission editor. |
-| 23 | Loss Prevention / below-cost protection | **Not started / High Priority** | Offline spec has strict guards blocking physical sales below unit cost. Staff cannot override. Admin override requires reason and is audit logged. To be implemented next after Global Search. |
+| 23 | Loss Prevention / below-cost protection | **Done** | Core below-cost protection implemented. Physical sales below unit cost are strictly blocked at checkout (enforced inside PL/pgSQL transaction) with proportional bill-level discount allocation. Admin/owner override requires a reason and is fully audit logged. |
 
 ## Critical rules from the offline doc that must be preserved forever
 

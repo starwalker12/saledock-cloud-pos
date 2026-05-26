@@ -9,9 +9,12 @@ export type PosProduct = {
   category_id: string | null;
   category_name: string | null;
   type: "product" | "service";
+  purchase_price: number;
   sale_price: number;
   stock_quantity: number;
   minimum_stock: number;
+  allow_sell_at_loss: boolean;
+  sell_at_loss_reason: string;
 };
 
 export type PosCustomer = {
@@ -25,8 +28,8 @@ export async function listPosProducts(organizationId: string): Promise<PosProduc
   const { data, error } = await supabase
     .from("products")
     .select(
-      `id, name, sku, barcode, category_id, type, sale_price,
-       stock_quantity, minimum_stock, product_categories(name)`,
+      `id, name, sku, barcode, category_id, type, purchase_price, sale_price,
+       stock_quantity, minimum_stock, allow_sell_at_loss, sell_at_loss_reason, product_categories(name)`,
     )
     .eq("organization_id", organizationId)
     .eq("is_active", true)
@@ -44,9 +47,12 @@ export async function listPosProducts(organizationId: string): Promise<PosProduc
       category_id: r.category_id,
       category_name: categoryName,
       type: r.type,
+      purchase_price: Number(r.purchase_price ?? 0),
       sale_price: Number(r.sale_price ?? 0),
       stock_quantity: Number(r.stock_quantity ?? 0),
       minimum_stock: Number(r.minimum_stock ?? 0),
+      allow_sell_at_loss: Boolean(r.allow_sell_at_loss),
+      sell_at_loss_reason: r.sell_at_loss_reason ?? "",
     } satisfies PosProduct;
   });
 }

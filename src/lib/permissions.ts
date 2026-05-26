@@ -67,3 +67,10 @@ export function canManageUsers(role: Role | null | undefined): boolean {
 export function canViewAuditLog(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && AUDIT_LOG_VIEWERS.includes(role);
 }
+
+const LOSS_OVERRIDE_MANAGERS: Role[] = ["owner", "admin"];
+
+export function canManageLossOverride(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && LOSS_OVERRIDE_MANAGERS.includes(role);
+}
+

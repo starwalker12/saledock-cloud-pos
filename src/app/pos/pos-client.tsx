@@ -76,6 +76,12 @@ export function PosClient({ products: initialProducts, customers: initialCustome
     () => cart.reduce((s, l) => s + Math.max(l.unit_price * l.quantity - l.discount, 0), 0),
     [cart],
   );
+  const totalProductRevenue = useMemo(() => {
+    return cart.reduce((s, l) => {
+      if (l.product.type !== "product") return s;
+      return s + Math.max(l.unit_price * l.quantity - l.discount, 0);
+    }, 0);
+  }, [cart]);
   const grandTotal = Math.max(subtotal - (discountTotal || 0), 0);
   const paid = Number(amountPaid || 0);
   const balance = Math.max(grandTotal - paid, 0);
@@ -410,6 +416,37 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                     />
                   </label>
                 </div>
+
+                {l.product.type === "product" && (() => {
+                  const lineRevenue = Math.max(l.unit_price * l.quantity - l.discount, 0);
+                  const allocatedBillDiscount = totalProductRevenue > 0 ? (lineRevenue / totalProductRevenue) * (discountTotal || 0) : 0;
+                  const effectiveRevenue = Math.max(lineRevenue - allocatedBillDiscount, 0);
+                  const totalCost = l.product.purchase_price * l.quantity;
+                  const isBelowCost = effectiveRevenue < totalCost;
+                  const isOverrideAllowed = l.product.allow_sell_at_loss;
+
+                  if (!isBelowCost) return null;
+
+                  return (
+                    <div className={`mt-2 rounded-lg p-2.5 text-xs font-semibold border ${
+                      isOverrideAllowed 
+                        ? "bg-amber-50 text-amber-900 border-amber-200" 
+                        : "bg-red-50 text-red-900 border-red-200"
+                    }`}>
+                      {isOverrideAllowed ? (
+                        <p>
+                          ⚠️ Selling below cost price (Cost: Rs. {totalCost.toLocaleString()}, Effective: Rs. {Math.round(effectiveRevenue).toLocaleString()}). 
+                          <span className="block text-[10px] text-amber-700 mt-0.5">Approved under admin override: &quot;{l.product.sell_at_loss_reason}&quot;</span>
+                        </p>
+                      ) : (
+                        <p>
+                          🚨 Blocked: Selling below cost price (Cost: Rs. {totalCost.toLocaleString()}, Effective: Rs. {Math.round(effectiveRevenue).toLocaleString()}). 
+                          <span className="block text-[10px] text-red-700 mt-0.5">Checkout will be blocked. Reduce discount or ask admin to enable override.</span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </li>
             ))}
           </ul>

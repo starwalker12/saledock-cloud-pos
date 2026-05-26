@@ -13,7 +13,7 @@ import {
   type ProductRow,
   type SupplierRow,
 } from "@/lib/data/catalog";
-import { canWriteCatalog } from "@/lib/permissions";
+import { canWriteCatalog, canManageLossOverride } from "@/lib/permissions";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import {
@@ -60,6 +60,7 @@ export default async function ProductsPage({
   const params = await searchParams;
   const tab: Tab = (TABS.find((t) => t.id === params.tab)?.id ?? "products") as Tab;
   const canWrite = canWriteCatalog(profile.role);
+  const canManageOverride = canManageLossOverride(profile.role);
   const currency = organization?.currency_code ?? "PKR";
 
   const [counts, categories, suppliers] = await Promise.all([
@@ -131,6 +132,7 @@ export default async function ProductsPage({
               categories={categories}
               suppliers={suppliers}
               canWrite={canWrite}
+              canManageOverride={canManageOverride}
             />
           )}
           {tab === "categories" && (
@@ -162,6 +164,7 @@ async function ProductsTab({
   categories,
   suppliers,
   canWrite,
+  canManageOverride,
 }: {
   orgId: string;
   currency: string;
@@ -169,6 +172,7 @@ async function ProductsTab({
   categories: CategoryRow[];
   suppliers: SupplierRow[];
   canWrite: boolean;
+  canManageOverride: boolean;
 }) {
   const filters = {
     search: params.q,
@@ -194,6 +198,7 @@ async function ProductsTab({
               categories={categories}
               suppliers={suppliers}
               canWrite={canWrite}
+              canManageOverride={canManageOverride}
             />
             {isEdit && (
               <Link href="/products?tab=products" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline">
@@ -309,6 +314,17 @@ function lowStockBadge(p: ProductRow) {
   return null;
 }
 
+function lossAllowedBadge(p: ProductRow) {
+  if (p.allow_sell_at_loss) {
+    return (
+      <span className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-800" title={`Override Reason: ${p.sell_at_loss_reason}`}>
+        Loss Allowed
+      </span>
+    );
+  }
+  return null;
+}
+
 function ProductRowDesktop({
   p,
   currency,
@@ -323,7 +339,7 @@ function ProductRowDesktop({
   return (
     <tr className="border-b border-slate-100 align-top">
       <td className="px-3 py-3">
-        <div className="font-bold text-slate-900">{p.name}</div>
+        <div className="font-bold text-slate-900">{p.name} {lossAllowedBadge(p)}</div>
         <div className="text-xs text-slate-500">
           {p.type === "service" ? "Service" : "Product"}
           {!p.is_active && " · Archived"}
@@ -385,6 +401,7 @@ function ProductCard({
           <div className="font-bold text-slate-900">
             {p.name}
             {lowStockBadge(p)}
+            {lossAllowedBadge(p)}
           </div>
           <div className="text-xs text-slate-500">
             {p.type === "service" ? "Service" : "Product"}
