@@ -16,7 +16,10 @@ An exported ZIP file contains the following elements:
 - `/csv/customers.csv`: Portable CSV for customer directories.
 - `/csv/suppliers.csv`: Portable CSV for wholesale suppliers.
 - `/csv/invoices.csv`, `/csv/invoice_items.csv`, `/csv/payments.csv`: Sales receipts tables.
+- `/csv/returns.csv`, `/csv/return_items.csv`, `/csv/return_stock_allocations.csv`: Online return/refund receipts and FIFO restock trace tables.
 - `/csv/expenses.csv`, `/csv/repairs.csv`, `/csv/daily_closings.csv`, `/csv/audit_logs.csv`: Operational logs.
+
+The online schema exports return/refund records from the live `returns` table, along with `return_items` and `return_stock_allocations`. Older desktop backup names may differ; desktop SQLite uploads remain preview/inspection-only until the future desktop mapping phase.
 
 ### Security Restrictions
 During backup generation, the system explicitly strips out:

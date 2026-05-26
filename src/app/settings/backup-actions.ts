@@ -16,8 +16,9 @@ export type ExportData = {
   invoiceItems: unknown[];
   payments: unknown[];
   ledgerEntries: unknown[];
-  refunds: unknown[];
-  refundItems: unknown[];
+  returns: unknown[];
+  returnItems: unknown[];
+  returnStockAllocations: unknown[];
   expenses: unknown[];
   repairs: unknown[];
   closings: unknown[];
@@ -110,8 +111,9 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       invItems,
       pays,
       ledgers,
-      refunds,
-      refundItems,
+      returns,
+      returnItems,
+      returnStockAllocations,
       exps,
       reps,
       closings,
@@ -127,8 +129,9 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supabase.from("invoice_items").select("*").eq("organization_id", orgId),
       supabase.from("payments").select("*").eq("organization_id", orgId),
       supabase.from("customer_ledger_entries").select("*").eq("organization_id", orgId),
-      supabase.from("return_refunds").select("*").eq("organization_id", orgId),
+      supabase.from("returns").select("*").eq("organization_id", orgId),
       supabase.from("return_items").select("*").eq("organization_id", orgId),
+      supabase.from("return_stock_allocations").select("*").eq("organization_id", orgId),
       supabase.from("expenses").select("*").eq("organization_id", orgId),
       supabase.from("repairs").select("*").eq("organization_id", orgId),
       supabase.from("daily_closings").select("*").eq("organization_id", orgId),
@@ -139,6 +142,11 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
     if (cats.error) throw new Error("Failed to export categories: " + cats.error.message);
     if (sups.error) throw new Error("Failed to export suppliers: " + sups.error.message);
     if (prods.error) throw new Error("Failed to export products: " + prods.error.message);
+    if (returns.error) throw new Error("Failed to export returns: " + returns.error.message);
+    if (returnItems.error) throw new Error("Failed to export return items: " + returnItems.error.message);
+    if (returnStockAllocations.error) {
+      throw new Error("Failed to export return stock allocations: " + returnStockAllocations.error.message);
+    }
 
     const data: ExportData = {
       categories: cats.data ?? [],
@@ -151,8 +159,9 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       invoiceItems: invItems.data ?? [],
       payments: pays.data ?? [],
       ledgerEntries: ledgers.data ?? [],
-      refunds: refunds.data ?? [],
-      refundItems: refundItems.data ?? [],
+      returns: returns.data ?? [],
+      returnItems: returnItems.data ?? [],
+      returnStockAllocations: returnStockAllocations.data ?? [],
       expenses: exps.data ?? [],
       repairs: reps.data ?? [],
       closings: closings.data ?? [],

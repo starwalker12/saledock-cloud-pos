@@ -31,3 +31,4 @@ To guarantee that demonstration files are never deployed or removed by mistake:
   - `CREATE DEMO DATA` to seed records.
   - `REMOVE DEMO DATA` to wipe records.
 - **Cascade Safe Cleanups:** All demo rows are identified by the `[DEMO]` prefix or specific `INV-DEMO-`/`DEMO-` references. Removing demo data clears only tagged records using clean reverse-order deletions, preventing any modifications to real shop data.
+- **Returns Schema:** Demo return/refund records use the online `returns`, `return_items`, and `return_stock_allocations` tables. Desktop backup terminology may differ and is mapped only during preview/inspection until full desktop restore is implemented.

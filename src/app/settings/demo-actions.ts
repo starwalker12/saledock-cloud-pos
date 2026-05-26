@@ -75,7 +75,7 @@ export async function loadDemoDataAction(
         type: "product",
         purchase_price: 25,
         sale_price: 45,
-        stock_quantity: 48, // Started with 50, 2 sold in demo invoice
+        stock_quantity: 49, // Started with 50, sold 2, then restocked 1 demo return
         minimum_stock: 5,
         is_active: true,
         notes: "[DEMO] 8-in-1 USB-C docking station"
@@ -130,7 +130,7 @@ export async function loadDemoDataAction(
         lot_number: "DEMO-LOT-001",
         purchase_date: new Date().toISOString().split("T")[0],
         quantity_received: 50,
-        quantity_remaining: 48,
+        quantity_remaining: 49,
         unit_cost: 25,
         is_active: true,
         notes: "[DEMO] Opening stock batch"
@@ -387,39 +387,73 @@ export async function loadDemoDataAction(
     // Let's record a refund for Alice returning 1 USB-C Hub
     const returnId = crypto.randomUUID();
     const { error: retErr } = await supabase
-      .from("return_refunds")
+      .from("returns")
       .insert({
         id: returnId,
         organization_id: orgId,
         branch_id: branchId,
         invoice_id: invoice1Id,
         customer_id: aliceCust?.id ?? null,
-        refund_no: "REF-DEMO-1001",
-        reason: "[DEMO] Faulty adapter casing",
+        return_no: "RET-DEMO-1001",
+        status: "completed",
         subtotal: 45,
-        deduction_fee: 0,
-        refund_total: 45,
-        payment_method: "cash",
+        refund_amount: 45,
+        refund_method: "cash",
+        reference_number: "DEMO-REFUND-REF-001",
+        notes: "[DEMO] Faulty adapter casing; restocked to original FIFO lot",
         created_by: profile.id,
         created_at: new Date().toISOString()
       });
     if (retErr) throw new Error("Return creation failed: " + retErr.message);
 
     // Return items
-    const { error: retItemErr } = await supabase
+    const { data: returnItem, error: retItemErr } = await supabase
       .from("return_items")
       .insert({
         organization_id: orgId,
-        refund_id: returnId,
+        return_id: returnId,
+        invoice_id: invoice1Id,
         invoice_item_id: inv1Items[0].id,
         product_id: hubProduct?.id,
-        product_name: "[DEMO] USB-C Hub 8-in-1",
+        item_name: "[DEMO] USB-C Hub 8-in-1",
+        item_type: "product",
         quantity: 1,
         unit_price: 45,
-        refund_amount: 45,
-        restock: false
-      });
+        line_total: 45,
+        restock: true
+      })
+      .select("id")
+      .single();
     if (retItemErr) throw new Error("Return items creation failed: " + retItemErr.message);
+
+    const { error: retStockAllocErr } = await supabase
+      .from("return_stock_allocations")
+      .insert({
+        organization_id: orgId,
+        return_id: returnId,
+        return_item_id: returnItem.id,
+        product_id: hubProduct?.id,
+        stock_lot_id: hubLot?.id,
+        quantity: 1,
+        unit_cost: 25
+      });
+    if (retStockAllocErr) throw new Error("Return stock allocation creation failed: " + retStockAllocErr.message);
+
+    await supabase.from("stock_movements").insert({
+      organization_id: orgId,
+      branch_id: branchId,
+      product_id: hubProduct?.id,
+      stock_lot_id: hubLot?.id,
+      movement_type: "return_in",
+      quantity: 1,
+      unit_cost: 25,
+      reference_type: "return",
+      reference_id: returnId,
+      invoice_id: invoice1Id,
+      invoice_item_id: inv1Items[0].id,
+      notes: "[DEMO] Return RET-DEMO-1001 restocked USB-C Hub",
+      created_by: profile.id
+    });
 
     // 9. Insert Expenses
     const expensesData = [
@@ -573,8 +607,8 @@ export async function removeDemoDataAction(
     // 3. Delete Expenses
     await supabase.from("expenses").delete().eq("organization_id", orgId).like("category", "[DEMO]%");
 
-    // 4. Delete Return items and refunds
-    await supabase.from("return_refunds").delete().eq("organization_id", orgId).like("refund_no", "REF-DEMO-%");
+    // 4. Delete demo returns. Linked return_items and return_stock_allocations cascade from returns.
+    await supabase.from("returns").delete().eq("organization_id", orgId).like("return_no", "RET-DEMO-%");
 
     // 5. Delete Customer ledger entries, Payments, Invoice items and Invoices
     // Delete payments

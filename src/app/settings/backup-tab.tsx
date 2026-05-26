@@ -123,6 +123,9 @@ export function BackupTab() {
         csvFolder.file("invoices.csv", convertToCSV(db.invoices));
         csvFolder.file("invoice_items.csv", convertToCSV(db.invoiceItems));
         csvFolder.file("payments.csv", convertToCSV(db.payments));
+        csvFolder.file("returns.csv", convertToCSV(db.returns));
+        csvFolder.file("return_items.csv", convertToCSV(db.returnItems));
+        csvFolder.file("return_stock_allocations.csv", convertToCSV(db.returnStockAllocations));
         csvFolder.file("expenses.csv", convertToCSV(db.expenses));
         csvFolder.file("repairs.csv", convertToCSV(db.repairs));
         csvFolder.file("daily_closings.csv", convertToCSV(db.closings));
