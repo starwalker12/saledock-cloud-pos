@@ -9,7 +9,11 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
   const title = pageTitle ?? "Dashboard";
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+    // `sticky` class kept so the existing print CSS selector (header.sticky)
+    // continues to hide the topbar during print. The AppShell now keeps this
+    // topbar pinned at the top of the content column without needing sticky
+    // behavior — it sits as a shrink-0 sibling above the scrolling <main>.
+    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="flex min-h-20 min-w-0 flex-col gap-3 px-3 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-black text-slate-950 sm:text-2xl">{title}</h1>

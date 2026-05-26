@@ -19,15 +19,19 @@ const mobileLinks = [
 ];
 
 export function AppShell({ children, pageTitle }: { children: ReactNode; pageTitle?: string }) {
+  // Viewport-sized shell where:
+  //   - the sidebar fills full viewport height and scrolls internally if needed,
+  //   - the topbar + mobile-nav sit as shrink-0 siblings above the content,
+  //   - <main> is the single scroll container for page content.
+  // h-dvh handles mobile address-bar resizing; overflow-hidden prevents the
+  // whole document scrolling when content overflows.
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50">
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <div className="min-w-0 flex-1">
-          <Topbar pageTitle={pageTitle} />
-          <MobileNav links={mobileLinks} />
-          <main className="min-w-0 p-3 sm:p-6">{children}</main>
-        </div>
+    <div className="flex h-dvh max-w-full overflow-hidden bg-slate-50">
+      <Sidebar />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <Topbar pageTitle={pageTitle} />
+        <MobileNav links={mobileLinks} />
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-6">{children}</main>
       </div>
     </div>
   );

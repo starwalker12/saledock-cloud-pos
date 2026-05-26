@@ -407,7 +407,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       </section>
 
       {/* Cart column */}
-      <section className={`${mobileTab === "cart" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 xl:block`}>
+      <section className={`${mobileTab === "cart" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 xl:block xl:sticky xl:top-0 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto`}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-black text-slate-950">Cart</h2>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
