@@ -48,7 +48,18 @@ type TableCount = {
   inserted: number;
   skippedCount: number;
   failedCount: number;
+  skippedOrphanCount?: number;
 };
+
+type OrphanFinding = {
+  table: string;
+  count: number;
+  missingIds: (number | string)[];
+  rule: string;
+  recommendedAction: string;
+};
+
+type OrphanPolicy = "drop" | "stop";
 
 export function BackupTab() {
   const [isExporting, setIsExporting] = useState(false);
@@ -71,6 +82,13 @@ export function BackupTab() {
   // Dry run warnings
   const [dryRunWarnings, setDryRunWarnings] = useState<string[]>([]);
   const [dryRunChecked, setDryRunChecked] = useState(false);
+  // Orphan rows detected during dry-run + the per-table orphan ID sets we
+  // use to filter chunks before upload when the user picks "drop".
+  const [orphanFindings, setOrphanFindings] = useState<OrphanFinding[]>([]);
+  const [orphanIdsByTable, setOrphanIdsByTable] = useState<
+    Record<string, Set<number | string>>
+  >({});
+  const [orphanPolicy, setOrphanPolicy] = useState<OrphanPolicy | null>(null);
 
   // Confirmation parameters
   const [confirmText, setConfirmText] = useState("");
@@ -305,6 +323,9 @@ export function BackupTab() {
       setConfirmCheckbox(false);
       setDryRunWarnings([]);
       setDryRunChecked(false);
+      setOrphanFindings([]);
+      setOrphanIdsByTable({});
+      setOrphanPolicy(null);
       setIsOnlineBackup(false);
       setManifestMissingWarning(false);
 
@@ -392,7 +413,8 @@ export function BackupTab() {
             status: count > 0 ? "pending" : "skipped",
             inserted: 0,
             skippedCount: 0,
-            failedCount: 0
+            failedCount: 0,
+            skippedOrphanCount: 0
           });
         }
 
@@ -460,7 +482,8 @@ export function BackupTab() {
               status: countNum > 0 ? "pending" : "skipped",
               inserted: 0,
               skippedCount: 0,
-              failedCount: 0
+              failedCount: 0,
+              skippedOrphanCount: 0
             });
           } catch {
             tableCountsRecord[table] = 0;
@@ -470,7 +493,8 @@ export function BackupTab() {
               status: "skipped",
               inserted: 0,
               skippedCount: 0,
-              failedCount: 0
+              failedCount: 0,
+              skippedOrphanCount: 0
             });
           }
         }
@@ -523,9 +547,16 @@ export function BackupTab() {
     if (isOnlineBackup) {
       setDryRunWarnings([]);
       setDryRunChecked(true);
+      setOrphanFindings([]);
+      setOrphanIdsByTable({});
+      setOrphanPolicy(null);
       return;
     }
     setIsParsing(true);
+    // Reset orphan state for every fresh dry-run pass.
+    setOrphanFindings([]);
+    setOrphanIdsByTable({});
+    setOrphanPolicy(null);
     const warnings: string[] = [];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -589,6 +620,149 @@ export function BackupTab() {
       warnings.push("⚠️ Orphaned Bills: Sales records are bound to customer IDs, but no Customer directory is present.");
     }
 
+    // ====================================================================
+    // Structured orphan detection: rows whose parent record is missing.
+    // These rows cannot be imported without manual mapping. We collect them
+    // here, surface them in a required-choice card in the UI, and remove
+    // them from each chunk before upload if the user picks "drop".
+    // ====================================================================
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ledger = getTableRows(sqliteDb, "CustomerLedgerEntries") as any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const creditPayments = getTableRows(sqliteDb, "CreditPayments") as any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const returnRefunds = getTableRows(sqliteDb, "ReturnRefunds") as any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const returnItems = getTableRows(sqliteDb, "ReturnItems") as any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const repairs = getTableRows(sqliteDb, "RepairJobs") as any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const billAllocs = getTableRows(sqliteDb, "BillItemBatchAllocations") as any[];
+
+    const customerIds = new Set(customers.map((c) => c.Id));
+    const billIds = new Set(bills.map((b) => b.Id));
+    const billItemIds = new Set(billItems.map((bi) => bi.Id));
+    const productIdsSet = new Set(products.map((p) => p.Id));
+    const returnRefundIds = new Set(returnRefunds.map((r) => r.Id));
+
+    const findings: OrphanFinding[] = [];
+    const idMap: Record<string, Set<number | string>> = {};
+
+    function collect<TRow>(
+      tableName: string,
+      rows: TRow[],
+      rule: string,
+      isOrphan: (row: TRow) => boolean,
+      missingValueOf: (row: TRow) => number | string,
+      recommendedAction: string,
+    ) {
+      const orphans = rows.filter(isOrphan);
+      if (orphans.length === 0) return;
+      const ids = new Set<number | string>(
+        orphans.map((r) => (r as unknown as { Id?: number | string }).Id ?? missingValueOf(r)),
+      );
+      const missingIds = [
+        ...new Set(orphans.map(missingValueOf).filter((v) => v !== undefined && v !== null)),
+      ];
+      findings.push({
+        table: tableName,
+        count: orphans.length,
+        missingIds: missingIds.slice(0, 12),
+        rule,
+        recommendedAction,
+      });
+      idMap[tableName] = ids;
+    }
+
+    collect(
+      "CustomerLedgerEntries",
+      ledger,
+      "CustomerLedgerEntries.CustomerId not found in Customers",
+      (r) => r.CustomerId && !customerIds.has(r.CustomerId),
+      (r) => r.CustomerId,
+      "Drop these rows or fix the desktop backup before retrying.",
+    );
+
+    collect(
+      "CreditPayments",
+      creditPayments,
+      "CreditPayments.CustomerId not found in Customers",
+      (r) => r.CustomerId && !customerIds.has(r.CustomerId),
+      (r) => r.CustomerId,
+      "Drop these rows or fix the desktop backup before retrying.",
+    );
+
+    collect(
+      "ReturnItems",
+      returnItems,
+      "ReturnItems.ReturnId not found in ReturnRefunds",
+      (r) => r.ReturnId && !returnRefundIds.has(r.ReturnId),
+      (r) => r.ReturnId,
+      "Drop these rows; ReturnRefunds parent is empty or missing.",
+    );
+
+    collect(
+      "BillItems",
+      billItems,
+      "BillItems.BillId not found in Bills",
+      (r) => r.BillId && !billIds.has(r.BillId),
+      (r) => r.BillId,
+      "Drop these rows; sale receipt is missing.",
+    );
+
+    collect(
+      "BillItemBatchAllocations",
+      billAllocs,
+      "BillItemBatchAllocations.BillItemId not found in BillItems",
+      (r) => r.BillItemId && !billItemIds.has(r.BillItemId),
+      (r) => r.BillItemId,
+      "Drop these rows; FIFO allocation is missing its line item.",
+    );
+
+    collect(
+      "StockMovements",
+      movements,
+      "StockMovements.ProductId not found in Products",
+      (r) => r.ProductId && !productIdsSet.has(r.ProductId),
+      (r) => r.ProductId,
+      "Drop these rows; movement points at a deleted product.",
+    );
+
+    collect(
+      "ProductStockLots",
+      lots,
+      "ProductStockLots.ProductId not found in Products",
+      (r) => r.ProductId && !productIdsSet.has(r.ProductId),
+      (r) => r.ProductId,
+      "Drop these rows; stock lot points at a deleted product.",
+    );
+
+    collect(
+      "ReturnRefunds",
+      returnRefunds,
+      "ReturnRefunds.BillId not found in Bills",
+      (r) => r.BillId && !billIds.has(r.BillId),
+      (r) => r.BillId,
+      "Drop these rows; refund references a missing invoice.",
+    );
+
+    // Repairs allow walk-in (CustomerId=0); only flag positive IDs that don't exist.
+    collect(
+      "RepairJobs",
+      repairs,
+      "RepairJobs.CustomerId not found in Customers (walk-in CustomerId=0 is OK)",
+      (r) =>
+        r.CustomerId !== undefined &&
+        r.CustomerId !== null &&
+        Number(r.CustomerId) > 0 &&
+        !customerIds.has(r.CustomerId),
+      (r) => r.CustomerId,
+      "Drop these rows or recreate the customer manually first.",
+    );
+
+    setOrphanFindings(findings);
+    setOrphanIdsByTable(idMap);
+
     setDryRunWarnings(warnings);
     setDryRunChecked(true);
     setIsParsing(false);
@@ -597,6 +771,21 @@ export function BackupTab() {
   // Stepper Stage 6: Sequential Chunked Database Import Execution
   async function triggerBackupImport() {
     try {
+      // The orphan policy is required if any orphans were detected.
+      // "stop" should never reach here (the UI hides the import button) but
+      // guard server-side anyway by passing "stop" — the server will reject.
+      const hasOrphans = orphanFindings.length > 0;
+      if (hasOrphans && orphanPolicy === null) {
+        setImportError("Pick how to handle orphan rows before starting import.");
+        return;
+      }
+      if (hasOrphans && orphanPolicy === "stop") {
+        setImportError("Import stopped until orphan rows are resolved.");
+        return;
+      }
+      const effectiveOrphanPolicy: OrphanPolicy =
+        hasOrphans && orphanPolicy ? orphanPolicy : "drop";
+
       setImportError(null);
       setStep("progress");
       setImportReportLogs([]);
@@ -607,11 +796,26 @@ export function BackupTab() {
         countsMap[t.name] = t.count;
       });
 
+      // Augment the manifest stored on the import job with the orphan
+      // summary so the audit log shows exactly what was dropped per table.
+      const orphanSummary = orphanFindings.map((f) => ({
+        table: f.table,
+        count: f.count,
+        rule: f.rule,
+      }));
+      const auditedManifest = {
+        ...(manifest ?? {}),
+        OnlineImport: {
+          orphanPolicy: effectiveOrphanPolicy,
+          orphanFindings: orphanSummary,
+        },
+      };
+
       const startRes = await startImportJobAction(
         manifest?.AppName || "GadgetZonePOS",
         manifest?.BackupVersion?.toString() || "2",
         manifest?.SchemaVersion?.toString() || "1",
-        manifest || {},
+        auditedManifest,
         countsMap
       );
 
@@ -639,21 +843,42 @@ export function BackupTab() {
         setCurrentProgressIndex(i);
 
         // Fetch sqlite data chunk
-        const rows = getTableRows(sqliteDb, table.name);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allRows = getTableRows(sqliteDb, table.name) as any[];
+        // Filter orphan rows out before upload when the policy is "drop".
+        // The server re-validates this with the same policy as a safety net.
+        const orphanIds = orphanIdsByTable[table.name];
+        const orphanCountForTable = orphanIds?.size ?? 0;
+        const rows =
+          effectiveOrphanPolicy === "drop" && orphanIds && orphanIds.size > 0
+            ? allRows.filter((r) => !orphanIds.has(r.Id))
+            : allRows;
+        if (effectiveOrphanPolicy === "drop" && orphanCountForTable > 0) {
+          logs.push(
+            `[${table.name}] Dropping ${orphanCountForTable} orphan row(s) before import (per chosen orphan policy).`,
+          );
+          setImportReportLogs([...logs]);
+        }
         const chunkSize = 100;
         const totalRows = rows.length;
-        const totalChks = Math.ceil(totalRows / chunkSize);
+        const totalChks = Math.ceil(totalRows / chunkSize) || 0;
         setTotalChunks(totalChks);
 
         let tInserted = 0;
         let tSkipped = 0;
         let tFailed = 0;
+        let tSkippedOrphan = effectiveOrphanPolicy === "drop" ? orphanCountForTable : 0;
 
         for (let c = 0; c < totalChks; c++) {
           setCurrentChunkIndex(c + 1);
           const chunk = rows.slice(c * chunkSize, (c + 1) * chunkSize);
-          
-          const chunkRes = await importTableChunkAction(activeJobId, table.name, chunk);
+
+          const chunkRes = await importTableChunkAction(
+            activeJobId,
+            table.name,
+            chunk,
+            effectiveOrphanPolicy,
+          );
           if (!chunkRes.success) {
             throw new Error(chunkRes.error || `Failed executing chunk ${c+1} for table ${table.name}.`);
           }
@@ -661,6 +886,7 @@ export function BackupTab() {
           tInserted += chunkRes.inserted;
           tSkipped += chunkRes.skipped;
           tFailed += chunkRes.failed;
+          tSkippedOrphan += chunkRes.skippedOrphan ?? 0;
 
           if (chunkRes.warnings.length > 0) {
             logs.push(...chunkRes.warnings.map(w => `[${table.name}] ${w}`));
@@ -672,6 +898,7 @@ export function BackupTab() {
         table.inserted = tInserted;
         table.skippedCount = tSkipped;
         table.failedCount = tFailed;
+        table.skippedOrphanCount = tSkippedOrphan;
         setTableProgress([...updatedProgress]);
 
         logs.push(`✅ Table ${table.name} complete: ${tInserted} inserted, ${tSkipped} skipped (duplicates), ${tFailed} failed.`);
@@ -989,7 +1216,8 @@ export function BackupTab() {
               </button>
               <button
                 onClick={() => setStep("confirm")}
-                className="rounded-xl bg-blue-700 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-800 cursor-pointer"
+                disabled={orphanFindings.length > 0 && orphanPolicy !== "drop"}
+                className="rounded-xl bg-blue-700 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
               >
                 Confirm Import →
               </button>
@@ -1002,22 +1230,124 @@ export function BackupTab() {
                 <RefreshCw className="size-4 animate-spin" />
                 <span>Scanning database relationships...</span>
               </div>
-            ) : dryRunWarnings.length === 0 ? (
+            ) : dryRunWarnings.length === 0 && orphanFindings.length === 0 ? (
               <div className="rounded-xl bg-emerald-50 p-5 text-center border border-emerald-100 space-y-2">
                 <ShieldCheck className="mx-auto size-12 text-emerald-600 animate-bounce" />
                 <h4 className="text-sm font-bold text-emerald-800">0 integrity errors detected</h4>
                 <p className="text-xs text-emerald-700">Backup file satisfies all data-structure constraints and is 100% ready to merge.</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Analysis Warnings Found:</h4>
-                <div className="space-y-2">
-                  {dryRunWarnings.map((w, idx) => (
-                    <div key={idx} className="bg-amber-50 px-4 py-3 rounded-lg border border-amber-200 text-xs text-amber-900">
-                      {w}
+              <div className="space-y-4">
+                {/* Structural orphan rows — requires explicit choice before continuing. */}
+                {orphanFindings.length > 0 && (
+                  <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 size-5 shrink-0 text-rose-600" />
+                      <div>
+                        <h4 className="text-sm font-bold text-rose-900">
+                          Orphan rows detected — choose how to proceed
+                        </h4>
+                        <p className="mt-1 text-xs text-rose-800">
+                          The desktop backup has rows whose parent record is missing.
+                          They cannot be imported without manual mapping. The
+                          online wizard does <strong>not</strong> create
+                          placeholder customers or returns automatically.
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="overflow-x-auto rounded-lg border border-rose-200 bg-white">
+                      <table className="w-full min-w-[480px] text-left text-xs">
+                        <thead className="border-b border-rose-200 bg-rose-50 text-[10px] font-bold uppercase tracking-wider text-rose-800">
+                          <tr>
+                            <th className="px-3 py-2">Table</th>
+                            <th className="px-3 py-2 text-right">Orphan rows</th>
+                            <th className="px-3 py-2">Missing source IDs</th>
+                            <th className="px-3 py-2">Recommended action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-rose-100">
+                          {orphanFindings.map((f) => (
+                            <tr key={f.table} className="align-top">
+                              <td className="px-3 py-2 font-semibold text-rose-900">{f.table}</td>
+                              <td className="px-3 py-2 text-right font-bold text-rose-900">{f.count}</td>
+                              <td className="px-3 py-2 text-rose-800">
+                                {f.missingIds.length === 0
+                                  ? "—"
+                                  : f.missingIds.join(", ") +
+                                    (f.missingIds.length >= 12 ? "…" : "")}
+                              </td>
+                              <td className="px-3 py-2 text-rose-800">{f.recommendedAction}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <fieldset className="space-y-2">
+                      <legend className="text-xs font-bold uppercase tracking-wider text-rose-900">
+                        Required choice
+                      </legend>
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-white p-3 text-xs">
+                        <input
+                          type="radio"
+                          name="orphan-policy"
+                          value="drop"
+                          checked={orphanPolicy === "drop"}
+                          onChange={() => setOrphanPolicy("drop")}
+                          className="mt-0.5 size-4 accent-rose-700"
+                        />
+                        <span>
+                          <strong className="text-rose-900">Drop orphan rows and continue import.</strong>
+                          <span className="block text-rose-800">
+                            These rows are filtered out of the upload. They are reported under
+                            <em> skipped_orphan</em> on the final import report.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-white p-3 text-xs">
+                        <input
+                          type="radio"
+                          name="orphan-policy"
+                          value="stop"
+                          checked={orphanPolicy === "stop"}
+                          onChange={() => setOrphanPolicy("stop")}
+                          className="mt-0.5 size-4 accent-rose-700"
+                        />
+                        <span>
+                          <strong className="text-rose-900">Stop import and fix the desktop backup first.</strong>
+                          <span className="block text-rose-800">
+                            Import is disabled. Fix the source database (or re-export from the desktop app)
+                            and re-upload.
+                          </span>
+                        </span>
+                      </label>
+                      {orphanPolicy === null && (
+                        <p className="text-[11px] text-rose-700">
+                          Pick one to enable the Confirm Import button.
+                        </p>
+                      )}
+                      {orphanPolicy === "stop" && (
+                        <p className="rounded-lg bg-white px-3 py-2 text-[11px] font-semibold text-rose-700">
+                          Import stopped until orphan rows are resolved.
+                        </p>
+                      )}
+                    </fieldset>
+                  </div>
+                )}
+
+                {dryRunWarnings.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Analysis Warnings Found:</h4>
+                    <div className="space-y-2">
+                      {dryRunWarnings.map((w, idx) => (
+                        <div key={idx} className="bg-amber-50 px-4 py-3 rounded-lg border border-amber-200 text-xs text-amber-900">
+                          {w}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1086,14 +1416,26 @@ export function BackupTab() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={triggerBackupImport}
-                disabled={confirmText !== "IMPORT DESKTOP BACKUP" || !confirmCheckbox}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
-              >
-                <Upload className="size-4" />
-                Begin Desktop Restore
-              </button>
+              orphanFindings.length > 0 && orphanPolicy === "stop" ? (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900">
+                  Import stopped until orphan rows are resolved. Go back to the
+                  Dry Run step and pick &quot;Drop orphan rows and continue&quot;,
+                  or fix the desktop backup and re-upload.
+                </div>
+              ) : (
+                <button
+                  onClick={triggerBackupImport}
+                  disabled={
+                    confirmText !== "IMPORT DESKTOP BACKUP" ||
+                    !confirmCheckbox ||
+                    (orphanFindings.length > 0 && orphanPolicy !== "drop")
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
+                >
+                  <Upload className="size-4" />
+                  Begin Desktop Restore
+                </button>
+              )
             )}
           </div>
         </div>
@@ -1184,7 +1526,8 @@ export function BackupTab() {
                       <th className="px-4 py-2.5">Table Name</th>
                       <th className="px-4 py-2.5 text-right">Extracted</th>
                       <th className="px-4 py-2.5 text-right text-emerald-700">Created</th>
-                      <th className="px-4 py-2.5 text-right text-blue-700">Skipped</th>
+                      <th className="px-4 py-2.5 text-right text-blue-700">Skipped existing</th>
+                      <th className="px-4 py-2.5 text-right text-amber-700">Skipped orphan</th>
                       <th className="px-4 py-2.5 text-right text-rose-700">Failed</th>
                       <th className="px-4 py-2.5 text-center">Status</th>
                     </tr>
@@ -1196,6 +1539,7 @@ export function BackupTab() {
                         <td className="px-4 py-3 text-right">{t.count}</td>
                         <td className="px-4 py-3 text-right text-emerald-700 font-semibold">{t.inserted}</td>
                         <td className="px-4 py-3 text-right text-blue-700">{t.skippedCount}</td>
+                        <td className="px-4 py-3 text-right text-amber-700">{t.skippedOrphanCount ?? 0}</td>
                         <td className="px-4 py-3 text-right text-rose-700">{t.failedCount}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${STATUS_CLASSES[t.status]}`}>

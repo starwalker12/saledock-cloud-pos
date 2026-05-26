@@ -36,10 +36,14 @@ export type ChunkImportState = {
   success: boolean;
   inserted: number;
   skipped: number;
+  /** Rows skipped because they reference a missing parent (orphans). */
+  skippedOrphan?: number;
   failed: number;
   warnings: string[];
   error?: string;
 };
+
+export type OrphanPolicy = "drop" | "stop";
 
 // Start an Import Job
 export async function startImportJobAction(
@@ -225,17 +229,19 @@ async function saveRowMappingsBatch(
 export async function importTableChunkAction(
   jobId: string,
   tableName: string,
-  rows: unknown[]
+  rows: unknown[],
+  orphanPolicy?: OrphanPolicy,
 ): Promise<ChunkImportState> {
   let inserted = 0;
   let skipped = 0;
+  let skippedOrphan = 0;
   let failed = 0;
   const warnings: string[] = [];
 
   try {
     const { user, profile } = await getCurrentContext();
     if (!user || !profile || !profile.organization_id) {
-      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: "Not authenticated." };
+      return { success: false, inserted: 0, skipped: 0, skippedOrphan: 0, failed: 0, warnings, error: "Not authenticated." };
     }
 
     const orgId = profile.organization_id;
@@ -243,8 +249,101 @@ export async function importTableChunkAction(
     const supabase = await createClient();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const typedRows = rows as any[];
+    let typedRows = rows as any[];
     const mappingsToSave: Array<{ sourceId: string; targetId: string }> = [];
+
+    // ----------------------------------------------------------------------
+    // Server-side orphan guard. Tables with a structural FK dependency on
+    // sibling rows in the same backup are checked here; if the chunk has any
+    // orphans, behaviour depends on `orphanPolicy`:
+    //   - "stop" or missing: throw with a clear message
+    //   - "drop"            : silently filter the orphan rows from this chunk
+    // The client wizard sets this from the user's explicit radio choice in
+    // the dry-run step. Both layers must agree before any insert runs.
+    // ----------------------------------------------------------------------
+    const orphanGuardedTables = new Set([
+      "CustomerLedgerEntries",
+      "CreditPayments",
+      "ReturnRefunds",
+      "ReturnItems",
+      "BillItems",
+      "BillItemBatchAllocations",
+      "StockMovements",
+      "ProductStockLots",
+      "RepairJobs",
+    ]);
+
+    if (orphanGuardedTables.has(tableName)) {
+      // Build the set of valid parent source-IDs by reading the row mappings
+      // already persisted earlier in this job (parents are imported first).
+      const parentLookup = async (parentTableName: string) => {
+        const { data } = await supabase
+          .from("import_row_mappings")
+          .select("source_id")
+          .eq("organization_id", orgId)
+          .eq("import_job_id", jobId)
+          .eq("source_table", parentTableName);
+        return new Set<string>((data ?? []).map((r) => String(r.source_id)));
+      };
+
+      const checks: { rule: string; parent: string; getFk: (row: { [k: string]: unknown }) => unknown; allowZero?: boolean }[] = [];
+      if (tableName === "CustomerLedgerEntries") checks.push({ rule: "CustomerLedgerEntries.CustomerId not in Customers", parent: "Customers", getFk: (r) => r.CustomerId });
+      if (tableName === "CreditPayments") checks.push({ rule: "CreditPayments.CustomerId not in Customers", parent: "Customers", getFk: (r) => r.CustomerId });
+      if (tableName === "ReturnRefunds") checks.push({ rule: "ReturnRefunds.BillId not in Bills", parent: "Bills", getFk: (r) => r.BillId });
+      if (tableName === "ReturnItems") checks.push({ rule: "ReturnItems.ReturnId not in ReturnRefunds", parent: "ReturnRefunds", getFk: (r) => r.ReturnId });
+      if (tableName === "BillItems") checks.push({ rule: "BillItems.BillId not in Bills", parent: "Bills", getFk: (r) => r.BillId });
+      if (tableName === "BillItemBatchAllocations") checks.push({ rule: "BillItemBatchAllocations.BillItemId not in BillItems", parent: "BillItems", getFk: (r) => r.BillItemId });
+      if (tableName === "StockMovements") checks.push({ rule: "StockMovements.ProductId not in Products", parent: "Products", getFk: (r) => r.ProductId });
+      if (tableName === "ProductStockLots") checks.push({ rule: "ProductStockLots.ProductId not in Products", parent: "Products", getFk: (r) => r.ProductId });
+      if (tableName === "RepairJobs") checks.push({ rule: "RepairJobs.CustomerId not in Customers (CustomerId=0/null walk-in is OK)", parent: "Customers", getFk: (r) => r.CustomerId, allowZero: true });
+
+      const parentSets = new Map<string, Set<string>>();
+      for (const c of checks) {
+        if (!parentSets.has(c.parent)) {
+          parentSets.set(c.parent, await parentLookup(c.parent));
+        }
+      }
+
+      const ok: typeof typedRows = [];
+      const orphanRows: typeof typedRows = [];
+      for (const row of typedRows) {
+        let isOrphan = false;
+        for (const c of checks) {
+          const fk = c.getFk(row);
+          if (fk === undefined || fk === null || fk === "") continue;
+          if (c.allowZero && (fk === 0 || fk === "0")) continue;
+          const set = parentSets.get(c.parent)!;
+          if (!set.has(String(fk))) {
+            isOrphan = true;
+            break;
+          }
+        }
+        if (isOrphan) orphanRows.push(row);
+        else ok.push(row);
+      }
+
+      if (orphanRows.length > 0) {
+        if (orphanPolicy !== "drop") {
+          return {
+            success: false,
+            inserted: 0,
+            skipped: 0,
+            skippedOrphan: 0,
+            failed: 0,
+            warnings,
+            error: `Server rejected ${orphanRows.length} orphan row(s) for ${tableName}. orphanPolicy must be "drop" to import them as skipped. ${checks.map((c) => c.rule).join("; ")}`,
+          };
+        }
+        skippedOrphan += orphanRows.length;
+        warnings.push(
+          `Server dropped ${orphanRows.length} orphan row(s) for ${tableName} (orphanPolicy=drop).`,
+        );
+        typedRows = ok;
+      }
+    }
+    if (typedRows.length === 0) {
+      return { success: true, inserted: 0, skipped: 0, skippedOrphan, failed: 0, warnings };
+    }
 
     if (tableName === "Categories") {
       const { data: existing } = await supabase
@@ -1051,14 +1150,14 @@ export async function importTableChunkAction(
         }
       }
     } else {
-      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: `Unsupported table: ${tableName}` };
+      return { success: false, inserted: 0, skipped: 0, skippedOrphan, failed: 0, warnings, error: `Unsupported table: ${tableName}` };
     }
 
-    return { success: true, inserted, skipped, failed, warnings };
+    return { success: true, inserted, skipped, skippedOrphan, failed, warnings };
   } catch (err: unknown) {
     console.error(`Error importing chunk for ${tableName}:`, err);
     const msg = err instanceof Error ? err.message : "Unknown error.";
-    return { success: false, inserted, skipped, failed: failed + rows.length, warnings, error: msg };
+    return { success: false, inserted, skipped, skippedOrphan, failed: failed + rows.length, warnings, error: msg };
   }
 }
 

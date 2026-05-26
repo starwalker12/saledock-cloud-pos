@@ -83,3 +83,49 @@ If `manifest.json` is missing from the ZIP:
 > **Production Safety Warnings:**
 > - Importing backups is a permanent append/merge operation. It is recommended to perform imports only on staging environments first.
 > - Never run factory resets or destructive database merges on live multi-tenant production systems without an offline pre-reset ZIP snapshot safely downloaded first.
+
+---
+
+## Orphan-row Handling (Required Before Final Import)
+
+The desktop SQLite sometimes contains rows whose parent record was deleted on the desktop side without a cascade (e.g. test customers were removed but their ledger entries weren't). These rows would fail to import cleanly into the online schema because the online tables enforce foreign-key constraints.
+
+### Detected during dry-run
+
+The dry-run validator inspects the SQLite for these orphan patterns:
+
+- `CustomerLedgerEntries.CustomerId` not in `Customers`
+- `CreditPayments.CustomerId` not in `Customers`
+- `ReturnRefunds.BillId` not in `Bills`
+- `ReturnItems.ReturnId` not in `ReturnRefunds`
+- `BillItems.BillId` not in `Bills`
+- `BillItemBatchAllocations.BillItemId` not in `BillItems`
+- `StockMovements.ProductId` not in `Products`
+- `ProductStockLots.ProductId` not in `Products`
+- `RepairJobs.CustomerId` not in `Customers` (walk-in `CustomerId=0/null` is allowed)
+
+For each affected table, the wizard shows: table name, orphan count, missing source IDs (first 12), and a recommended action.
+
+### Required choice (UI)
+
+When any orphan rows are detected, the **Confirm Import →** button stays disabled until the user picks one of:
+
+1. **Drop orphan rows and continue import** — these rows are filtered out of the upload. They appear in the final report under a *Skipped orphan* column. The import succeeds for the rest of the data.
+2. **Stop import and fix the desktop backup first** — disables the import button entirely. Fix the source SQLite (or re-export from the desktop app) and re-upload.
+
+### Why no automatic placeholders
+
+The wizard intentionally does **not** create placeholder customers or returns to absorb orphans. Doing so would surface as `[Imported #N]` rows in production with no business context. For old desktop test leftovers (the typical case), dropping is the correct outcome — placeholders would clutter the live customer directory.
+
+### Server-side enforcement (defence in depth)
+
+`importTableChunkAction` re-runs the orphan check against the row mappings already inserted for parent tables in the current job. The behaviour is:
+
+- `orphanPolicy = "drop"` — orphan rows are silently filtered out of the chunk and counted as `skippedOrphan`. A warning is appended to the audit log.
+- `orphanPolicy = "stop"` or missing — the action returns an error and no rows in the chunk are written. The wizard surfaces this error in red on the report screen.
+
+The orphan policy and the per-table orphan summary are also written to the import job's `manifest_jsonb` field under `OnlineImport`, so the audit log records exactly what was dropped.
+
+### Final report
+
+The Import Complete table now shows: **Extracted**, **Created**, **Skipped existing**, **Skipped orphan**, **Failed**, **Status**.

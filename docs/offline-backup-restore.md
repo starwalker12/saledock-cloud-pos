@@ -57,3 +57,18 @@ Online backup ZIP files with `data/gadgetzone-online.json` are inspected directl
 >
 > **RLS Boundary Enforcement:**
 > - Every insertion query inherits RLS scopes matching the current active cashier's `organization_id` to ensure no cross-tenant data leak occurs.
+
+---
+
+## Orphan-row Detection in the Restore Wizard
+
+The dry-run step now detects rows in the desktop SQLite that reference missing parent rows (a common artifact of testing on the desktop where customers/returns get deleted without cascading). When any orphans are found:
+
+- A red card appears with one row per table, showing **count**, **missing source IDs**, and **recommended action**.
+- The Confirm Import button is disabled until the operator chooses:
+  - **Drop orphan rows and continue import** — orphans are filtered out, reported separately under *Skipped orphan*.
+  - **Stop import and fix the desktop backup first** — import is disabled entirely.
+- The chosen policy is also enforced server-side inside `importTableChunkAction`. Missing or wrong policy → server refuses the chunk with a clear error.
+- Audit job manifest now records `OnlineImport.orphanPolicy` + per-table `orphanFindings`.
+
+No placeholder customers/returns are auto-created.
