@@ -36,7 +36,10 @@ type ManifestData = {
   CategoryCount?: number;
   InvoiceCount?: number;
   SupplierCount?: number;
+  Source?: string;
 };
+
+type BackupZipKind = "online" | "desktop" | "unknown";
 
 type TableCount = {
   name: string;
@@ -59,6 +62,8 @@ export function BackupTab() {
   const [dbFileDetected, setDbFileDetected] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [isOnlineBackup, setIsOnlineBackup] = useState(false);
+  const [manifestMissingWarning, setManifestMissingWarning] = useState(false);
 
   // Config parameters
   const [applyBranding, setApplyBranding] = useState(false);
@@ -269,6 +274,18 @@ export function BackupTab() {
     }
   }
 
+  // Helper to find ZIP entries recursively by suffix
+  function findZipEntryBySuffix(zip: JSZip, suffixes: string[]) {
+    const keys = Object.keys(zip.files);
+    for (const suffix of suffixes) {
+      const matchedKey = keys.find(k => k === suffix || k.endsWith("/" + suffix) || k.endsWith(suffix));
+      if (matchedKey) {
+        return { entry: zip.files[matchedKey], path: matchedKey };
+      }
+    }
+    return null;
+  }
+
   // Handle Backup ZIP Upload & sqlite parsing
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -285,89 +302,195 @@ export function BackupTab() {
       setConfirmCheckbox(false);
       setDryRunWarnings([]);
       setDryRunChecked(false);
+      setIsOnlineBackup(false);
+      setManifestMissingWarning(false);
 
       const zip = await JSZip.loadAsync(file);
 
-      // Read manifest
-      const manifestFile = zip.file("manifest.json");
-      if (!manifestFile) {
-        throw new Error("Invalid backup file: manifest.json is missing from the ZIP root.");
-      }
-
-      const manifestStr = await manifestFile.async("string");
-      const manifestObj = JSON.parse(manifestStr) as ManifestData;
-      setManifest(manifestObj);
-
-      // Read SQLite database
-      const dbFile = zip.file("data/gadgetzonepos.db");
-      if (!dbFile) {
-        throw new Error("Invalid desktop backup: data/gadgetzonepos.db SQLite database is missing.");
-      }
-
-      const dbArrayBuffer = await dbFile.async("arraybuffer");
-      setDbFileDetected(`data/gadgetzonepos.db (${dbArrayBuffer.byteLength.toLocaleString()} bytes)`);
-
-      // Lazy import sql.js CDN/wasm in the browser
-      const initSqlJs = (await import("sql.js")).default;
-      const SQL = await initSqlJs({
-        locateFile: (file: string) => `https://sql.js.org/dist/${file}`
-      });
-
-      const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
-      setSqliteDb(db);
-
-      // Detect available tables & record counts
-      const supportedTables = [
-        "Categories",
-        "Suppliers",
-        "Customers",
-        "Products",
-        "ProductStockLots",
-        "StockMovements",
-        "Bills",
-        "BillItems",
-        "BillItemBatchAllocations",
-        "Payments",
-        "CustomerLedgerEntries",
-        "ReturnRefunds",
-        "ReturnItems",
-        "Expenses",
-        "RepairJobs",
-        "DailyClosings",
-        "ActivityLog"
-      ];
-
-      const counts: TableCount[] = [];
-      for (const table of supportedTables) {
+      // Find possible manifest.json anywhere in the zip
+      let manifestObj: ManifestData | null = null;
+      const manifestMatch = findZipEntryBySuffix(zip, ["manifest.json"]);
+      if (manifestMatch) {
         try {
-          const res = db.exec(`SELECT count(*) as cnt FROM "${table}"`);
-          const cnt = res[0]?.values[0][0] || 0;
+          const manifestStr = await manifestMatch.entry.async("string");
+          manifestObj = JSON.parse(manifestStr) as ManifestData;
+        } catch (e) {
+          console.error("Failed to parse manifest.json:", e);
+        }
+      }
+
+      // Check online json and sqlite db matches (handling nesting)
+      const onlineJsonMatch = findZipEntryBySuffix(zip, ["data/gadgetzone-online.json", "gadgetzone-online.json"]);
+      const dbFileMatch = findZipEntryBySuffix(zip, ["data/gadgetzonepos.db", "gadgetzonepos.db"]);
+
+      // Classify ZIP kind
+      let zipKind: BackupZipKind = "unknown";
+      if (onlineJsonMatch || (manifestObj && manifestObj.AppName?.includes("Gadget Zone Online POS"))) {
+        zipKind = "online";
+      } else if (dbFileMatch) {
+        zipKind = "desktop";
+      }
+
+      if (zipKind === "unknown") {
+        throw new Error("Unsupported ZIP. Expected either data/gadgetzone-online.json or data/gadgetzonepos.db.");
+      }
+
+      if (zipKind === "online") {
+        setIsOnlineBackup(true);
+        if (!onlineJsonMatch) {
+          throw new Error("Online backup detected. Use Online Restore Preview.");
+        }
+
+        if (!manifestObj) {
+          manifestObj = {
+            AppName: "Gadget Zone Online POS",
+            BackupVersion: 2,
+            SchemaVersion: 1,
+            BackupType: "OnlineBackup",
+            CreatedAt: new Date().toISOString(),
+            CreatedBy: "unknown",
+            Source: file.name
+          };
+        }
+        setManifest(manifestObj);
+
+        const onlineDataStr = await onlineJsonMatch.entry.async("string");
+        const onlineData = JSON.parse(onlineDataStr);
+
+        const keyToTableName: Record<string, string> = {
+          categories: "Categories",
+          suppliers: "Suppliers",
+          customers: "Customers",
+          products: "Products",
+          lots: "ProductStockLots",
+          movements: "StockMovements",
+          invoices: "Bills",
+          invoiceItems: "BillItems",
+          payments: "Payments",
+          ledgerEntries: "CustomerLedgerEntries",
+          returns: "ReturnRefunds",
+          returnItems: "ReturnItems",
+          expenses: "Expenses",
+          repairs: "RepairJobs",
+          closings: "DailyClosings",
+          auditLogs: "ActivityLog"
+        };
+
+        const counts: TableCount[] = [];
+        for (const [key, tableName] of Object.entries(keyToTableName)) {
+          const list = onlineData[key];
+          const count = Array.isArray(list) ? list.length : 0;
           counts.push({
-            name: table,
-            count: Number(cnt),
-            status: "pending",
-            inserted: 0,
-            skippedCount: 0,
-            failedCount: 0
-          });
-        } catch {
-          counts.push({
-            name: table,
-            count: 0,
-            status: "skipped",
+            name: tableName,
+            count,
+            status: count > 0 ? "pending" : "skipped",
             inserted: 0,
             skippedCount: 0,
             failedCount: 0
           });
         }
+
+        setTableProgress(counts);
+        setDbFileDetected(`Online JSON found at: ${onlineJsonMatch.path}`);
+        setStep("preview");
+        return;
       }
 
-      setTableProgress(counts);
-      setStep("preview");
+      // Desktop SQLite Flow
+      if (zipKind === "desktop") {
+        if (!dbFileMatch) {
+          throw new Error("Desktop SQLite database detected inside nested folder.");
+        }
+
+        const dbArrayBuffer = await dbFileMatch.entry.async("arraybuffer");
+        setDbFileDetected(`SQLite database found at: ${dbFileMatch.path}`);
+
+        // Lazy import sql.js CDN/wasm in the browser
+        const initSqlJs = (await import("sql.js")).default;
+        const SQL = await initSqlJs({
+          locateFile: (file: string) => `https://sql.js.org/dist/${file}`
+        });
+
+        const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
+        setSqliteDb(db);
+
+        // Detect available tables & record counts
+        const supportedTables = [
+          "Categories",
+          "Suppliers",
+          "Customers",
+          "Products",
+          "ProductStockLots",
+          "StockMovements",
+          "Bills",
+          "BillItems",
+          "BillItemBatchAllocations",
+          "Payments",
+          "CustomerLedgerEntries",
+          "ReturnRefunds",
+          "ReturnItems",
+          "Expenses",
+          "RepairJobs",
+          "DailyClosings",
+          "ActivityLog"
+        ];
+
+        const counts: TableCount[] = [];
+        const tableCountsRecord: Record<string, number> = {};
+        for (const table of supportedTables) {
+          try {
+            const res = db.exec(`SELECT count(*) as cnt FROM "${table}"`);
+            const cnt = res[0]?.values[0][0] || 0;
+            const countNum = Number(cnt);
+            tableCountsRecord[table] = countNum;
+            counts.push({
+              name: table,
+              count: countNum,
+              status: countNum > 0 ? "pending" : "skipped",
+              inserted: 0,
+              skippedCount: 0,
+              failedCount: 0
+            });
+          } catch {
+            tableCountsRecord[table] = 0;
+            counts.push({
+              name: table,
+              count: 0,
+              status: "skipped",
+              inserted: 0,
+              skippedCount: 0,
+              failedCount: 0
+            });
+          }
+        }
+
+        setTableProgress(counts);
+
+        // Generate fallback manifest if manifest.json is missing
+        if (!manifestMatch || !manifestObj) {
+          setManifestMissingWarning(true);
+          manifestObj = {
+            AppName: "GadgetZonePOS",
+            BackupVersion: 2,
+            SchemaVersion: 1,
+            BackupType: "DesktopSQLite",
+            Source: file.name,
+            CreatedAt: new Date().toISOString(),
+            CreatedBy: "inferred",
+            ProductCount: tableCountsRecord["Products"] || 0,
+            CustomerCount: tableCountsRecord["Customers"] || 0,
+            CategoryCount: tableCountsRecord["Categories"] || 0,
+            SupplierCount: tableCountsRecord["Suppliers"] || 0,
+            InvoiceCount: tableCountsRecord["Bills"] || 0
+          };
+        }
+        setManifest(manifestObj);
+        setStep("preview");
+      }
 
     } catch (err: unknown) {
       console.error(err);
-      const msg = err instanceof Error ? err.message : "Failed to parse desktop backup ZIP archive.";
+      const msg = err instanceof Error ? err.message : "Failed to parse backup ZIP archive.";
       setParseError(msg);
     } finally {
       setIsParsing(false);
@@ -376,6 +499,11 @@ export function BackupTab() {
 
   // Stepper Stage 4: Run Dry run Validation checks
   function runDryRunValidation() {
+    if (isOnlineBackup) {
+      setDryRunWarnings([]);
+      setDryRunChecked(true);
+      return;
+    }
     setIsParsing(true);
     const warnings: string[] = [];
 
@@ -690,8 +818,12 @@ export function BackupTab() {
               <span className="rounded-lg bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700 uppercase tracking-wider">
                 {manifest.AppName}
               </span>
-              <h3 className="mt-1 text-lg font-black text-slate-900">1. Inspect Backup Contents</h3>
-              <p className="text-xs text-slate-500">Below are the record counts extracted from the SQLite binary database.</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">
+                {isOnlineBackup ? "Online Backup ZIP Detected" : "1. Inspect Backup Contents"}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {isOnlineBackup ? "Below are the record counts extracted from the online JSON backup." : "Below are the record counts extracted from the SQLite binary database."}
+              </p>
             </div>
             <div className="flex gap-2">
               <button
@@ -713,10 +845,39 @@ export function BackupTab() {
           <div className="rounded-xl bg-blue-50/50 p-4 border border-blue-100 flex items-start gap-3">
             <Database className="size-5 text-blue-700 shrink-0 mt-0.5" />
             <div className="text-xs text-blue-900 space-y-1">
-              <p className="font-bold uppercase tracking-wider text-[10px]">Database Footprint</p>
-              <p>Found binary database: <code>{dbFileDetected}</code>. SQLite schema version: <strong>{manifest.SchemaVersion}</strong>. Backup created on: <strong>{manifest.CreatedAt ? new Date(manifest.CreatedAt).toLocaleString() : "—"}</strong>. Uploaded file: <strong>{zipFile ? zipFile.name : "N/A"}</strong>.</p>
+              <p className="font-bold uppercase tracking-wider text-[10px]">
+                {isOnlineBackup ? "Online Backup Footprint" : "Database Footprint"}
+              </p>
+              <p>
+                {isOnlineBackup ? (
+                  <>Online JSON found at: <code>{dbFileDetected}</code></>
+                ) : (
+                  <code>{dbFileDetected}</code>
+                )}
+                . Backup version: <strong>{manifest.BackupVersion}</strong>. Created on: <strong>{manifest.CreatedAt ? new Date(manifest.CreatedAt).toLocaleString() : "—"}</strong>. Uploaded file: <strong>{zipFile ? zipFile.name : "N/A"}</strong>.
+              </p>
             </div>
           </div>
+
+          {manifestMissingWarning && (
+            <div className="rounded-xl bg-amber-50 p-4 border border-amber-200 flex items-start gap-3 text-xs text-amber-900">
+              <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Missing manifest.json</p>
+                <p className="mt-1">manifest.json was not found, but a GadgetZonePOS SQLite database was detected and can be previewed.</p>
+              </div>
+            </div>
+          )}
+
+          {isOnlineBackup && (
+            <div className="rounded-xl bg-blue-50 p-4 border border-blue-200 flex items-start gap-3 text-xs text-blue-900">
+              <ShieldCheck className="size-5 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Online Restore Preview Available</p>
+                <p className="mt-1">Online backup restore execution is planned; this ZIP can currently be inspected safely.</p>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
             {tableProgress.map(t => (
@@ -886,14 +1047,33 @@ export function BackupTab() {
               />
             </div>
 
-            <button
-              onClick={triggerBackupImport}
-              disabled={confirmText !== "IMPORT DESKTOP BACKUP" || !confirmCheckbox}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
-            >
-              <Upload className="size-4" />
-              Begin Desktop Restore
-            </button>
+            {isOnlineBackup ? (
+              <div className="space-y-4">
+                <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-xs text-blue-900 flex gap-2">
+                  <ShieldCheck className="size-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Online Restore Preview Available</p>
+                    <p className="mt-1">Online backup restore execution is planned; this ZIP can currently be inspected safely.</p>
+                  </div>
+                </div>
+                <button
+                  disabled
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-400 cursor-not-allowed"
+                >
+                  <Upload className="size-4" />
+                  Online Restore Planned (Disabled)
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={triggerBackupImport}
+                disabled={confirmText !== "IMPORT DESKTOP BACKUP" || !confirmCheckbox}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
+              >
+                <Upload className="size-4" />
+                Begin Desktop Restore
+              </button>
+            )}
           </div>
         </div>
       )}
