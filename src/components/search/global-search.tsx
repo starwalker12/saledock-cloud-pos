@@ -220,12 +220,12 @@ export function GlobalSearch() {
       {/* Clickable search placeholder input in the Topbar */}
       <button
         onClick={handleOpen}
-        className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-400 sm:w-56 lg:w-72 hover:border-slate-350 hover:bg-slate-100/50 transition duration-150 cursor-pointer"
+        className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-400 transition duration-150 hover:border-slate-300 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 sm:w-56 lg:w-72 cursor-pointer"
         aria-label="Open command search"
       >
         <Search className="size-4 shrink-0 text-slate-400" />
         <span className="flex-1 truncate">Search...</span>
-        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 font-mono text-[10px] font-medium text-slate-400 sm:inline-flex shrink-0">
+        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 font-mono text-[10px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-950 sm:inline-flex shrink-0">
           <span className="text-[10px]">⌘</span>K
         </kbd>
       </button>
@@ -241,16 +241,16 @@ export function GlobalSearch() {
           {/* Main search panel: Modal on desktop, fullscreen sheet on mobile */}
           <div
             ref={containerRef}
-            className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl transition-all sm:h-[460px] sm:max-w-2xl sm:rounded-2xl border border-slate-200"
+            className="flex h-full w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl transition-all dark:border-slate-800 dark:bg-slate-950 sm:h-[460px] sm:max-w-2xl sm:rounded-2xl"
             onKeyDown={handleKeyDown}
           >
             {/* Search inputs bar */}
-            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5">
+            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
               <Search className="size-5 shrink-0 text-slate-400" />
               <input
                 ref={inputRef}
                 type="text"
-                className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
                 placeholder="Search pages, SKU, barcode, device IMEI, customers..."
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
@@ -265,21 +265,21 @@ export function GlobalSearch() {
                     handleQueryChange("");
                     inputRef.current?.focus();
                   }}
-                  className="rounded-md p-1 hover:bg-slate-150 transition"
+                  className="rounded-md p-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <X className="size-4 text-slate-500" />
                 </button>
               ) : (
-                <kbd className="pointer-events-none hidden select-none items-center rounded border border-slate-200 bg-slate-50 px-1.5 font-mono text-[10px] font-semibold text-slate-400 sm:inline-flex shrink-0">
+                <kbd className="pointer-events-none hidden select-none items-center rounded border border-slate-200 bg-slate-50 px-1.5 font-mono text-[10px] font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-900 sm:inline-flex shrink-0">
                   ESC
                 </kbd>
               )}
               {/* Close trigger on mobile */}
               <button
                 onClick={handleClose}
-                className="block rounded-md p-1 hover:bg-slate-150 transition sm:hidden"
+                className="block rounded-md p-1 transition hover:bg-slate-100 dark:hover:bg-slate-800 sm:hidden"
               >
-                <X className="size-5 text-slate-700" />
+                <X className="size-5 text-slate-700 dark:text-slate-200" />
               </button>
             </div>
 
@@ -301,7 +301,7 @@ export function GlobalSearch() {
                         <button
                           key={page.href}
                           onClick={() => handleNavigate(page.href)}
-                          className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 text-left text-xs font-bold text-slate-600 hover:border-slate-200 hover:bg-slate-100/50 transition cursor-pointer"
+                          className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 text-left text-xs font-bold text-slate-600 transition hover:border-slate-200 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 cursor-pointer"
                         >
                           <Icon className="size-4 shrink-0 text-slate-500" />
                           <span className="truncate">{page.title}</span>
@@ -315,8 +315,8 @@ export function GlobalSearch() {
               {/* No records found */}
               {query.trim() && results.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                  <Search className="size-8 text-slate-300" />
-                  <h3 className="mt-2 text-sm font-bold text-slate-700">
+                  <Search className="size-8 text-slate-300 dark:text-slate-600" />
+                  <h3 className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">
                     No results found
                   </h3>
                   <p className="mt-1 max-w-xs text-xs text-slate-500">
@@ -331,10 +331,10 @@ export function GlobalSearch() {
                 <div className="space-y-3 py-6 px-3">
                   {[1, 2, 3].map((n) => (
                     <div key={n} className="flex items-center gap-3 animate-pulse">
-                      <div className="size-8 rounded-full bg-slate-100 shrink-0" />
+                        <div className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 shrink-0" />
                       <div className="flex-1 space-y-1.5 min-w-0">
-                        <div className="h-3 w-1/3 rounded bg-slate-100" />
-                        <div className="h-2 w-1/2 rounded bg-slate-100" />
+                        <div className="h-3 w-1/3 rounded bg-slate-100 dark:bg-slate-800" />
+                        <div className="h-2 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
                       </div>
                     </div>
                   ))}
@@ -360,16 +360,16 @@ export function GlobalSearch() {
                               onClick={() => handleNavigate(item.href)}
                               className={`flex items-center justify-between rounded-xl p-3 cursor-pointer transition select-none ${
                                 isHighlighted
-                                  ? "bg-blue-50/80 text-blue-800 border-l-4 border-blue-600 pl-2 shadow-xs"
-                                  : "hover:bg-slate-50 text-slate-700"
+                                  ? "bg-blue-50/80 text-blue-800 border-l-4 border-blue-600 pl-2 shadow-xs dark:bg-blue-950/50 dark:text-blue-100"
+                                  : "hover:bg-slate-50 text-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
                               }`}
                             >
                               <div className="flex min-w-0 items-center gap-3">
                                 <div
                                   className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
                                     isHighlighted
-                                      ? "bg-blue-100 text-blue-700"
-                                      : "bg-slate-100 text-slate-500"
+                                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"
                                   }`}
                                 >
                                   <Icon className="size-4" />
@@ -417,18 +417,18 @@ export function GlobalSearch() {
             </div>
 
             {/* Footer containing navigation instructions */}
-            <div className="hidden items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold text-slate-400 sm:flex shrink-0">
+            <div className="hidden items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold text-slate-400 dark:border-slate-800 dark:bg-slate-900/70 sm:flex shrink-0">
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono">↑↓</kbd>
+                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">↑↓</kbd>
                   to navigate
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono">Enter</kbd>
+                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">Enter</kbd>
                   to select
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono">ESC</kbd>
+                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">ESC</kbd>
                   to close
                 </span>
               </div>

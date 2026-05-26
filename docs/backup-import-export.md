@@ -19,17 +19,20 @@ An exported ZIP file contains the following elements:
 - `/csv/returns.csv`, `/csv/return_items.csv`, `/csv/return_stock_allocations.csv`: Online return/refund receipts and FIFO restock trace tables.
 - `/csv/expenses.csv`, `/csv/repairs.csv`, `/csv/daily_closings.csv`, `/csv/audit_logs.csv`: Operational logs.
 
-The online schema exports return/refund records from the live `returns` table, along with `return_items` and `return_stock_allocations`. Older desktop backup names may differ; desktop SQLite uploads are parsed on-the-fly and imported completely using modern client-side worker engines.
+The online schema exports return/refund records from the live `returns` table, along with `return_items` and `return_stock_allocations`. Older desktop backup names may differ; desktop SQLite uploads are parsed on-the-fly and mapped safely during preview.
 
 ---
 
-## Desktop SQLite Full Import System (Completed)
+## Desktop SQLite Preview Foundation
 
-Full automated desktop SQLite data ingestion has been successfully implemented and integrated:
-1. **sql.js WASM Parsing**: Initialized lazy WebAssembly-compiled `sql.js` inside the browser.
+Desktop SQLite backup inspection has been implemented as a browser-safe preview foundation:
+1. **Local sql.js WASM Parsing**: Initializes lazy WebAssembly-compiled `sql.js` inside the browser using the app-hosted `/sql-wasm.wasm` asset.
 2. **SQLite Buffer Reading**: Reads `gadgetzonepos.db` SQLite database file buffers completely in-memory.
-3. **Structured Mapping & Chunking**: Extracts rows across all 17 supported tables (`Products`, `Categories`, `Customers`, `Suppliers`, `Bills`, `BillItems`, `Allocations`, `Ledgers`, `Payments`, `Returns`, `Expenses`, `Repairs`, `DailyClosings`, `AuditLog`) in sequential relational order.
-4. **Coordinated Server Transactions**: Chunks data arrays into batches of 100 to execute secure, transaction-safe, org-scoped merges inside Supabase.
+3. **Nested ZIP Traversal**: Finds `gadgetzonepos.db` even when the desktop ZIP is wrapped inside another folder or archive structure.
+4. **Preview-Only Mapping**: Extracts row counts across supported desktop tables (`Products`, `Categories`, `Customers`, `Suppliers`, `Bills`, `BillItems`, `Allocations`, `Ledgers`, `Payments`, `Returns`, `Expenses`, `Repairs`, `DailyClosings`, `AuditLog`) without importing data.
+5. **Import Disabled/Planned**: The final online restore remains disabled until the production import flow is approved.
+
+CDN WASM loading was removed because production browsers can block or fail cross-origin WASM fetches. Serving `public/sql-wasm.wasm` from the same Vercel deployment keeps desktop backup previews stable and makes missing-parser errors diagnosable.
 
 For a deep-dive into table mapping rules and dry-run validation mechanics, refer to the [Offline Backup Restore Guide](file:///Users/sw12/Projects/gadget-zone-online-pos/docs/offline-backup-restore.md).
 
@@ -80,4 +83,3 @@ If `manifest.json` is missing from the ZIP:
 > **Production Safety Warnings:**
 > - Importing backups is a permanent append/merge operation. It is recommended to perform imports only on staging environments first.
 > - Never run factory resets or destructive database merges on live multi-tenant production systems without an offline pre-reset ZIP snapshot safely downloaded first.
-

@@ -6,12 +6,12 @@ This document serves as the guide for the Offline Desktop Backup ZIP Import / Re
 
 ## 🚀 Architectural Overview
 
-To prevent heavy server binary compilations and eliminate Vercel serverless timeout failures, the import flow runs entirely using a client-server coordinated chunking process:
+To prevent heavy server binary compilations and eliminate Vercel serverless timeout failures, the current desktop backup flow previews SQLite files in the browser and keeps the destructive import path disabled until explicitly approved:
 
 ```mermaid
 graph TD
     A[ZIP Backup Upload] --> B[jszip reads data/gadgetzonepos.db]
-    B --> C[sql.js WASM lazy-loads in browser]
+    B --> C[sql.js lazy-loads /sql-wasm.wasm from app]
     C --> D[Extract structured JSON chunks]
     D --> E[Step-by-step Dry Run Validations]
     E --> F[Confirmed chunked uploads to Supabase Actions]
@@ -20,7 +20,8 @@ graph TD
 
 ### 1. Dynamic Browser-Side SQLite Reader
 * Offloads CPU-intensive database parsing to browser WebAssembly using a dynamically loaded `sql.js` instance.
-* Locates and fetches WASM modules on-demand, keeping Next.js bundle sizes extremely lightweight.
+* Serves the SQLite WASM parser from `public/sql-wasm.wasm` as `/sql-wasm.wasm` instead of a CDN, avoiding production fetch failures and keeping the parser available on Vercel Preview and Production.
+* Before parsing a desktop ZIP, the UI probes `/sql-wasm.wasm`; if the asset is missing, the error includes the uploaded file name, detected backup type, WASM path used, and the clear note that no data was imported.
 
 ### 2. Relation Preservation Mapping
 * Maps SQLite primary keys to Supabase UUID fields dynamically using the `import_row_mappings` index.
@@ -35,13 +36,15 @@ graph TD
 
 Located under **Settings → Backup & Restore**:
 
-1. **Upload**: Drop-zone accept. Checks for `manifest.json` and parses `data/gadgetzonepos.db`.
+1. **Upload**: Drop-zone accept. Checks for `manifest.json`, online JSON payloads, and nested `data/gadgetzonepos.db` files.
 2. **Preview**: Scans metadata and showcases absolute row counts across all 17 supported tables.
 3. **Configuration**: Option to apply safe brand details (shop support phones, repair terms).
 4. **Dry Run**: Evaluates structural constraints, orphaned lots, invalid prices, and counts warnings before making database writes.
 5. **Confirmation**: Strict warning checklist + typing `IMPORT DESKTOP BACKUP` and checking risk acknowledgements.
-6. **Progress**: Displays real-time progress bars as chunks upload sequentially.
-7. **Report**: Generates clear final tables mapping inserted, skipped (deduplicated), and failed counts.
+6. **Progress**: Reserved for the future approved import flow.
+7. **Report**: Reserved for the future approved import flow.
+
+Online backup ZIP files with `data/gadgetzone-online.json` are inspected directly and do not initialize SQLite/WASM. Desktop ZIP files, including nested desktop exports, use the local WASM parser only for preview/count inspection. Missing `manifest.json` is handled by inferring desktop metadata from the SQLite database, not by failing the upload.
 
 ---
 

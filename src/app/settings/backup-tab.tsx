@@ -290,6 +290,9 @@ export function BackupTab() {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    let detectedZipKind: BackupZipKind = "unknown";
+    let detectedBackupPath = "not detected";
+    const wasmPath = "/sql-wasm.wasm";
 
     try {
       setZipFile(file);
@@ -330,6 +333,8 @@ export function BackupTab() {
       } else if (dbFileMatch) {
         zipKind = "desktop";
       }
+      detectedZipKind = zipKind;
+      detectedBackupPath = onlineJsonMatch?.path ?? dbFileMatch?.path ?? "not detected";
 
       if (zipKind === "unknown") {
         throw new Error("Unsupported ZIP. Expected either data/gadgetzone-online.json or data/gadgetzonepos.db.");
@@ -368,8 +373,9 @@ export function BackupTab() {
           invoiceItems: "BillItems",
           payments: "Payments",
           ledgerEntries: "CustomerLedgerEntries",
-          returns: "ReturnRefunds",
+          returns: "Returns",
           returnItems: "ReturnItems",
+          returnStockAllocations: "ReturnStockAllocations",
           expenses: "Expenses",
           repairs: "RepairJobs",
           closings: "DailyClosings",
@@ -405,10 +411,15 @@ export function BackupTab() {
         const dbArrayBuffer = await dbFileMatch.entry.async("arraybuffer");
         setDbFileDetected(`SQLite database found at: ${dbFileMatch.path}`);
 
-        // Lazy import sql.js CDN/wasm in the browser
+        const wasmProbe = await fetch(wasmPath, { method: "GET" });
+        if (!wasmProbe.ok) {
+          throw new Error("SQLite parser asset is missing. Please redeploy the app with sql-wasm.wasm included.");
+        }
+
+        // Lazy import sql.js and load its WASM from our own public asset.
         const initSqlJs = (await import("sql.js")).default;
         const SQL = await initSqlJs({
-          locateFile: (file: string) => `https://sql.js.org/dist/${file}`
+          locateFile: () => wasmPath
         });
 
         const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
@@ -491,7 +502,17 @@ export function BackupTab() {
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : "Failed to parse backup ZIP archive.";
-      setParseError(msg);
+      const friendlyDetails = [
+        `File: ${file.name}`,
+        `Detected backup type: ${detectedZipKind}`,
+        `Detected backup path: ${detectedBackupPath}`,
+        `SQLite WASM path: ${wasmPath}`,
+        "No data was imported.",
+      ];
+      const friendlyMessage = msg.includes("SQLite parser asset")
+        ? `${msg}\n${friendlyDetails.join("\n")}`
+        : `Could not preview backup ZIP. ${msg}\n${friendlyDetails.join("\n")}`;
+      setParseError(friendlyMessage);
     } finally {
       setIsParsing(false);
     }
@@ -778,9 +799,9 @@ export function BackupTab() {
               )}
 
               {parseError && (
-                <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <div className="flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
                   <AlertTriangle className="size-4 shrink-0" />
-                  <span>{parseError}</span>
+                  <span className="whitespace-pre-line">{parseError}</span>
                 </div>
               )}
             </div>

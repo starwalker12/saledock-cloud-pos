@@ -43,8 +43,8 @@ export async function Sidebar() {
     // h-dvh + flex column so the header stays fixed and the nav scrolls
     // internally when the list is taller than the viewport. The outer shell
     // is overflow-hidden, so this sidebar never moves when main scrolls.
-    <aside className="hidden h-dvh w-72 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
+    <aside className="hidden h-dvh w-72 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:flex">
+      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 px-6 dark:border-slate-800">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/gadget-zone-logo.png"
@@ -55,7 +55,7 @@ export async function Sidebar() {
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">
             Gadget Zone
           </p>
-          <p className="text-lg font-black text-slate-950">Online POS</p>
+          <p className="text-lg font-black text-slate-950 dark:text-slate-50">Online POS</p>
         </div>
       </div>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
@@ -65,7 +65,7 @@ export async function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-300"
             >
               <Icon className="size-4" />
               {item.label}

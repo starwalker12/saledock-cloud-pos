@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #0f172a;
@@ -10,9 +12,24 @@
   --border: #d8e1ef;
 }
 
+.dark {
+  --background: #0b0f19; /* Premium slate/dark-blue background */
+  --foreground: #f8fafc; /* slate-50 text */
+  --brand: #3b82f6;      /* High contrast bright blue brand color */
+  --brand-bright: #60a5fa;
+  --brand-soft: #1e293b;
+  --surface: #131b2e;    /* Deep premium slate card background */
+  --border: #1e293b;     /* Readable dark border */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-bright: var(--brand-bright);
+  --color-brand-soft: var(--brand-soft);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -32,7 +49,108 @@ body {
   overflow-x: hidden;
 }
 
+/* Broad dark-mode safety net for existing app surfaces. Targeted component
+   classes still win where pages need richer styling. */
+.dark .bg-white {
+  background-color: #111827 !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-100\/50 {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-blue-50,
+.dark .bg-blue-50\/80 {
+  background-color: rgb(23 37 84 / 0.55) !important;
+}
+
+.dark .bg-emerald-50,
+.dark .bg-green-50 {
+  background-color: rgb(6 78 59 / 0.45) !important;
+}
+
+.dark .bg-amber-50,
+.dark .bg-yellow-50 {
+  background-color: rgb(120 53 15 / 0.45) !important;
+}
+
+.dark .bg-rose-50,
+.dark .bg-red-50 {
+  background-color: rgb(127 29 29 / 0.45) !important;
+}
+
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: #334155 !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+.dark table {
+  color: #e2e8f0;
+}
+
+.dark thead {
+  background-color: #0f172a;
+}
+
+.dark tbody tr {
+  border-color: #334155;
+}
+
+.dark code,
+.dark pre {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
 @media print {
+  :root,
+  .dark,
+  html,
+  body {
+    --background: #ffffff !important;
+    --foreground: #000000 !important;
+    --brand: #173ba9 !important;
+    --brand-bright: #2563eb !important;
+    --brand-soft: #eaf1ff !important;
+    --surface: #ffffff !important;
+    --border: #d8e1ef !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
   @page {
     margin: 12mm;
   }
@@ -46,7 +164,8 @@ body {
   aside,
   nav,
   header.sticky,
-  .print-hidden {
+  .print-hidden,
+  .theme-toggle {
     display: none !important;
   }
   main {
@@ -82,5 +201,46 @@ body {
     border: 0 !important;
     font-family: Arial, Helvetica, sans-serif !important;
     page: thermalReceipt;
+  }
+  .dark .bg-white,
+  .dark .bg-slate-50,
+  .dark .bg-slate-100,
+  .dark .bg-slate-50\/50,
+  .dark .bg-slate-100\/50,
+  .dark .bg-blue-50,
+  .dark .bg-blue-50\/80,
+  .dark .bg-emerald-50,
+  .dark .bg-green-50,
+  .dark .bg-amber-50,
+  .dark .bg-yellow-50,
+  .dark .bg-rose-50,
+  .dark .bg-red-50 {
+    background-color: #ffffff !important;
+  }
+  .dark .text-slate-950,
+  .dark .text-slate-900,
+  .dark .text-slate-800,
+  .dark .text-slate-700,
+  .dark .text-slate-600,
+  .dark .text-slate-500,
+  .dark .text-slate-400 {
+    color: #000000 !important;
+  }
+  .dark .border-slate-100,
+  .dark .border-slate-200,
+  .dark .border-slate-300 {
+    border-color: #d8e1ef !important;
+  }
+  .dark input,
+  .dark select,
+  .dark textarea,
+  .dark table,
+  .dark thead,
+  .dark tbody tr,
+  .dark code,
+  .dark pre {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #d8e1ef !important;
   }
 }

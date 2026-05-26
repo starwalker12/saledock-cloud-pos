@@ -26,7 +26,7 @@ export function AppShell({ children, pageTitle }: { children: ReactNode; pageTit
   // h-dvh handles mobile address-bar resizing; overflow-hidden prevents the
   // whole document scrolling when content overflows.
   return (
-    <div className="flex h-dvh max-w-full overflow-hidden bg-slate-50">
+    <div className="flex h-dvh max-w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Topbar pageTitle={pageTitle} />
