@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Bell, LogOut, Search } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { getCurrentContext } from "@/lib/auth/session";
 import { signOutAction } from "@/app/(auth)/actions";
+import { GlobalSearch } from "@/components/search/global-search";
 
 export async function Topbar({ pageTitle }: { pageTitle?: string }) {
   const { user, profile, organization, branch } = await getCurrentContext();
@@ -18,14 +19,7 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
           <h1 className="truncate text-xl font-black text-slate-950 sm:text-2xl">{title}</h1>
         </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[680px]">
-          <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 sm:w-56 lg:w-72">
-            <Search className="size-4" />
-            <span className="sr-only">Search</span>
-            <input
-              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400"
-              placeholder="Search…"
-            />
-          </label>
+          <GlobalSearch />
           <button className="flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 px-4 text-slate-600">
             <Bell className="size-4" />
           </button>
