@@ -7,6 +7,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canCloseDay, canReopenDay } from "@/lib/permissions";
 import { closeDaySchema, reopenDaySchema } from "@/lib/validation/daily-closing";
 import { getDayActivity } from "@/lib/data/daily-closing";
+import { logAudit } from "@/lib/audit";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -72,6 +73,13 @@ export async function closeDayAction(
     );
   if (upsertErr) return err(upsertErr.message);
 
+  logAudit({
+    module: "daily_closing",
+    action: "daily_closing.closed",
+    details: `Day closed: ${parsed.data.closing_date}`,
+    metadata: { closing_date: parsed.data.closing_date, counted_cash: parsed.data.counted_cash, expected_cash: expected, difference },
+  });
+
   revalidatePath("/daily-closing");
   revalidatePath("/dashboard");
   return ok("Day closed.");
@@ -100,6 +108,13 @@ export async function reopenDayAction(
     .eq("branch_id", ctx.profile.branch_id)
     .eq("closing_date", parsed.data.closing_date);
   if (updErr) return err(updErr.message);
+
+  logAudit({
+    module: "daily_closing",
+    action: "daily_closing.reopened",
+    details: `Day reopened: ${parsed.data.closing_date}`,
+    metadata: { closing_date: parsed.data.closing_date },
+  });
 
   revalidatePath("/daily-closing");
   revalidatePath("/dashboard");

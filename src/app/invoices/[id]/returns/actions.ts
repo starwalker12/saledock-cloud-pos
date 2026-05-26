@@ -7,6 +7,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canProcessReturns } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createReturnSchema, type RefundMethod } from "@/lib/validation/returns";
+import { logAudit } from "@/lib/audit";
 
 export type ReturnActionState = { error: string | null; success: string | null };
 
@@ -70,6 +71,18 @@ export async function createInvoiceReturnAction(
   revalidatePath("/products");
   revalidatePath("/customers");
   revalidatePath("/dashboard");
+
+  logAudit({
+    module: "returns",
+    action: "returns.created",
+    details: `Return processed for Invoice ${parsed.data.invoice_id}. Refund Amount: Rs. ${parsed.data.refund_amount} (${parsed.data.refund_method ?? "Cash"})`,
+    metadata: {
+      invoice_id: parsed.data.invoice_id,
+      refund_amount: parsed.data.refund_amount,
+      refund_method: parsed.data.refund_method,
+      return_no: row?.return_no ?? null,
+    },
+  });
 
   return ok(row?.return_no ? `Return ${row.return_no} processed.` : "Return processed.");
 }

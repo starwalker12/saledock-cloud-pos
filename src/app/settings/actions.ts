@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
 import { settingsSchema } from "@/lib/validation/settings";
+import { logAudit } from "@/lib/audit";
 
 export type SettingsActionState = {
   error: string | null;
@@ -135,6 +136,13 @@ export async function updateSettingsAction(
   revalidatePath("/invoices");
   revalidatePath("/repairs");
   revalidatePath("/reports");
+
+  logAudit({
+    module: "settings",
+    action: "settings.updated",
+    details: `Shop settings updated: ${values.shopName}`,
+    metadata: { shop_name: values.shopName, currency: values.currencyCode, timezone: values.timezone },
+  });
 
   return { error: null, success: "Shop settings saved." };
 }

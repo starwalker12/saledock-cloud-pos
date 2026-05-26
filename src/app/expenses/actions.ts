@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageExpenses } from "@/lib/permissions";
 import { expenseSchema } from "@/lib/validation/expenses";
+import { logAudit } from "@/lib/audit";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -66,6 +67,13 @@ export async function saveExpenseAction(
     if (error) return err(error.message);
   }
 
+  logAudit({
+    module: "expenses",
+    action: id ? "expenses.updated" : "expenses.created",
+    details: `${id ? "Updated" : "Recorded"} expense: ${parsed.data.category} - ${parsed.data.amount}`,
+    metadata: { category: parsed.data.category, amount: parsed.data.amount, payment_method: parsed.data.payment_method },
+  });
+
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
   return ok(id ? "Expense updated." : "Expense recorded.");
@@ -88,6 +96,12 @@ export async function voidExpenseAction(formData: FormData) {
     .eq("organization_id", w.ctx.profile!.organization_id!);
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  logAudit({
+    module: "expenses",
+    action: "expenses.voided",
+    details: `Voided expense ${id}`,
+    metadata: { expense_id: id },
+  });
 }
 
 export async function restoreExpenseAction(formData: FormData) {

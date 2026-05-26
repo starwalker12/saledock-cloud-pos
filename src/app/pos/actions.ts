@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canUsePos, canWriteCatalog } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 import {
   checkoutSchema,
   quickCustomerSchema,
@@ -63,6 +64,13 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
   revalidatePath("/invoices");
   revalidatePath("/dashboard");
   revalidatePath("/products");
+
+  logAudit({
+    module: "pos",
+    action: "pos.checkout_completed",
+    details: `Checkout completed: Invoice ${row.invoice_no}`,
+    metadata: { invoice_id: row.invoice_id, invoice_no: row.invoice_no, payment_method: parsed.data.payment_method, amount_paid: parsed.data.amount_paid },
+  });
 
   return { ok: true, error: null, invoice_id: row.invoice_id, invoice_no: row.invoice_no };
 }

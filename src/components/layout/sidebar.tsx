@@ -12,9 +12,10 @@ import {
   Wallet,
   Wrench,
   UserCog,
+  ScrollText,
 } from "lucide-react";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canManageUsers } from "@/lib/permissions";
+import { canManageUsers, canViewAuditLog } from "@/lib/permissions";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,9 +33,11 @@ const items = [
 
 export async function Sidebar() {
   const { profile } = await getCurrentContext();
-  const visibleItems = canManageUsers(profile?.role)
-    ? [...items, { href: "/users", label: "Users", icon: UserCog }]
-    : items;
+  const visibleItems = [
+    ...items,
+    ...(canViewAuditLog(profile?.role) ? [{ href: "/audit-log", label: "Audit Log", icon: ScrollText }] : []),
+    ...(canManageUsers(profile?.role) ? [{ href: "/users", label: "Users", icon: UserCog }] : []),
+  ];
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:block">

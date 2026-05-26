@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canWriteCatalog } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 import {
   categorySchema,
   productSchema,
@@ -187,6 +188,12 @@ export async function saveProductAction(
   }
   revalidatePath("/products");
   revalidatePath("/dashboard");
+  logAudit({
+    module: "products",
+    action: id ? "product.updated" : "product.created",
+    details: `${id ? "Updated" : "Created"} product: ${parsed.data.name}`,
+    metadata: { product_name: parsed.data.name, sku: parsed.data.sku ?? null, type: isService ? "service" : "product" },
+  });
   return ok(id ? "Product updated." : "Product created.");
 }
 
@@ -199,6 +206,12 @@ export async function archiveProductAction(formData: FormData) {
   await supabase.from("products").update({ is_active: false }).eq("id", id);
   revalidatePath("/products");
   revalidatePath("/dashboard");
+  logAudit({
+    module: "products",
+    action: "product.archived",
+    details: `Archived product ${id}`,
+    metadata: { product_id: id },
+  });
 }
 
 export async function unarchiveProductAction(formData: FormData) {

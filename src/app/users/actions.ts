@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 import {
   inviteUserSchema,
   profileIdSchema,
@@ -155,6 +156,13 @@ export async function inviteUserAction(
     : await admin.from("profiles").insert(payload);
   if (result.error) return { error: result.error.message, success: null };
 
+  logAudit({
+    module: "users",
+    action: "users.invited",
+    details: `Invited staff: ${values.fullName} (${values.email}) as ${values.role}`,
+    metadata: { email: values.email, role: values.role, full_name: values.fullName },
+  });
+
   revalidatePath("/users");
   return {
     error: null,
@@ -198,6 +206,12 @@ export async function updateUserProfileAction(formData: FormData): Promise<void>
     .eq("organization_id", organizationId)
     .eq("id", parsed.data.profileId);
   revalidatePath("/users");
+  logAudit({
+    module: "users",
+    action: "users.profile_updated",
+    details: `Updated staff profile: ${parsed.data.fullName} → role ${parsed.data.role}`,
+    metadata: { profile_id: parsed.data.profileId, full_name: parsed.data.fullName, role: parsed.data.role },
+  });
 }
 
 export async function deactivateUserAction(formData: FormData): Promise<void> {
@@ -226,6 +240,12 @@ export async function deactivateUserAction(formData: FormData): Promise<void> {
     .eq("organization_id", organizationId)
     .eq("id", parsed.data.profileId);
   revalidatePath("/users");
+  logAudit({
+    module: "users",
+    action: "users.deactivated",
+    details: `Deactivated staff: ${parsed.data.profileId}`,
+    metadata: { profile_id: parsed.data.profileId },
+  });
 }
 
 export async function reactivateUserAction(formData: FormData): Promise<void> {
@@ -245,6 +265,12 @@ export async function reactivateUserAction(formData: FormData): Promise<void> {
     .eq("organization_id", organizationId)
     .eq("id", parsed.data.profileId);
   revalidatePath("/users");
+  logAudit({
+    module: "users",
+    action: "users.reactivated",
+    details: `Reactivated staff: ${parsed.data.profileId}`,
+    metadata: { profile_id: parsed.data.profileId },
+  });
 }
 
 export async function resendInviteAction(formData: FormData): Promise<void> {

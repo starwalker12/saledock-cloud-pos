@@ -8,6 +8,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canWriteCatalog } from "@/lib/permissions";
 import { stockLotSchema, stockAdjustmentSchema } from "@/lib/validation/inventory";
 import { listStockLots, listStockMovements, getProductStockSummary } from "@/lib/data/inventory";
+import { logAudit } from "@/lib/audit";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -67,6 +68,19 @@ export async function addStockLotAction(
   revalidatePath("/products");
   revalidatePath("/dashboard");
   revalidatePath("/pos");
+
+  logAudit({
+    module: "inventory",
+    action: "inventory.restocked",
+    details: `Restocked product ${productId}: +${parsed.data.quantity_received} units (Lot: ${parsed.data.lot_number ?? "N/A"})`,
+    metadata: {
+      product_id: productId,
+      qty: parsed.data.quantity_received,
+      unit_cost: parsed.data.unit_cost,
+      lot_number: parsed.data.lot_number ?? null,
+    },
+  });
+
   return ok("Stock lot successfully restocked.");
 }
 
@@ -98,6 +112,19 @@ export async function recordStockAdjustmentAction(
   revalidatePath("/products");
   revalidatePath("/dashboard");
   revalidatePath("/pos");
+
+  logAudit({
+    module: "inventory",
+    action: `inventory.adjusted_${parsed.data.adjustment_type}`,
+    details: `Manually adjusted stock for product ${productId}: ${parsed.data.adjustment_type.toUpperCase()} by ${parsed.data.quantity} units`,
+    metadata: {
+      product_id: productId,
+      adjustment_type: parsed.data.adjustment_type,
+      qty: parsed.data.quantity,
+      notes: parsed.data.notes ?? "",
+    },
+  });
+
   return ok(`Stock adjustment '${parsed.data.adjustment_type.toUpperCase()}' completed successfully.`);
 }
 

@@ -10,6 +10,7 @@ import {
   canUpdateRepairStatus,
 } from "@/lib/permissions";
 import { repairSchema, type RepairStatus } from "@/lib/validation/repairs";
+import { logAudit } from "@/lib/audit";
 
 export type ActionState = { error: string | null; success: string | null; id?: string };
 const ok = (msg: string, id?: string): ActionState => ({ error: null, success: msg, id });
@@ -181,6 +182,13 @@ export async function saveRepairAction(
   }
   revalidatePath("/dashboard");
 
+  logAudit({
+    module: "repairs",
+    action: id ? "repairs.updated" : "repairs.created",
+    details: `${id ? "Updated" : "Created"} repair: ${parsed.data.customer_name} - ${parsed.data.device_type}`,
+    metadata: { repair_id: savedId, customer_name: parsed.data.customer_name, device_type: parsed.data.device_type },
+  });
+
   return ok(id ? "Repair job updated." : "Repair job created.", savedId || undefined);
 }
 
@@ -249,6 +257,13 @@ export async function updateRepairStatusAction(
   revalidatePath("/repairs");
   revalidatePath(`/repairs/${id}`);
   revalidatePath("/dashboard");
+
+  logAudit({
+    module: "repairs",
+    action: "repairs.status_changed",
+    details: `Repair ${id} status: ${oldStatus ?? "none"} → ${newStatus}`,
+    metadata: { repair_id: id, old_status: oldStatus, new_status: newStatus },
+  });
 
   return ok("Status updated successfully.");
 }
