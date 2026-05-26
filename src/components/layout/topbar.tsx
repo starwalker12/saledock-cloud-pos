@@ -5,17 +5,13 @@ import { signOutAction } from "@/app/(auth)/actions";
 import { GlobalSearch } from "@/components/search/global-search";
 
 export async function Topbar({ pageTitle }: { pageTitle?: string }) {
-  const { user, profile, organization, branch } = await getCurrentContext();
-  const title = pageTitle ?? (branch?.name ? `${branch.name} dashboard` : "Dashboard");
+  const { user, profile } = await getCurrentContext();
+  const title = pageTitle ?? "Dashboard";
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="flex min-h-20 min-w-0 flex-col gap-3 px-3 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <p className="truncate text-xs font-bold uppercase tracking-[0.16em] text-blue-700 sm:tracking-[0.24em]">
-            {organization?.name ?? "Gadget Zone Online POS"}
-            {branch?.name && pageTitle ? ` · ${branch.name}` : ""}
-          </p>
           <h1 className="truncate text-xl font-black text-slate-950 sm:text-2xl">{title}</h1>
         </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[680px]">

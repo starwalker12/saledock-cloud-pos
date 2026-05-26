@@ -51,7 +51,7 @@ async function stockValueStats(organizationId: string) {
 export default async function DashboardPage() {
   if (!env.isSupabaseConfigured) {
     return (
-      <AppShell>
+      <AppShell pageTitle="Dashboard">
         <PageCard
           title="Supabase not configured"
           description="Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY to .env.local, then restart the dev server."
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const { user, profile, organization, branch } = await getCurrentContext();
+  const { user, profile, organization } = await getCurrentContext();
   if (!user) redirect("/login");
   if (!profile?.organization_id) redirect("/setup");
 
@@ -90,16 +90,13 @@ export default async function DashboardPage() {
     profile?.role === "manager";
 
   return (
-    <AppShell>
+    <AppShell pageTitle="Dashboard">
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-700">
-          {organization?.name ?? "Organization"}
-        </p>
-        <h2 className="mt-1 text-xl font-black text-slate-950">
+        <h2 className="text-xl font-black text-slate-950">
           Welcome, {profile.full_name}
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Branch: <strong>{branch?.name ?? "—"}</strong> · Role: <strong>{profile.role}</strong>
+          Role: <strong>{profile.role}</strong>
         </p>
       </div>
 
