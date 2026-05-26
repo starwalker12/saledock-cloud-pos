@@ -31,6 +31,18 @@ This document explains the security vulnerabilities identified by the Supabase S
   grant execute on function public.current_user_role() to authenticated;
   ```
 
+### 3. Factory Reset RPC Shielding & Access Tightening
+- **Risk:** High-risk definitive functions executing deletes on core business tables could be targets for mutable path hijacks or unauthorized public sweeps.
+- **Hardening Applied:** Bound the Postgres RPC function `reset_organization_to_factory_defaults` with strict security constraints:
+  1. Revoked all execute rights from `PUBLIC`, `anon`, or unauthenticated roles.
+  2. Granted execute permissions exclusively to `authenticated` users.
+  3. Specifying a strict, immutable `search_path`:
+     ```sql
+     alter function public.reset_organization_to_factory_defaults(...) set search_path = public, pg_temp;
+     ```
+  4. Server-side password validation requires re-authenticating the caller's login password directly against the Supabase Auth module (`supabase.auth.signInWithPassword`).
+  5. The function enforces that the executing user's profile role is strictly `owner` or `admin`.
+
 ---
 
 ## Leaked Password Protection (Dashboard Action Required)
@@ -54,6 +66,7 @@ The advisor warned about "Leaked Password Protection" being disabled.
 - [x] **POS atomicity** — `pos_checkout` is a single transaction, security invoker, server-side total recompute, walk-in fully-paid rule, FIFO allocation, loss-prevention check.
 - [x] **Strict service required fields** (0013) — `pos_checkout` enforces `requires_provider`, `requires_account_number`, `requires_reference` per-product at the database layer.
 - [x] **Loss-prevention events table** (0013) — durable structured record populated by a trigger on `audit_logs`.
+- [x] **Factory Reset RPC Protection** (0015) — definitive transaction `reset_organization_to_factory_defaults` enforces strict `search_path`, limits execute to authenticated, validates owner/admin role, and requires password re-authentication via Supabase Auth server-side.
 
 ### Manual dashboard actions (owner-only)
 - [ ] **Leaked password protection** — see steps above.

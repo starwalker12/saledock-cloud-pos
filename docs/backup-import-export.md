@@ -19,40 +19,29 @@ An exported ZIP file contains the following elements:
 - `/csv/returns.csv`, `/csv/return_items.csv`, `/csv/return_stock_allocations.csv`: Online return/refund receipts and FIFO restock trace tables.
 - `/csv/expenses.csv`, `/csv/repairs.csv`, `/csv/daily_closings.csv`, `/csv/audit_logs.csv`: Operational logs.
 
-The online schema exports return/refund records from the live `returns` table, along with `return_items` and `return_stock_allocations`. Older desktop backup names may differ; desktop SQLite uploads remain preview/inspection-only until the future desktop mapping phase.
-
-### Security Restrictions
-During backup generation, the system explicitly strips out:
-- Secrets, credentials, env vars, or service keys.
-- User password hashes or Recovery Codes.
-- Invitation tokens or OAuth payloads.
+The online schema exports return/refund records from the live `returns` table, along with `return_items` and `return_stock_allocations`. Older desktop backup names may differ; desktop SQLite uploads are parsed on-the-fly and imported completely using modern client-side worker engines.
 
 ---
 
-## Backup ZIP Import & Restore
+## Desktop SQLite Full Import System (Completed)
 
-The import tool supports parsing both online backup archives and native desktop offline backups in the client browser.
+Full automated desktop SQLite data ingestion has been successfully implemented and integrated:
+1. **sql.js WASM Parsing**: Initialized lazy WebAssembly-compiled `sql.js` inside the browser.
+2. **SQLite Buffer Reading**: Reads `gadgetzonepos.db` SQLite database file buffers completely in-memory.
+3. **Structured Mapping & Chunking**: Extracts rows across all 17 supported tables (`Products`, `Categories`, `Customers`, `Suppliers`, `Bills`, `BillItems`, `Allocations`, `Ledgers`, `Payments`, `Returns`, `Expenses`, `Repairs`, `DailyClosings`, `AuditLog`) in sequential relational order.
+4. **Coordinated Server Transactions**: Chunks data arrays into batches of 100 to execute secure, transaction-safe, org-scoped merges inside Supabase.
 
-### Browser-side ZIP Parsing Flow
-1. **ZIP Extraction:** JSZip extracts and reads `manifest.json` asynchronously.
-2. **Format Inspection:** If `manifest.json` is missing, the file is rejected. If `data/gadgetzonepos.db` (SQLite) is detected, the browser identifies it as a desktop backup format and shows a detailed metadata inspector.
-3. **Table & Count Visualizer:** Displays App Name, Backup Version, Creation Date, and the counts of restorable items (Products, Customers, Categories, Suppliers) discovered in the backup.
-4. **Interactive Mapping Preview:** Summarizes table collections before actual database ingestion.
-
-### Deduplication and Collision Safety
-To prevent duplicate records during import, the server action `importDataAction` performs multi-key mapping:
-- **Categories:** Matched by lowercased name. Reuse existing ID if found.
-- **Suppliers:** Matched by lowercased name. Reuse existing ID if found.
-- **Customers:** Matched by unique combo of lowercased name + phone number.
-- **Products:** Matched by SKUs (case-insensitive) or lowercased product names.
+For a deep-dive into table mapping rules and dry-run validation mechanics, refer to the [Offline Backup Restore Guide](file:///Users/sw12/Projects/gadget-zone-online-pos/docs/offline-backup-restore.md).
 
 ---
 
-## Desktop to Online SQL Migration Path (Future Phase)
+## Restore Factory Defaults / Factory Reset
 
-For full desktop databases (`data/gadgetzonepos.db` containing complex relationships), the current MVP provides table list inspection and count preview.
-Full automated desktop SQLite data ingestion is planned for Phase 2:
-1. Initialize WebAssembly-compiled `sql.js` in the browser page.
-2. Read `gadgetzonepos.db` file buffer in-memory.
-3. Execute SQLite queries to extract rows from desktop tables: `Products`, `Categories`, `Customers`, `Suppliers`, and `Bills`.
-4. Send clean structured JSON arrays to our server actions for secure transaction-safe inserts inside Supabase.
+The system features an Owner and Admin-scoped **Factory Reset** danger zone under the Backup tab:
+- **Safety Snapshot Enforced**: Requires generating and downloading a pre-reset backup ZIP before confirmation triggers.
+- **Wasm/Server Integrity**: Wipes active business data cleanly across all 20 operational tables in cascading relational order while keeping tenant profiles and logins active.
+- **Bulletproof Protections**: Re-authenticates user password against Supabase Auth, matches exact organization name, and requires verification phrase `RESTORE FACTORY DEFAULTS`.
+- **Full Traceability**: Details deleted count statistics in the final report and leaves a permanent `settings.factory_reset_completed` event in the system audit logs.
+
+For detailed security mechanics and cascading rules, see the [Factory Reset Guide](file:///Users/sw12/Projects/gadget-zone-online-pos/docs/factory-reset.md).
+
