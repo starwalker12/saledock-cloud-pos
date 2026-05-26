@@ -25,6 +25,7 @@ import {
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { CloseDayForm, ReopenDayForm } from "./closing-form";
+import { ClosingPrintButtons } from "./print-button";
 
 type SearchParams = { date?: string };
 
@@ -147,12 +148,16 @@ export default async function DailyClosingPage({
             </Link>
           )}
         </div>
-        <div className="min-w-0 text-left text-xs text-slate-500 sm:text-right">
-          <p>{branch?.name ? `Branch: ${branch.name}` : ""}</p>
-          <p>{fmtDay(date)}</p>
+        <div className="flex min-w-0 flex-col gap-2 text-left text-xs text-slate-500 sm:items-end sm:text-right">
+          <div>
+            <p>{branch?.name ? `Branch: ${branch.name}` : ""}</p>
+            <p>{fmtDay(date)}</p>
+          </div>
+          <ClosingPrintButtons />
         </div>
       </form>
 
+      <div className="a4-print">
       {/* Status banner */}
       <div className={`mb-5 rounded-2xl border p-4 ${isClosed ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -365,6 +370,74 @@ export default async function DailyClosingPage({
           </div>
         )}
       </section>
+      </div>
+
+      {/* 80mm thermal closing receipt — hidden on screen, shown only when
+          body[data-print-mode="thermal"] is set by ClosingPrintButtons. */}
+      <article className="thermal-print hidden bg-white text-black">
+        <header className="text-center">
+          <p className="text-[11px] font-bold uppercase">
+            {organization?.name ?? "Gadget Zone"}
+          </p>
+          {branch?.name && <p className="text-[10px]">{branch.name}</p>}
+          <p className="mt-1 text-[10px] font-bold uppercase">Daily Closing</p>
+        </header>
+        <div className="my-2 border-y border-dashed border-black py-1 text-[10px]">
+          <div className="flex justify-between gap-2"><span>Date</span><span className="text-right">{fmtDay(date)}</span></div>
+          <div className="flex justify-between gap-2"><span>Status</span><strong>{isClosed ? "Closed" : "Open"}</strong></div>
+          {isClosed && closing?.finalized_at && (
+            <>
+              <div className="flex justify-between gap-2"><span>Closed by</span><span className="text-right">{closing.finalized_by_name ?? "—"}</span></div>
+              <div className="flex justify-between gap-2"><span>Closed at</span><span className="text-right">{fmtDate(closing.finalized_at)}</span></div>
+            </>
+          )}
+        </div>
+        <table className="w-full text-[10px]">
+          <tbody>
+            <tr><td>Invoices</td><td className="text-right">{formatNumber(displayed.bills)}</td></tr>
+            <tr><td>Gross sales</td><td className="text-right">{formatCurrency(displayed.gross, currency)}</td></tr>
+            <tr><td>Refunds</td><td className="text-right">{formatCurrency(displayed.refunds, currency)}</td></tr>
+            <tr><td>Expenses</td><td className="text-right">{formatCurrency(displayed.expenses, currency)}</td></tr>
+            <tr><td>Credit pending</td><td className="text-right">{formatCurrency(displayed.credit, currency)}</td></tr>
+          </tbody>
+        </table>
+        <div className="my-2 border-t border-dashed border-black pt-1 text-[10px] font-bold">
+          <p className="uppercase">Payment methods</p>
+        </div>
+        <table className="w-full text-[10px]">
+          <tbody>
+            {PAYMENT_METHOD_ORDER.map((m: PaymentMethodKey) => {
+              const recv = activity.paymentsByMethod[m];
+              const ref = activity.refundsByMethod[m];
+              if (recv === 0 && ref === 0) return null;
+              return (
+                <tr key={m}>
+                  <td>{PAYMENT_METHOD_LABELS[m]}</td>
+                  <td className="text-right">
+                    {formatCurrency(recv - ref, currency)}
+                    {ref > 0 && <span className="ml-1 text-[8px]">(net)</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div className="my-2 border-y border-dashed border-black py-1 text-[10px]">
+          <div className="flex justify-between gap-2"><span>Expected cash</span><strong>{formatCurrency(displayed.expected, currency)}</strong></div>
+          {isClosed && (
+            <>
+              <div className="flex justify-between gap-2"><span>Counted cash</span><strong>{formatCurrency(closing?.actual_closing_cash ?? 0, currency)}</strong></div>
+              <div className="flex justify-between gap-2"><span>Difference</span><strong>{formatCurrency(closing?.cash_difference ?? 0, currency)}</strong></div>
+            </>
+          )}
+        </div>
+        {closing?.notes && (
+          <p className="mt-2 text-[9px] italic">{closing.notes}</p>
+        )}
+        <footer className="mt-3 border-t border-dashed border-black pt-2 text-center text-[9px]">
+          Thank you. Closing summary.
+        </footer>
+      </article>
     </AppShell>
   );
 }

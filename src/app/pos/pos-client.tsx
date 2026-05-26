@@ -210,6 +210,24 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       setError("Add at least one item to the cart.");
       return;
     }
+    // Pre-validate service required fields client-side (the RPC re-enforces).
+    for (const line of cart) {
+      if (line.product.type !== "service" || !line.service) continue;
+      const s = line.service;
+      const p = line.product;
+      if (p.requires_provider && !s.provider.trim()) {
+        setError(`Service provider is required for ${p.name}.`);
+        return;
+      }
+      if (p.requires_account_number && !s.account_number.trim() && !s.receiver_account.trim()) {
+        setError(`Sender or receiver account is required for ${p.name}.`);
+        return;
+      }
+      if (p.requires_reference && !s.reference_no.trim()) {
+        setError(`Reference number is required for ${p.name}.`);
+        return;
+      }
+    }
     setError(null);
     setSuccess(null);
     const input: CheckoutInput = {

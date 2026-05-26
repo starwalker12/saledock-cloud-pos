@@ -41,3 +41,26 @@ The advisor warned about "Leaked Password Protection" being disabled.
   1. Log into your **Supabase Dashboard**.
   2. Navigate to **Authentication** > **Providers** > **Email**.
   3. Turn on the toggle for **Leaked Password Protection** (which utilizes HaveIBeenPwned API checking during user sign-ups or credentials changes).
+
+---
+
+## Running Hardening Checklist
+
+### Done in code
+- [x] **RLS enabled** on every business table (migrations 0001, 0006, 0013).
+- [x] **`search_path` hardened** on `set_updated_at`, `current_organization_id`, `current_user_role` (0010).
+- [x] **RPC EXECUTE grants tightened** (0012) — `pos_checkout`, `record_credit_payment`, `add_stock_lot`, `adjust_stock`, `create_invoice_return` no longer expose EXECUTE to `PUBLIC` or `anon`.
+- [x] **Service role** is `import "server-only"` and never reaches the browser bundle.
+- [x] **POS atomicity** — `pos_checkout` is a single transaction, security invoker, server-side total recompute, walk-in fully-paid rule, FIFO allocation, loss-prevention check.
+- [x] **Strict service required fields** (0013) — `pos_checkout` enforces `requires_provider`, `requires_account_number`, `requires_reference` per-product at the database layer.
+- [x] **Loss-prevention events table** (0013) — durable structured record populated by a trigger on `audit_logs`.
+
+### Manual dashboard actions (owner-only)
+- [ ] **Leaked password protection** — see steps above.
+- [ ] **(Optional) Disable open email sign-ups** in Supabase Auth — belt-and-braces alongside the app's `signUpAction` lock.
+- [ ] **(Optional) Configure email templates** — required for staff invites from `/users` to land in inboxes.
+
+### Future code hardening (not blockers)
+- Audit-log entries for invite sent, role changed, user deactivated, login failure spike.
+- Per-org rate limiting on `pos_checkout` and `record_credit_payment`.
+- Field-level RLS for service `account_number` / `receiver_account` (currently visible to all org members; consider redacting for `cashier` role on closed days).

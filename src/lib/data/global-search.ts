@@ -132,6 +132,43 @@ const PAGES_DEFINITION = [
     check: (r: Role | null | undefined) => canViewAuditLog(r),
     keywords: ["audit log", "activity", "history", "logs", "security", "actor"],
   },
+  // Settings sub-tabs — improve discoverability of the in-Settings panes.
+  {
+    title: "Backup & Restore",
+    href: "/settings?tab=backup",
+    icon: "Settings",
+    check: (r: Role | null | undefined) => canManageSettings(r),
+    keywords: ["backup", "restore", "export", "import", "zip", "snapshot"],
+  },
+  {
+    title: "Demo Data Loader",
+    href: "/settings?tab=demo",
+    icon: "Settings",
+    check: (r: Role | null | undefined) => canManageSettings(r),
+    keywords: ["demo", "sample", "seed", "test data", "remove demo"],
+  },
+  {
+    title: "Security Checklist",
+    href: "/settings?tab=security",
+    icon: "Settings",
+    check: (r: Role | null | undefined) => canManageSettings(r),
+    keywords: ["security", "checklist", "leaked password", "rls", "function search path", "hardening"],
+  },
+  // Reports sub-sections — anchor scroll targets inside /reports.
+  {
+    title: "Service Transactions Report",
+    href: "/reports#service-transactions",
+    icon: "BarChart3",
+    check: (r: Role | null | undefined) => canViewReports(r),
+    keywords: ["service", "commission", "principal", "mobile load", "easypaisa", "jazzcash", "bill payment"],
+  },
+  {
+    title: "Loss Prevention Report",
+    href: "/reports#loss-prevention",
+    icon: "BarChart3",
+    check: (r: Role | null | undefined) => canViewReports(r),
+    keywords: ["loss prevention", "below cost", "override", "loss sale", "loss amount"],
+  },
 ];
 
 export async function searchGlobal(

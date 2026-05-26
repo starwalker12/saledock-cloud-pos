@@ -107,7 +107,20 @@ export type ReportsData = {
   inventory: InventorySummaryReport;
   topItems: TopProductsReport;
   services: ServiceTransactionsReport;
+  lossPrevention: LossPreventionReport;
   closing: DailyClosingSummaryReport;
+};
+
+export type LossPreventionReport = {
+  belowCostSaleCount: number;
+  totalLossAmount: number;
+  recent: {
+    created_at: string;
+    product_name: string;
+    invoice_no: string;
+    loss_amount: number;
+    reason: string;
+  }[];
 };
 
 function dayBounds(startDate: string, endDate: string): { start: string; end: string } {
@@ -539,6 +552,40 @@ export async function getReportsData(
     .map(([direction, v]) => ({ direction, ...v }))
     .sort((a, b) => b.commission - a.commission);
 
+  // 7c. Loss prevention — below-cost sale completions from audit_logs.
+  const { data: lossRows } = await supabase
+    .from("audit_logs")
+    .select("created_at, details, metadata")
+    .eq("organization_id", orgId)
+    .eq("module", "pos")
+    .eq("action", "pos.loss_sale_completed")
+    .gte("created_at", start)
+    .lte("created_at", end)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  type LossRow = { created_at: string; details?: string | null; metadata?: Record<string, unknown> | null };
+  const lossEvents = (lossRows ?? []) as LossRow[];
+  const totalLossAmount = lossEvents.reduce(
+    (s, r) => s + Number((r.metadata as { loss_amount?: number })?.loss_amount ?? 0),
+    0,
+  );
+  const recent = lossEvents.slice(0, 20).map((r) => {
+    const md = (r.metadata as { product_name?: string; invoice_no?: string; loss_amount?: number; override_reason?: string }) ?? {};
+    return {
+      created_at: r.created_at,
+      product_name: md.product_name ?? "—",
+      invoice_no: md.invoice_no ?? "—",
+      loss_amount: Number(md.loss_amount ?? 0),
+      reason: md.override_reason ?? "",
+    };
+  });
+  const lossPrevention = {
+    belowCostSaleCount: lossEvents.length,
+    totalLossAmount,
+    recent,
+  };
+
   // 8. Daily Closing calculations
   const closedDaysCount = dailyClosings.filter((c) => c.finalized_by !== null).length;
   const totalCashDifference = dailyClosings.reduce((sum, c) => sum + Number(c.cash_difference ?? 0), 0);
@@ -629,6 +676,7 @@ export async function getReportsData(
       byProvider,
       byDirection,
     },
+    lossPrevention,
     closing: {
       closedDaysCount,
       openDaysCount,
