@@ -299,7 +299,9 @@ export default async function InvoiceDetailPage({
                 <div key={ret.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="font-black text-slate-950">{ret.return_no}</p>
+                      <Link href={`/returns/${ret.id}`} className="font-black text-blue-700 hover:underline">
+                        {ret.return_no}
+                      </Link>
                       <p className="text-xs text-slate-500">
                         {fmtDate(ret.created_at)}
                         {ret.created_by_name ? ` · ${ret.created_by_name}` : ""}

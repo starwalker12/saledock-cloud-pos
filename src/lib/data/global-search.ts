@@ -348,7 +348,7 @@ export async function searchGlobal(
           type: "return",
           title: `Return ${r.return_no}`,
           subtitle: `Ref: Invoice ${invNo ?? "N/A"} · Refund: Rs. ${Number(r.refund_amount).toLocaleString()}`,
-          href: `/returns`,
+          href: `/returns/${r.id}`,
           badge: r.status.toUpperCase(),
           badgeClass:
             r.status === "completed" || r.status === "approved"

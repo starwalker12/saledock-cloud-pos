@@ -78,7 +78,9 @@ export default async function ReturnsPage() {
                 {returns.map((ret) => (
                   <tr key={ret.id} className="border-t border-slate-100">
                     <td className="px-4 py-3">
-                      <div className="font-black text-slate-950">{ret.return_no}</div>
+                      <Link href={`/returns/${ret.id}`} className="font-black text-blue-700 hover:underline">
+                        {ret.return_no}
+                      </Link>
                       <div className="text-xs text-slate-500">{fmtDate(ret.created_at)}</div>
                     </td>
                     <td className="px-4 py-3">
@@ -107,7 +109,9 @@ export default async function ReturnsPage() {
               <article key={ret.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-slate-950">{ret.return_no}</p>
+                    <Link href={`/returns/${ret.id}`} className="font-black text-blue-700 hover:underline">
+                      {ret.return_no}
+                    </Link>
                     <p className="text-xs text-slate-500">{fmtDate(ret.created_at)}</p>
                   </div>
                   <p className="text-right text-sm font-black text-slate-900">
