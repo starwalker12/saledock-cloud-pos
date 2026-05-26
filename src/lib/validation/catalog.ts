@@ -57,7 +57,30 @@ export const productSchema = z.object({
   stock_quantity: nonNegativeInt.default(0),
   minimum_stock: nonNegativeInt.default(0),
   is_service: boolish.default(false),
+  allow_sell_at_loss: boolish.default(false),
+  sell_at_loss_reason: optionalString,
   notes: optionalString,
   is_active: boolish.default(true),
+}).superRefine((data, ctx) => {
+  if (!data.is_service) {
+    if (!data.allow_sell_at_loss) {
+      if (data.purchase_price >= data.sale_price) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["sale_price"],
+          message: "Physical product sale price must be strictly higher than cost price.",
+        });
+      }
+    } else {
+      if (!data.sell_at_loss_reason || data.sell_at_loss_reason.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["sell_at_loss_reason"],
+          message: "A loss sale override reason is required.",
+        });
+      }
+    }
+  }
 });
 export type ProductInput = z.infer<typeof productSchema>;
+

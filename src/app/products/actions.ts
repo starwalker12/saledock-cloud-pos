@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canWriteCatalog } from "@/lib/permissions";
+import { canWriteCatalog, canManageLossOverride } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import {
   categorySchema,
@@ -160,6 +160,13 @@ export async function saveProductAction(
   const id = (formData.get("id") as string | null) || null;
   const supabase = await createClient();
   const isService = parsed.data.is_service;
+
+  // Enforce role permission gating for below-cost overrides
+  const attemptOverride = parsed.data.allow_sell_at_loss;
+  if (attemptOverride && !canManageLossOverride(w.ctx.profile?.role)) {
+    return err("Only owner or admin can authorize selling below cost.");
+  }
+
   const payload = {
     organization_id: w.ctx.profile!.organization_id!,
     branch_id: w.ctx.profile!.branch_id ?? null,
@@ -169,23 +176,71 @@ export async function saveProductAction(
     category_id: parsed.data.category_id ?? null,
     supplier_id: parsed.data.supplier_id ?? null,
     type: isService ? ("service" as const) : ("product" as const),
-    // Services must keep purchase_price = 0 so reports compute profit as
-    // (line_total - 0) = commission only. See docs/pos.md "Service profit rule".
     purchase_price: isService ? 0 : parsed.data.purchase_price,
     sale_price: parsed.data.sale_price,
     stock_quantity: isService ? 0 : parsed.data.stock_quantity,
     minimum_stock: isService ? 0 : parsed.data.minimum_stock,
+    allow_sell_at_loss: isService ? false : parsed.data.allow_sell_at_loss,
+    sell_at_loss_reason: isService ? "" : (parsed.data.sell_at_loss_reason ?? ""),
+    sell_at_loss_updated_at: isService ? null : (parsed.data.allow_sell_at_loss ? new Date().toISOString() : null),
+    sell_at_loss_updated_by: isService ? null : (parsed.data.allow_sell_at_loss ? w.ctx.profile!.id : null),
     notes: parsed.data.notes ?? null,
     is_active: parsed.data.is_active,
   };
 
   if (id) {
+    // Query old state for comparative override audit logs
+    const { data: oldProduct } = await supabase
+      .from("products")
+      .select("allow_sell_at_loss, sell_at_loss_reason, name")
+      .eq("id", id)
+      .single();
+
     const { error } = await supabase.from("products").update(payload).eq("id", id);
     if (error) return err(error.message);
+
+    if (oldProduct && !isService) {
+      if (!oldProduct.allow_sell_at_loss && parsed.data.allow_sell_at_loss) {
+        logAudit({
+          module: "products",
+          action: "product.loss_override_enabled",
+          details: `Loss sale override enabled for product ${parsed.data.name} (Reason: "${parsed.data.sell_at_loss_reason}")`,
+          metadata: { product_id: id, product_name: parsed.data.name, reason: parsed.data.sell_at_loss_reason },
+        });
+      } else if (oldProduct.allow_sell_at_loss && !parsed.data.allow_sell_at_loss) {
+        logAudit({
+          module: "products",
+          action: "product.loss_override_disabled",
+          details: `Loss sale override disabled for product ${parsed.data.name}`,
+          metadata: { product_id: id, product_name: parsed.data.name },
+        });
+      } else if (
+        oldProduct.allow_sell_at_loss &&
+        parsed.data.allow_sell_at_loss &&
+        oldProduct.sell_at_loss_reason !== parsed.data.sell_at_loss_reason
+      ) {
+        logAudit({
+          module: "products",
+          action: "product.loss_override_reason_changed",
+          details: `Loss sale override reason changed for product ${parsed.data.name} (Old: "${oldProduct.sell_at_loss_reason}", New: "${parsed.data.sell_at_loss_reason}")`,
+          metadata: { product_id: id, product_name: parsed.data.name, old_reason: oldProduct.sell_at_loss_reason, new_reason: parsed.data.sell_at_loss_reason },
+        });
+      }
+    }
   } else {
     const { error } = await supabase.from("products").insert(payload);
     if (error) return err(error.message);
+
+    if (parsed.data.allow_sell_at_loss && !isService) {
+      logAudit({
+        module: "products",
+        action: "product.loss_override_enabled",
+        details: `Created product ${parsed.data.name} with loss sale override enabled (Reason: "${parsed.data.sell_at_loss_reason}")`,
+        metadata: { product_name: parsed.data.name, reason: parsed.data.sell_at_loss_reason },
+      });
+    }
   }
+
   revalidatePath("/products");
   revalidatePath("/dashboard");
   logAudit({
@@ -196,6 +251,7 @@ export async function saveProductAction(
   });
   return ok(id ? "Product updated." : "Product created.");
 }
+
 
 export async function archiveProductAction(formData: FormData) {
   const w = await requireWriter();
