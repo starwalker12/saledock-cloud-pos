@@ -17,17 +17,30 @@ The Global Search module serves as a command palette for rapid navigation and in
 
 The search aggregator queries the following tables in parallel, using proportional limits of **max 5 results per category** to maintain readability:
 
-| Index | Searched Fields | Privilege Required | Group Label | Icon |
-|---|---|---|---|---|
-| **Pages / Actions** | Title, Href, Navigation routes | None | *Pages & Navigation* | Matches route icon |
-| **Products & Services** | Item Name, SKU, Barcode | None | *Products & Services* | `Package` / `Sparkles` |
-| **Customers** | Full Name, Phone Number, Email | None | *Customers Database* | `User` |
-| **Sales Invoices** | Invoice Number | None | *Sales Invoices* | `FileText` |
-| **Repairs** | Job Number, Device Type/Model, Name/Phone, IMEI | None | *Repairs Workflow* | `Wrench` |
-| **Returns & Refunds** | Return Number, Linked Invoice | None | *Returns & Refunds* | `RotateCcw` |
-| **Shop Expenses** | Category, Vendor, Notes, Method | None | *Shop Expenses* | `Receipt` |
-| **Staff Users** | Full Name, Role | `canManageUsers` | *Staff Directory* | `UserCog` |
-| **System Audit Logs** | Module, Action, Details | `canViewAuditLog` | *System Audit Logs* | `ScrollText` |
+| Index | Searched Fields | Privilege Required | Group Label | Icon | Href / Target |
+|---|---|---|---|---|---|
+| **Pages / Actions** | Title, Href, Navigation routes, Synonyms | None | *Pages & Navigation* | Matches route icon | Standard Routes |
+| **Products & Services** | Item Name, SKU, Barcode | None | *Products & Services* | `Package` / `Sparkles` | `/products?id={id}` |
+| **Customers** | Full Name, Phone Number, Email | None | *Customers Database* | `User` | `/customers/{id}` |
+| **Sales Invoices** | Invoice Number | None | *Sales Invoices* | `FileText` | `/invoices/{id}` |
+| **Repairs** | Job Number, Device Type/Model, Name/Phone, IMEI | None | *Repairs Workflow* | `Wrench` | `/repairs/{id}` |
+| **Returns & Refunds** | Return Number, Linked Invoice | None | *Returns & Refunds* | `RotateCcw` | `/returns` |
+| **Shop Expenses** | Category, Vendor, Notes, Method | None | *Shop Expenses* | `Receipt` | `/expenses` |
+| **Suppliers** | Name, Company, Phone, Email | None | *Suppliers Directory* | `Users` | `/products?tab=suppliers` |
+| **Staff Users** | Full Name, Role | `canManageUsers` | *Staff Directory* | `UserCog` | `/users` |
+| **System Audit Logs** | Module, Action, Details | `canViewAuditLog` | *System Audit Logs* | `ScrollText` | `/audit-log` |
+
+### Settings & Actions Synonyms
+Common setting actions and keywords resolve instantly to the relevant app pages under *Pages & Navigation*:
+*   Searching `settings`, `shop settings`, `branding`, `invoice settings`, `logo`, `WhatsApp`, `currency`, `timezone`, or `footer` points directly to the **Shop Settings & Profile** page (owner/admin only).
+*   Searching `users`, `staff`, `permissions`, `roles`, `invites`, or `password` points directly to **Staff & User Management** (owner/admin only).
+*   Searching `audit log`, `activity`, `history`, `logs`, `security`, or `actor` points directly to **System Audit Logs** (owner/admin only).
+*   Searching `reconciliation`, `cash register`, `day end`, `closing`, or `reopen` points directly to **Daily Closing Records**.
+*   Searching `analytics`, `profit`, `loss`, `revenue`, or `reports` points directly to **Reports & Profit Analytics**.
+
+### Backups/Export Search Status
+*   **Status:** *Backups/export search planned after backup/export module.*
+*   Since there is no dedicated online backups/export page route implemented yet (as Supabase manages automated backups), local desktop backup search actions are currently deferred and will be added under synonyms once the corresponding per-org online backup exports dashboard is introduced.
 
 ---
 

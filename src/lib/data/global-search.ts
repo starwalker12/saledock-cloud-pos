@@ -14,6 +14,7 @@ export type SearchResult = {
     | "page"
     | "product"
     | "customer"
+    | "supplier"
     | "invoice"
     | "repair"
     | "return"
@@ -30,38 +31,106 @@ export type SearchResult = {
 };
 
 const PAGES_DEFINITION = [
-  { title: "Dashboard", href: "/dashboard", icon: "LayoutDashboard", check: null },
-  { title: "POS Checkout (New Sale)", href: "/pos", icon: "ShoppingCart", check: null },
-  { title: "Products & Services", href: "/products", icon: "Package", check: null },
-  { title: "Customers Database", href: "/customers", icon: "Users", check: null },
-  { title: "Sales Invoices", href: "/invoices", icon: "FileText", check: null },
-  { title: "Returns & Refunds", href: "/returns", icon: "RotateCcw", check: null },
-  { title: "Expenses Tracker", href: "/expenses", icon: "Receipt", check: null },
-  { title: "Daily Closing Records", href: "/daily-closing", icon: "Lock", check: null },
-  { title: "Repairs Workflow", href: "/repairs", icon: "Wrench", check: null },
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: "LayoutDashboard",
+    check: null,
+    keywords: ["home", "main", "overview", "analytics"],
+  },
+  {
+    title: "POS Checkout (New Sale)",
+    href: "/pos",
+    icon: "ShoppingCart",
+    check: null,
+    keywords: ["billing", "new bill", "checkout", "sell", "cart", "sale", "pos"],
+  },
+  {
+    title: "Products & Services",
+    href: "/products",
+    icon: "Package",
+    check: null,
+    keywords: ["catalog", "items", "inventory", "stock", "price", "products", "services"],
+  },
+  {
+    title: "Customers Database",
+    href: "/customers",
+    icon: "Users",
+    check: null,
+    keywords: ["ledger", "clients", "contact", "address", "phone", "customers"],
+  },
+  {
+    title: "Sales Invoices",
+    href: "/invoices",
+    icon: "FileText",
+    check: null,
+    keywords: ["bills", "transactions", "receipts", "history", "invoices"],
+  },
+  {
+    title: "Returns & Refunds",
+    href: "/returns",
+    icon: "RotateCcw",
+    check: null,
+    keywords: ["refund", "exchange", "returned items", "returns", "refunds"],
+  },
+  {
+    title: "Expenses Tracker",
+    href: "/expenses",
+    icon: "Receipt",
+    check: null,
+    keywords: ["payments", "shop costs", "outgoings", "expenses"],
+  },
+  {
+    title: "Daily Closing Records",
+    href: "/daily-closing",
+    icon: "Lock",
+    check: null,
+    keywords: ["reconciliation", "cash register", "day end", "closing", "reopen"],
+  },
+  {
+    title: "Repairs Workflow",
+    href: "/repairs",
+    icon: "Wrench",
+    check: null,
+    keywords: ["jobs", "technician", "phone repair", "screen fix", "repairs"],
+  },
   {
     title: "Reports & Profit Analytics",
     href: "/reports",
     icon: "BarChart3",
     check: (r: Role | null | undefined) => canViewReports(r),
+    keywords: ["analytics", "profit", "loss", "revenue", "reports"],
   },
   {
     title: "Shop Settings & Profile",
     href: "/settings",
     icon: "Settings",
     check: (r: Role | null | undefined) => canManageSettings(r),
+    keywords: [
+      "settings",
+      "shop settings",
+      "branding",
+      "invoice settings",
+      "logo",
+      "WhatsApp",
+      "currency",
+      "timezone",
+      "footer",
+    ],
   },
   {
     title: "Staff & User Management",
     href: "/users",
     icon: "UserCog",
     check: (r: Role | null | undefined) => canManageUsers(r),
+    keywords: ["users", "staff", "permissions", "roles", "invites", "password"],
   },
   {
     title: "System Audit Logs",
     href: "/audit-log",
     icon: "ScrollText",
     check: (r: Role | null | undefined) => canViewAuditLog(r),
+    keywords: ["audit log", "activity", "history", "logs", "security", "actor"],
   },
 ];
 
@@ -76,10 +145,15 @@ export async function searchGlobal(
   const supabase = await createClient();
   const lowerQuery = query.toLowerCase();
 
-  // 1. Pages/Actions (instant matching)
+  // 1. Pages/Actions (instant matching including keyword synonyms)
   const matchingPages: SearchResult[] = PAGES_DEFINITION.filter((p) => {
     if (p.check && !p.check(role)) return false;
-    return p.title.toLowerCase().includes(lowerQuery) || p.href.toLowerCase().includes(lowerQuery);
+    const matchTitle = p.title.toLowerCase().includes(lowerQuery);
+    const matchHref = p.href.toLowerCase().includes(lowerQuery);
+    const matchKeywords = p.keywords
+      ? p.keywords.some((k) => k.toLowerCase().includes(lowerQuery))
+      : false;
+    return matchTitle || matchHref || matchKeywords;
   }).map((p) => ({
     id: `page-${p.href}`,
     type: "page",
@@ -333,6 +407,33 @@ export async function searchGlobal(
       })()
     );
   }
+
+  // 10. Suppliers Directory
+  dataPromises.push(
+    (async (): Promise<SearchResult[]> => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, company, phone, email, notes, is_active")
+        .eq("organization_id", organizationId)
+        .or(`name.ilike.${matchesPattern},company.ilike.${matchesPattern},phone.ilike.${matchesPattern},email.ilike.${matchesPattern},notes.ilike.${matchesPattern}`)
+        .limit(5);
+
+      if (error) return [];
+      return (data ?? []).map((r) => ({
+        id: r.id,
+        type: "supplier",
+        title: r.name,
+        subtitle: `Company: ${r.company ?? "N/A"} · Phone: ${r.phone ?? "N/A"}`,
+        href: `/products?tab=suppliers`,
+        badge: r.is_active ? "Active" : "Archived",
+        badgeClass: r.is_active
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200 border"
+          : "bg-slate-100 text-slate-500 border-slate-300 border",
+        groupLabel: "Suppliers Directory",
+        iconKey: "Users",
+      } satisfies SearchResult));
+    })()
+  );
 
   const promiseResults = await Promise.all(dataPromises);
   const dataResults = promiseResults.flat();
