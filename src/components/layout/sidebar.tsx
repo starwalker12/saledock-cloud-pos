@@ -40,8 +40,11 @@ export async function Sidebar() {
   ];
 
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:block">
-      <div className="flex h-20 items-center gap-3 border-b border-slate-200 px-6">
+    // h-dvh + flex column so the header stays fixed and the nav scrolls
+    // internally when the list is taller than the viewport. The outer shell
+    // is overflow-hidden, so this sidebar never moves when main scrolls.
+    <aside className="hidden h-dvh w-72 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/gadget-zone-logo.png"
@@ -55,7 +58,7 @@ export async function Sidebar() {
           <p className="text-lg font-black text-slate-950">Online POS</p>
         </div>
       </div>
-      <nav className="space-y-1 p-4">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
         {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
