@@ -2,20 +2,6 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "./login-form";
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
-import { createAdminClient } from "@/lib/supabase/admin";
-
-async function isRegistrationOpen() {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return true;
-  try {
-    const admin = createAdminClient();
-    const { count } = await admin
-      .from("organizations")
-      .select("id", { count: "exact", head: true });
-    return (count ?? 0) === 0;
-  } catch {
-    return false;
-  }
-}
 
 export default async function LoginPage({
   searchParams,
@@ -30,7 +16,6 @@ export default async function LoginPage({
     }
   }
 
-  const registrationOpen = env.isSupabaseConfigured ? await isRegistrationOpen() : true;
   const { error } = await searchParams;
 
   return (
@@ -48,9 +33,7 @@ export default async function LoginPage({
           </p>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Online POS</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            {registrationOpen
-              ? "Registration is open for new shops. Sign in or create a new account to get started."
-              : "Sign in to your account."}
+            Registration is open for new shops. Sign in or create a new account to get started.
           </p>
         </div>
         {!env.isSupabaseConfigured && (
@@ -58,7 +41,7 @@ export default async function LoginPage({
             Supabase is not configured yet. Add credentials to <code>.env.local</code>.
           </p>
         )}
-        <LoginForm registrationOpen={registrationOpen} callbackError={error ?? null} />
+        <LoginForm callbackError={error ?? null} />
       </section>
     </main>
   );

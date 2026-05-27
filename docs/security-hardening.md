@@ -12,7 +12,7 @@ This document outlines the security posture of Gadget Zone Online POS.
 - Strict service required-field enforcement at database layer (0013)
 - Loss-prevention events populated via `audit_logs` trigger (0013)
 - New SaaS RPC `complete_self_signup` is SECURITY DEFINER with set search_path (0018)
-- Google OAuth secrets only in Supabase Dashboard, never in code
+- All OAuth secrets (Google, Facebook, Apple) only in Supabase Dashboard, never in code
 - Auth callback blocks open redirects (only relative `next` paths accepted)
 - Password has minimum 8-character validation on client and server
 

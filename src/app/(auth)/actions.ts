@@ -95,23 +95,36 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   redirect("/onboarding");
 }
 
-export async function signInWithGoogleAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
-  void _prev;
-  void _formData;
+async function oAuthAction(provider: "google" | "facebook"): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
 
   const origin = await publicOrigin();
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
+    provider,
     options: {
       redirectTo: `${origin}${POST_AUTH_PATH}`,
     },
   });
   if (error) return { error: error.message };
-  if (!data?.url) return { error: "Google sign-in is not configured. Enable the Google provider in Supabase." };
+  if (!data?.url) {
+    const label = provider.charAt(0).toUpperCase() + provider.slice(1);
+    return { error: `${label} sign-in is not configured. Enable the ${label} provider in Supabase Dashboard.` };
+  }
 
   redirect(data.url);
+}
+
+export async function signInWithGoogleAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
+  void _prev;
+  void _formData;
+  return oAuthAction("google");
+}
+
+export async function signInWithFacebookAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
+  void _prev;
+  void _formData;
+  return oAuthAction("facebook");
 }
 
 export async function resetPasswordAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
