@@ -733,6 +733,16 @@ export async function importTableChunkAction(
       const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
       const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
 
+      // Fetch existing lots to avoid duplicate insert and register mapping safely
+      const { data: existingLots } = await supabase
+        .from("product_stock_lots")
+        .select("id, product_id, lot_number")
+        .eq("organization_id", orgId);
+      
+      const lotMap = new Map(
+        existingLots?.map(l => [`${l.product_id}-${l.lot_number || ""}`, l.id]) ?? []
+      );
+
       for (const row of typedRows) {
         const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
         if (!prodId) {
@@ -741,40 +751,63 @@ export async function importTableChunkAction(
           continue;
         }
         const supId = row.SupplierId ? supMappings.get(row.SupplierId.toString()) : null;
+        const lotNo = row.BatchNumber?.toString() || null;
+        const key = `${prodId}-${lotNo || ""}`;
 
-        const { data, error } = await supabase
-          .from("product_stock_lots")
-          .insert({
-            organization_id: orgId,
-            branch_id: branchId,
-            product_id: prodId,
-            quantity_added: Number(row.QuantityAdded || 0),
-            quantity_remaining: Number(row.QuantityRemaining || 0),
-            unit_cost: Number(row.PurchasePrice || 0),
-            purchase_price: Number(row.PurchasePrice || 0),
-            sale_price_at_time: Number(row.SalePriceAtTime || 0),
-            supplier_id: supId || null,
-            purchase_date: row.AddedAt || new Date().toISOString(),
-            is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
-          })
-          .select("id")
-          .single();
-
-        if (error) {
-          failed++;
-          warnings.push(`Stock lot insert error: ${error.message} (Lot ID: ${row.Id}).`);
+        if (lotMap.has(key)) {
+          const targetId = lotMap.get(key)!;
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId });
+          skipped++;
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
-          inserted++;
+          const { data, error } = await supabase
+            .from("product_stock_lots")
+            .insert({
+              organization_id: orgId,
+              branch_id: branchId,
+              product_id: prodId,
+              lot_number: lotNo,
+              quantity_received: Number(row.QuantityAdded || 0),
+              quantity_remaining: Number(row.QuantityRemaining || 0),
+              unit_cost: Number(row.PurchasePrice || 0),
+              supplier_id: supId || null,
+              purchase_date: row.AddedAt || new Date().toISOString(),
+              is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
+            })
+            .select("id")
+            .single();
+
+          if (error) {
+            failed++;
+            warnings.push(`Stock lot insert error: ${error.message} (Lot ID: ${row.Id}).`);
+          } else {
+            lotMap.set(key, data.id);
+            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+            inserted++;
+          }
         }
       }
       await saveRowMappingsBatch(supabase, orgId, jobId, "ProductStockLots", "product_stock_lots", mappingsToSave);
 
     } else if (tableName === "StockMovements") {
       const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
-      const lotIds = typedRows.map(r => r.StockLotId?.toString()).filter(Boolean);
+      const lotIds = typedRows.map(r => r.StockLotId?.toString() || r.BatchNumber?.toString()).filter(Boolean);
       const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
       const lotMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ProductStockLots", lotIds);
+
+      const normalizeStockMovementType = (mType: string, cType?: string) => {
+        const mt = (mType || cType || "").toLowerCase().trim();
+        if (mt.includes("opening") || mt.includes("initial")) return "opening_stock";
+        if (mt.includes("purchase") || mt.includes("stock_in") || mt.includes("in")) return "purchase";
+        if (mt.includes("sale") || mt.includes("stock_out") || mt.includes("out")) return "sale";
+        if (mt.includes("return_in") || mt.includes("return in")) return "return_in";
+        if (mt.includes("return_out") || mt.includes("return out")) return "return_out";
+        if (mt.includes("adjustment_in") || mt.includes("adjustment in")) return "adjustment_in";
+        if (mt.includes("adjustment_out") || mt.includes("adjustment out")) return "adjustment_out";
+        if (mt.includes("void")) return "void";
+        if (mt.includes("add")) return "purchase";
+        if (mt.includes("deduct")) return "sale";
+        return "adjustment_in";
+      };
 
       for (const row of typedRows) {
         const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
@@ -783,7 +816,13 @@ export async function importTableChunkAction(
           warnings.push(`Skipped movement with unmapped product (ID: ${row.Id}).`);
           continue;
         }
-        const lotId = row.StockLotId ? lotMappings.get(row.StockLotId.toString()) : null;
+        const lotId = row.StockLotId 
+          ? lotMappings.get(row.StockLotId.toString()) 
+          : (row.BatchNumber ? lotMappings.get(row.BatchNumber.toString()) : null);
+
+        const normalizedType = normalizeStockMovementType(row.MovementType, row.ChangeType);
+        const qty = Math.max(1, Math.abs(Number(row.Difference || row.QuantityChange || row.Quantity || 0)));
+        const cost = Number(row.unit_cost || row.NewPurchasePrice || row.OldPurchasePrice || 0);
 
         const { error } = await supabase
           .from("stock_movements")
@@ -792,14 +831,14 @@ export async function importTableChunkAction(
             branch_id: branchId,
             product_id: prodId,
             stock_lot_id: lotId || null,
-            movement_type: row.MovementType || "adjustment",
-            quantity: Number(row.Quantity || 0),
-            unit_cost: Number(row.unit_cost || 0),
+            movement_type: normalizedType,
+            quantity: qty,
+            unit_cost: cost,
             reference_type: row.reference_type || "manual",
             reference_id: row.reference_id || null,
             notes: row.Reason?.toString() || "Imported from desktop stock movements",
             created_by: profile.id,
-            created_at: row.Date || new Date().toISOString()
+            created_at: row.CreatedAt || row.DateTime || row.Date || new Date().toISOString()
           });
 
         if (error) {
@@ -1073,6 +1112,16 @@ export async function importTableChunkAction(
       const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
       const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
 
+      // Fetch existing returns to avoid duplicate insert and register mapping safely
+      const { data: existingReturns } = await supabase
+        .from("returns")
+        .select("id, return_no")
+        .eq("organization_id", orgId);
+      
+      const returnMap = new Map(
+        existingReturns?.map(r => [r.return_no, r.id]) ?? []
+      );
+
       for (const row of typedRows) {
         const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
         if (!billId) {
@@ -1088,31 +1137,40 @@ export async function importTableChunkAction(
         const allowedRefundMethods = new Set(["cash", "card", "easypaisa", "jazzcash", "bank_transfer"]);
         const finalRefundMethod = allowedRefundMethods.has(refundMethod) ? refundMethod : "cash";
 
-        const { data, error } = await supabase
-          .from("returns")
-          .insert({
-            organization_id: orgId,
-            branch_id: branchId,
-            invoice_id: billId,
-            customer_id: custId || null,
-            return_no: pickString(row, ["ReturnNo"]) || `RET-${row.Id.toString()}`,
-            status: normalizeReturnStatus(row.Status),
-            subtotal: pickNumber(row, ["RefundAmount"]),
-            refund_amount: pickNumber(row, ["RefundAmount"]),
-            refund_method: finalRefundMethod,
-            notes: pickString(row, ["Reason", "Notes"]),
-            created_by: profile.id,
-            created_at: pickString(row, ["CreatedAt"]) || new Date().toISOString(),
-          })
-          .select("id")
-          .single();
+        const retNo = pickString(row, ["ReturnNo"]) || `RET-${row.Id.toString()}`;
 
-        if (error) {
-          failed++;
-          warnings.push(`Return insert error: ${error.message} (Return ID: ${row.Id}).`);
+        if (returnMap.has(retNo)) {
+          const targetId = returnMap.get(retNo)!;
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId });
+          skipped++;
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
-          inserted++;
+          const { data, error } = await supabase
+            .from("returns")
+            .insert({
+              organization_id: orgId,
+              branch_id: branchId,
+              invoice_id: billId,
+              customer_id: custId || null,
+              return_no: retNo,
+              status: normalizeReturnStatus(row.Status),
+              subtotal: pickNumber(row, ["RefundAmount"]),
+              refund_amount: pickNumber(row, ["RefundAmount"]),
+              refund_method: finalRefundMethod,
+              notes: pickString(row, ["Reason", "Notes"]),
+              created_by: profile.id,
+              created_at: pickString(row, ["CreatedAt"]) || new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+
+          if (error) {
+            failed++;
+            warnings.push(`Return insert error: ${error.message} (Return ID: ${row.Id}).`);
+          } else {
+            returnMap.set(retNo, data.id);
+            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+            inserted++;
+          }
         }
       }
       await saveRowMappingsBatch(supabase, orgId, jobId, "ReturnRefunds", "returns", mappingsToSave);
@@ -1320,7 +1378,13 @@ export async function importTableChunkAction(
             module: row.Module || "system",
             action: row.Action || "desktop_activity",
             details,
-            metadata: { source: "desktop_import", original_actor: row.Actor || "staff" },
+            metadata: {
+              source: "desktop_import",
+              original_actor: row.Actor || "staff",
+              import_job_id: jobId,
+              source_table: "ActivityLog",
+              source_id: row.Id?.toString() || null
+            },
             created_at: row.Date || new Date().toISOString()
           });
 

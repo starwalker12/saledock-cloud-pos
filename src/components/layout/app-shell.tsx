@@ -31,7 +31,11 @@ export function AppShell({ children, pageTitle }: { children: ReactNode; pageTit
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Topbar pageTitle={pageTitle} />
         <MobileNav links={mobileLinks} />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-6">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-6">
+          <div className="mx-auto w-full max-w-[1600px] space-y-6">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

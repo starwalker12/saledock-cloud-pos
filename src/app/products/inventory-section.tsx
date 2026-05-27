@@ -102,97 +102,116 @@ export function InventorySection({ productId, productName, suppliers, currency, 
   };
 
   return (
-    <div className="mt-4 border-t border-slate-100 pt-3">
+    <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
       <button
         onClick={handleToggle}
-        className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-700 hover:underline outline-none"
+        className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-700 hover:underline outline-none dark:text-slate-200"
       >
         <ArrowUpDown className="size-3.5" />
         {open ? "Hide Inventory Ledger" : "Manage Stock lots & FIFO FIFO Ledger"}
       </button>
 
       {open && (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-6 text-sm text-slate-500 gap-2">
-              <Loader2 className="size-4 animate-spin text-blue-700" />
-              Loading stock batches...
-            </div>
-          ) : (
-            <div>
-              {/* Cost & Summary Header */}
-              {summary && (
-                <div className="grid gap-3 grid-cols-2 md:grid-cols-4 mb-4">
-                  <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Total remaining</span>
-                    <strong className="block mt-1 text-sm font-black text-slate-900">{formatNumber(summary.totalRemaining)} items</strong>
-                  </div>
-                  <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">FIFO Weighted Cost</span>
-                    <strong className="block mt-1 text-sm font-black text-slate-900">{formatCurrency(summary.weightedAverageCost, currency)}</strong>
-                  </div>
-                  <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Cost Batches</span>
-                    <strong className="block mt-1 text-sm font-black text-slate-900">{formatNumber(summary.activeLotsCount)} lots</strong>
-                  </div>
-                  <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Last restock cost</span>
-                    <strong className="block mt-1 text-sm font-black text-slate-900">{formatCurrency(summary.lastPurchaseCost, currency)}</strong>
-                  </div>
-                </div>
-              )}
-
-              {/* Navigation Sub-Tabs */}
-              <div className="flex flex-wrap gap-1 border-b border-slate-200 pb-2 mb-3">
-                <button
-                  onClick={() => setActiveSubTab("lots")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                    activeSubTab === "lots" ? "bg-white text-blue-700 shadow-xs border border-slate-200" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Active Lots
-                </button>
-                <button
-                  onClick={() => setActiveSubTab("movements")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                    activeSubTab === "movements" ? "bg-white text-blue-700 shadow-xs border border-slate-200" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Movement ledger
-                </button>
-                {canWrite && (
-                  <>
-                    <button
-                      onClick={() => setActiveSubTab("restock")}
-                      className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                        activeSubTab === "restock" ? "bg-white text-blue-700 shadow-xs border border-slate-200" : "text-slate-550 hover:text-slate-800"
-                      }`}
-                    >
-                      <PlusCircle className="size-3" />
-                      Add Stock Lot
-                    </button>
-                    <button
-                      onClick={() => setActiveSubTab("adjust")}
-                      className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                        activeSubTab === "adjust" ? "bg-white text-blue-700 shadow-xs border border-slate-200" : "text-slate-550 hover:text-slate-800"
-                      }`}
-                    >
-                      <ArrowUpDown className="size-3" />
-                      Manual Audit
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Content Panel */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl overflow-y-auto max-h-[90vh] dark:border-slate-800 dark:bg-slate-950 text-left">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 dark:border-slate-800">
               <div>
-                {/* 1. Lots Tab */}
-                {activeSubTab === "lots" && (
-                  <div>
-                    {lots.length === 0 ? (
-                      <p className="text-xs text-slate-500 py-4 text-center">No restock lots recorded. Restock via restock tab to initialize FIFO.</p>
-                    ) : (
-                      <div className="overflow-x-auto">
+                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                  Inventory & FIFO Ledger: {productName}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Manage restock batches, track movement history, and audit stock levels.
+                </p>
+              </div>
+              <button
+                onClick={handleToggle}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-sm text-slate-500 gap-2">
+                <Loader2 className="size-4 animate-spin text-blue-700 dark:text-slate-100" />
+                Loading stock batches...
+              </div>
+            ) : (
+              <div>
+                {/* Cost & Summary Header */}
+                {summary && (
+                  <div className="grid gap-3 grid-cols-2 md:grid-cols-4 mb-4">
+                    <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Total remaining</span>
+                      <strong className="block mt-1 text-sm font-black text-slate-900 dark:text-white">{formatNumber(summary.totalRemaining)} items</strong>
+                    </div>
+                    <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">FIFO Weighted Cost</span>
+                      <strong className="block mt-1 text-sm font-black text-slate-900 dark:text-white">{formatCurrency(summary.weightedAverageCost, currency)}</strong>
+                    </div>
+                    <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Cost Batches</span>
+                      <strong className="block mt-1 text-sm font-black text-slate-900 dark:text-white">{formatNumber(summary.activeLotsCount)} lots</strong>
+                    </div>
+                    <div className="rounded-lg bg-white border border-slate-100 p-3 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Last restock cost</span>
+                      <strong className="block mt-1 text-sm font-black text-slate-900 dark:text-white">{formatCurrency(summary.lastPurchaseCost, currency)}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Navigation Sub-Tabs */}
+                <div className="flex flex-wrap gap-1 border-b border-slate-200 pb-2 mb-3 dark:border-slate-800">
+                  <button
+                    onClick={() => setActiveSubTab("lots")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                      activeSubTab === "lots" ? "bg-white text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                    }`}
+                  >
+                    Active Lots
+                  </button>
+                  <button
+                    onClick={() => setActiveSubTab("movements")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                      activeSubTab === "movements" ? "bg-white text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                    }`}
+                  >
+                    Movement ledger
+                  </button>
+                  {canWrite && (
+                    <>
+                      <button
+                        onClick={() => setActiveSubTab("restock")}
+                        className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                          activeSubTab === "restock" ? "bg-white text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-550 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                        }`}
+                      >
+                        <PlusCircle className="size-3" />
+                        Add Stock Lot
+                      </button>
+                      <button
+                        onClick={() => setActiveSubTab("adjust")}
+                        className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                          activeSubTab === "adjust" ? "bg-white text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-550 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                        }`}
+                      >
+                        <ArrowUpDown className="size-3" />
+                        Manual Audit
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Content Panel */}
+                <div>
+                  {/* 1. Lots Tab */}
+                  {activeSubTab === "lots" && (
+                    <div>
+                      {lots.length === 0 ? (
+                        <p className="text-xs text-slate-500 py-4 text-center dark:text-slate-400">No restock lots recorded. Restock via restock tab to initialize FIFO.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs min-w-[500px]">
                           <thead>
                             <tr className="border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">
@@ -443,6 +462,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
     </div>

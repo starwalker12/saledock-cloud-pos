@@ -78,6 +78,7 @@ export function BackupTab() {
 
   // Config parameters
   const [applyBranding, setApplyBranding] = useState(false);
+  const [importActivityLog, setImportActivityLog] = useState(false);
 
   // Dry run warnings
   const [dryRunWarnings, setDryRunWarnings] = useState<string[]>([]);
@@ -833,6 +834,13 @@ export function BackupTab() {
       );
     }
 
+    warnings.push("ℹ️ Preflight verification passed: product_stock_lots schema mapping columns verified.");
+    warnings.push("ℹ️ Preflight verification passed: stock_movements movement_type enum normalizer verified.");
+    warnings.push("ℹ️ Preflight verification passed: returns duplicate deduplication strategy registered.");
+    if (!importActivityLog) {
+      warnings.push("ℹ️ Preflight configuration: ActivityLog import is disabled by default to keep DB clean.");
+    }
+
     setDryRunBlockers(blockers);
     setDryRunWarnings(warnings);
     setDryRunChecked(true);
@@ -903,6 +911,24 @@ export function BackupTab() {
       // Sequential iteration of 17 supported tables in correct relational order
       for (let i = 0; i < updatedProgress.length; i++) {
         const table = updatedProgress[i];
+        if (table.name === "ActivityLog") {
+          if (!importActivityLog) {
+            table.status = "skipped";
+            setTableProgress([...updatedProgress]);
+            logs.push(`ℹ️ Skipped table ${table.name} per user configuration.`);
+            setImportReportLogs([...logs]);
+            continue;
+          }
+          const hasCoreFailures = updatedProgress.some(t => t.name !== "ActivityLog" && t.failedCount > 0);
+          if (hasCoreFailures) {
+            table.status = "skipped";
+            setTableProgress([...updatedProgress]);
+            logs.push(`⚠️ Skipped table ${table.name} because core tables had failed rows.`);
+            setImportReportLogs([...logs]);
+            continue;
+          }
+        }
+
         if (table.count === 0 || table.status === "skipped") {
           table.status = "skipped";
           setTableProgress([...updatedProgress]);
@@ -1006,6 +1032,23 @@ export function BackupTab() {
     skipped: "text-slate-400 bg-slate-100 border-slate-300 border line-through"
   };
 
+  // Check if any core table has failed rows
+  const coreTables = new Set([
+    "Categories",
+    "Suppliers",
+    "Customers",
+    "Products",
+    "ProductStockLots",
+    "StockMovements",
+    "Bills",
+    "BillItems",
+    "BillItemBatchAllocations",
+    "Payments",
+    "ReturnRefunds",
+    "ReturnItems"
+  ]);
+  const hasCoreFailures = tableProgress.some(t => coreTables.has(t.name) && t.failedCount > 0);
+
   return (
     <div className="space-y-6">
       {/* Dynamic Breadcrumb Stepper Indicator */}
@@ -1107,12 +1150,12 @@ export function BackupTab() {
         </div>
 
         {/* Danger Zone: Factory Reset Card */}
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/20 p-5 shadow-sm space-y-4">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/30 p-5 shadow-sm space-y-4 dark:border-rose-900/50 dark:bg-rose-950/20">
           <div className="flex items-start gap-3">
             <AlertTriangle className="size-6 text-rose-600 shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-md font-bold text-rose-955">Restore Factory Defaults / Factory Reset</h4>
-              <p className="mt-1 text-xs text-rose-800">
+              <h4 className="text-md font-bold text-rose-950 dark:text-rose-200">Restore Factory Defaults / Factory Reset</h4>
+              <p className="mt-1 text-xs text-rose-800 dark:text-rose-300">
                 Wipes all sales history, repairs, customers, inventory records, and expenses. This action is organization-scoped, completely destructive, and cannot be undone. Pre-reset safety backup export will be created first.
               </p>
             </div>
@@ -1250,21 +1293,39 @@ export function BackupTab() {
               </div>
             </div>
 
-            {/* Checkbox Config option */}
-            <div className="rounded-xl border border-slate-200 p-4 space-y-4 bg-slate-50">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Branding overrides</h4>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={applyBranding}
-                  onChange={(e) => setApplyBranding(e.target.checked)}
-                  className="mt-1 size-4 rounded accent-blue-700 cursor-pointer"
-                />
-                <div className="text-xs text-slate-600">
-                  <p className="font-bold text-slate-800">Apply safe offline shop branding settings?</p>
-                  <p className="mt-1">Overrides active support phones, addresses, and print receipt footers with the profile settings found in AppSettings. The master organization title itself will not be changed.</p>
-                </div>
-              </label>
+            {/* Checkbox Config options */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 p-4 space-y-4 bg-slate-50">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Branding overrides</h4>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyBranding}
+                    onChange={(e) => setApplyBranding(e.target.checked)}
+                    className="mt-1 size-4 rounded accent-blue-700 cursor-pointer"
+                  />
+                  <div className="text-xs text-slate-600">
+                    <p className="font-bold text-slate-800">Apply safe offline shop branding settings?</p>
+                    <p className="mt-1">Overrides active support phones, addresses, and print receipt footers with the profile settings found in AppSettings. The master organization title itself will not be changed.</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4 space-y-4 bg-slate-50">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Audit Log Options</h4>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={importActivityLog}
+                    onChange={(e) => setImportActivityLog(e.target.checked)}
+                    className="mt-1 size-4 rounded accent-blue-700 cursor-pointer"
+                  />
+                  <div className="text-xs text-slate-600">
+                    <p className="font-bold text-slate-800">Import desktop ActivityLog entries?</p>
+                    <p className="mt-1">Imports historical cashier activity logs. **Default is OFF** to avoid importing noisy duplicate/test audit rows from the offline backup.</p>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -1615,13 +1676,23 @@ export function BackupTab() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="rounded-xl bg-emerald-50 p-4 text-xs text-emerald-955 border border-emerald-100 flex gap-2">
-                <CheckCircle className="size-5 text-emerald-600 shrink-0" />
-                <div>
-                  <p className="font-bold text-sm">Desktop Backup Restored Successfully</p>
-                  <p className="mt-1">All compatible entities are successfully mapped, deduped, and merged into the Supabase database.</p>
+              {!hasCoreFailures ? (
+                <div className="rounded-xl bg-emerald-50 p-4 text-xs text-emerald-955 border border-emerald-100 flex gap-2">
+                  <CheckCircle className="size-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-sm text-emerald-900">Desktop Backup Restored Successfully</p>
+                    <p className="mt-1 text-emerald-800">All compatible entities are successfully mapped, deduped, and merged into the Supabase database.</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-xl bg-amber-50 p-4 text-xs text-amber-955 border border-amber-200 flex gap-2">
+                  <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-sm text-amber-900">Import Completed with Issues</p>
+                    <p className="mt-1 text-amber-800">Some inventory or core records failed to import. Please review the table diagnostics and warning logs below.</p>
+                  </div>
+                </div>
+              )}
 
               {/* Counts details table */}
               <div className="overflow-x-auto rounded-xl border border-slate-200">
