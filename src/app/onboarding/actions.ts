@@ -5,12 +5,13 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 
-const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #3B82F6");
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #0b2f6f");
 
 const onboardingSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
+  username: z.string().optional().default(""),
   phone: z.string().optional().default(""),
-  avatarUrl: z.string().optional().default(""),
+  profilePictureUrl: z.string().optional().default(""),
   organizationName: z.string().min(2, "Shop name is required."),
   ownerName: z.string().optional().default(""),
   orgPhone: z.string().optional().default(""),
@@ -19,12 +20,20 @@ const onboardingSchema = z.object({
   orgAddress: z.string().optional().default(""),
   currencyCode: z.string().optional().default("PKR"),
   timezone: z.string().optional().default("Asia/Karachi"),
+  googleMapsUrl: z.string().optional().default(""),
+  latitude: z.string().optional().default(""),
+  longitude: z.string().optional().default(""),
+  showMap: z.string().optional().default("false"),
+  socialLinks: z.string().optional().default("[]"),
   branchName: z.string().optional().default("Main Branch"),
   branchPhone: z.string().optional().default(""),
   branchAddress: z.string().optional().default(""),
+  branchGoogleMapsUrl: z.string().optional().default(""),
+  branchLatitude: z.string().optional().default(""),
+  branchLongitude: z.string().optional().default(""),
   logoUrl: z.string().optional().default(""),
-  primaryColor: hexColor.optional().default("#3B82F6"),
-  accentColor: hexColor.optional().default("#10B981"),
+  primaryColor: hexColor.optional().default("#0b2f6f"),
+  accentColor: hexColor.optional().default("#00b8b0"),
   defaultTheme: z.enum(["light", "dark", "system"]).optional().default("system"),
 });
 
@@ -59,7 +68,7 @@ export async function completeOnboardingAction(
     p_full_name: d.fullName,
     p_owner_name: d.ownerName || null,
     p_phone: d.phone || null,
-    p_avatar_url: d.avatarUrl || null,
+    p_avatar_url: d.profilePictureUrl || null,
     p_org_phone: d.orgPhone || null,
     p_org_whatsapp: d.orgWhatsapp || null,
     p_org_email: d.orgEmail || null,

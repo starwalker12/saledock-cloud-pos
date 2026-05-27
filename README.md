@@ -1,6 +1,7 @@
-# Gadget Zone Online POS
+# SaleDock Cloud POS
 
-Gadget Zone Online POS is a new cloud POS project for Gadget Zone. It is inspired by the existing desktop Gadget Zone POS, but it is a separate codebase and a separate GitHub repository.
+SaleDock is a multi-tenant cloud POS platform. It is inspired by the existing
+desktop Gadget Zone POS, but is a separate codebase and repository.
 
 This project does not modify the desktop POS app, the Vercel download website, or any released portable app folders.
 

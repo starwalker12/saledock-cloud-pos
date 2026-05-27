@@ -1,6 +1,6 @@
 # Security Hardening
 
-This document outlines the security posture of Gadget Zone Online POS.
+This document outlines the security posture of SaleDock Cloud POS.
 
 ## In Code
 

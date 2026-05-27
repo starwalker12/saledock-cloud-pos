@@ -20,12 +20,12 @@ export default async function OnboardingPage() {
         <div className="mb-8 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/gadget-zone-logo.png"
-            alt="Gadget Zone Logo"
-            className="mx-auto mb-4 h-14 w-auto max-w-[100px] object-contain rounded-2xl"
+            src="/saledock-logo.svg"
+            alt="SaleDock"
+            className="mx-auto mb-4 h-10 w-auto max-w-[80px] object-contain rounded-2xl"
           />
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-blue-700">
-            Gadget Zone Online POS
+            SaleDock Cloud POS
           </p>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Set up your shop</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">

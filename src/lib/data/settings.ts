@@ -141,7 +141,7 @@ export async function getBrandingSettings(
     branchAddress: branch?.address || "",
     currencyCode: org.currency_code || "PKR",
     timezone: org.timezone || "Asia/Karachi",
-    logoUrl: stringSetting(json, "logo_url") || org.logo_url || "/gadget-zone-logo.png",
+    logoUrl: stringSetting(json, "logo_url") || org.logo_url || "/saledock-logo.svg",
     invoiceFooter: appSettings?.receipt_footer || "",
     receiptTerms: stringSetting(json, "receipt_terms"),
     printFormat: printFormat(json.print_format ?? appSettings?.invoice_template),

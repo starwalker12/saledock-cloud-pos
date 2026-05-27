@@ -7,26 +7,47 @@ const initialState: OnboardingState = { error: null };
 
 const inputClass =
   "mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-600";
-const labelTextClass = "text-xs font-bold uppercase tracking-wide text-slate-500";
+const labelTextClass = "text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400";
 
 const TIMEZONES = [
   "Asia/Karachi", "Asia/Dubai", "Asia/Kolkata", "Asia/Dhaka",
   "Asia/Riyadh", "Asia/Bangkok", "Asia/Singapore", "Asia/Shanghai",
-  "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago",
-  "America/Los_Angeles", "UTC",
+  "Asia/Tokyo", "Asia/Kabul", "Asia/Tehran", "Asia/Baghdad",
+  "Europe/London", "Europe/Berlin", "Europe/Paris", "Europe/Moscow",
+  "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+  "America/Sao_Paulo", "Africa/Cairo", "Africa/Lagos", "Australia/Sydney",
+  "Pacific/Auckland", "UTC",
 ] as const;
 
 const CURRENCIES = [
-  { code: "PKR", label: "PKR (₨)" },
-  { code: "USD", label: "USD ($)" },
-  { code: "EUR", label: "EUR (€)" },
-  { code: "GBP", label: "GBP (£)" },
-  { code: "AED", label: "AED (د.إ)" },
-  { code: "INR", label: "INR (₹)" },
-  { code: "SAR", label: "SAR (﷼)" },
-  { code: "BDT", label: "BDT (৳)" },
+  { code: "PKR", label: "PKR (₨) — Pakistan" },
+  { code: "USD", label: "USD ($) — US Dollar" },
+  { code: "EUR", label: "EUR (€) — Euro" },
+  { code: "GBP", label: "GBP (£) — British Pound" },
+  { code: "AED", label: "AED (د.إ) — UAE Dirham" },
+  { code: "SAR", label: "SAR (﷼) — Saudi Riyal" },
+  { code: "INR", label: "INR (₹) — Indian Rupee" },
+  { code: "BDT", label: "BDT (৳) — Bangladeshi Taka" },
+  { code: "AFN", label: "AFN (؋) — Afghan Afghani" },
+  { code: "IRR", label: "IRR (﷼) — Iranian Rial" },
+  { code: "QAR", label: "QAR (﷼) — Qatari Riyal" },
+  { code: "OMR", label: "OMR (﷼) — Omani Rial" },
+  { code: "KWD", label: "KWD (د.ك) — Kuwaiti Dinar" },
+  { code: "MYR", label: "MYR (RM) — Malaysian Ringgit" },
+  { code: "SGD", label: "SGD ($) — Singapore Dollar" },
+  { code: "TRY", label: "TRY (₺) — Turkish Lira" },
+  { code: "CAD", label: "CAD ($) — Canadian Dollar" },
+  { code: "AUD", label: "AUD ($) — Australian Dollar" },
+  { code: "CNY", label: "CNY (¥) — Chinese Yuan" },
+  { code: "JPY", label: "JPY (¥) — Japanese Yen" },
 ] as const;
 
+const SOCIAL_PLATFORMS = [
+  "Instagram", "Facebook", "TikTok", "X / Twitter", "Snapchat",
+  "YouTube", "LinkedIn", "Website", "WhatsApp Channel", "Other",
+] as const;
+
+type SocialLink = { platform: string; url: string };
 type StepName = "profile" | "shop" | "branch" | "branding" | "confirm";
 
 const STEP_LABELS: Record<StepName, string> = {
@@ -39,6 +60,34 @@ const STEP_LABELS: Record<StepName, string> = {
 
 const STEP_ORDER: StepName[] = ["profile", "shop", "branch", "branding", "confirm"];
 
+function getDefaultCurrency(): string {
+  if (typeof Intl === "undefined") return "PKR";
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz.startsWith("Asia/Karachi")) return "PKR";
+    if (tz.startsWith("Asia/Dubai")) return "AED";
+    if (tz.startsWith("Asia/Kolkata")) return "INR";
+    if (tz.startsWith("Asia/Dhaka")) return "BDT";
+    if (tz.startsWith("Asia/Riyadh")) return "SAR";
+    if (tz.startsWith("Asia/Singapore")) return "SGD";
+    if (tz.startsWith("Europe/London")) return "GBP";
+    if (tz.startsWith("Europe/Berlin") || tz.startsWith("Europe/Paris")) return "EUR";
+    if (tz.startsWith("America/New_York") || tz.startsWith("America/Chicago")) return "USD";
+    return "PKR";
+  } catch {
+    return "PKR";
+  }
+}
+
+function getDefaultTimezone(): string {
+  if (typeof Intl === "undefined") return "Asia/Karachi";
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Karachi";
+  } catch {
+    return "Asia/Karachi";
+  }
+}
+
 export function OnboardingWizard({
   defaultFullName,
   userEmail,
@@ -48,25 +97,36 @@ export function OnboardingWizard({
 }) {
   const [step, setStep] = useState<StepName>("profile");
   const [state, formAction, pending] = useActionState(completeOnboardingAction, initialState);
+  const defaultCurrency = getDefaultCurrency();
+  const defaultTimezone = getDefaultTimezone();
 
   const [formData, setFormData] = useState<Record<string, string>>({
     fullName: defaultFullName,
+    username: "",
     phone: "",
-    avatarUrl: "",
+    profilePictureUrl: "",
     organizationName: "",
     ownerName: "",
     orgPhone: "",
     orgWhatsapp: "",
     orgEmail: userEmail,
     orgAddress: "",
-    currencyCode: "PKR",
-    timezone: "Asia/Karachi",
+    currencyCode: defaultCurrency,
+    timezone: defaultTimezone,
+    googleMapsUrl: "",
+    latitude: "",
+    longitude: "",
+    showMap: "false",
+    socialLinks: "[]",
     branchName: "Main Branch",
     branchPhone: "",
     branchAddress: "",
+    branchGoogleMapsUrl: "",
+    branchLatitude: "",
+    branchLongitude: "",
     logoUrl: "",
-    primaryColor: "#3B82F6",
-    accentColor: "#10B981",
+    primaryColor: "#0b2f6f",
+    accentColor: "#00b8b0",
     defaultTheme: "system",
   });
 
@@ -98,37 +158,15 @@ export function OnboardingWizard({
   const currentStep = (function () {
     switch (step) {
       case "profile":
-        return (
-          <ProfileStep
-            data={formData}
-            onChange={updateField}
-          />
-        );
+        return <ProfileStep data={formData} onChange={updateField} />;
       case "shop":
-        return (
-          <ShopStep
-            data={formData}
-            onChange={updateField}
-          />
-        );
+        return <ShopStep data={formData} onChange={updateField} />;
       case "branch":
-        return (
-          <BranchStep
-            data={formData}
-            onChange={updateField}
-          />
-        );
+        return <BranchStep data={formData} onChange={updateField} />;
       case "branding":
-        return (
-          <BrandingStep
-            data={formData}
-            onChange={updateField}
-          />
-        );
+        return <BrandingStep data={formData} onChange={updateField} />;
       case "confirm":
-        return (
-          <ConfirmStep data={formData} />
-        );
+        return <ConfirmStep data={formData} />;
     }
   })();
 
@@ -137,8 +175,8 @@ export function OnboardingWizard({
       <div className="flex items-center gap-3">
         <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
           <div
-            className="h-full rounded-full bg-blue-700 transition-all duration-500"
-            style={{ width: `${progress}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${progress}%`, backgroundColor: formData.accentColor || "#00b8b0" }}
           />
         </div>
         <span className="text-xs font-semibold text-slate-500 shrink-0">
@@ -155,11 +193,14 @@ export function OnboardingWizard({
             disabled={i > stepIndex}
             className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
               s === step
-                ? "bg-blue-700 text-white"
+                ? "text-white"
                 : i < stepIndex
-                  ? "bg-emerald-100 text-emerald-800 cursor-pointer"
+                  ? "text-white cursor-pointer"
                   : "bg-slate-100 text-slate-400 cursor-default"
             }`}
+            style={{
+              backgroundColor: s === step || i < stepIndex ? formData.accentColor || "#00b8b0" : undefined,
+            }}
           >
             {i < stepIndex ? "✓ " : ""}{STEP_LABELS[s]}
           </button>
@@ -186,7 +227,8 @@ export function OnboardingWizard({
             <button
               type="submit"
               disabled={pending}
-              className="h-11 rounded-xl bg-blue-700 px-6 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-60"
+              className="h-11 rounded-xl px-6 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: formData.primaryColor || "#0b2f6f" }}
             >
               {pending ? "Creating shop..." : "Create my shop"}
             </button>
@@ -210,7 +252,8 @@ export function OnboardingWizard({
             <button
               type="button"
               onClick={nextStep}
-              className="h-11 rounded-xl bg-blue-700 px-6 text-sm font-bold text-white hover:bg-blue-800"
+              className="h-11 rounded-xl px-6 text-sm font-bold text-white hover:opacity-90"
+              style={{ backgroundColor: formData.primaryColor || "#0b2f6f" }}
             >
               Continue
             </button>
@@ -231,8 +274,8 @@ function ProfileStep({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-slate-950">Owner Profile</h2>
-        <p className="mt-1 text-sm text-slate-500">Your personal details as the shop owner.</p>
+        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Owner Profile</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your personal details as the shop owner.</p>
       </div>
       <label className="block">
         <span className={labelTextClass}>Full name *</span>
@@ -245,24 +288,58 @@ function ProfileStep({
         />
       </label>
       <label className="block">
+        <span className={labelTextClass}>Username (optional)</span>
+        <input
+          value={data.username}
+          onChange={(e) => onChange("username", e.target.value)}
+          className={inputClass}
+          placeholder="yourusername"
+          autoCapitalize="none"
+        />
+        <p className="mt-1 text-xs text-slate-400">Must be unique across SaleDock.</p>
+      </label>
+      <label className="block">
         <span className={labelTextClass}>Phone (optional)</span>
         <input
+          type="tel"
           value={data.phone}
           onChange={(e) => onChange("phone", e.target.value)}
           className={inputClass}
           placeholder="+92 300 1234567"
         />
+        <p className="mt-1 text-xs text-slate-400">Include country code, e.g. +923001234567.</p>
       </label>
       <label className="block">
-        <span className={labelTextClass}>Avatar URL (optional)</span>
+        <span className={labelTextClass}>Email</span>
         <input
-          value={data.avatarUrl}
-          onChange={(e) => onChange("avatarUrl", e.target.value)}
+          type="email"
+          value={data.orgEmail}
+          onChange={(e) => onChange("orgEmail", e.target.value)}
           className={inputClass}
-          placeholder="https://example.com/avatar.jpg"
+          readOnly
+          tabIndex={-1}
         />
-        <p className="mt-1 text-xs text-slate-400">URL or path to your profile picture. File upload coming soon.</p>
+        <p className="mt-1 text-xs text-slate-400">Your sign-in email. Update in account settings later.</p>
       </label>
+      <label className="block">
+        <span className={labelTextClass}>Profile picture (optional)</span>
+        <input
+          value={data.profilePictureUrl}
+          onChange={(e) => onChange("profilePictureUrl", e.target.value)}
+          className={inputClass}
+          placeholder="https://example.com/photo.jpg"
+        />
+        <p className="mt-1 text-xs text-slate-400">URL to your profile picture. You can upload one later.</p>
+      </label>
+      {data.profilePictureUrl && (
+        <img
+          src={data.profilePictureUrl}
+          alt="Profile preview"
+          className="h-16 w-16 rounded-full object-cover border-2"
+          style={{ borderColor: data.accentColor || "#00b8b0" }}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      )}
     </div>
   );
 }
@@ -274,11 +351,35 @@ function ShopStep({
   data: Record<string, string>;
   onChange: (key: string, value: string) => void;
 }) {
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState("");
+
+  function handleGetLocation() {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGettingLocation(true);
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        onChange("latitude", pos.coords.latitude.toString());
+        onChange("longitude", pos.coords.longitude.toString());
+        setGettingLocation(false);
+      },
+      (err) => {
+        setLocationError(err.message);
+        setGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-slate-950">Shop Profile</h2>
-        <p className="mt-1 text-sm text-slate-500">Your business information used on invoices and reports.</p>
+        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Shop Profile</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your business information used on invoices, receipts, and public profile.</p>
       </div>
       <label className="block">
         <span className={labelTextClass}>Shop name *</span>
@@ -287,8 +388,9 @@ function ShopStep({
           value={data.organizationName}
           onChange={(e) => onChange("organizationName", e.target.value)}
           className={inputClass}
-          placeholder="Gadget Zone"
+          placeholder="Star Mobile Store"
         />
+        <p className="mt-1 text-xs text-slate-400">Multiple shops can have the same name.</p>
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
@@ -303,6 +405,7 @@ function ShopStep({
         <label className="block">
           <span className={labelTextClass}>Phone</span>
           <input
+            type="tel"
             value={data.orgPhone}
             onChange={(e) => onChange("orgPhone", e.target.value)}
             className={inputClass}
@@ -312,6 +415,7 @@ function ShopStep({
         <label className="block">
           <span className={labelTextClass}>WhatsApp</span>
           <input
+            type="tel"
             value={data.orgWhatsapp}
             onChange={(e) => onChange("orgWhatsapp", e.target.value)}
             className={inputClass}
@@ -335,7 +439,7 @@ function ShopStep({
           value={data.orgAddress}
           onChange={(e) => onChange("orgAddress", e.target.value)}
           className="mt-1 min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600"
-          placeholder="Shop address"
+          placeholder="Shop street address"
         />
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -364,6 +468,68 @@ function ShopStep({
           </select>
         </label>
       </div>
+
+      <div className="rounded-xl border border-slate-200 p-4 space-y-3">
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Google Maps Location</h3>
+        <label className="block">
+          <span className={labelTextClass}>Google Maps link (optional)</span>
+          <input
+            value={data.googleMapsUrl}
+            onChange={(e) => onChange("googleMapsUrl", e.target.value)}
+            className={inputClass}
+            placeholder="https://maps.app.goo.gl/..."
+          />
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className={labelTextClass}>Latitude</span>
+            <input
+              type="number"
+              step="any"
+              value={data.latitude}
+              onChange={(e) => onChange("latitude", e.target.value)}
+              className={inputClass}
+              placeholder="33.6844"
+            />
+          </label>
+          <label className="block">
+            <span className={labelTextClass}>Longitude</span>
+            <input
+              type="number"
+              step="any"
+              value={data.longitude}
+              onChange={(e) => onChange("longitude", e.target.value)}
+              className={inputClass}
+              placeholder="73.0479"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          onClick={handleGetLocation}
+          disabled={gettingLocation}
+          className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+        >
+          {gettingLocation ? "Getting location..." : "Use my current location"}
+        </button>
+        {locationError && (
+          <p className="text-xs text-red-500">{locationError}</p>
+        )}
+        {data.latitude && data.longitude && (
+          <p className="text-xs text-emerald-600">
+            Location set: {data.latitude}, {data.longitude}
+          </p>
+        )}
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data.showMap === "true"}
+            onChange={(e) => onChange("showMap", e.target.checked ? "true" : "false")}
+            className="h-4 w-4 rounded border-slate-300"
+          />
+          <span className="text-xs font-semibold text-slate-600">Show map on receipts and profile</span>
+        </label>
+      </div>
     </div>
   );
 }
@@ -378,8 +544,8 @@ function BranchStep({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-slate-950">Branch Setup</h2>
-        <p className="mt-1 text-sm text-slate-500">Set up your first branch. You can add more later.</p>
+        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Branch Setup</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Set up your first branch. You can add more later in settings.</p>
       </div>
       <label className="block">
         <span className={labelTextClass}>Branch name</span>
@@ -394,6 +560,7 @@ function BranchStep({
         <label className="block">
           <span className={labelTextClass}>Branch phone</span>
           <input
+            type="tel"
             value={data.branchPhone}
             onChange={(e) => onChange("branchPhone", e.target.value)}
             className={inputClass}
@@ -410,6 +577,39 @@ function BranchStep({
           />
         </label>
       </div>
+      <label className="block">
+        <span className={labelTextClass}>Google Maps link (optional)</span>
+        <input
+          value={data.branchGoogleMapsUrl}
+          onChange={(e) => onChange("branchGoogleMapsUrl", e.target.value)}
+          className={inputClass}
+          placeholder="https://maps.app.goo.gl/..."
+        />
+      </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className={labelTextClass}>Latitude</span>
+          <input
+            type="number"
+            step="any"
+            value={data.branchLatitude}
+            onChange={(e) => onChange("branchLatitude", e.target.value)}
+            className={inputClass}
+            placeholder="33.6844"
+          />
+        </label>
+        <label className="block">
+          <span className={labelTextClass}>Longitude</span>
+          <input
+            type="number"
+            step="any"
+            value={data.branchLongitude}
+            onChange={(e) => onChange("branchLongitude", e.target.value)}
+            className={inputClass}
+            placeholder="73.0479"
+          />
+        </label>
+      </div>
     </div>
   );
 }
@@ -421,22 +621,61 @@ function BrandingStep({
   data: Record<string, string>;
   onChange: (key: string, value: string) => void;
 }) {
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>(() => {
+    try {
+      return JSON.parse(data.socialLinks || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  function syncSocialLinks(links: SocialLink[]) {
+    setSocialLinks(links);
+    onChange("socialLinks", JSON.stringify(links));
+  }
+
+  function addSocialLink() {
+    syncSocialLinks([...socialLinks, { platform: "Instagram", url: "" }]);
+  }
+
+  function removeSocialLink(index: number) {
+    const next = socialLinks.filter((_, i) => i !== index);
+    syncSocialLinks(next);
+  }
+
+  function updateSocialLink(index: number, field: keyof SocialLink, value: string) {
+    const next = socialLinks.map((link, i) =>
+      i === index ? { ...link, [field]: value } : link,
+    );
+    syncSocialLinks(next);
+  }
+
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-slate-950">Branding</h2>
-        <p className="mt-1 text-sm text-slate-500">Customize your shop appearance and colors.</p>
+        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Branding</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Customize your shop appearance, colors, and social links.</p>
       </div>
+
       <label className="block">
-        <span className={labelTextClass}>Logo URL (optional)</span>
+        <span className={labelTextClass}>Shop logo (optional)</span>
         <input
           value={data.logoUrl}
           onChange={(e) => onChange("logoUrl", e.target.value)}
           className={inputClass}
-          placeholder="/gadget-zone-logo.png"
+          placeholder="https://example.com/logo.png"
         />
-        <p className="mt-1 text-xs text-slate-400">URL or path to your shop logo. File upload coming soon.</p>
+        <p className="mt-1 text-xs text-slate-400">URL to your shop logo. You can upload one later.</p>
       </label>
+      {data.logoUrl && (
+        <img
+          src={data.logoUrl}
+          alt="Logo preview"
+          className="h-14 w-auto max-w-[120px] object-contain rounded-lg border"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="block">
           <span className={labelTextClass}>Primary color</span>
@@ -454,7 +693,7 @@ function BrandingStep({
                 if (val === "" || /^#[0-9a-fA-F0-9]{0,6}$/.test(val)) onChange("primaryColor", val);
               }}
               className={inputClass}
-              placeholder="#3B82F6"
+              placeholder="#0b2f6f"
               maxLength={7}
             />
           </div>
@@ -475,7 +714,7 @@ function BrandingStep({
                 if (val === "" || /^#[0-9a-fA-F0-9]{0,6}$/.test(val)) onChange("accentColor", val);
               }}
               className={inputClass}
-              placeholder="#10B981"
+              placeholder="#00b8b0"
               maxLength={7}
             />
           </div>
@@ -493,6 +732,77 @@ function BrandingStep({
           </select>
         </label>
       </div>
+
+      <div className="rounded-xl border border-slate-200 p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Social Links</h3>
+          <button
+            type="button"
+            onClick={addSocialLink}
+            className="h-8 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          >
+            + Add link
+          </button>
+        </div>
+        {socialLinks.length === 0 && (
+          <p className="text-xs text-slate-400">No social links added yet.</p>
+        )}
+        {socialLinks.map((link, i) => (
+          <div key={i} className="flex items-start gap-2">
+            <select
+              value={link.platform}
+              onChange={(e) => updateSocialLink(i, "platform", e.target.value)}
+              className="h-10 rounded-lg border border-slate-200 px-2 text-xs outline-none"
+            >
+              {SOCIAL_PLATFORMS.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <input
+              value={link.url}
+              onChange={(e) => updateSocialLink(i, "url", e.target.value)}
+              className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-blue-600"
+              placeholder="https://instagram.com/yourshop"
+            />
+            <button
+              type="button"
+              onClick={() => removeSocialLink(i)}
+              className="h-10 w-10 rounded-lg border border-red-200 text-xs font-bold text-red-500 hover:bg-red-50"
+              title="Remove"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 p-4">
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Live Preview</h3>
+        <div
+          className="rounded-lg p-4 space-y-2"
+          style={{
+            backgroundColor: data.primaryColor || "#0b2f6f",
+            color: "#ffffff",
+          }}
+        >
+          <p className="text-xs font-bold uppercase tracking-wider">Shop Preview</p>
+          <p className="text-sm">Your shop name here</p>
+          <div className="flex gap-2">
+            <span
+              className="rounded px-3 py-1 text-xs font-bold"
+              style={{ backgroundColor: data.accentColor || "#00b8b0", color: "#ffffff" }}
+            >
+              Button
+            </span>
+            <span
+              className="rounded px-3 py-1 text-xs font-bold"
+              style={{ backgroundColor: data.accentColor || "#00b8b0", color: "#ffffff" }}
+            >
+              Active
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -502,17 +812,27 @@ function ConfirmStep({
 }: {
   data: Record<string, string>;
 }) {
+  const socialLinks: SocialLink[] = (() => {
+    try {
+      return JSON.parse(data.socialLinks || "[]");
+    } catch {
+      return [];
+    }
+  })();
+
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-slate-950">Ready to create your shop</h2>
-        <p className="mt-1 text-sm text-slate-500">Review your details before finishing setup.</p>
+        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Ready to create your shop</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review your details before finishing setup.</p>
       </div>
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-sm">
         <Section summary="Owner Profile">
           <Row label="Name" value={data.fullName} />
+          <Row label="Username" value={data.username || "—"} />
           <Row label="Phone" value={data.phone || "—"} />
-          <Row label="Avatar" value={data.avatarUrl || "Default"} />
+          <Row label="Email" value={data.orgEmail || "—"} />
+          <Row label="Profile picture" value={data.profilePictureUrl ? "Set" : "Default"} />
         </Section>
         <Section summary="Shop Profile">
           <Row label="Shop name" value={data.organizationName} />
@@ -523,18 +843,29 @@ function ConfirmStep({
           <Row label="Address" value={data.orgAddress || "—"} />
           <Row label="Currency" value={data.currencyCode} />
           <Row label="Timezone" value={data.timezone} />
+          <Row label="Google Maps" value={data.googleMapsUrl ? "Set" : "—"} />
+          <Row label="Location" value={data.latitude && data.longitude ? `${data.latitude}, ${data.longitude}` : "—"} />
+          <Row label="Show map" value={data.showMap === "true" ? "Yes" : "No"} />
         </Section>
         <Section summary="Branch">
           <Row label="Name" value={data.branchName || "Main Branch"} />
           <Row label="Phone" value={data.branchPhone || "—"} />
           <Row label="Address" value={data.branchAddress || "—"} />
+          <Row label="Google Maps" value={data.branchGoogleMapsUrl ? "Set" : "—"} />
         </Section>
         <Section summary="Branding">
-          <Row label="Logo" value={data.logoUrl || "Default"} />
+          <Row label="Logo" value={data.logoUrl ? "Set" : "Default"} />
           <Row label="Primary" value={data.primaryColor} />
           <Row label="Accent" value={data.accentColor} />
           <Row label="Theme" value={data.defaultTheme} />
         </Section>
+        {socialLinks.length > 0 && (
+          <Section summary={`Social Links (${socialLinks.length})`}>
+            {socialLinks.map((link, i) => (
+              <Row key={i} label={link.platform} value={link.url || "—"} />
+            ))}
+          </Section>
+        )}
       </div>
     </div>
   );

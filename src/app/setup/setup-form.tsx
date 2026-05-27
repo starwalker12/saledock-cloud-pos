@@ -24,7 +24,7 @@ export function SetupForm({ defaultFullName }: { defaultFullName?: string }) {
         <input
           required
           name="organizationName"
-          defaultValue="Gadget Zone"
+          placeholder="Your shop name"
           className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-600"
         />
       </label>

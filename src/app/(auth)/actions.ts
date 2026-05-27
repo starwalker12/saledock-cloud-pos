@@ -124,7 +124,13 @@ export async function signInWithGoogleAction(_prev: AuthState, _formData: FormDa
 export async function signInWithFacebookAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
   void _prev;
   void _formData;
-  return oAuthAction("facebook");
+  const result = await oAuthAction("facebook");
+  if (result.error && (result.error.includes("not enabled") || result.error.includes("Unsupported provider"))) {
+    return {
+      error: "Facebook login is not configured yet. Please use Google or email, or ask the administrator to enable Facebook in Supabase Dashboard.",
+    };
+  }
+  return result;
 }
 
 export async function resetPasswordAction(_prev: AuthState, formData: FormData): Promise<AuthState> {

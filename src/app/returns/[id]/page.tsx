@@ -279,7 +279,7 @@ export default async function ReturnDetailPage({
 
         <footer className="mt-3 border-t border-dashed border-black pt-2 text-center text-[9px] leading-tight">
           <p>{branding.invoiceFooter || `Thank you for shopping at ${orgName}.`}</p>
-          <p className="mt-1">Powered by Gadget Zone Online POS</p>
+          <p className="mt-1">Powered by SaleDock Cloud POS</p>
         </footer>
       </article>
     </AppShell>

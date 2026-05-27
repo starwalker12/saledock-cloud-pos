@@ -51,15 +51,15 @@ export async function Sidebar() {
       <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 px-6 dark:border-slate-800">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/gadget-zone-logo.png"
-          alt="Gadget Zone Logo"
-          className="h-11 w-auto max-w-[80px] object-contain rounded-lg dark:brightness-0 dark:invert"
+          src="/saledock-logo.svg"
+          alt="SaleDock"
+          className="h-9 w-auto max-w-[60px] object-contain rounded-lg"
         />
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700 dark:text-slate-100">
-            Gadget Zone
+            SaleDock
           </p>
-          <p className="text-lg font-black text-slate-950 dark:text-slate-50">Online POS</p>
+          <p className="text-lg font-black text-slate-950 dark:text-slate-50">Cloud POS</p>
         </div>
       </div>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">

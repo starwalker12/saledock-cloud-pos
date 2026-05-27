@@ -1,6 +1,7 @@
 # OAuth Provider Setup (Google, Facebook)
 
-This document describes how to configure OAuth providers for self-service signup.
+This document describes how to configure OAuth providers for self-service
+signup on SaleDock.
 
 ## Common Supabase Dashboard Steps
 
@@ -13,8 +14,7 @@ For each provider:
 The app calls `supabase.auth.signInWithOAuth({ provider })` with no
 provider-specific code — all configuration is done through Supabase Dashboard.
 
-No OAuth secrets are stored in the app code. Each provider is configured
-entirely through Supabase Dashboard + the provider's developer console.
+No OAuth secrets are stored in the app code.
 
 ## Supabase Redirect URLs (all providers)
 
@@ -63,6 +63,11 @@ Supabase callback URL (add this to each provider's allowed redirect URIs):
    - The Supabase Facebook provider automatically requests `email`.
    - Keep **Allow users without email** OFF in Supabase provider settings.
 
+### Error Handling
+If Facebook is not enabled in Supabase, the app shows a friendly message:
+"Facebook login is not configured yet. Please use Google or email, or ask the
+administrator to enable Facebook in Supabase Dashboard."
+
 ---
 
 ## How OAuth Flow Works
@@ -88,7 +93,5 @@ Supabase callback URL (add this to each provider's allowed redirect URIs):
 ## Future Planned Providers
 
 - **Apple / Sign in with Apple** — deferred. Adding Apple requires a paid
-  Apple Developer Program membership ($99/year) and additional OAuth setup.
-  The shared `oAuthAction` helper in `actions.ts` makes adding it
-  straightforward when desired: add the button UI, add `"apple"` to the
-  helper's union type, and configure credentials in Supabase Dashboard.
+  Apple Developer Program membership ($99/year). The shared `oAuthAction`
+  helper makes adding it straightforward when desired.

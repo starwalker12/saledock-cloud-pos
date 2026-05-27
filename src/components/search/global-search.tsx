@@ -436,7 +436,7 @@ export function GlobalSearch() {
                 </span>
               </div>
               <div>
-                <span>Gadget Zone Command Palette</span>
+                <span>SaleDock Command Palette</span>
               </div>
             </div>
           </div>

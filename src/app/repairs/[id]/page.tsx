@@ -95,7 +95,7 @@ export default async function RepairDetailPage({
     ? branding.receiptTerms.split(/\r?\n/).filter(Boolean)
     : [
         "Repairs have 7-day labor warranty. Physical/water damages void warranty.",
-        "Gadget Zone is not liable for data loss during software or hardware services. Backup recommended.",
+        "SaleDock is not liable for data loss during software or hardware services. Backup recommended.",
         "Devices uncollected after 60 days are subject to disposal or sale to recover repair costs.",
         "Diagnostic charges may apply if device is diagnosed but not approved for repairs.",
       ];
@@ -556,7 +556,7 @@ export default async function RepairDetailPage({
 
         <footer className="mt-3 border-t border-dashed border-black pt-2 text-center text-[9px] leading-tight">
           <p>{branding.invoiceFooter || `Thank you for choosing ${branding.shopName || organization?.name || "Gadget Zone"}.`}</p>
-          <p className="mt-1">Powered by Gadget Zone Online POS</p>
+          <p className="mt-1">Powered by SaleDock Cloud POS</p>
         </footer>
       </article>
     </AppShell>

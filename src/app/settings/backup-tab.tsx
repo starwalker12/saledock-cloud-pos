@@ -219,7 +219,7 @@ export function BackupTab() {
 
       // Create manifest
       const manifestObj: ManifestData = {
-        AppName: "Gadget Zone Online POS",
+        AppName: "SaleDock Cloud POS",
         BackupVersion: 2,
         SchemaVersion: 1,
         BackupType: "Manual",
@@ -355,7 +355,7 @@ export function BackupTab() {
 
       // Classify ZIP kind
       let zipKind: BackupZipKind = "unknown";
-      if (onlineJsonMatch || (manifestObj && manifestObj.AppName?.includes("Gadget Zone Online POS"))) {
+      if (onlineJsonMatch || (manifestObj && (manifestObj.AppName?.includes("Gadget Zone Online POS") || manifestObj.AppName?.includes("SaleDock Cloud POS")))) {
         zipKind = "online";
       } else if (dbFileMatch) {
         zipKind = "desktop";
@@ -375,7 +375,7 @@ export function BackupTab() {
 
         if (!manifestObj) {
           manifestObj = {
-            AppName: "Gadget Zone Online POS",
+        AppName: "SaleDock Cloud POS",
             BackupVersion: 2,
             SchemaVersion: 1,
             BackupType: "OnlineBackup",

@@ -1,79 +1,103 @@
-# SaaS Multi-Shop Onboarding
+# SaaS Onboarding (SaleDock)
 
-This document describes the self-service multi-tenant SaaS architecture and the
-shop onboarding wizard added in Stage 2 of the project.
+## Overview
 
-## Architecture
+SaleDock is a multi-tenant cloud POS. Each tenant (shop) gets an organization,
+a first branch, an owner profile, and default app_settings. All tenants share
+one Supabase project, isolated by `organization_id`.
 
-### Shared database, isolated by `organization_id`
+## Onboarding Flow
 
-All shops share one Supabase project. Data isolation is enforced by:
+1. User signs up via email/password or Google/Facebook OAuth.
+2. After signup, redirect to `/onboarding` if no org exists.
+3. 5-step wizard: Profile → Shop → Branch → Branding → Confirm.
+4. Final step calls `complete_self_signup` RPC (migration 0019) to atomically
+   create org, branch, profile, app_settings, and audit log.
+5. On success, redirect to `/dashboard`.
 
-- **`organization_id`** column on every business table.
-- **RLS policies** that filter rows to the current user's organization
-  via `public.current_organization_id()`.
-- **`complete_self_signup` RPC** (security definer) to bootstrap a new
-  organization without exposing the service role.
+## RPC: `complete_self_signup`
 
-We chose **not** to create one database per shop because:
+- Security definer function, `set search_path = public`.
+- Validates `auth.uid()` is not null and doesn't already have an org.
+- Uses `v_` prefix local variables to avoid ambiguous column references.
+- Outputs `table(out_org_id uuid, out_branch_id uuid)` — disambiguated from
+  table column names.
+- Grants execute to `authenticated` role.
 
-- Supabase free/Pro tier has a project limit.
-- Schema migrations must be applied everywhere.
-- Cross-shop analytics and admin tooling require UNION queries.
-- Backup/restore is simpler with one database.
+## Schema Fields (migration 0019)
 
-### Tenant onboarding flow
+### profiles additions
+- `username text` — globally unique when non-empty (partial unique index)
+- `profile_picture_url text` — replaces `avatar_url`
+- `phone` — partially unique (non-null/non-empty only)
 
-```
-[Login/Signup] → [Auth Callback] → [Onboarding Wizard] → [Dashboard]
-                                      ↓
-                              Creates org + branch + profile + settings
-                                      ↓
-                              Sets onboarding_completed = true
-```
+### organizations additions
+- `slug`, `owner_name`, `phone`, `whatsapp`, `email`, `address`, `logo_url`
+- `primary_color`, `accent_color`, `default_theme` (check light/dark/system)
+- `google_maps_url`, `latitude`, `longitude`, `show_map boolean`
+- `social_links jsonb default '[]'`
+- `onboarding_completed boolean`
 
-## Onboarding Wizard
+### branches additions
+- `phone`, `address`, `google_maps_url`, `latitude`, `longitude`
 
-Located at `/onboarding`. 5-step wizard:
+## Uniqueness Rules
 
-1. **Owner Profile** — full name, phone, avatar URL
-2. **Shop Profile** — shop name, owner name, contact info, currency, timezone
-3. **Branch Setup** — first branch details
-4. **Branding** — logo URL, primary color, accent color, default theme
-5. **Confirm & Create** — review and submit
+- Username: globally unique, case-insensitive, only when non-empty.
+- Profile phone: globally unique, only when non-empty.
+- Organization slug: globally unique, only when non-empty.
+- Organization email: globally unique, only when non-empty.
+- Organization phone: globally unique, only when non-empty.
+- Shop name: NOT unique — multiple tenants may share a name.
 
-### Backend
+## Onboarding Fields
 
-The wizard calls `complete_self_signup` RPC via `supabase.rpc()`. This RPC:
+| Step | Fields |
+|---|---|
+| Profile | Full name, Username, Phone, Email (read-only), Profile picture URL |
+| Shop | Shop name, Owner name, Phone, WhatsApp, Email, Address, Currency, Timezone, Google Maps link, Lat/Lng, Show map toggle |
+| Branch | Branch name, Phone, Address, Google Maps link, Lat/Lng |
+| Branding | Logo URL, Primary color, Accent color, Theme, Social links (add/remove rows) |
+| Confirm | Review all data, then submit |
 
-1. Validates the user is authenticated via `auth.uid()`.
-2. Rejects if user already belongs to a shop.
-3. Creates: `organizations`, `branches`, `profiles`, `app_settings`, `audit_logs`
-4. Returns `organization_id` and `branch_id`
+## Geolocation
 
-The RPC is `SECURITY DEFINER` and runs with the privileges of the function owner
-(which has bypass-RLS access via service role), not the calling user.
+- "Use my current location" button requests browser geolocation.
+- Saves latitude/longitude if user allows.
+- Does NOT require a Google Maps API key.
+- Google Maps link is a user-provided URL (e.g. `https://maps.app.goo.gl/...`).
+- "Show map on receipts" toggle — no paid API needed for link-only display.
 
-## Existing user compatibility
+## Social Links
 
-Production orgs created before this PR have `onboarding_completed = true`
-set by migration 0018 back-fill. Existing owners/admins log in and go
-straight to `/dashboard` — they never see the onboarding wizard.
+- Stored as `social_links jsonb` on the organizations table.
+- Format: `[{ "platform": "Instagram", "url": "..." }, ...]`
+- Platforms: Instagram, Facebook, TikTok, X / Twitter, Snapchat, YouTube,
+  LinkedIn, Website, WhatsApp Channel, Other.
+- Add/remove rows in onboarding and settings.
 
-## Route protection
+## Currency / Timezone
 
-- `/login` — public
-- `/auth/callback` — public (exchanges OAuth/email code for session)
-- `/onboarding` — requires authentication, but does NOT require organization
-- All other routes require authentication + organization + onboarding_complete
-- The proxy middleware redirects unauthenticated users from protected routes
-  to `/login`
+- Default currency is inferred from browser Intl timezone (PKR for Asia/Karachi,
+  AED for Asia/Dubai, USD for America/New_York, etc.).
+- User can override.
+- Timezone defaults from `Intl.DateTimeFormat().resolvedOptions().timeZone`.
+- Fallback: PKR / Asia/Karachi.
 
-## User states
+## Theme Preview
 
-| State | Redirect |
-|-------|----------|
-| Not signed in | `/login` |
-| Signed in, no org | `/onboarding` |
-| Signed in, org exists, onboarding not done | `/onboarding` |
-| Signed in, org exists, onboarding done | `/dashboard` |
+- Primary/accent colors and theme apply live to onboarding buttons, progress
+  bar, and step indicators.
+- Branding step includes a "Live Preview" card showing the colors applied.
+- Hex colors validated with regex.
+- Colors only affect UI chrome — body text stays readable (black/white).
+
+## Image Upload
+
+Supabase Storage is **not yet configured**. Current behavior:
+- URL input only (logo URL, profile picture URL).
+- Upload UI placeholder exists but stores no files.
+- See `setup/settings/settings-form.tsx` for the current "deferred" storage note.
+- Buckets needed: `organization-logos`, `user-avatars` (or `profile-pictures`).
+- Path convention: `orgs/{organization_id}/logo.*`, `orgs/{organization_id}/profile-pictures/{user_id}.*`
+- Allowed types: image/png, image/jpeg, image/webp. Max 2 MB.

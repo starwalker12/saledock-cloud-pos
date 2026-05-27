@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gadget Zone Online POS",
+  title: "SaleDock Cloud POS",
   description:
-    "Cloud POS foundation for Gadget Zone built with Next.js, Supabase, and Vercel.",
+    "Multi-tenant cloud POS platform built with Next.js, Supabase, and Vercel.",
   icons: {
-    icon: "/gadget-zone-logo.png",
+    icon: "/saledock-logo.svg",
   },
 };
 

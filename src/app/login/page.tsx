@@ -24,14 +24,14 @@ export default async function LoginPage({
         <div className="mb-8 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/gadget-zone-logo.png"
-            alt="Gadget Zone Logo"
-            className="mx-auto mb-4 h-16 w-auto max-w-[120px] object-contain rounded-2xl"
+            src="/saledock-logo.svg"
+            alt="SaleDock"
+            className="mx-auto mb-4 h-12 w-auto max-w-[100px] object-contain rounded-2xl"
           />
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700 sm:tracking-[0.28em]">
-            Gadget Zone
+            SaleDock
           </p>
-          <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Online POS</h1>
+          <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Cloud POS</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
             Registration is open for new shops. Sign in or create a new account to get started.
           </p>

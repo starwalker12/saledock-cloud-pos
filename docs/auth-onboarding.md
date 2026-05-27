@@ -1,6 +1,6 @@
 # Authentication & Owner Onboarding
 
-This document describes how login, signup, first-owner setup, and route protection work in Gadget Zone Online POS.
+This document describes how login, signup, first-owner setup, and route protection work in SaleDock Cloud POS.
 
 ## Pages
 

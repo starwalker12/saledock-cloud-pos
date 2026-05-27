@@ -1,11 +1,11 @@
 # Theme modes
 
-Gadget Zone Online POS supports **Light**, **Dark**, and **System** modes from the topbar theme selector.
+SaleDock Cloud POS supports **Light**, **Dark**, and **System** modes from the topbar theme selector.
 
 ## Behavior
 
 - **Light** keeps the original bright operational interface.
-- **Dark** uses a deep slate background, readable white text, visible borders, and the existing Gadget Zone blue accent.
+- **Dark** uses a deep slate background, readable white text, visible borders, and the SaleDock blue accent.
 - **System** follows the device/browser preference through `next-themes`.
 
 The theme toggle waits until the client is mounted before showing the final selected state. This avoids hydration mismatch while keeping the control compact in the topbar.

@@ -127,7 +127,7 @@ export function SettingsForm({
             <div className="flex aspect-square items-center justify-center rounded-xl bg-white p-5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={settings.logoUrl || "/gadget-zone-logo.png"}
+                src={settings.logoUrl || "/saledock-logo.svg"}
                 alt="Shop logo preview"
                 className="h-auto max-h-28 w-auto object-contain"
               />
