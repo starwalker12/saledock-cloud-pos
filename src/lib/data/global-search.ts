@@ -6,6 +6,7 @@ import {
   canViewAuditLog,
   canViewReports,
   canManageSettings,
+  canManageSupplierPurchases,
 } from "@/lib/permissions";
 
 export type SearchResult = {
@@ -19,6 +20,7 @@ export type SearchResult = {
     | "repair"
     | "return"
     | "expense"
+    | "supplier_purchase"
     | "user"
     | "audit_log";
   title: string;
@@ -79,6 +81,29 @@ const PAGES_DEFINITION = [
     icon: "Receipt",
     check: null,
     keywords: ["payments", "shop costs", "outgoings", "expenses"],
+  },
+  {
+    title: "Supplier Purchases",
+    href: "/suppliers/purchases",
+    icon: "Truck",
+    check: (r: Role | null | undefined) => canManageSupplierPurchases(r),
+    keywords: [
+      "purchases",
+      "supplier purchases",
+      "stock purchase",
+      "goods received",
+      "bill from supplier",
+      "supplier dues",
+      "vendor bills",
+      "PO",
+    ],
+  },
+  {
+    title: "Record Supplier Purchase",
+    href: "/suppliers/purchases/new",
+    icon: "Truck",
+    check: (r: Role | null | undefined) => canManageSupplierPurchases(r),
+    keywords: ["new purchase", "add purchase", "buy stock", "restock from supplier"],
   },
   {
     title: "Daily Closing Records",
@@ -445,6 +470,42 @@ export async function searchGlobal(
     );
   }
 
+  // 9b. Supplier Purchases (purchase_no)
+  if (canManageSupplierPurchases(role)) {
+    dataPromises.push(
+      (async (): Promise<SearchResult[]> => {
+        const { data, error } = await supabase
+          .from("supplier_purchases")
+          .select(`id, purchase_no, status, grand_total, balance_due, reference_no, suppliers(name)`)
+          .eq("organization_id", organizationId)
+          .or(`purchase_no.ilike.${matchesPattern},reference_no.ilike.${matchesPattern}`)
+          .limit(5);
+
+        if (error) return [];
+        return (data ?? []).map((r) => {
+          const s = r.suppliers as { name?: string } | { name?: string }[] | null;
+          const supName = Array.isArray(s) ? s[0]?.name : s?.name;
+          return {
+            id: r.id,
+            type: "supplier_purchase",
+            title: `Purchase ${r.purchase_no}`,
+            subtitle: `Supplier: ${supName ?? "—"} · Total Rs. ${Number(r.grand_total).toLocaleString()} · Bal Rs. ${Number(r.balance_due).toLocaleString()}`,
+            href: `/suppliers/purchases/${r.id}`,
+            badge: (r.status as string).toUpperCase(),
+            badgeClass:
+              r.status === "paid"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200 border"
+                : r.status === "partial"
+                ? "bg-amber-50 text-amber-700 border-amber-200 border"
+                : "bg-rose-50 text-rose-700 border-rose-200 border",
+            groupLabel: "Supplier Purchases",
+            iconKey: "Truck",
+          } satisfies SearchResult;
+        });
+      })()
+    );
+  }
+
   // 10. Suppliers Directory
   dataPromises.push(
     (async (): Promise<SearchResult[]> => {
@@ -461,7 +522,7 @@ export async function searchGlobal(
         type: "supplier",
         title: r.name,
         subtitle: `Company: ${r.company ?? "N/A"} · Phone: ${r.phone ?? "N/A"}`,
-        href: `/products?tab=suppliers`,
+        href: `/suppliers/${r.id}/ledger`,
         badge: r.is_active ? "Active" : "Archived",
         badgeClass: r.is_active
           ? "bg-emerald-50 text-emerald-700 border-emerald-200 border"

@@ -17,6 +17,7 @@ import {
   UserCog,
   ScrollText,
   Sparkles,
+  Truck,
   User,
   Search,
   Loader2,
@@ -65,6 +66,8 @@ function getIcon(key: string) {
       return ScrollText;
     case "Sparkles":
       return Sparkles;
+    case "Truck":
+      return Truck;
     case "User":
       return User;
     default:

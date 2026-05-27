@@ -13,6 +13,7 @@ const mobileLinks = [
   ["Expenses", "/expenses"],
   ["Closing", "/daily-closing"],
   ["Reports", "/reports"],
+  ["Purchases", "/suppliers/purchases"],
   ["Customers", "/customers"],
   ["Audit Log", "/audit-log"],
   ["Users", "/users"],

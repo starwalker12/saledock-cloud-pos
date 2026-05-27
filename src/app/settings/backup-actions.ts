@@ -23,6 +23,10 @@ export type ExportData = {
   repairs: unknown[];
   closings: unknown[];
   auditLogs: unknown[];
+  supplierPurchases: unknown[];
+  supplierPurchaseItems: unknown[];
+  supplierPayments: unknown[];
+  supplierLedgerEntries: unknown[];
 };
 
 export type ImportJobState = {
@@ -1444,7 +1448,11 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       exps,
       reps,
       closings,
-      audits
+      audits,
+      supPurchases,
+      supPurchaseItems,
+      supPayments,
+      supLedger
     ] = await Promise.all([
       supabase.from("product_categories").select("*").eq("organization_id", orgId),
       supabase.from("suppliers").select("*").eq("organization_id", orgId),
@@ -1462,7 +1470,11 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supabase.from("expenses").select("*").eq("organization_id", orgId),
       supabase.from("repairs").select("*").eq("organization_id", orgId),
       supabase.from("daily_closings").select("*").eq("organization_id", orgId),
-      supabase.from("audit_logs").select("*").eq("organization_id", orgId)
+      supabase.from("audit_logs").select("*").eq("organization_id", orgId),
+      supabase.from("supplier_purchases").select("*").eq("organization_id", orgId),
+      supabase.from("supplier_purchase_items").select("*").eq("organization_id", orgId),
+      supabase.from("supplier_payments").select("*").eq("organization_id", orgId),
+      supabase.from("supplier_ledger_entries").select("*").eq("organization_id", orgId)
     ]);
 
     // Handle any critical query errors
@@ -1492,7 +1504,11 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       expenses: exps.data ?? [],
       repairs: reps.data ?? [],
       closings: closings.data ?? [],
-      auditLogs: audits.data ?? []
+      auditLogs: audits.data ?? [],
+      supplierPurchases: supPurchases.data ?? [],
+      supplierPurchaseItems: supPurchaseItems.data ?? [],
+      supplierPayments: supPayments.data ?? [],
+      supplierLedgerEntries: supLedger.data ?? []
     };
 
     // Log the backup action

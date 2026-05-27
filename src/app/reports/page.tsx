@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Scale,
   TrendingUp,
+  Truck,
   Wallet,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -19,6 +20,10 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canViewReports } from "@/lib/permissions";
 import { getReportsData } from "@/lib/data/reports";
 import { getBrandingSettings } from "@/lib/data/settings";
+import {
+  listSuppliersWithBalances,
+  supplierPurchaseCounts,
+} from "@/lib/data/supplier-purchases";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { PrintButton } from "./print-button";
 
@@ -119,10 +124,17 @@ export default async function ReportsPage({
   const branchId = profile.branch_id ?? null;
   const currency = organization?.currency_code ?? "PKR";
 
-  const [data, branding] = await Promise.all([
+  const [data, branding, supplierBalances, purchaseCounts] = await Promise.all([
     getReportsData(orgId, branchId, start, end),
     getBrandingSettings(orgId, branchId),
+    listSuppliersWithBalances(orgId),
+    supplierPurchaseCounts(orgId),
   ]);
+  const totalSupplierDues = supplierBalances.reduce((s, x) => s + x.outstanding_balance, 0);
+  const topSupplierDues = supplierBalances
+    .filter((s) => s.outstanding_balance > 0)
+    .sort((a, b) => b.outstanding_balance - a.outstanding_balance)
+    .slice(0, 5);
 
   const quickRanges = [
     { label: "Today", value: "today" },
@@ -846,6 +858,69 @@ export default async function ReportsPage({
           </div>
         </section>
       </div>
+
+      {/* Supplier Dues & Purchases Snapshot */}
+      <section id="supplier-dues" className="mt-6 scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm sm:p-6">
+        <h3 className="text-base font-black text-slate-950 flex items-center gap-2">
+          <Truck className="size-5 text-blue-600" />
+          Supplier Dues & Purchases Snapshot
+        </h3>
+        <p className="text-xs text-slate-500 mt-1">
+          Stock purchases create inventory value (not expenses). Dues are settled via supplier payments.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Purchases this month</p>
+            <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(purchaseCounts.monthTotal, currency)}</p>
+            <p className="text-xs text-slate-500">{formatNumber(purchaseCounts.monthCount)} purchase(s)</p>
+          </div>
+          <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
+            <p className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">Unpaid purchases</p>
+            <p className="mt-1 text-xl font-black text-rose-900">{formatCurrency(purchaseCounts.unpaidTotal, currency)}</p>
+            <p className="text-xs text-rose-600">{formatNumber(purchaseCounts.unpaidCount)} purchase(s) with balance</p>
+          </div>
+          <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
+            <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Total supplier dues</p>
+            <p className="mt-1 text-xl font-black text-amber-900">{formatCurrency(totalSupplierDues, currency)}</p>
+            <p className="text-xs text-amber-700">{topSupplierDues.length} supplier(s) owed</p>
+          </div>
+        </div>
+
+        {topSupplierDues.length > 0 && (
+          <div className="mt-5">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Top dues</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs font-semibold uppercase text-slate-500">
+                    <th className="py-2">Supplier</th>
+                    <th className="py-2 text-right">Outstanding</th>
+                    <th className="py-2 text-right" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {topSupplierDues.map((s) => (
+                    <tr key={s.id} className="border-b border-slate-50">
+                      <td className="py-2 font-semibold text-slate-800">
+                        {s.name}
+                        {s.company ? <span className="ml-2 text-xs text-slate-500">{s.company}</span> : null}
+                      </td>
+                      <td className="py-2 text-right font-bold text-rose-700">
+                        {formatCurrency(s.outstanding_balance, currency)}
+                      </td>
+                      <td className="py-2 text-right">
+                        <Link href={`/suppliers/${s.id}/ledger`} className="text-xs font-semibold text-blue-700 underline">
+                          Ledger
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
     </AppShell>
   );
 }

@@ -74,3 +74,9 @@ export function canManageLossOverride(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && LOSS_OVERRIDE_MANAGERS.includes(role);
 }
 
+const PURCHASE_MANAGERS: Role[] = ["owner", "admin", "manager"];
+
+export function canManageSupplierPurchases(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && PURCHASE_MANAGERS.includes(role);
+}
+

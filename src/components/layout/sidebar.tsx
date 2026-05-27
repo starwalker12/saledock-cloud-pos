@@ -13,9 +13,10 @@ import {
   Wrench,
   UserCog,
   ScrollText,
+  Truck,
 } from "lucide-react";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canManageUsers, canViewAuditLog } from "@/lib/permissions";
+import { canManageUsers, canViewAuditLog, canManageSupplierPurchases } from "@/lib/permissions";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,6 +36,9 @@ export async function Sidebar() {
   const { profile } = await getCurrentContext();
   const visibleItems = [
     ...items,
+    ...(canManageSupplierPurchases(profile?.role)
+      ? [{ href: "/suppliers/purchases", label: "Purchases", icon: Truck }]
+      : []),
     ...(canViewAuditLog(profile?.role) ? [{ href: "/audit-log", label: "Audit Log", icon: ScrollText }] : []),
     ...(canManageUsers(profile?.role) ? [{ href: "/users", label: "Users", icon: UserCog }] : []),
   ];
