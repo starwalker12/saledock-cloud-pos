@@ -89,6 +89,10 @@ export function BackupTab() {
     Record<string, Set<number | string>>
   >({});
   const [orphanPolicy, setOrphanPolicy] = useState<OrphanPolicy | null>(null);
+  // Hard mapping-failure blockers — these prevent the Confirm button from
+  // becoming clickable even if the orphan policy is set. They surface in
+  // the dry-run UI as red error chips (not warnings).
+  const [dryRunBlockers, setDryRunBlockers] = useState<string[]>([]);
 
   // Confirmation parameters
   const [confirmText, setConfirmText] = useState("");
@@ -326,6 +330,7 @@ export function BackupTab() {
       setOrphanFindings([]);
       setOrphanIdsByTable({});
       setOrphanPolicy(null);
+      setDryRunBlockers([]);
       setIsOnlineBackup(false);
       setManifestMissingWarning(false);
 
@@ -763,6 +768,72 @@ export function BackupTab() {
     setOrphanFindings(findings);
     setOrphanIdsByTable(idMap);
 
+    // ====================================================================
+    // Mapping-failure preflight. These check the same field-fallback chain
+    // the server uses (ItemName/ProductName/Name for products; PaymentStatus
+    // normalisation for bills). If a category of essential rows would fail
+    // to import, we block the Confirm Import button rather than letting the
+    // wizard cascade orphans afterwards.
+    // ====================================================================
+    const blockers: string[] = [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const productNameOf = (r: any): string => {
+      for (const k of ["ItemName", "ProductName", "Name", "name"]) {
+        const v = r?.[k];
+        if (v !== undefined && v !== null) {
+          const s = String(v).trim();
+          if (s.length > 0) return s;
+        }
+      }
+      return "";
+    };
+
+    if (products.length > 0) {
+      const noName = products.filter((p) => !productNameOf(p)).length;
+      if (noName > 0 && noName === products.length) {
+        blockers.push(
+          `Product mapping failed: expected ItemName / ProductName / Name field was not resolved on any of ${products.length} product rows. ` +
+            `Import is disabled until the source backup is fixed or the importer is updated.`,
+        );
+      } else if (noName > 0) {
+        warnings.push(
+          `⚠️ ${noName} of ${products.length} products have no resolvable name (ItemName/ProductName/Name all blank). They will fail to import.`,
+        );
+      }
+    }
+
+    // Bills payment-status sanity: every desktop version we know uses
+    // capitalised "Paid"/"Partial"/etc. — so an unrecognised value is a sign
+    // of a schema we haven't mapped. The server normaliser falls back to
+    // money-based status when the string is unknown, so this is only a
+    // warning, not a blocker.
+    const knownStatusSet = new Set([
+      "paid",
+      "partial",
+      "unpaid",
+      "credit",
+      "due",
+      "draft",
+      "void",
+      "cancelled",
+      "",
+    ]);
+    const unknownStatuses = new Set<string>();
+    for (const b of bills) {
+      const v = String(b.PaymentStatus ?? b.Status ?? "")
+        .trim()
+        .toLowerCase();
+      if (!knownStatusSet.has(v)) unknownStatuses.add(v);
+    }
+    if (unknownStatuses.size > 0) {
+      warnings.push(
+        `ℹ️ Bills have unrecognised PaymentStatus value(s): ${[...unknownStatuses].join(", ")}. ` +
+          `They will be normalised from money fields (AmountPaid/GrandTotal/BalanceDue).`,
+      );
+    }
+
+    setDryRunBlockers(blockers);
     setDryRunWarnings(warnings);
     setDryRunChecked(true);
     setIsParsing(false);
@@ -1216,7 +1287,10 @@ export function BackupTab() {
               </button>
               <button
                 onClick={() => setStep("confirm")}
-                disabled={orphanFindings.length > 0 && orphanPolicy !== "drop"}
+                disabled={
+                  dryRunBlockers.length > 0 ||
+                  (orphanFindings.length > 0 && orphanPolicy !== "drop")
+                }
                 className="rounded-xl bg-blue-700 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
               >
                 Confirm Import →
@@ -1230,7 +1304,7 @@ export function BackupTab() {
                 <RefreshCw className="size-4 animate-spin" />
                 <span>Scanning database relationships...</span>
               </div>
-            ) : dryRunWarnings.length === 0 && orphanFindings.length === 0 ? (
+            ) : dryRunWarnings.length === 0 && orphanFindings.length === 0 && dryRunBlockers.length === 0 ? (
               <div className="rounded-xl bg-emerald-50 p-5 text-center border border-emerald-100 space-y-2">
                 <ShieldCheck className="mx-auto size-12 text-emerald-600 animate-bounce" />
                 <h4 className="text-sm font-bold text-emerald-800">0 integrity errors detected</h4>
@@ -1238,6 +1312,30 @@ export function BackupTab() {
               </div>
             ) : (
               <div className="space-y-4">
+                {/* Hard mapping-failure blockers — Confirm Import stays disabled. */}
+                {dryRunBlockers.length > 0 && (
+                  <div className="space-y-2 rounded-xl border-2 border-rose-300 bg-rose-100 p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 size-5 shrink-0 text-rose-700" />
+                      <div>
+                        <h4 className="text-sm font-black text-rose-900">
+                          Import blocked — mapping failure
+                        </h4>
+                        <p className="mt-1 text-xs text-rose-900">
+                          The dry-run found a structural problem that the
+                          importer cannot resolve. Confirm Import is disabled.
+                          Fix the source backup or update the importer, then
+                          re-upload.
+                        </p>
+                      </div>
+                    </div>
+                    <ul className="space-y-1 pl-7 text-xs text-rose-900">
+                      {dryRunBlockers.map((b, idx) => (
+                        <li key={idx} className="list-disc">{b}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {/* Structural orphan rows — requires explicit choice before continuing. */}
                 {orphanFindings.length > 0 && (
                   <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
@@ -1416,7 +1514,13 @@ export function BackupTab() {
                 </button>
               </div>
             ) : (
-              orphanFindings.length > 0 && orphanPolicy === "stop" ? (
+              dryRunBlockers.length > 0 ? (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 text-xs text-rose-900">
+                  Import is blocked because dry-run found a mapping failure.
+                  Go back to the Dry Run step for details. Fix the source backup
+                  (or update the importer) and re-upload.
+                </div>
+              ) : orphanFindings.length > 0 && orphanPolicy === "stop" ? (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900">
                   Import stopped until orphan rows are resolved. Go back to the
                   Dry Run step and pick &quot;Drop orphan rows and continue&quot;,
@@ -1428,6 +1532,7 @@ export function BackupTab() {
                   disabled={
                     confirmText !== "IMPORT DESKTOP BACKUP" ||
                     !confirmCheckbox ||
+                    dryRunBlockers.length > 0 ||
                     (orphanFindings.length > 0 && orphanPolicy !== "drop")
                   }
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"

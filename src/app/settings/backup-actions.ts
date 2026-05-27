@@ -225,6 +225,145 @@ async function saveRowMappingsBatch(
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Desktop → online field mapping helpers.
+//
+// Desktop SQLite uses C#-style PascalCase column names that don't match the
+// online (Supabase) snake_case schema. The desktop schema also drifted across
+// versions (e.g. Products has `ItemName` not `Name`, `Stock` not
+// `StockQuantity`, `MinimumStock` not `MinStock`; Bills has `BillDate` not
+// `Date`; BillItems has `Qty` not `Quantity` and `Price` not `UnitPrice`;
+// ReturnItems has `QtyReturned` not `Quantity`). These helpers + enum
+// normalisers replace the brittle direct-field-access pattern that caused
+// every product to be skipped with "empty name" during the first real import.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pickString(row: any, keys: string[]): string {
+  for (const k of keys) {
+    const v = row?.[k];
+    if (v === undefined || v === null) continue;
+    const s = String(v).trim();
+    if (s.length > 0) return s;
+  }
+  return "";
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pickNumber(row: any, keys: string[], fallback = 0): number {
+  for (const k of keys) {
+    const v = row?.[k];
+    if (v === undefined || v === null || v === "") continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pickBool(row: any, keys: string[], fallback = false): boolean {
+  for (const k of keys) {
+    const v = row?.[k];
+    if (v === undefined || v === null || v === "") continue;
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    if (typeof v === "string") {
+      const s = v.trim().toLowerCase();
+      if (["true", "1", "yes", "y"].includes(s)) return true;
+      if (["false", "0", "no", "n"].includes(s)) return false;
+    }
+  }
+  return fallback;
+}
+
+function normalizeInvoiceStatus(
+  raw: unknown,
+  amountPaid: number,
+  grandTotal: number,
+  balanceDue: number,
+): "paid" | "partial" | "unpaid" | "draft" | "void" {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (v === "paid") return "paid";
+  if (v === "partial") return "partial";
+  if (v === "unpaid" || v === "credit" || v === "due") return "unpaid";
+  if (v === "void" || v === "cancelled") return "void";
+  if (v === "draft") return "draft";
+  // Derive from money values when status is missing/unknown.
+  if (grandTotal <= 0) return "paid";
+  if (amountPaid >= grandTotal) return "paid";
+  if (amountPaid > 0) return "partial";
+  if (balanceDue > 0) return "unpaid";
+  return "paid";
+}
+
+function normalizePaymentMethod(
+  raw: unknown,
+):
+  | "cash"
+  | "card"
+  | "easypaisa"
+  | "jazzcash"
+  | "bank_transfer"
+  | "customer_credit" {
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (v === "cash") return "cash";
+  if (v === "card" || v === "debit_card" || v === "credit_card") return "card";
+  if (v === "easypaisa" || v === "easy_paisa") return "easypaisa";
+  if (v === "jazzcash" || v === "jazz_cash") return "jazzcash";
+  if (
+    v === "bank_transfer" ||
+    v === "banktransfer" ||
+    v === "bank" ||
+    v === "transfer"
+  )
+    return "bank_transfer";
+  if (
+    v === "customer_credit" ||
+    v === "credit" ||
+    v === "store_credit" ||
+    v === "on_account"
+  )
+    return "customer_credit";
+  return "cash";
+}
+
+function normalizeProductType(raw: unknown): "product" | "service" {
+  const v = String(raw ?? "").trim().toLowerCase();
+  return v === "service" ? "service" : "product";
+}
+
+function normalizeReturnStatus(raw: unknown): "completed" | "cancelled" {
+  // Online enum only has 'completed' | 'cancelled'. The desktop "Needs
+  // Approval" / "Approved" / "Rejected" semantics collapse as follows.
+  const v = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (v === "rejected" || v === "cancelled" || v === "void" || v === "voided") return "cancelled";
+  // Everything else (approved, needs_approval, completed, pending, blank) is
+  // treated as a completed return — it has line items and a refund.
+  return "completed";
+}
+
+function normalizeRepairStatus(
+  raw: unknown,
+):
+  | "received"
+  | "waiting_for_parts"
+  | "in_progress"
+  | "completed"
+  | "delivered"
+  | "cancelled" {
+  const v = String(raw ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (v === "received" || v === "intake") return "received";
+  if (v === "waiting_for_parts" || v === "waitingforparts") return "waiting_for_parts";
+  if (v === "in_progress" || v === "inprogress") return "in_progress";
+  if (v === "completed" || v === "done") return "completed";
+  if (v === "delivered" || v === "handedover" || v === "handed_over") return "delivered";
+  if (v === "cancelled" || v === "canceled" || v === "void") return "cancelled";
+  return "received";
+}
+
 // Client-Server Chunk Importer
 export async function importTableChunkAction(
   jobId: string,
@@ -497,27 +636,38 @@ export async function importTableChunkAction(
         .from("products")
         .select("id, name, sku, barcode, type")
         .eq("organization_id", orgId);
-      
+
       const skuMap = new Map(existing?.filter(p => p.sku).map(p => [p.sku!.trim().toLowerCase(), p.id]) ?? []);
       const barcodeMap = new Map(existing?.filter(p => p.barcode).map(p => [p.barcode!.trim().toLowerCase(), p.id]) ?? []);
       const nameTypeMap = new Map(existing?.map(p => [`${p.name.trim().toLowerCase()}-${p.type}`, p.id]) ?? []);
 
-      // Map Category and Supplier IDs
-      const categoryIds = typedRows.map(r => r.CategoryId?.toString()).filter(Boolean);
-      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
-      const catMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Categories", categoryIds);
+      // Desktop Products.Category is a TEXT field that references Categories.Name (not Id).
+      // We resolve the online product_category id by category-name lookup against
+      // the categories we already imported in this org.
+      const { data: existingCats } = await supabase
+        .from("product_categories")
+        .select("id, name")
+        .eq("organization_id", orgId);
+      const catByName = new Map(
+        existingCats?.map((c) => [c.name.trim().toLowerCase(), c.id]) ?? [],
+      );
+
+      // SupplierId is INTEGER (0 = none). Lookup via the import_row_mappings table.
+      const supplierIds = typedRows
+        .map((r) => r.SupplierId?.toString())
+        .filter((v) => v && v !== "0");
       const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
 
       for (const row of typedRows) {
-        const name = row.Name?.toString().trim();
+        const name = pickString(row, ["ItemName", "ProductName", "Name", "name"]);
         if (!name) {
           failed++;
-          warnings.push(`Skipped product with empty name (ID: ${row.Id}).`);
+          warnings.push(`Skipped product with empty name (ID: ${row.Id}). Checked ItemName, ProductName, Name.`);
           continue;
         }
-        const sku = row.Sku?.toString().trim().toLowerCase();
-        const barcode = row.Barcode?.toString().trim().toLowerCase();
-        const type = row.Type || "product";
+        const sku = pickString(row, ["Sku", "SKU", "sku"]).toLowerCase();
+        const barcode = pickString(row, ["Barcode", "barcode"]).toLowerCase();
+        const type = normalizeProductType(row.Type ?? row.type);
 
         let matchedId: string | null = null;
         if (sku && skuMap.has(sku)) matchedId = skuMap.get(sku)!;
@@ -528,34 +678,37 @@ export async function importTableChunkAction(
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: matchedId });
           skipped++;
         } else {
-          const catId = row.CategoryId ? catMappings.get(row.CategoryId.toString()) : null;
-          const supId = row.SupplierId ? supMappings.get(row.SupplierId.toString()) : null;
+          const categoryName = pickString(row, ["Category", "CategoryName", "category"]).toLowerCase();
+          const catId = categoryName ? (catByName.get(categoryName) ?? null) : null;
+          const supplierRaw = row.SupplierId?.toString();
+          const supId =
+            supplierRaw && supplierRaw !== "0" ? (supMappings.get(supplierRaw) ?? null) : null;
 
           const { data, error } = await supabase
             .from("products")
             .insert({
               organization_id: orgId,
-              category_id: catId || null,
-              supplier_id: supId || null,
+              category_id: catId,
+              supplier_id: supId,
               name,
-              sku: row.Sku?.toString() || null,
-              barcode: row.Barcode?.toString() || null,
+              sku: sku || null,
+              barcode: pickString(row, ["Barcode"]) || null,
               type,
-              purchase_price: Number(row.PurchasePrice || 0),
-              sale_price: Number(row.SalePrice || 0),
-              stock_quantity: Number(row.StockQuantity || 0),
-              minimum_stock: Number(row.MinStock || 0),
-              allow_sell_at_loss: Boolean(row.AllowSellAtLoss),
-              sell_at_loss_reason: row.SellAtLossReason?.toString() || "",
-              notes: row.Notes?.toString() || "",
-              is_active: row.IsActive === undefined ? true : Boolean(row.IsActive),
-              service_type: row.ServiceType?.toString() || null,
-              service_pricing_mode: row.ServicePricingMode?.toString() || null,
-              default_commission_amount: Number(row.DefaultCommissionAmount || 0),
-              default_commission_percent: Number(row.DefaultCommissionPercent || 0),
-              requires_account_number: Boolean(row.RequiresAccountNumber),
-              requires_provider: Boolean(row.RequiresProvider),
-              requires_reference: Boolean(row.RequiresReference)
+              purchase_price: pickNumber(row, ["PurchasePrice", "purchase_price"]),
+              sale_price: pickNumber(row, ["SalePrice", "sale_price"]),
+              stock_quantity: pickNumber(row, ["Stock", "StockQuantity", "stock_quantity"]),
+              minimum_stock: pickNumber(row, ["MinimumStock", "MinStock", "minimum_stock"]),
+              allow_sell_at_loss: pickBool(row, ["AllowSellAtLoss", "allow_sell_at_loss"]),
+              sell_at_loss_reason: pickString(row, ["SellAtLossReason", "sell_at_loss_reason"]),
+              notes: pickString(row, ["Notes", "notes"]),
+              is_active: pickBool(row, ["IsActive", "is_active"], true),
+              service_type: pickString(row, ["ServiceType", "service_type"]) || null,
+              service_pricing_mode: pickString(row, ["ServicePricingMode", "service_pricing_mode"]) || null,
+              default_commission_amount: pickNumber(row, ["DefaultCommissionAmount", "default_commission_amount"]),
+              default_commission_percent: pickNumber(row, ["DefaultCommissionPercent", "default_commission_percent"]),
+              requires_account_number: pickBool(row, ["RequiresAccountNumber", "requires_account_number"]),
+              requires_provider: pickBool(row, ["RequiresProvider", "requires_provider"]),
+              requires_reference: pickBool(row, ["RequiresReference", "requires_reference"]),
             })
             .select("id")
             .single();
@@ -682,6 +835,19 @@ export async function importTableChunkAction(
           invoiceNo = `${invoiceNo}-imported-${jobId.slice(0, 4)}`;
         }
 
+        const grandTotal = pickNumber(row, ["GrandTotal", "grand_total"]);
+        const amountPaid = pickNumber(row, ["AmountPaid", "amount_paid"]);
+        const balanceDue = pickNumber(row, ["BalanceDue", "balance_due"]);
+        const status = normalizeInvoiceStatus(
+          row.PaymentStatus ?? row.Status ?? row.status,
+          amountPaid,
+          grandTotal,
+          balanceDue,
+        );
+        const billDate =
+          pickString(row, ["BillDate", "Date", "InvoiceDate", "CreatedAt"]) ||
+          new Date().toISOString();
+
         const { data, error } = await supabase
           .from("invoices")
           .insert({
@@ -689,16 +855,16 @@ export async function importTableChunkAction(
             branch_id: branchId,
             customer_id: custId || null,
             invoice_no: invoiceNo,
-            status: row.PaymentStatus || "paid",
-            subtotal: Number(row.Subtotal || 0),
-            discount_total: Number(row.Discount || 0),
-            grand_total: Number(row.GrandTotal || 0),
-            amount_paid: Number(row.AmountPaid || 0),
-            balance_due: Number(row.BalanceDue || 0),
-            note: row.Note?.toString() || "",
+            status,
+            subtotal: pickNumber(row, ["Subtotal", "subtotal"]),
+            discount_total: pickNumber(row, ["Discount", "DiscountTotal", "discount_total"]),
+            grand_total: grandTotal,
+            amount_paid: amountPaid,
+            balance_due: balanceDue,
+            note: pickString(row, ["Note", "Notes", "note"]),
             created_by: profile.id,
-            invoice_date: row.Date || new Date().toISOString(),
-            created_at: row.Date || new Date().toISOString()
+            invoice_date: billDate,
+            created_at: billDate,
           })
           .select("id")
           .single();
@@ -729,30 +895,38 @@ export async function importTableChunkAction(
         }
         const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
 
+        // Desktop BillItems uses Qty (not Quantity), Price (not UnitPrice),
+        // and IsServiceTransaction (not ProductType).
+        const productName = pickString(row, ["ProductName", "ItemName", "Name"]) || "Unknown Product";
+        const isService =
+          pickBool(row, ["IsServiceTransaction", "is_service_transaction"]) ||
+          String(row.ProductType ?? "").toLowerCase() === "service";
+        const unitPrice = pickNumber(row, ["Price", "UnitPrice", "SalePrice", "unit_price"]);
+
         const { data, error } = await supabase
           .from("invoice_items")
           .insert({
             organization_id: orgId,
             invoice_id: billId,
             product_id: prodId || null,
-            product_name: row.ProductName?.toString() || "Unknown Product",
-            product_type: row.ProductType || "product",
-            quantity: Number(row.Quantity || 1),
-            purchase_price: Number(row.PurchasePrice || 0),
-            unit_price: Number(row.UnitPrice || 0),
-            item_discount: Number(row.ItemDiscount || 0),
-            line_total: Number(row.LineTotal || 0),
-            service_provider: row.ServiceProvider?.toString() || null,
-            service_direction: row.ServiceDirection?.toString() || null,
-            service_account_number: row.ServiceAccountNumber?.toString() || null,
-            service_receiver_account: row.ServiceReceiverAccount?.toString() || null,
-            service_reference_no: row.ServiceReferenceNo?.toString() || null,
-            service_transaction_amount: Number(row.ServiceTransactionAmount || 0),
-            service_commission: Number(row.ServiceCommission || 0),
-            service_total_charged: Number(row.ServiceTotalCharged || 0),
-            service_note: row.ServiceNote?.toString() || null,
-            effective_unit_price_snapshot: Number(row.UnitPrice || 0),
-            loss_amount_snapshot: 0
+            product_name: productName,
+            product_type: isService ? "service" : "product",
+            quantity: pickNumber(row, ["Qty", "Quantity", "quantity"], 1),
+            purchase_price: pickNumber(row, ["PurchasePrice", "purchase_price"]),
+            unit_price: unitPrice,
+            item_discount: pickNumber(row, ["ItemDiscount", "item_discount"]),
+            line_total: pickNumber(row, ["LineTotal", "line_total"]),
+            service_provider: pickString(row, ["ServiceProvider"]) || null,
+            service_direction: pickString(row, ["ServiceDirection"]) || null,
+            service_account_number: pickString(row, ["ServiceAccountNumber"]) || null,
+            service_receiver_account: pickString(row, ["ServiceReceiverAccount"]) || null,
+            service_reference_no: pickString(row, ["ServiceReferenceNo"]) || null,
+            service_transaction_amount: pickNumber(row, ["ServiceTransactionAmount"]),
+            service_commission: pickNumber(row, ["ServiceCommission"]),
+            service_total_charged: pickNumber(row, ["ServiceTotalCharged"]),
+            service_note: pickString(row, ["ServiceNote"]) || null,
+            effective_unit_price_snapshot: unitPrice,
+            loss_amount_snapshot: 0,
           })
           .select("id")
           .single();
@@ -809,8 +983,9 @@ export async function importTableChunkAction(
             invoice_item_id: itemId,
             product_id: productId,
             stock_lot_id: lotId,
-            quantity: Number(row.Quantity || 0),
-            unit_cost: Number(row.PurchasePrice || 0)
+            // Desktop column is `Qty`, not `Quantity`.
+            quantity: pickNumber(row, ["Qty", "Quantity"]),
+            unit_cost: pickNumber(row, ["PurchasePrice"]),
           });
 
         if (error) {
@@ -907,6 +1082,12 @@ export async function importTableChunkAction(
         }
         const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
 
+        const refundMethod = normalizePaymentMethod(row.RefundMethod);
+        // Online returns.refund_method enum is a subset (no customer_credit) —
+        // fall back to "cash" if the normalised method isn't allowed there.
+        const allowedRefundMethods = new Set(["cash", "card", "easypaisa", "jazzcash", "bank_transfer"]);
+        const finalRefundMethod = allowedRefundMethods.has(refundMethod) ? refundMethod : "cash";
+
         const { data, error } = await supabase
           .from("returns")
           .insert({
@@ -914,14 +1095,14 @@ export async function importTableChunkAction(
             branch_id: branchId,
             invoice_id: billId,
             customer_id: custId || null,
-            return_no: row.ReturnNo?.toString() || `RET-${row.Id.toString()}`,
-            status: row.Status || "completed",
-            subtotal: Number(row.RefundAmount || 0),
-            refund_amount: Number(row.RefundAmount || 0),
-            refund_method: row.RefundMethod || "cash",
-            notes: row.Reason?.toString() || "",
+            return_no: pickString(row, ["ReturnNo"]) || `RET-${row.Id.toString()}`,
+            status: normalizeReturnStatus(row.Status),
+            subtotal: pickNumber(row, ["RefundAmount"]),
+            refund_amount: pickNumber(row, ["RefundAmount"]),
+            refund_method: finalRefundMethod,
+            notes: pickString(row, ["Reason", "Notes"]),
             created_by: profile.id,
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: pickString(row, ["CreatedAt"]) || new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -984,10 +1165,11 @@ export async function importTableChunkAction(
             product_id: prodId || null,
             item_name: itemNameMap.get(itemId) || "Unknown Returned Item",
             item_type: itemTypeMap.get(itemId) || "product",
-            quantity: Number(row.Quantity || 0),
-            unit_price: itemPriceMap.get(itemId) || 0,
-            line_total: Number(row.LineTotal || 0),
-            restock: Boolean(row.Restock)
+            // Desktop column is `QtyReturned`, not `Quantity`.
+            quantity: pickNumber(row, ["QtyReturned", "Qty", "Quantity"]),
+            unit_price: pickNumber(row, ["UnitPrice"], itemPriceMap.get(itemId) || 0),
+            line_total: pickNumber(row, ["LineTotal", "RefundAmount"]),
+            restock: pickBool(row, ["Restocked", "Restock"]),
           });
 
         if (error) {
@@ -1060,8 +1242,8 @@ export async function importTableChunkAction(
             accessories: row.Accessories?.toString() || "",
             estimated_cost: Number(row.EstimatedCost || 0),
             advance_paid: Number(row.AdvancePaid || 0),
-            payment_method: row.PaymentMethod || "cash",
-            status: (row.Status || "received").toLowerCase(),
+            payment_method: normalizePaymentMethod(row.PaymentMethod),
+            status: normalizeRepairStatus(row.Status),
             notes: row.Notes?.toString() || "",
             expected_delivery: row.ExpectedDelivery || null,
             delivered_at: row.DeliveredAt || null,

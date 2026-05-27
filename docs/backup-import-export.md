@@ -129,3 +129,63 @@ The orphan policy and the per-table orphan summary are also written to the impor
 ### Final report
 
 The Import Complete table now shows: **Extracted**, **Created**, **Skipped existing**, **Skipped orphan**, **Failed**, **Status**.
+
+---
+
+## Field Mapping Reference (Desktop → Online)
+
+Desktop SQLite uses PascalCase that doesn't match the online snake_case schema. The importer uses the `pickString` / `pickNumber` / `pickBool` helpers with a key-list fallback so cross-version desktop dumps still work.
+
+| Desktop column | Online column | Notes |
+|---|---|---|
+| `Products.ItemName` | `products.name` | First-tried key; falls back to `ProductName`, `Name`. |
+| `Products.Category` (text) | `products.category_id` | Resolved by looking up `product_categories.name` (lowercased). Desktop has no `CategoryId` on Products. |
+| `Products.Stock` | `products.stock_quantity` | Falls back to `StockQuantity`. |
+| `Products.MinimumStock` | `products.minimum_stock` | Falls back to `MinStock`. |
+| `Products.PurchasePrice` / `SalePrice` | identical mapping | |
+| `Products.Type` | `products.type` | Normalised: `"Service"` → `service`, else `product`. |
+| `Bills.BillDate` | `invoices.invoice_date` + `invoices.created_at` | Falls back to `Date`, `InvoiceDate`, `CreatedAt`. |
+| `Bills.PaymentStatus` | `invoices.status` | Normalised: `"Paid"` → `paid`, `"Partial"` → `partial`, `"Credit"`/`"Unpaid"` → `unpaid`. Unknown values derived from `AmountPaid`/`GrandTotal`/`BalanceDue`. |
+| `Bills.PaymentMethod` | (payment row, `payments.method`) | Normalised: `"Cash"` → `cash`, `"Card"` → `card`, `"EasyPaisa"` → `easypaisa`, `"JazzCash"` → `jazzcash`, `"Bank Transfer"` → `bank_transfer`. Unknown → `cash` with warning. |
+| `BillItems.Qty` | `invoice_items.quantity` | Falls back to `Quantity`. |
+| `BillItems.Price` | `invoice_items.unit_price` | Falls back to `UnitPrice`, `SalePrice`. |
+| `BillItems.IsServiceTransaction` | `invoice_items.product_type` | `true` → `service`, else `product`. |
+| `BillItemBatchAllocations.Qty` | `invoice_item_stock_allocations.quantity` | Was the source of a previous import bug. |
+| `ReturnRefunds.Status` | `returns.status` | Normalised to online enum `completed` / `cancelled` only. |
+| `ReturnRefunds.RefundMethod` | `returns.refund_method` | Normalised; collapsed to `cash` if a method isn't in the online refund enum. |
+| `ReturnItems.QtyReturned` | `return_items.quantity` | Falls back to `Qty`. |
+| `RepairJobs.Status` | `repairs.status` | Normalised: `"InProgress"` → `in_progress`, etc. |
+| `RepairJobs.PaymentMethod` | `repairs.payment_method` | Normalised. |
+| `Users.PasswordHash` / `RecoveryCodeHash` | **skipped** | Auth secrets are never imported. Staff must be invited via `/users`. |
+
+---
+
+## Cleaning Up After a Failed Import Attempt
+
+If a previous import partially wrote audit-log rows (e.g. an old run that inserted 211 `ActivityLog` rows even though no business data made it in), you can identify and remove only those rows by filtering on the failed import job's `id`. The wizard does **not** auto-delete; this is documented as a one-time SQL recipe so you can review the rows first.
+
+1. List recent import jobs:
+   ```sql
+   select id, source_app, started_at, completed_at, status
+     from import_jobs
+     where organization_id = '<your-org-id>'
+     order by started_at desc
+     limit 10;
+   ```
+2. For each failed job you want to clean up, inspect the audit logs it produced:
+   ```sql
+   select id, module, action, created_at
+     from audit_logs
+     where organization_id = '<your-org-id>'
+       and metadata->>'import_job_id' = '<failed-job-id>';
+   ```
+3. If you're satisfied they're orphans of the failed run, delete them — scoped strictly by that job ID:
+   ```sql
+   delete from audit_logs
+     where organization_id = '<your-org-id>'
+       and metadata->>'import_job_id' = '<failed-job-id>';
+   delete from import_row_mappings where import_job_id = '<failed-job-id>';
+   delete from import_jobs where id = '<failed-job-id>';
+   ```
+
+The wizard does **not** offer an automated "Remove failed import" button yet — adding one safely needs to enumerate every dependent table per import job, which is a larger feature. Until then, run the recipe above against the Supabase SQL editor (owner-only).
