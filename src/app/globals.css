@@ -13,12 +13,12 @@
 }
 
 .dark {
-  --background: #0b0f19; /* Premium slate/dark-blue background */
+  --background: #070b16; /* Deep premium navy/slate background */
   --foreground: #f8fafc; /* slate-50 text */
-  --brand: #3b82f6;      /* High contrast bright blue brand color */
-  --brand-bright: #60a5fa;
-  --brand-soft: #1e293b;
-  --surface: #131b2e;    /* Deep premium slate card background */
+  --brand: #cbd5e1;      /* Turn the blues into whites/slates in dark mode */
+  --brand-bright: #ffffff;
+  --brand-soft: #0b1220;
+  --surface: #0b1220;    /* Premium slate/navy card background */
   --border: #1e293b;     /* Readable dark border */
 }
 
@@ -52,19 +52,31 @@ body {
 /* Broad dark-mode safety net for existing app surfaces. Targeted component
    classes still win where pages need richer styling. */
 .dark .bg-white {
-  background-color: #111827 !important;
+  background-color: #0b1220 !important; /* Premium near-navy card bg */
 }
 
 .dark .bg-slate-50,
 .dark .bg-slate-100,
 .dark .bg-slate-50\/50,
 .dark .bg-slate-100\/50 {
-  background-color: #0f172a !important;
+  background-color: #070b16 !important; /* Deep navy/slate background */
 }
 
 .dark .bg-blue-50,
 .dark .bg-blue-50\/80 {
-  background-color: rgb(23 37 84 / 0.55) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important; /* Premium soft white/slate accent tint */
+}
+.dark .text-blue-700,
+.dark .text-blue-800 {
+  color: #22d3ee !important; /* Soft cyan for skipped existing / blue stats */
+}
+.dark .text-blue-600,
+.dark .text-blue-900 {
+  color: #cbd5e1 !important; /* Softer monochrome white-slate */
+}
+.dark .border-blue-100,
+.dark .border-blue-200 {
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
 .dark .bg-emerald-50,
@@ -79,7 +91,15 @@ body {
 
 .dark .bg-rose-50,
 .dark .bg-red-50 {
-  background-color: rgb(127 29 29 / 0.45) !important;
+  background-color: rgba(239, 68, 68, 0.12) !important; /* Dark red tint background */
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+.dark .text-rose-950,
+.dark .text-rose-900,
+.dark .text-rose-700,
+.dark .text-red-700,
+.dark .text-red-600 {
+  color: #fca5a5 !important; /* Premium soft red-100/300 text */
 }
 
 .dark .text-slate-950,

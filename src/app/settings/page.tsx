@@ -65,8 +65,8 @@ export default async function SettingsPage({
                   href={`/settings?tab=${tab.id}`}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition duration-200 shrink-0 ${
                     isActive
-                      ? "border-blue-700 text-blue-700 bg-blue-50/50 rounded-t-xl"
-                      : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300"
+                      ? "border-blue-700 text-blue-700 bg-blue-50/50 rounded-t-xl dark:border-slate-100 dark:text-slate-100 dark:bg-slate-900/40"
+                      : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:border-slate-700"
                   }`}
                 >
                   <Icon className="size-4" />

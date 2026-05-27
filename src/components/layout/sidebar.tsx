@@ -49,10 +49,10 @@ export async function Sidebar() {
         <img
           src="/gadget-zone-logo.png"
           alt="Gadget Zone Logo"
-          className="h-11 w-auto max-w-[80px] object-contain rounded-lg"
+          className="h-11 w-auto max-w-[80px] object-contain rounded-lg dark:brightness-0 dark:invert"
         />
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700 dark:text-slate-100">
             Gadget Zone
           </p>
           <p className="text-lg font-black text-slate-950 dark:text-slate-50">Online POS</p>
@@ -65,7 +65,7 @@ export async function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               <Icon className="size-4" />
               {item.label}
