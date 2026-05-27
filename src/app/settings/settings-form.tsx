@@ -255,7 +255,7 @@ export function SettingsForm({
         <dl className="grid gap-3 text-sm md:grid-cols-2">
           <div className="rounded-xl bg-slate-50 p-3">
             <dt className={labelTextClass}>Production URL</dt>
-            <dd className="mt-1 break-words font-semibold text-slate-800">https://gadget-zone-online-pos.vercel.app</dd>
+            <dd className="mt-1 break-words font-semibold text-slate-800">https://saledock-cloud-pos.vercel.app</dd>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
             <dt className={labelTextClass}>Uploads/storage</dt>

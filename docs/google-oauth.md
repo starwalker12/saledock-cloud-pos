@@ -20,9 +20,9 @@ No OAuth secrets are stored in the app code.
 
 Under **Authentication → URL Configuration**:
 
-- **Site URL:** `https://gadget-zone-online-pos.vercel.app`
+- **Site URL:** `https://saledock-cloud-pos.vercel.app`
 - **Redirect URLs:**
-  - `https://gadget-zone-online-pos.vercel.app/auth/callback`
+  - `https://saledock-cloud-pos.vercel.app/auth/callback`
   - `http://localhost:3000/auth/callback`
 
 Supabase callback URL (add this to each provider's allowed redirect URIs):

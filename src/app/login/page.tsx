@@ -37,12 +37,17 @@ export default async function LoginPage({
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
         {/* Logo */}
         <div className="mb-6 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/saledock-logo.svg"
-            alt="SaleDock"
-            className="mx-auto mb-4 h-16 w-auto max-w-[200px] object-contain"
-          />
+          <Link
+            href={signedInUser ? (signedInUser.needsOnboarding ? "/onboarding" : "/dashboard") : "/"}
+            className="inline-block"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/saledock-logo.svg"
+              alt="SaleDock Cloud POS"
+              className="mx-auto mb-4 h-16 w-auto max-w-[200px] object-contain"
+            />
+          </Link>
         </div>
 
         {signedInUser ? (
@@ -101,9 +106,9 @@ export default async function LoginPage({
           <>
             <div className="mb-6 text-center">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700 sm:tracking-[0.28em]">
-                SaleDock
+                SaleDock Cloud POS
               </p>
-              <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Cloud POS</h1>
+              <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Sign in to your shop</h1>
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 {maintenanceMode
                   ? "The system is undergoing scheduled maintenance. Please check back later."

@@ -82,9 +82,9 @@ For sign-up, `signUpAction` passes `emailRedirectTo: ${origin}/auth/callback?nex
 
 In the Supabase dashboard → **Authentication → URL Configuration**, set:
 
-- **Site URL:** `https://gadget-zone-online-pos.vercel.app`
+- **Site URL:** `https://saledock-cloud-pos.vercel.app`
 - **Redirect URLs (allow list):**
-  - `https://gadget-zone-online-pos.vercel.app/auth/callback`
+  - `https://saledock-cloud-pos.vercel.app/auth/callback`
   - `http://localhost:3000/auth/callback`
 
 Without those, Supabase rejects the email link's redirect and falls back to its Site URL.

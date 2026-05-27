@@ -10,25 +10,30 @@ steps needed.
 
 | Field | Value |
 |---|---|
-| Application name | SaleDock Cloud POS |
-| Application home page | `https://gadget-zone-online-pos.vercel.app` |
-| Privacy policy | `https://gadget-zone-online-pos.vercel.app/privacy` |
-| Terms of service | `https://gadget-zone-online-pos.vercel.app/terms` |
-| Authorized domain | `gadget-zone-online-pos.vercel.app` (no `https://` prefix) |
+| Application name | `SaleDock Cloud POS` |
+| Application home page | `https://saledock-cloud-pos.vercel.app` |
+| Privacy policy | `https://saledock-cloud-pos.vercel.app/privacy` |
+| Terms of service | `https://saledock-cloud-pos.vercel.app/terms` |
+| Authorized domain | `saledock-cloud-pos.vercel.app` (no `https://` prefix) |
 | Application logo | Square 512×512 SaleDock mark (`saledock-logo-mark.svg`) |
+
+**Important:** The app name in Google Cloud Console must be exactly
+**SaleDock Cloud POS** — matching the public home page branding. Do not
+use "SaleDock Online POS" or any other variant.
 
 ### OAuth 2.0 Client ID (Web application)
 
 | Field | Value |
 |---|---|
-| Authorized JavaScript origins | `https://gadget-zone-online-pos.vercel.app` |
+| Authorized JavaScript origins | `https://saledock-cloud-pos.vercel.app` |
 | Authorized redirect URIs | `https://bvxyxrdskjryepwjmsvc.supabase.co/auth/v1/callback` |
 
 ## Brand Verification Checklist
 
 1. **Home page must be public.**
    The root URL (`/`) must be accessible without login and show the
-   SaleDock brand. Google will crawl this URL to verify brand consistency.
+   **SaleDock Cloud POS** brand. Google will crawl this URL to verify
+   brand consistency.
 
 2. **Privacy policy must be public.**
    `/privacy` must return 200 without authentication.
@@ -38,15 +43,16 @@ steps needed.
 
 4. **Logo must match brand.**
    The logo uploaded to Google Cloud Console must match the logo shown on
-   the home page and login page. Use the SaleDock wordmark or square mark.
-   Do not use a generic receipt/cart icon.
+   the home page and login page. Use the square SaleDock mark
+   (`saledock-logo-mark.svg`) — not a generic receipt/cart icon and not a
+   wide wordmark with excessive whitespace.
 
 5. **Domain ownership (if prompted).**
    If Google Search Console requires ownership verification:
-   - Add a `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` env var in Vercel with the
-     meta tag content value from Google.
+   - Add a `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` env var in Vercel with
+     the meta tag content value from Google.
    - Or place the verification HTML file in `/public/` so it serves at
-     `https://gadget-zone-online-pos.vercel.app/<filename>.html`.
+     `https://saledock-cloud-pos.vercel.app/<filename>.html`.
 
 6. **Scopes**
    The app requests only `openid`, `email`, and `profile` — these are
@@ -58,7 +64,7 @@ steps needed.
 ### Option A — Meta tag (recommended)
 
 1. Go to https://search.google.com/search-console
-2. Add a **URL-prefix** property: `https://gadget-zone-online-pos.vercel.app`
+2. Add a **URL-prefix** property: `https://saledock-cloud-pos.vercel.app`
 3. Choose **HTML tag** verification method.
 4. Copy the meta tag content value.
 5. Set it as a Vercel environment variable:
@@ -74,13 +80,14 @@ steps needed.
    (e.g. `google1234567890abcdef.html`).
 2. Place it in `/public/` of this project.
 3. Deploy. It will be served at:
-   `https://gadget-zone-online-pos.vercel.app/google1234567890abcdef.html`
+   `https://saledock-cloud-pos.vercel.app/google1234567890abcdef.html`
 4. Click **Verify** in Search Console.
 
 ## After Verification
 
 1. Return to **Google Cloud Console → APIs & Services → OAuth consent screen**.
-2. Click **Edit App** → **Save and Continue** through all sections.
-3. If Google still shows pending verification, submit for verification.
-4. Once verified, the app name and logo will display on the OAuth consent
+2. Click **Edit App** → set Application name to **SaleDock Cloud POS**.
+3. **Save and Continue** through all sections.
+4. If Google still shows pending verification, submit for verification.
+5. Once verified, the app name and logo will display on the OAuth consent
    screen instead of "Unverified app".

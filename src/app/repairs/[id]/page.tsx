@@ -34,7 +34,7 @@ const STATUS_CLASSES: Record<string, string> = {
   cancelled: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
-const PRODUCTION_URL = "https://gadget-zone-online-pos.vercel.app";
+const PRODUCTION_URL = "https://saledock-cloud-pos.vercel.app";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-PK", {

@@ -20,12 +20,14 @@ export default async function OnboardingPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-3 py-8 sm:px-4 sm:py-10 dark:bg-slate-900">
       <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8 dark:border-slate-700 dark:bg-slate-800">
         <div className="mb-8 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/saledock-logo.svg"
-            alt="SaleDock"
-            className="mx-auto mb-4 h-14 w-auto max-w-[220px] object-contain"
-          />
+          <Link href="/onboarding" className="inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/saledock-logo.svg"
+              alt="SaleDock Cloud POS"
+              className="mx-auto mb-4 h-14 w-auto max-w-[220px] object-contain"
+            />
+          </Link>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">Set up your shop</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
             Complete the steps below to create your organization and start selling.

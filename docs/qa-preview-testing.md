@@ -4,13 +4,13 @@
 
 | Surface | URL | Public unauthenticated curl OK? | Owner browser login OK? |
 |---|---|---|---|
-| Production | https://gadget-zone-online-pos.vercel.app | ✅ public app routes | ✅ |
+| Production | https://saledock-cloud-pos.vercel.app | ✅ public app routes | ✅ |
 | Vercel Preview deploy | `https://gadget-zone-online-<hash>-<team>.vercel.app` | ❌ blocked by Vercel SSO | ✅ after Vercel login |
 | Local dev (`npm run dev`) | http://localhost:3000 | ✅ | ✅ |
 
 Vercel's Hobby plan protects all preview deployments behind Vercel SSO by default. This is **good for security** (PR previews aren't crawlable) but it does mean:
 
-- `curl https://gadget-zone-online-<hash>...vercel.app/login` returns **HTTP 401** with a Vercel auth page, not a 200 with the Gadget Zone login.
+- `curl https://gadget-zone-online-<hash>...vercel.app/login` returns **HTTP 401** with a Vercel auth page, not a 200 with the SaleDock login.
 - Smoke tests scripted against a preview URL **will all fail** unless you authenticate first.
 
 This isn't a bug in the app. Don't disable SSO just to make smoke-tests work — that exposes every preview to crawlers and reduces the security posture.

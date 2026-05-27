@@ -79,8 +79,8 @@ Important:
 
 ## Production
 
-- App URL: https://gadget-zone-online-pos.vercel.app
-- Supabase auth callback: `https://gadget-zone-online-pos.vercel.app/auth/callback`
+- App URL: https://saledock-cloud-pos.vercel.app
+- Supabase auth callback: `https://saledock-cloud-pos.vercel.app/auth/callback`
 - First owner exists. Public registration is now **closed** — see `docs/auth-onboarding.md`.
 
 ## Offline → Online parity

@@ -17,7 +17,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   customer_credit: "Customer credit",
 };
 
-const PRODUCTION_URL = "https://gadget-zone-online-pos.vercel.app";
+const PRODUCTION_URL = "https://saledock-cloud-pos.vercel.app";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-PK", {

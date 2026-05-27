@@ -52,12 +52,12 @@ export async function Sidebar() {
     // internally when the list is taller than the viewport. The outer shell
     // is overflow-hidden, so this sidebar never moves when main scrolls.
     <aside className="hidden h-dvh w-72 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:flex">
-      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 px-6 dark:border-slate-800">
+      <Link href="/dashboard" className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200 px-6 dark:border-slate-800">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/saledock-logo.svg"
-          alt="SaleDock"
-          className="h-9 w-auto max-w-[60px] object-contain rounded-lg"
+          src="/saledock-logo-mark.svg"
+          alt="SaleDock Cloud POS"
+          className="h-9 w-9 object-contain"
         />
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700 dark:text-slate-100">
@@ -65,7 +65,7 @@ export async function Sidebar() {
           </p>
           <p className="text-lg font-black text-slate-950 dark:text-slate-50">Cloud POS</p>
         </div>
-      </div>
+      </Link>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
         {visibleItems.map((item) => {
           const Icon = item.icon;

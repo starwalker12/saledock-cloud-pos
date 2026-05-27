@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -10,12 +11,14 @@ export default function PrivacyPage() {
       <article className="w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-10 dark:border-slate-700 dark:bg-slate-800">
         {/* Logo */}
         <div className="mb-8 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/saledock-logo.svg"
-            alt="SaleDock"
-            className="mx-auto mb-2 h-10 w-auto max-w-[180px] object-contain"
-          />
+          <Link href="/">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/saledock-logo.svg"
+              alt="SaleDock Cloud POS"
+              className="mx-auto mb-2 h-10 w-auto max-w-[180px] object-contain"
+            />
+          </Link>
         </div>
 
         <h1 className="mb-6 text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
