@@ -21,18 +21,20 @@ export default async function HomePage() {
     <main className="flex min-h-screen flex-col bg-slate-100 dark:bg-slate-900">
       {/* Hero */}
       <section className="flex flex-1 flex-col items-center justify-center px-4 py-16 text-center sm:py-24">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/saledock-logo.svg"
-          alt="SaleDock"
-          className="mx-auto mb-8 h-16 w-auto max-w-[280px] object-contain"
-        />
+        <Link href={signedInUser ? (signedInUser.needsOnboarding ? "/onboarding" : "/dashboard") : "/"} className="inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/saledock-logo.svg"
+            alt="SaleDock Cloud POS"
+            className="mx-auto mb-8 h-16 w-auto max-w-[280px] object-contain"
+          />
+        </Link>
         <h1 className="max-w-2xl text-3xl font-black text-slate-950 sm:text-5xl dark:text-white">
-          Cloud POS for modern shops
+          SaleDock Cloud POS
         </h1>
         <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg dark:text-slate-400">
-          SaleDock is a cloud POS platform for shops to manage sales, inventory,
-          repairs, invoices, expenses, and reports — all from one place.
+          A cloud POS platform for shops to manage sales, inventory, repairs,
+          invoices, expenses, and reports — all from one place.
         </p>
 
         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">

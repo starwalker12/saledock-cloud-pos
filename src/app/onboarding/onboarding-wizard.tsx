@@ -124,6 +124,7 @@ export function OnboardingWizard({
     branchGoogleMapsUrl: "",
     branchLatitude: "",
     branchLongitude: "",
+    branchUseShopDetails: "true",
     logoUrl: "",
     primaryColor: "#0b2f6f",
     accentColor: "#00b8b0",
@@ -181,6 +182,7 @@ export function OnboardingWizard({
       branchGoogleMapsUrl: "",
       branchLatitude: "",
       branchLongitude: "",
+      branchUseShopDetails: "true",
       logoUrl: "",
       primaryColor: "#0b2f6f",
       accentColor: "#00b8b0",
@@ -581,75 +583,159 @@ function BranchStep({
   data: Record<string, string>;
   onChange: (key: string, value: string) => void;
 }) {
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const useShopDetails = data.branchUseShopDetails === "true";
+
+  function handleUseShopDetails(use: boolean) {
+    onChange("branchUseShopDetails", use ? "true" : "false");
+    if (use) {
+      onChange("branchName", "Main Branch");
+      onChange("branchPhone", data.orgPhone || "");
+      onChange("branchAddress", data.orgAddress || "");
+      onChange("branchGoogleMapsUrl", data.googleMapsUrl || "");
+      onChange("branchLatitude", data.latitude || "");
+      onChange("branchLongitude", data.longitude || "");
+    }
+  }
+
+  function handleGetLocation() {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGettingLocation(true);
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        onChange("branchLatitude", pos.coords.latitude.toString());
+        onChange("branchLongitude", pos.coords.longitude.toString());
+        setGettingLocation(false);
+      },
+      (err) => {
+        setLocationError(err.message);
+        setGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Branch Setup</h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Set up your first branch. You can add more later in settings.</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Set up your first branch. You can add more later in settings.
+        </p>
       </div>
-      <label className="block">
-        <span className={labelTextClass}>Branch name</span>
+
+      <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-slate-200 p-3">
         <input
-          value={data.branchName}
-          onChange={(e) => onChange("branchName", e.target.value)}
-          className={inputClass}
-          placeholder="Main Branch"
+          type="checkbox"
+          checked={useShopDetails}
+          onChange={(e) => handleUseShopDetails(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300"
         />
+        <div>
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Use same details as shop profile</span>
+          <p className="text-xs text-slate-400 mt-0.5">Branch name, phone, address, and location will be copied from your shop.</p>
+        </div>
       </label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className={labelTextClass}>Branch phone</span>
-          <input
-            type="tel"
-            value={data.branchPhone}
-            onChange={(e) => onChange("branchPhone", e.target.value)}
-            className={inputClass}
-            placeholder="+92 300 1234567"
-          />
-        </label>
-        <label className="block">
-          <span className={labelTextClass}>Branch address</span>
-          <input
-            value={data.branchAddress}
-            onChange={(e) => onChange("branchAddress", e.target.value)}
-            className={inputClass}
-            placeholder="Branch address"
-          />
-        </label>
-      </div>
-      <label className="block">
-        <span className={labelTextClass}>Google Maps link (optional)</span>
-        <input
-          value={data.branchGoogleMapsUrl}
-          onChange={(e) => onChange("branchGoogleMapsUrl", e.target.value)}
-          className={inputClass}
-          placeholder="https://maps.app.goo.gl/..."
-        />
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className={labelTextClass}>Latitude</span>
-          <input
-            type="number"
-            step="any"
-            value={data.branchLatitude}
-            onChange={(e) => onChange("branchLatitude", e.target.value)}
-            className={inputClass}
-            placeholder="33.6844"
-          />
-        </label>
-        <label className="block">
-          <span className={labelTextClass}>Longitude</span>
-          <input
-            type="number"
-            step="any"
-            value={data.branchLongitude}
-            onChange={(e) => onChange("branchLongitude", e.target.value)}
-            className={inputClass}
-            placeholder="73.0479"
-          />
-        </label>
-      </div>
+
+      {useShopDetails ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">
+          Branch will use shop details:
+          <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
+            <li>Name: Main Branch</li>
+            <li>Phone: {data.orgPhone || "—"}</li>
+            <li>Address: {data.orgAddress || "—"}</li>
+            <li>Google Maps: {data.googleMapsUrl ? "Set" : "—"}</li>
+            <li>Location: {data.latitude && data.longitude ? `${data.latitude}, ${data.longitude}` : "—"}</li>
+          </ul>
+        </div>
+      ) : (
+        <>
+          <label className="block">
+            <span className={labelTextClass}>Branch name</span>
+            <input
+              value={data.branchName}
+              onChange={(e) => onChange("branchName", e.target.value)}
+              className={inputClass}
+              placeholder="Main Branch"
+            />
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className={labelTextClass}>Branch phone</span>
+              <input
+                type="tel"
+                value={data.branchPhone}
+                onChange={(e) => onChange("branchPhone", e.target.value)}
+                className={inputClass}
+                placeholder="+92 300 1234567"
+              />
+            </label>
+            <label className="block">
+              <span className={labelTextClass}>Branch address</span>
+              <input
+                value={data.branchAddress}
+                onChange={(e) => onChange("branchAddress", e.target.value)}
+                className={inputClass}
+                placeholder="Branch address"
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className={labelTextClass}>Google Maps link (optional)</span>
+            <input
+              value={data.branchGoogleMapsUrl}
+              onChange={(e) => onChange("branchGoogleMapsUrl", e.target.value)}
+              className={inputClass}
+              placeholder="https://maps.app.goo.gl/..."
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className={labelTextClass}>Latitude</span>
+              <input
+                type="number"
+                step="any"
+                value={data.branchLatitude}
+                onChange={(e) => onChange("branchLatitude", e.target.value)}
+                className={inputClass}
+                placeholder="33.6844"
+              />
+            </label>
+            <label className="block">
+              <span className={labelTextClass}>Longitude</span>
+              <input
+                type="number"
+                step="any"
+                value={data.branchLongitude}
+                onChange={(e) => onChange("branchLongitude", e.target.value)}
+                className={inputClass}
+                placeholder="73.0479"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={handleGetLocation}
+            disabled={gettingLocation}
+            className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {gettingLocation ? "Getting location..." : "Use my current location"}
+          </button>
+          {locationError && (
+            <p className="text-xs text-red-500">{locationError}</p>
+          )}
+          {data.branchLatitude && data.branchLongitude && (
+            <p className="text-xs text-emerald-600">
+              Location set: {data.branchLatitude}, {data.branchLongitude}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -888,10 +974,10 @@ function ConfirmStep({
           <Row label="Show map" value={data.showMap === "true" ? "Yes" : "No"} />
         </Section>
         <Section summary="Branch">
-          <Row label="Name" value={data.branchName || "Main Branch"} />
-          <Row label="Phone" value={data.branchPhone || "—"} />
-          <Row label="Address" value={data.branchAddress || "—"} />
-          <Row label="Google Maps" value={data.branchGoogleMapsUrl ? "Set" : "—"} />
+          <Row label="Name" value={data.branchUseShopDetails === "true" ? "Main Branch — same as shop profile" : data.branchName || "Main Branch"} />
+          <Row label="Phone" value={data.branchUseShopDetails === "true" ? (data.orgPhone || "—") : (data.branchPhone || "—")} />
+          <Row label="Address" value={data.branchUseShopDetails === "true" ? (data.orgAddress || "—") : (data.branchAddress || "—")} />
+          <Row label="Google Maps" value={data.branchUseShopDetails === "true" ? (data.googleMapsUrl ? "Set" : "—") : (data.branchGoogleMapsUrl ? "Set" : "—")} />
         </Section>
         <Section summary="Branding">
           <Row label="Logo" value={data.logoUrl ? "Set" : "Default"} />

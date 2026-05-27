@@ -81,6 +81,8 @@ export async function completeOnboardingAction(
     defaultTheme: d.defaultTheme || null,
     currencyCode: d.currencyCode || null,
     timezone: d.timezone || null,
+    branchPhone: normalizePhone(d.branchPhone),
+    branchAddress: sanitizeNullableText(d.branchAddress, 500),
   };
 
   const { error: rpcError } = await supabase.rpc("complete_self_signup", {
@@ -100,6 +102,8 @@ export async function completeOnboardingAction(
     p_default_theme: sanitized.defaultTheme,
     p_currency_code: sanitized.currencyCode,
     p_timezone: sanitized.timezone,
+    p_branch_phone: sanitized.branchPhone,
+    p_branch_address: sanitized.branchAddress,
   });
 
   if (rpcError) {
