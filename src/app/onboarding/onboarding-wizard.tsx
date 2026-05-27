@@ -155,6 +155,39 @@ export function OnboardingWizard({
     formAction(form);
   }
 
+  function restartSetup() {
+    setStep("profile");
+    setFormData({
+      fullName: defaultFullName,
+      username: "",
+      phone: "",
+      profilePictureUrl: "",
+      organizationName: "",
+      ownerName: "",
+      orgPhone: "",
+      orgWhatsapp: "",
+      orgEmail: userEmail,
+      orgAddress: "",
+      currencyCode: defaultCurrency,
+      timezone: defaultTimezone,
+      googleMapsUrl: "",
+      latitude: "",
+      longitude: "",
+      showMap: "false",
+      socialLinks: "[]",
+      branchName: "Main Branch",
+      branchPhone: "",
+      branchAddress: "",
+      branchGoogleMapsUrl: "",
+      branchLatitude: "",
+      branchLongitude: "",
+      logoUrl: "",
+      primaryColor: "#0b2f6f",
+      accentColor: "#00b8b0",
+      defaultTheme: "system",
+    });
+  }
+
   const currentStep = (function () {
     switch (step) {
       case "profile":
@@ -238,7 +271,7 @@ export function OnboardingWizard({
         <>
           {currentStep}
           <div className="mt-6 flex justify-between">
-            <div>
+            <div className="flex gap-2">
               {stepIndex > 0 && (
                 <button
                   type="button"
@@ -248,6 +281,13 @@ export function OnboardingWizard({
                   Back
                 </button>
               )}
+              <button
+                type="button"
+                onClick={restartSetup}
+                className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              >
+                Restart
+              </button>
             </div>
             <button
               type="button"

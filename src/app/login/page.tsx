@@ -9,9 +9,9 @@ import { ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; signup?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, signup } = await searchParams;
 
   const publicSignupRaw = await getPublicPlatformSetting("public_signup_enabled");
   const publicSignupEnabled = publicSignupRaw !== false && publicSignupRaw !== "false";
@@ -57,7 +57,7 @@ export default async function LoginPage({
 
             {signedInUser.needsOnboarding ? (
               <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                <p className="font-semibold">Your shop setup is not complete.</p>
+                <p className="font-semibold">You are signed in but your shop setup is not complete.</p>
                 <p className="mt-1 text-xs">Continue setting up your shop or sign out to use another account.</p>
               </div>
             ) : (
@@ -122,7 +122,7 @@ export default async function LoginPage({
                 Supabase is not configured yet. Add credentials to <code>.env.local</code>.
               </p>
             )}
-            <LoginForm callbackError={error ?? null} publicSignupEnabled={publicSignupEnabled} />
+            <LoginForm callbackError={error ?? null} publicSignupEnabled={publicSignupEnabled} initialMode={signup === "1" ? "sign-up" : "sign-in"} />
           </>
         )}
 

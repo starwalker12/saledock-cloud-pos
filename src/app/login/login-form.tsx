@@ -8,10 +8,11 @@ const initialState: AuthState = { error: null };
 type Props = {
   callbackError?: string | null;
   publicSignupEnabled?: boolean;
+  initialMode?: "sign-in" | "sign-up";
 };
 
-export function LoginForm({ callbackError, publicSignupEnabled = true }: Props) {
-  const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot">("sign-in");
+export function LoginForm({ callbackError, publicSignupEnabled = true, initialMode = "sign-in" }: Props) {
+  const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot">(initialMode);
   const action = mode === "sign-in" ? signInAction : mode === "sign-up" ? signUpAction : resetPasswordAction;
   const [state, formAction, pending] = useActionState(action, initialState);
 

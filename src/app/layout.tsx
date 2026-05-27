@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { env } from "@/lib/env";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,9 +17,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SaleDock Cloud POS",
   description:
-    "Multi-tenant cloud POS platform built with Next.js, Supabase, and Vercel.",
+    "SaleDock is a cloud POS platform for shops to manage sales, inventory, repairs, invoices, expenses, and reports.",
   icons: {
-    icon: "/saledock-logo.svg",
+    icon: "/saledock-logo-mark.svg",
+  },
+  other: {
+    ...(env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+      ? {
+          "google-site-verification": env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+        }
+      : {}),
   },
 };
 
