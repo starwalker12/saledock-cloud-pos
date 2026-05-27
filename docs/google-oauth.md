@@ -1,4 +1,4 @@
-# OAuth Provider Setup (Google, Facebook, Apple)
+# OAuth Provider Setup (Google, Facebook)
 
 This document describes how to configure OAuth providers for self-service signup.
 
@@ -65,53 +65,7 @@ Supabase callback URL (add this to each provider's allowed redirect URIs):
 
 ---
 
-## Apple
-
-### Requirements
-- Apple Developer Program membership ($99/year)
-- Team ID (from Apple Developer Membership page)
-- App ID (registered in Certificates, Identifiers & Profiles)
-- Services ID (a separate identifier for the sign-in service)
-- .p8 private key file (one key, used for all your apps)
-- Key ID (from the .p8 key creation page)
-
-### Supabase Dashboard
-- Enable **Apple** provider
-- Enter:
-  - **Client ID**: your Services ID (e.g., `com.example.pos.signin`)
-  - **Team ID**: from Apple Developer Membership
-  - **Key ID**: from the .p8 key page
-  - **Private Key**: the full content of the .p8 file (including `-----BEGIN PRIVATE KEY-----`)
-
-### Apple Developer Console
-1. **Certificates, Identifiers & Profiles → Identifiers**
-   - Register an **App ID** (e.g., `com.example.pos`)
-   - Enable **Sign in with Apple** capability
-
-2. **Register a Services ID** (e.g., `com.example.pos.signin`)
-   - Configure **Sign in with Apple** for this Services ID
-   - Set the **Return URL** to: `https://bvxyxrdskjryepwjmsvc.supabase.co/auth/v1/callback`
-
-3. **Certificates, Identifiers & Profiles → Keys**
-   - Register a new key
-   - Enable **Sign in with Apple**
-   - Associate with the App ID
-   - Download the .p8 file (one-time download only!)
-   - Note the **Key ID**
-
-### Apple User Metadata
-- Apple may not provide the user's full name on subsequent sign-ins.
-- The onboarding wizard always asks for the owner name regardless of provider.
-- Apple name data from the first sign-in is stored in `user_metadata` if available.
-
-### Secret Rotation
-- Apple .p8 private keys do not expire, but Apple recommends rotating keys periodically.
-- Update the Private Key in Supabase Dashboard → Authentication → Providers → Apple.
-- Supabase handles the client secret generation server-side.
-
----
-
-## How OAuth Flow Works (all providers)
+## How OAuth Flow Works
 
 1. User clicks "Continue with [Provider]" on `/login`.
 2. Server action calls `supabase.auth.signInWithOAuth({ provider })`.
@@ -124,11 +78,17 @@ Supabase callback URL (add this to each provider's allowed redirect URIs):
 
 ## Important Notes
 
-- **Apple** does not always return the user's full name. The onboarding
-  wizard always asks for the owner name regardless.
 - **Facebook** requires the `email` permission. Keep "Allow users without
   email" OFF in the Supabase Facebook provider settings.
 - No OAuth secrets are hardcoded in the app. All provider configuration
   lives in Supabase Dashboard.
 - The callback route (`/auth/callback`) is provider-agnostic — it works the
-  same for Google, Facebook, Apple, and email confirmation links.
+  same for Google, Facebook, and email confirmation links.
+
+## Future Planned Providers
+
+- **Apple / Sign in with Apple** — deferred. Adding Apple requires a paid
+  Apple Developer Program membership ($99/year) and additional OAuth setup.
+  The shared `oAuthAction` helper in `actions.ts` makes adding it
+  straightforward when desired: add the button UI, add `"apple"` to the
+  helper's union type, and configure credentials in Supabase Dashboard.

@@ -95,7 +95,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   redirect("/onboarding");
 }
 
-async function oAuthAction(provider: "google" | "apple" | "facebook"): Promise<AuthState> {
+async function oAuthAction(provider: "google" | "facebook"): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
 
   const origin = await publicOrigin();
@@ -119,12 +119,6 @@ export async function signInWithGoogleAction(_prev: AuthState, _formData: FormDa
   void _prev;
   void _formData;
   return oAuthAction("google");
-}
-
-export async function signInWithAppleAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
-  void _prev;
-  void _formData;
-  return oAuthAction("apple");
 }
 
 export async function signInWithFacebookAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
