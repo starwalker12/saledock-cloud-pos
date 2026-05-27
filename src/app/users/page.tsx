@@ -21,7 +21,7 @@ export default async function UsersPage() {
   if (!canManage) {
     return (
       <AppShell pageTitle="Users">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+        <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
             Restricted area
           </p>

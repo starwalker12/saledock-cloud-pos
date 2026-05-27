@@ -1378,7 +1378,13 @@ export async function importTableChunkAction(
             module: row.Module || "system",
             action: row.Action || "desktop_activity",
             details,
-            metadata: { source: "desktop_import", original_actor: row.Actor || "staff", import_job_id: jobId },
+            metadata: {
+              source: "desktop_import",
+              original_actor: row.Actor || "staff",
+              import_job_id: jobId,
+              source_table: "ActivityLog",
+              source_id: row.Id?.toString() || null
+            },
             created_at: row.Date || new Date().toISOString()
           });
 

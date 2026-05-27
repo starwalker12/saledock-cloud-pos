@@ -44,7 +44,7 @@ export default async function SettingsPage({
 
   return (
     <AppShell pageTitle="Settings">
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="w-full space-y-6">
         {/* Page Heading and Tabs Navigation */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 space-y-6">
           <div>

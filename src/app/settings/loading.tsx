@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function SettingsLoading() {
   return (
     <AppShell pageTitle="Settings">
-      <div className="mx-auto max-w-5xl space-y-5">
+      <div className="w-full space-y-5">
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-8 w-64" />
