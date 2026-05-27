@@ -65,9 +65,14 @@ export async function updateSettingsAction(
     .from("organizations")
     .update({
       name: values.shopName,
+      owner_name: values.ownerName ?? null,
       phone: values.phone ?? null,
       email: values.email ?? null,
       address: values.address ?? null,
+      logo_url: values.logoUrl === "/gadget-zone-logo.png" ? null : values.logoUrl ?? null,
+      primary_color: values.primaryColor ?? null,
+      accent_color: values.accentColor ?? null,
+      default_theme: values.defaultTheme ?? null,
       currency_code: values.currencyCode,
       timezone: values.timezone,
     })

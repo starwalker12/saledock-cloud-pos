@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 
 const credentialsSchema = z.object({
@@ -16,7 +15,11 @@ const signUpSchema = credentialsSchema.extend({
   fullName: z.string().min(2, "Enter your full name."),
 });
 
-export type AuthState = { error: string | null };
+const resetSchema = z.object({
+  email: z.string().email("Enter a valid email address."),
+});
+
+export type AuthState = { error: string | null; info?: string | null };
 
 function configError(): AuthState {
   return {
@@ -34,14 +37,9 @@ async function publicOrigin(): Promise<string> {
   return host ? `${forwardedProto}://${host}` : "http://localhost:3000";
 }
 
-async function organizationsExist(): Promise<boolean> {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return false;
-  const admin = createAdminClient();
-  const { count } = await admin
-    .from("organizations")
-    .select("id", { count: "exact", head: true });
-  return (count ?? 0) > 0;
-}
+// Where to land an authenticated user when we don't know if they have a shop yet.
+// The callback route does the actual onboarding-vs-dashboard branching.
+const POST_AUTH_PATH = "/auth/callback?next=%2Fdashboard";
 
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
@@ -58,18 +56,11 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: error.message };
 
-  redirect("/dashboard");
+  redirect("/auth/callback?next=%2Fdashboard");
 }
 
 export async function signUpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
-
-  // Lock public sign-up after the first organization exists. The owner can still sign in.
-  if (await organizationsExist()) {
-    return {
-      error: "Registration is closed. Please contact the owner for access.",
-    };
-  }
 
   const parsed = signUpSchema.safeParse({
     email: formData.get("email"),
@@ -83,17 +74,62 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   const origin = await publicOrigin();
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
-      emailRedirectTo: `${origin}/auth/callback?next=/setup`,
+      emailRedirectTo: `${origin}${POST_AUTH_PATH}`,
     },
   });
   if (error) return { error: error.message };
 
-  redirect("/setup");
+  // If email confirmation is enabled, no session is created yet — tell the user.
+  if (!data.session) {
+    return {
+      error: null,
+      info: "Account created. Check your inbox to confirm your email, then sign in.",
+    };
+  }
+
+  redirect("/onboarding");
+}
+
+export async function signInWithGoogleAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
+  void _prev;
+  void _formData;
+  if (!env.isSupabaseConfigured) return configError();
+
+  const origin = await publicOrigin();
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}${POST_AUTH_PATH}`,
+    },
+  });
+  if (error) return { error: error.message };
+  if (!data?.url) return { error: "Google sign-in is not configured. Enable the Google provider in Supabase." };
+
+  redirect(data.url);
+}
+
+export async function resetPasswordAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+  const parsed = resetSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  const origin = await publicOrigin();
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/callback?next=%2Fonboarding`,
+  });
+  if (error) return { error: error.message };
+  return {
+    error: null,
+    info: "If an account exists, a password reset email has been sent.",
+  };
 }
 
 export async function signOutAction() {

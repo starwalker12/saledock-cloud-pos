@@ -113,13 +113,18 @@ Public signup remains closed; new staff should use the invite email.
 
 ## Status
 
-- First owner profile created (role = `owner`).
-- Public sign-up: **closed**.
-- Staff invite + role assignment flow: **MVP live**.
+- SaaS self-service signup: **live** (Stage 2).
+- Google OAuth: **configured in code, requires Supabase Dashboard Google provider setup**.
+- Multi-step onboarding wizard: **live** (`/onboarding`).
+- Theme customization (primary/accent color, default theme): **live**.
+- Staff invite + role assignment flow: **live**.
+- Password reset / forgot password: **live**.
+- Public sign-up: **open** (self-service).
 
 ## Remaining tasks
 
-- Password reset / forgot password.
 - Dedicated invitation status columns and granular permission editor.
 - Branch switcher for multi-branch organizations.
 - Per-role RLS refinements (cashier-only insert on invoices, technician-only writes on repairs, etc.).
+- Supabase Storage for logo/avatar file uploads (URL fields used currently).
+- CAPTCHA / rate limiting on public endpoints.

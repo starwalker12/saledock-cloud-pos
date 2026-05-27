@@ -161,6 +161,67 @@ export function SettingsForm({
       </Section>
 
       <Section
+        title="Theme & Appearance"
+        description="Custom brand colors and default theme mode for your shop."
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className={labelClass}>
+            <span className={labelTextClass}>Primary color</span>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="color"
+                name="primaryColor"
+                defaultValue={settings.primaryColor ?? "#3B82F6"}
+                disabled={!canEdit || pending}
+                className="h-11 w-14 rounded-lg border border-slate-200 p-1 cursor-pointer"
+              />
+              <input
+                name="primaryColor"
+                defaultValue={settings.primaryColor ?? "#3B82F6"}
+                disabled={!canEdit || pending}
+                className={inputClass}
+                placeholder="#3B82F6"
+                maxLength={7}
+              />
+            </div>
+          </label>
+          <label className={labelClass}>
+            <span className={labelTextClass}>Accent color</span>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="color"
+                name="accentColor"
+                defaultValue={settings.accentColor ?? "#10B981"}
+                disabled={!canEdit || pending}
+                className="h-11 w-14 rounded-lg border border-slate-200 p-1 cursor-pointer"
+              />
+              <input
+                name="accentColor"
+                defaultValue={settings.accentColor ?? "#10B981"}
+                disabled={!canEdit || pending}
+                className={inputClass}
+                placeholder="#10B981"
+                maxLength={7}
+              />
+            </div>
+          </label>
+          <label className={labelClass}>
+            <span className={labelTextClass}>Default theme</span>
+            <select
+              name="defaultTheme"
+              defaultValue={settings.defaultTheme ?? "system"}
+              disabled={!canEdit || pending}
+              className={inputClass}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+        </div>
+      </Section>
+
+      <Section
         title="Regional / Currency"
         description="Regional defaults for money formatting, reporting, and future branch operations."
       >

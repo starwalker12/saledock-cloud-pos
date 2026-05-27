@@ -4,7 +4,8 @@ import { getCurrentContext } from "@/lib/auth/session";
 
 export default async function HomePage() {
   if (!env.isSupabaseConfigured) redirect("/login");
-  const { user, profile } = await getCurrentContext();
+  const { user, profile, organization } = await getCurrentContext();
   if (!user) redirect("/login");
-  redirect(profile?.organization_id ? "/dashboard" : "/setup");
+  const needsOnboarding = !profile?.organization_id || !profile?.onboarding_completed || !organization?.onboarding_completed;
+  redirect(needsOnboarding ? "/onboarding" : "/dashboard");
 }

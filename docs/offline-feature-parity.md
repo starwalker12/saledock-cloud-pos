@@ -8,7 +8,7 @@ This document tracks and audits the feature set parity between the legacy offlin
 
 | Feature Module | Offline Desktop App State | Online Web POS App State | Parity Status | Details & Implementation |
 | :--- | :--- | :--- | :--- | :--- |
-| **Authentication & Profile Setup** | Configured via SQLite local database. | Supabase Authentication & Multi-tenant Organizations. | **Fully Aligned** | Implemented multi-user invitation structures, role profiles, and onboarding setup flows. |
+| **Authentication & Profile Setup** | Configured via SQLite local database. | Supabase Authentication & Multi-tenant Organizations. | **Fully Aligned** | Implemented multi-user invitation structures, role profiles, and onboarding setup flows. Self-service SaaS signup + Google OAuth + multi-step onboarding wizard live (Stage 2). Theme customization added. |
 | **Catalog CRUD** | Local sqlite management of categories & products. | Products and categories CRUD with reactive caching. | **Fully Aligned** | Full reactive filters, pagination, and stock adjustment logs active. |
 | **POS Checkout** | Standalone checkout panel. | Server-validated atomic transactional POS checks. | **Fully Aligned** | Standard payment modes, notes logging, and instant product stock updates. |
 | **FIFO Stock Tracking** | Local stock lot tables. | Supabase FIFO stock lot tracking with remaining qty calculations. | **Fully Aligned** | Products map directly to lots, keeping pricing and counts mathematically aligned. |

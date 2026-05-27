@@ -11,8 +11,8 @@ The project foundation plus the first usable authentication and onboarding miles
 - Next.js 16 App Router app with TypeScript (uses `proxy.ts`, the renamed `middleware.ts`)
 - Tailwind CSS UI foundation, sidebar/topbar app shell
 - Supabase client (browser), server, and admin (service-role) helpers
-- Real email/password authentication via Supabase Auth
-- First-owner onboarding flow at `/setup` — creates organization, branch, and owner profile
+- Self-service email/password signup and Google OAuth via Supabase Auth
+- Multi-step shop onboarding wizard at `/onboarding` — creates organization, branch, owner profile, and app settings
 - Protected routes for `/dashboard`, `/pos`, `/products`, `/customers`, `/invoices`, `/returns`, `/repairs`, `/reports`, `/settings`, `/users`
 - Dashboard reads the current organization, branch, profile, and per-org counts from Supabase
 - POS checkout, customer ledger, FIFO stock lots, loading skeletons, and returns/refunds foundation
@@ -25,7 +25,7 @@ The project foundation plus the first usable authentication and onboarding miles
 
 Returns/refunds are now in foundation form; cancellation, exchanges, and return receipts are future milestones.
 Settings and branding are now in MVP form; logo upload/storage, 80mm receipt output, and WhatsApp sharing remain planned.
-User management is now in MVP form; password reset, recovery codes, and granular permission editing remain planned.
+Self-service SaaS signup (email + Google OAuth) and shop onboarding are live. Theme customization (primary/accent color, default theme) is live. Password reset and staff invites are live. File upload for logos/avatars deferred (URL fields used).
 
 ## Tech Stack
 

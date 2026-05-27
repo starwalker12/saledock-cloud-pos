@@ -27,6 +27,11 @@ type OrganizationSettingsRow = {
   address: string | null;
   currency_code: string;
   timezone: string;
+  logo_url?: string | null;
+  owner_name?: string | null;
+  primary_color?: string | null;
+  accent_color?: string | null;
+  default_theme?: "light" | "dark" | "system" | null;
 };
 
 type BranchSettingsRow = {
@@ -58,6 +63,9 @@ export type BrandingSettings = {
   printFormat: "a4" | "80mm_planned";
   lowStockDefaultThreshold: number;
   businessSubtitle: string;
+  primaryColor: string | null;
+  accentColor: string | null;
+  defaultTheme: "light" | "dark" | "system" | null;
 };
 
 function stringSetting(settings: JsonObject | null | undefined, key: string, fallback = "") {
@@ -84,7 +92,7 @@ export async function getBrandingSettings(
     await Promise.all([
       supabase
         .from("organizations")
-        .select("id, name, legal_name, phone, email, address, currency_code, timezone")
+        .select("id, name, legal_name, phone, email, address, currency_code, timezone, logo_url, owner_name, primary_color, accent_color, default_theme")
         .eq("id", organizationId)
         .maybeSingle<OrganizationSettingsRow>(),
       branchId
@@ -123,7 +131,7 @@ export async function getBrandingSettings(
     organizationId: org.id,
     branchId: branch?.id ?? branchId ?? appSettings?.branch_id ?? null,
     shopName: appSettings?.shop_name || org.name || "Gadget Zone",
-    ownerName: stringSetting(json, "owner_name"),
+    ownerName: stringSetting(json, "owner_name") || org.owner_name || "",
     phone: appSettings?.phone || org.phone || "",
     whatsappSupport: stringSetting(json, "whatsapp_support", appSettings?.phone || org.phone || ""),
     email: appSettings?.email || org.email || "",
@@ -133,11 +141,14 @@ export async function getBrandingSettings(
     branchAddress: branch?.address || "",
     currencyCode: org.currency_code || "PKR",
     timezone: org.timezone || "Asia/Karachi",
-    logoUrl: stringSetting(json, "logo_url", "/gadget-zone-logo.png"),
+    logoUrl: stringSetting(json, "logo_url") || org.logo_url || "/gadget-zone-logo.png",
     invoiceFooter: appSettings?.receipt_footer || "",
     receiptTerms: stringSetting(json, "receipt_terms"),
     printFormat: printFormat(json.print_format ?? appSettings?.invoice_template),
     lowStockDefaultThreshold: numberSetting(json, "low_stock_default_threshold", 5),
     businessSubtitle: appSettings?.business_subtitle || "Mobile & Accessories Hub",
+    primaryColor: org.primary_color ?? null,
+    accentColor: org.accent_color ?? null,
+    defaultTheme: org.default_theme ?? null,
   };
 }

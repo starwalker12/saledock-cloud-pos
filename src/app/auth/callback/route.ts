@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
   const next = url.searchParams.get("next");
   const errorParam = url.searchParams.get("error_description") ?? url.searchParams.get("error");
 
-  // Honor proxy / forwarded host so we always land on the public origin (not localhost).
   const forwardedHost = request.headers.get("x-forwarded-host");
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
   const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin;
@@ -35,6 +34,22 @@ export async function GET(request: NextRequest) {
     const loginUrl = new URL("/login", origin);
     loginUrl.searchParams.set("error", "auth_callback_failed");
     return NextResponse.redirect(loginUrl);
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(new URL("/login", origin));
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id, onboarding_completed")
+    .eq("id", user.id)
+    .maybeSingle<{ organization_id: string | null; onboarding_completed: boolean | null }>();
+
+  const needsOnboarding = !profile?.organization_id || !profile?.onboarding_completed;
+  if (needsOnboarding) {
+    return NextResponse.redirect(new URL("/onboarding", origin));
   }
 
   return NextResponse.redirect(safeRedirect(origin, next));

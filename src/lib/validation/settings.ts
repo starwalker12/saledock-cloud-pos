@@ -40,6 +40,8 @@ const optionalUrlPath = z.preprocess(
 
 export const PRINT_FORMATS = ["a4", "80mm_planned"] as const;
 
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #3B82F6").nullable().optional();
+
 export const settingsSchema = z.object({
   shopName: z.string().trim().min(2, "Shop name is required.").max(120),
   ownerName: optionalText(120),
@@ -65,6 +67,9 @@ export const settingsSchema = z.object({
   receiptTerms: optionalText(1200),
   printFormat: z.enum(PRINT_FORMATS).default("a4"),
   lowStockDefaultThreshold: z.coerce.number().int().min(0).max(9999).default(5),
+  primaryColor: hexColor,
+  accentColor: hexColor,
+  defaultTheme: z.enum(["light", "dark", "system"]).nullable().optional(),
 });
 
 export type SettingsInput = z.infer<typeof settingsSchema>;

@@ -23,9 +23,10 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   if (env.isSupabaseConfigured) {
-    const { user, profile } = await getCurrentContext();
+    const { user, profile, organization } = await getCurrentContext();
     if (user) {
-      redirect(profile?.organization_id ? "/dashboard" : "/setup");
+      const needsOnboarding = !profile?.organization_id || !profile?.onboarding_completed || !organization?.onboarding_completed;
+      redirect(needsOnboarding ? "/onboarding" : "/dashboard");
     }
   }
 
@@ -47,8 +48,9 @@ export default async function LoginPage({
           </p>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Online POS</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Sign in to your account
-            {registrationOpen ? ", or create the first owner account during initial setup." : "."}
+            {registrationOpen
+              ? "Registration is open for new shops. Sign in or create a new account to get started."
+              : "Sign in to your account."}
           </p>
         </div>
         {!env.isSupabaseConfigured && (

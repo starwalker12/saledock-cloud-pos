@@ -8,6 +8,9 @@ export type ProfileRow = {
   full_name: string;
   role: "owner" | "admin" | "manager" | "cashier" | "technician";
   is_active: boolean;
+  avatar_url?: string | null;
+  phone?: string | null;
+  onboarding_completed?: boolean | null;
 };
 
 export type OrganizationRow = {
@@ -18,6 +21,13 @@ export type OrganizationRow = {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  logo_url?: string | null;
+  owner_name?: string | null;
+  whatsapp?: string | null;
+  primary_color?: string | null;
+  accent_color?: string | null;
+  default_theme?: "light" | "dark" | "system" | null;
+  onboarding_completed?: boolean | null;
 };
 
 export type BranchRow = {
@@ -44,7 +54,7 @@ export async function getCurrentContext() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, organization_id, branch_id, full_name, role, is_active")
+    .select("id, organization_id, branch_id, full_name, role, is_active, avatar_url, phone, onboarding_completed")
     .eq("id", user.id)
     .maybeSingle<ProfileRow>();
 
@@ -54,7 +64,9 @@ export async function getCurrentContext() {
   if (profile?.organization_id) {
     const { data: org } = await supabase
       .from("organizations")
-      .select("id, name, currency_code, timezone, phone, email, address")
+      .select(
+        "id, name, currency_code, timezone, phone, email, address, logo_url, owner_name, whatsapp, primary_color, accent_color, default_theme, onboarding_completed",
+      )
       .eq("id", profile.organization_id)
       .maybeSingle<OrganizationRow>();
     organization = org ?? null;

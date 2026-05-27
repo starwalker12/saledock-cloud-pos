@@ -16,6 +16,7 @@ const protectedPrefixes = [
   "/settings",
   "/users",
   "/audit-log",
+  "/suppliers",
 ];
 
 export async function updateSession(request: NextRequest) {
@@ -50,18 +51,18 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
-  const isSetup = pathname.startsWith("/setup");
+  const isHome = pathname === "/";
+
+  if (isHome && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
 
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  if (isSetup && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
