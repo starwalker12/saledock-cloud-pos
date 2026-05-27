@@ -52,13 +52,6 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
-  const isHome = pathname === "/";
-
-  if (isHome && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
 
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
