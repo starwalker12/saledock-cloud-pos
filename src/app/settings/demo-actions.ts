@@ -2,8 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
+
+async function isDemoDataEnabled(): Promise<boolean> {
+  try {
+    const admin = await createAdminClient();
+    const { data } = await admin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "demo_data_enabled")
+      .single();
+    return data?.value !== false && data?.value !== "false";
+  } catch {
+    return true;
+  }
+}
 
 export type DemoActionState = {
   success: boolean;
@@ -16,6 +31,11 @@ export async function loadDemoDataAction(
   formData: FormData
 ): Promise<DemoActionState> {
   try {
+    const demoDataEnabled = await isDemoDataEnabled();
+    if (!demoDataEnabled) {
+      return { success: false, error: "Demo data seeding has been disabled by the platform administrator." };
+    }
+
     const confirmation = formData.get("confirmation")?.toString().trim();
     if (confirmation !== "CREATE DEMO DATA") {
       return { success: false, error: "Confirmation text must match exactly 'CREATE DEMO DATA'." };
@@ -577,6 +597,11 @@ export async function removeDemoDataAction(
   formData: FormData
 ): Promise<DemoActionState> {
   try {
+    const demoDataEnabled = await isDemoDataEnabled();
+    if (!demoDataEnabled) {
+      return { success: false, error: "Demo data operations have been disabled by the platform administrator." };
+    }
+
     const confirmation = formData.get("confirmation")?.toString().trim();
     if (confirmation !== "REMOVE DEMO DATA") {
       return { success: false, error: "Confirmation text must match exactly 'REMOVE DEMO DATA'." };

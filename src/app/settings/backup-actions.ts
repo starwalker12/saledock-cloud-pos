@@ -1,9 +1,24 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+
+async function isPlatformSettingEnabled(key: string): Promise<boolean> {
+  try {
+    const admin = await createAdminClient();
+    const { data } = await admin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", key)
+      .single();
+    return data?.value !== false && data?.value !== "false";
+  } catch {
+    return true;
+  }
+}
 
 export type ExportData = {
   categories: unknown[];
@@ -58,6 +73,11 @@ export async function startImportJobAction(
   countsObj: Record<string, number>
 ): Promise<ImportJobState> {
   try {
+    const backupImportEnabled = await isPlatformSettingEnabled("backup_import_enabled");
+    if (!backupImportEnabled) {
+      return { success: false, error: "Backup import has been disabled by the platform administrator." };
+    }
+
     const { user, profile } = await getCurrentContext();
     if (!user || !profile) {
       return { success: false, error: "Not authenticated." };
@@ -1529,6 +1549,11 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
 // Preview Factory Reset Counts
 export async function previewFactoryResetAction(): Promise<{ success: boolean; counts?: Record<string, number>; error?: string }> {
   try {
+    const factoryResetEnabled = await isPlatformSettingEnabled("factory_reset_enabled");
+    if (!factoryResetEnabled) {
+      return { success: false, error: "Factory reset has been disabled by the platform administrator." };
+    }
+
     const { user, profile } = await getCurrentContext();
     if (!user || !profile || !profile.organization_id) {
       return { success: false, error: "Not authenticated." };
@@ -1623,6 +1648,11 @@ export async function restoreFactoryDefaultsAction(
   resetSettings: boolean
 ): Promise<{ success: boolean; counts?: Record<string, number>; error?: string }> {
   try {
+    const factoryResetEnabled = await isPlatformSettingEnabled("factory_reset_enabled");
+    if (!factoryResetEnabled) {
+      return { success: false, error: "Factory reset has been disabled by the platform administrator." };
+    }
+
     const { user, profile, organization } = await getCurrentContext();
     if (!user || !profile || !profile.organization_id) {
       return { success: false, error: "Not authenticated." };

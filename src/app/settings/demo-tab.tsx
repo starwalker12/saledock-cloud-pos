@@ -2,9 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { loadDemoDataAction, removeDemoDataAction } from "./demo-actions";
-import { AlertTriangle, CheckCircle, Database, RefreshCw, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Database, RefreshCw, Trash2, Lock } from "lucide-react";
 
-export function DemoTab() {
+export function DemoTab({ demoDataEnabled = true }: { demoDataEnabled?: boolean }) {
   const [confirmCreate, setConfirmCreate] = useState("");
   const [confirmRemove, setConfirmRemove] = useState("");
 
@@ -16,6 +16,18 @@ export function DemoTab() {
     removeDemoDataAction,
     null
   );
+
+  if (!demoDataEnabled) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm text-center space-y-4">
+        <Lock className="mx-auto size-12 text-slate-300" />
+        <h3 className="text-lg font-black text-slate-950 dark:text-slate-50">Demo Data Disabled</h3>
+        <p className="text-sm text-slate-500 max-w-md mx-auto leading-6">
+          Demo data seeding has been disabled by the platform administrator.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

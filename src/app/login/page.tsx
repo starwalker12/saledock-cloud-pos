@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "./login-form";
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
+import { getPublicPlatformSetting } from "@/lib/platform/admin";
 
 export default async function LoginPage({
   searchParams,
@@ -18,6 +19,11 @@ export default async function LoginPage({
 
   const { error } = await searchParams;
 
+  const publicSignupRaw = await getPublicPlatformSetting("public_signup_enabled");
+  const publicSignupEnabled = publicSignupRaw !== false && publicSignupRaw !== "false";
+  const maintenanceRaw = await getPublicPlatformSetting("maintenance_mode_enabled");
+  const maintenanceMode = maintenanceRaw === true || maintenanceRaw === "true";
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-3 py-8 sm:px-4 sm:py-10">
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
@@ -33,15 +39,24 @@ export default async function LoginPage({
           </p>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Cloud POS</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Registration is open for new shops. Sign in or create a new account to get started.
+            {maintenanceMode
+              ? "The system is undergoing scheduled maintenance. Please check back later."
+              : publicSignupEnabled
+                ? "Registration is open for new shops. Sign in or create a new account to get started."
+                : "Sign in to your account."}
           </p>
         </div>
+        {maintenanceMode && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+            Maintenance mode is active. Some features may be unavailable.
+          </p>
+        )}
         {!env.isSupabaseConfigured && (
           <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
             Supabase is not configured yet. Add credentials to <code>.env.local</code>.
           </p>
         )}
-        <LoginForm callbackError={error ?? null} />
+        <LoginForm callbackError={error ?? null} publicSignupEnabled={publicSignupEnabled} />
       </section>
     </main>
   );

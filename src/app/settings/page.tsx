@@ -5,6 +5,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { getBrandingSettings } from "@/lib/data/settings";
 import { env } from "@/lib/env";
 import { canManageSettings } from "@/lib/permissions";
+import { getPublicPlatformSetting } from "@/lib/platform/admin";
 import { SettingsForm } from "./settings-form";
 import { DemoTab } from "./demo-tab";
 import { BackupTab } from "./backup-tab";
@@ -31,6 +32,10 @@ export default async function SettingsPage({
   const settings = await getBrandingSettings(profile.organization_id, profile.branch_id);
   const canEdit = canManageSettings(profile.role);
   const isPrivileged = profile.role === "owner" || profile.role === "admin";
+
+  const demoDataEnabled = (await getPublicPlatformSetting("demo_data_enabled")) !== false;
+  const backupImportEnabled = (await getPublicPlatformSetting("backup_import_enabled")) !== false;
+  const factoryResetEnabled = (await getPublicPlatformSetting("factory_reset_enabled")) !== false;
 
   // Tab configurations
   const tabs = [
@@ -89,7 +94,7 @@ export default async function SettingsPage({
 
         {currentTab === "demo-data" && (
           isPrivileged ? (
-            <DemoTab />
+            <DemoTab demoDataEnabled={demoDataEnabled} />
           ) : (
             <AccessDeniedView />
           )
@@ -97,7 +102,7 @@ export default async function SettingsPage({
 
         {currentTab === "backup" && (
           isPrivileged ? (
-            <BackupTab />
+            <BackupTab backupImportEnabled={backupImportEnabled} factoryResetEnabled={factoryResetEnabled} />
           ) : (
             <AccessDeniedView />
           )

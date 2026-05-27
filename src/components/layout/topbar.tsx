@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { Bell, LogOut } from "lucide-react";
+import { Bell, LogOut, AlertTriangle } from "lucide-react";
 import { getCurrentContext } from "@/lib/auth/session";
 import { signOutAction } from "@/app/(auth)/actions";
 import { GlobalSearch } from "@/components/search/global-search";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getPublicPlatformSetting, isPlatformAdmin } from "@/lib/platform/admin";
 
 export async function Topbar({ pageTitle }: { pageTitle?: string }) {
   const { user, profile } = await getCurrentContext();
   const title = pageTitle ?? "Dashboard";
+  const [maintenanceRaw, platformAdmin] = await Promise.all([
+    getPublicPlatformSetting("maintenance_mode_enabled").catch(() => null),
+    isPlatformAdmin(),
+  ]);
+  const maintenanceMode = (maintenanceRaw === true || maintenanceRaw === "true") && !platformAdmin;
 
   return (
     // `sticky` class kept so the existing print CSS selector (header.sticky)
@@ -15,6 +21,12 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
     // topbar pinned at the top of the content column without needing sticky
     // behavior — it sits as a shrink-0 sibling above the scrolling <main>.
     <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      {maintenanceMode && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-center text-xs font-bold text-white">
+          <AlertTriangle className="size-3.5" />
+          Maintenance mode is active. Some features may be limited.
+        </div>
+      )}
       <div className="flex min-h-20 min-w-0 flex-col gap-3 px-3 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-black text-slate-950 dark:text-slate-50 sm:text-2xl">{title}</h1>

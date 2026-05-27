@@ -14,9 +14,11 @@ import {
   UserCog,
   ScrollText,
   Truck,
+  MonitorCog,
 } from "lucide-react";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers, canViewAuditLog, canManageSupplierPurchases } from "@/lib/permissions";
+import { isPlatformAdmin } from "@/lib/platform/admin";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +36,7 @@ const items = [
 
 export async function Sidebar() {
   const { profile } = await getCurrentContext();
+  const [platformAdmin] = await Promise.all([isPlatformAdmin()]);
   const visibleItems = [
     ...items,
     ...(canManageSupplierPurchases(profile?.role)
@@ -41,6 +44,7 @@ export async function Sidebar() {
       : []),
     ...(canViewAuditLog(profile?.role) ? [{ href: "/audit-log", label: "Audit Log", icon: ScrollText }] : []),
     ...(canManageUsers(profile?.role) ? [{ href: "/users", label: "Users", icon: UserCog }] : []),
+    ...(platformAdmin ? [{ href: "/platform", label: "Platform", icon: MonitorCog }] : []),
   ];
 
   return (

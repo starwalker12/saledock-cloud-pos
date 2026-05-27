@@ -26,7 +26,7 @@ The project foundation plus the first usable authentication and onboarding miles
 
 Returns/refunds are now in foundation form; cancellation, exchanges, and return receipts are future milestones.
 Settings and branding are now in MVP form; logo upload/storage, 80mm receipt output, and WhatsApp sharing remain planned.
-Self-service SaaS signup (email + Google OAuth) and shop onboarding are live. Theme customization (primary/accent color, default theme) is live. Password reset and staff invites are live. File upload for logos/avatars deferred (URL fields used).
+Self-service SaaS signup (email + Google OAuth) and shop onboarding are live. Theme customization (primary/accent color, default theme) is live. Password reset and staff invites are live. File upload for logos/avatars deferred (URL fields used). Platform Developer Console at `/platform` — admin dashboard for tenant monitoring and platform-wide settings.
 
 ## Tech Stack
 
@@ -75,6 +75,7 @@ Important:
 - `.env.local` must never be committed.
 - `SUPABASE_SERVICE_ROLE_KEY` must only be used on the server.
 - Browser code must only use `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- `PLATFORM_ADMIN_EMAILS` — comma-separated list of emails that can access `/platform` (fallback if `platform_admins` table empty).
 
 ## Production
 

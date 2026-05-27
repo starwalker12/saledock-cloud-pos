@@ -5,6 +5,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_APP_NAME: z.string().default("SaleDock Cloud POS"),
+  PLATFORM_ADMIN_EMAILS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -21,5 +22,6 @@ export const env = {
     data.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "supabase-anon-key-not-configured",
   SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY,
   NEXT_PUBLIC_APP_NAME: data.NEXT_PUBLIC_APP_NAME ?? "SaleDock Cloud POS",
+  PLATFORM_ADMIN_EMAILS: data.PLATFORM_ADMIN_EMAILS,
   isSupabaseConfigured,
 };

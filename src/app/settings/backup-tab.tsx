@@ -20,7 +20,8 @@ import {
   RefreshCw,
   ArrowRight,
   ShieldCheck,
-  Check
+  Check,
+  Lock,
 } from "lucide-react";
 
 type ManifestData = {
@@ -61,7 +62,7 @@ type OrphanFinding = {
 
 type OrphanPolicy = "drop" | "stop";
 
-export function BackupTab() {
+export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = true }: { backupImportEnabled?: boolean; factoryResetEnabled?: boolean }) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -1112,64 +1113,80 @@ export function BackupTab() {
 
           {/* Import Card */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h4 className="text-md font-bold text-slate-900">Import Desktop Backup ZIP</h4>
-            <p className="mt-1 text-xs text-slate-500">
-              Read, parse and securely upload data tables straight from your offline sqlite database files.
-            </p>
+            {backupImportEnabled ? (
+              <>
+                <h4 className="text-md font-bold text-slate-900">Import Desktop Backup ZIP</h4>
+                <p className="mt-1 text-xs text-slate-500">
+                  Read, parse and securely upload data tables straight from your offline sqlite database files.
+                </p>
 
-            <div className="mt-6 space-y-4">
-              {/* File Dropzone */}
-              <div className="relative flex min-h-[140px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-center hover:bg-slate-100/50 cursor-pointer">
-                <input
-                  type="file"
-                  accept=".zip"
-                  onChange={handleFileUpload}
-                  disabled={isParsing}
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                />
-                <Upload className="size-8 text-slate-400" />
-                <p className="mt-2 text-xs font-bold text-slate-700">Select or drag Backup ZIP file</p>
-                <p className="mt-1 text-[10px] text-slate-500">Supports .zip backups under 50MB</p>
+                <div className="mt-6 space-y-4">
+                  {/* File Dropzone */}
+                  <div className="relative flex min-h-[140px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-center hover:bg-slate-100/50 cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".zip"
+                      onChange={handleFileUpload}
+                      disabled={isParsing}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                    />
+                    <Upload className="size-8 text-slate-400" />
+                    <p className="mt-2 text-xs font-bold text-slate-700">Select or drag Backup ZIP file</p>
+                    <p className="mt-1 text-[10px] text-slate-500">Supports .zip backups under 50MB</p>
+                  </div>
+
+                  {isParsing && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                      <RefreshCw className="size-4 animate-spin" />
+                      <span>Loading SQLite binary elements dynamically...</span>
+                    </div>
+                  )}
+
+                  {parseError && (
+                    <div className="flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+                      <AlertTriangle className="size-4 shrink-0" />
+                      <span className="whitespace-pre-line">{parseError}</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="py-6 text-center">
+                <Lock className="mx-auto size-8 text-slate-300" />
+                <p className="mt-2 text-sm font-semibold text-slate-500">Backup import has been disabled by the platform administrator.</p>
               </div>
-
-              {isParsing && (
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-                  <RefreshCw className="size-4 animate-spin" />
-                  <span>Loading SQLite binary elements dynamically...</span>
-                </div>
-              )}
-
-              {parseError && (
-                <div className="flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
-                  <AlertTriangle className="size-4 shrink-0" />
-                  <span className="whitespace-pre-line">{parseError}</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
         {/* Danger Zone: Factory Reset Card */}
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/30 p-5 shadow-sm space-y-4 dark:border-rose-900/50 dark:bg-rose-950/20">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="size-6 text-rose-600 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-md font-bold text-rose-950 dark:text-rose-200">Restore Factory Defaults / Factory Reset</h4>
-              <p className="mt-1 text-xs text-rose-800 dark:text-rose-300">
-                Wipes all sales history, repairs, customers, inventory records, and expenses. This action is organization-scoped, completely destructive, and cannot be undone. Pre-reset safety backup export will be created first.
-              </p>
+        {factoryResetEnabled ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50/30 p-5 shadow-sm space-y-4 dark:border-rose-900/50 dark:bg-rose-950/20">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="size-6 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-md font-bold text-rose-950 dark:text-rose-200">Restore Factory Defaults / Factory Reset</h4>
+                <p className="mt-1 text-xs text-rose-800 dark:text-rose-300">
+                  Wipes all sales history, repairs, customers, inventory records, and expenses. This action is organization-scoped, completely destructive, and cannot be undone. Pre-reset safety backup export will be created first.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={openFactoryResetFlow}
+                className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition cursor-pointer shadow-sm"
+              >
+                Initiate Factory Reset
+              </button>
             </div>
           </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={openFactoryResetFlow}
-              className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition cursor-pointer shadow-sm"
-            >
-              Initiate Factory Reset
-            </button>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm text-center">
+            <Lock className="mx-auto size-8 text-slate-300" />
+            <p className="mt-2 text-sm font-semibold text-slate-500">Factory reset has been disabled by the platform administrator.</p>
           </div>
-        </div>
+        )}
       </>)}
 
       {/* Stepper Step 2: Table Counts Preview */}

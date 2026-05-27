@@ -34,7 +34,16 @@ This document outlines the security posture of SaleDock Cloud POS.
 - Set Site URL and Redirect URLs in Authentication → URL Configuration
 - Configure Google OAuth provider in Authentication → Providers → Google
 
-## CAPTCHA & Rate Limiting (Recommended)
+ ## Platform Admin Console Security
+
+- `requirePlatformAdmin()` is called in every platform data function — redirects non-admins to `/login`
+- Platform console shows aggregate metrics only — no tenant secrets, auth tokens, or passwords exposed
+- `isPlatformAdmin()` is a lightweight server-side boolean check for conditional UI rendering
+- `PLATFORM_ADMIN_EMAILS` env var provides fallback access when the `platform_admins` table is empty
+- Sidebar Platform link is conditionally rendered based on `isPlatformAdmin()` — never shown to regular users
+- `/platform` route is protected by middleware (in `protectedPrefixes`)
+
+ ## CAPTCHA & Rate Limiting (Recommended)
 
 - Supabase supports CAPTCHA protection for auth endpoints:
   Authentication → Settings → CAPTCHA protection (turn on, requires hCaptcha key)
