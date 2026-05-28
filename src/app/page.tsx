@@ -335,6 +335,16 @@ export default async function HomePage() {
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden">
 
+        {/* Animated gradient shift — light mode only */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 animate-gradient-shift opacity-20 dark:hidden"
+          style={{
+            background: "linear-gradient(-45deg,#0b2f6f,#0d9488,#1e40af,#0d9488)",
+            backgroundSize: "300% 300%",
+          }}
+        />
+
         {/* Light mode: gradient mesh + grid */}
         <div aria-hidden className="pointer-events-none absolute inset-0 dark:hidden"
           style={{
