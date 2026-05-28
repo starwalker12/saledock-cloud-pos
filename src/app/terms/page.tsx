@@ -48,6 +48,8 @@ export default function TermsPage() {
             <li>You are responsible for maintaining the confidentiality of your account credentials.</li>
             <li>You must not use SaleDock for any illegal purpose or in violation of applicable laws.</li>
             <li>You must not attempt to access another organization&apos;s data or compromise the platform.</li>
+            <li>You are responsible for the business and customer data you enter into the platform.</li>
+            <li>You must have lawful rights or permissions to enter customer, employee, supplier, and business records into SaleDock. You are responsible for ensuring that your use of the platform complies with applicable data protection laws regarding the personal data you process.</li>
           </ul>
 
           <h2 className="text-lg font-bold text-slate-950 dark:text-white">3. Backups and Data Loss</h2>
@@ -110,11 +112,28 @@ export default function TermsPage() {
             Any disputes shall be resolved in the courts of Karachi, Pakistan.
           </p>
 
-          <h2 className="text-lg font-bold text-slate-950 dark:text-white">10. Contact</h2>
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">10. Data Deletion and Privacy</h2>
+          <p>
+            To request deletion of your account and associated data, please see our
+            <Link href="/data-deletion" className="text-blue-700 underline dark:text-blue-400"> Data Deletion Instructions</Link>.
+            For information about how we collect, use, and protect your personal data, see our
+            <Link href="/privacy" className="text-blue-700 underline dark:text-blue-400"> Privacy Policy</Link>.
+          </p>
+
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">11. Contact</h2>
           <p>For questions about these Terms, contact:</p>
           <p className="font-semibold text-blue-700 dark:text-blue-400">
             fardan.aatir@outlook.com
           </p>
+
+          {/* Footer links */}
+          <div className="border-t border-slate-200 pt-5 text-center dark:border-slate-600">
+            <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+              <Link href="/data-deletion" className="hover:text-blue-700 dark:hover:text-blue-400">Data Deletion</Link>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <Link href="/privacy" className="hover:text-blue-700 dark:hover:text-blue-400">Privacy Policy</Link>
+            </div>
+          </div>
         </section>
       </article>
     </main>

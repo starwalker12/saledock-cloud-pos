@@ -428,6 +428,7 @@ export default async function HomePage() {
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500">
             <Link href="/privacy" className="transition-colors duration-200 hover:text-blue-700 dark:hover:text-blue-400">Privacy Policy</Link>
             <Link href="/terms" className="transition-colors duration-200 hover:text-blue-700 dark:hover:text-blue-400">Terms of Service</Link>
+            <Link href="/data-deletion" className="transition-colors duration-200 hover:text-blue-700 dark:hover:text-blue-400">Data Deletion</Link>
             <span className="text-slate-300 dark:text-slate-600">·</span>
             <a href="mailto:fardan.aatir@outlook.com" className="transition-colors duration-200 hover:text-blue-700 dark:hover:text-blue-400">fardan.aatir@outlook.com</a>
           </div>

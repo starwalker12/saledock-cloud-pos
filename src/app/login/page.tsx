@@ -136,6 +136,8 @@ export default async function LoginPage({
           <Link href="/privacy" className="hover:text-blue-700">Privacy Policy</Link>
           <span className="mx-2">·</span>
           <Link href="/terms" className="hover:text-blue-700">Terms of Service</Link>
+          <span className="mx-2">·</span>
+          <Link href="/data-deletion" className="hover:text-blue-700">Data Deletion</Link>
         </div>
       </section>
     </main>
