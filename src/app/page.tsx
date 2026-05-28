@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -281,14 +282,13 @@ function DashboardPreview({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default async function HomePage() {
-  let signedInUser: { name: string; needsOnboarding: boolean } | null = null;
-
   if (env.isSupabaseConfigured) {
     const { user, profile, organization } = await getCurrentContext();
     if (user) {
       const needsOnboarding =
         !profile?.organization_id || !profile?.onboarding_completed || !organization?.onboarding_completed;
-      signedInUser = { name: profile?.full_name ?? user.email ?? "User", needsOnboarding };
+      if (needsOnboarding) redirect("/onboarding");
+      redirect("/dashboard");
     }
   }
 
@@ -305,23 +305,16 @@ export default async function HomePage() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
-            {signedInUser ? (
-              <Link href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
-                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white/20 px-4 text-xs font-bold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/30 hover:-translate-y-0.5 sm:text-sm">
-                {signedInUser.needsOnboarding ? "Continue setup" : "Dashboard"}
+            <>
+              <Link href="/login"
+                className="hidden h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 text-xs font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 sm:flex sm:text-sm">
+                Sign in
               </Link>
-            ) : (
-              <>
-                <Link href="/login"
-                  className="hidden h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 text-xs font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 sm:flex sm:text-sm">
-                  Sign in
-                </Link>
-                <Link href="/login?signup=1"
-                  className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-white/90 hover:-translate-y-0.5 sm:text-sm">
-                  Start free
-                </Link>
-              </>
-            )}
+              <Link href="/login?signup=1"
+                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-white/90 hover:-translate-y-0.5 sm:text-sm">
+                Start free
+              </Link>
+            </>
           </div>
         </div>
       </nav>
@@ -435,25 +428,15 @@ export default async function HomePage() {
 
             {/* CTAs */}
             <div className="animate-fade-in-up mt-8 flex flex-wrap gap-3" style={{ animationDelay: "0.36s" }}>
-              {signedInUser ? (
-                <Link href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
-                  className="group flex h-12 cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-7 text-sm font-bold text-white shadow-lg shadow-blue-900/25 transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5">
-                  {signedInUser.needsOnboarding ? "Continue setup" : "Go to dashboard"}
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
-              ) : (
-                <>
-                  <Link href="/login?signup=1"
-                    className="group flex h-12 cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-7 text-sm font-bold text-white shadow-lg shadow-blue-900/25 transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5">
-                    Start free
-                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </Link>
-                  <Link href="/login"
-                    className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-7 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
-                    Sign in
-                  </Link>
-                </>
-              )}
+              <Link href="/login?signup=1"
+                className="group flex h-12 cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-7 text-sm font-bold text-white shadow-lg shadow-blue-900/25 transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5">
+                Start free
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+              <Link href="/login"
+                className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-7 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
+                Sign in
+              </Link>
             </div>
 
             <p className="animate-fade-in-up mt-3 text-xs text-slate-400 dark:text-slate-500" style={{ animationDelay: "0.42s" }}>
@@ -754,27 +737,17 @@ export default async function HomePage() {
               </p>
             </ScrollReveal>
             <ScrollReveal delay={300}>
-              {signedInUser ? (
-                <div className="mt-8 flex flex-col items-center gap-3">
-                  <Link href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
-                    className="group inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#00b8b0] px-8 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5">
-                    {signedInUser.needsOnboarding ? "Continue setup" : "Go to dashboard"}
-                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </Link>
-                </div>
-              ) : (
-                <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                  <Link href="/login?signup=1"
-                    className="group inline-flex h-12 w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#00b8b0] px-8 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto">
-                    Create your account
-                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </Link>
-                  <Link href="/login"
-                    className="inline-flex h-12 w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-8 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-200 hover:bg-white/15 hover:-translate-y-0.5 sm:w-auto">
-                    Sign in
-                  </Link>
-                </div>
-              )}
+              <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <Link href="/login?signup=1"
+                  className="group inline-flex h-12 w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#00b8b0] px-8 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto">
+                  Create your account
+                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
+                <Link href="/login"
+                  className="inline-flex h-12 w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-8 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-200 hover:bg-white/15 hover:-translate-y-0.5 sm:w-auto">
+                  Sign in
+                </Link>
+              </div>
               <p className="mt-4 text-xs text-slate-600">No credit card required · Free to start</p>
             </ScrollReveal>
           </div>
