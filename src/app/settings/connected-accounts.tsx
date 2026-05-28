@@ -7,11 +7,14 @@ import {
   linkGoogleAccountAction,
   linkFacebookAccountAction,
   unlinkIdentityAction,
+  setPasswordAction,
   type AuthState,
 } from "@/app/(auth)/actions";
-import { Link, Unlink, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { Link, Unlink, AlertTriangle, Loader2, KeyRound, Globe, MessageCircle } from "lucide-react";
+import { getLinkedProviders } from "@/lib/auth/identities";
 
 const initialState: AuthState = { error: null };
+const passwordInitialState: AuthState = { error: null };
 
 type IdentityProvider = {
   provider: string;
@@ -25,6 +28,7 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
   const [identities, setIdentities] = useState<IdentityProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [unlinkState, unlinkAction] = useActionState(unlinkIdentityAction, initialState);
+  const [passwordState, passwordAction] = useActionState(setPasswordAction, passwordInitialState);
 
   useEffect(() => {
     async function load() {
@@ -36,9 +40,11 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
       setLoading(false);
     }
     load();
-  }, []);
+  }, [unlinkState, passwordState]);
 
-  const hasPassword = identities.some((id) => id.provider === "email");
+  const { hasPassword, hasGoogle, hasFacebook, identityCount } = getLinkedProviders(
+    identities as { provider: string; id: string }[],
+  );
   const googleIdentity = identities.find((id) => id.provider === "google");
   const facebookIdentity = identities.find((id) => id.provider === "facebook");
 
@@ -85,6 +91,16 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
             {unlinkState.success}
           </div>
         )}
+        {passwordState.error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+            {passwordState.error}
+          </div>
+        )}
+        {passwordState.success && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            {passwordState.success}
+          </div>
+        )}
 
         {loading && (
           <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -98,23 +114,57 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
             <ProviderRow
               label="Email / Password"
               connected={hasPassword}
+              provider="email"
+              locked={identityCount <= 1 && hasPassword}
             >
               {hasPassword && <p className="text-xs text-slate-400">Set during sign-up</p>}
+              {!hasPassword && (
+                <div className="mt-2">
+                  <details className="group">
+                    <summary className="cursor-pointer text-xs font-semibold text-blue-600 hover:text-blue-700">
+                      Set password
+                    </summary>
+                    <form action={passwordAction} className="mt-2 space-y-2">
+                      <input
+                        type="password"
+                        name="password"
+                        placeholder="New password"
+                        required
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        placeholder="Confirm password"
+                        required
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                      >
+                        Set Password
+                      </button>
+                    </form>
+                  </details>
+                </div>
+              )}
             </ProviderRow>
 
             <ProviderRow
               label="Google"
-              connected={!!googleIdentity}
+              connected={hasGoogle}
+              provider="google"
               detail={googleIdentity?.identity_data?.email as string ?? undefined}
-              canUnlink={!!googleIdentity && identities.length > 1}
+              canUnlink={hasGoogle && identityCount > 1}
               onUnlink={() => {
                 const fd = new FormData();
                 fd.append("provider", "google");
                 unlinkAction(fd);
               }}
-              locked={identities.length <= 1}
+              locked={identityCount <= 1 && hasGoogle}
             >
-              {!googleIdentity && (
+              {!hasGoogle && (
                 <form action={async (fd: FormData) => { await linkGoogleAccountAction(initialState, fd); }}>
                   <button
                     type="submit"
@@ -129,17 +179,18 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
 
             <ProviderRow
               label="Facebook"
-              connected={!!facebookIdentity}
+              connected={hasFacebook}
+              provider="facebook"
               detail={facebookIdentity?.identity_data?.email as string ?? undefined}
-              canUnlink={!!facebookIdentity && identities.length > 1}
+              canUnlink={hasFacebook && identityCount > 1}
               onUnlink={() => {
                 const fd = new FormData();
                 fd.append("provider", "facebook");
                 unlinkAction(fd);
               }}
-              locked={identities.length <= 1}
+              locked={identityCount <= 1 && hasFacebook}
             >
-              {!facebookIdentity && (
+              {!hasFacebook && (
                 <form action={async (fd: FormData) => { await linkFacebookAccountAction(initialState, fd); }}>
                   <button
                     type="submit"
@@ -169,6 +220,7 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
 function ProviderRow({
   label,
   connected,
+  provider,
   detail,
   canUnlink,
   onUnlink,
@@ -177,21 +229,28 @@ function ProviderRow({
 }: {
   label: string;
   connected: boolean;
+  provider: string;
   detail?: string;
   canUnlink?: boolean;
   onUnlink?: () => void;
   locked?: boolean;
   children?: React.ReactNode;
 }) {
+  const Icon = provider === "email" ? KeyRound : provider === "google" ? Globe : MessageCircle;
+
   return (
     <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
       <div className="flex items-center gap-3">
         <div
           className={`flex size-10 items-center justify-center rounded-full ${
-            connected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
+            locked && connected
+              ? "bg-amber-100 text-amber-600"
+              : connected
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-400"
           }`}
         >
-          {connected ? <CheckCircle className="size-5" /> : <AlertTriangle className="size-4" />}
+          {locked && connected ? <AlertTriangle className="size-5" /> : <Icon className="size-5" />}
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-800">{label}</p>

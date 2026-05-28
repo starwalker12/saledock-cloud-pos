@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  ShoppingCart, PackageCheck, Wrench, Receipt, BarChart3,
+  ShoppingCart, Wrench, BarChart3,
   TrendingUp, Users, Wallet, CalendarCheck,
   Bell, PackageSearch, CreditCard,
   Boxes, Clock,
@@ -90,6 +90,43 @@ async function weeklySales(organizationId: string, branchId: string | null) {
   }));
 }
 
+async function monthlySales(organizationId: string, branchId: string | null) {
+  const supabase = await createClient();
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const startStr = startOfMonth.toISOString();
+
+  let query = supabase
+    .from("invoices")
+    .select("invoice_date, grand_total")
+    .eq("organization_id", organizationId)
+    .gte("invoice_date", startStr)
+    .neq("status", "void")
+    .order("invoice_date", { ascending: true });
+
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
+  }
+
+  const { data } = await query;
+  if (!data || data.length === 0) return [];
+
+  const dayTotals = new Map<number, number>();
+  for (const row of data) {
+    const d = new Date(row.invoice_date);
+    const day = d.getDate();
+    dayTotals.set(day, (dayTotals.get(day) ?? 0) + Number(row.grand_total ?? 0));
+  }
+
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const result: { day: number; total: number }[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    result.push({ day: d, total: dayTotals.get(d) ?? 0 });
+  }
+  return result;
+}
+
 async function recentActivity(organizationId: string) {
   const supabase = await createClient();
   const { data } = await supabase
@@ -171,7 +208,7 @@ export default async function DashboardPage() {
   const branchId = profile.branch_id ?? null;
   const currency = organization?.currency_code ?? "PKR";
 
-  const [catalog, invoices, repairsStats, debt, stockValue, expenses, todayActivity, todayClosing, weekSales, activity] = await Promise.all([
+  const [catalog, invoices, repairsStats, debt, stockValue, expenses, todayActivity, todayClosing, weekSales, activity, monthSales] = await Promise.all([
     catalogCounts(orgId),
     invoiceCounts(orgId),
     getRepairsStats(orgId),
@@ -182,6 +219,7 @@ export default async function DashboardPage() {
     branchId ? getClosing(orgId, branchId, today) : Promise.resolve(null),
     weeklySales(orgId, branchId),
     recentActivity(orgId),
+    monthlySales(orgId, branchId),
   ]);
 
   const todayNet = invoices.todaySalesTotal - expenses.todayTotal;
@@ -224,14 +262,7 @@ export default async function DashboardPage() {
   ];
 
   const maxBar = Math.max(...weekSales.map((w) => w.total), 1);
-
-  const quickLinks = [
-    { href: "/pos", label: "POS", icon: ShoppingCart },
-    { href: "/products", label: "Inventory", icon: PackageCheck },
-    { href: "/repairs", label: "Repairs", icon: Wrench },
-    { href: "/reports", label: "Reports", icon: BarChart3 },
-    { href: "/invoices", label: "Invoices", icon: Receipt },
-  ];
+  const maxMonthlyBar = Math.max(...monthSales.map((m) => m.total), 1);
 
   const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
     sale: TrendingUp,
@@ -265,31 +296,8 @@ export default async function DashboardPage() {
           </span>
         </div>
 
-        <div className="flex">
-          {/* Quick action rail — desktop only */}
-          <div className="hidden border-r border-slate-100 p-2 dark:border-white/[0.06] sm:flex sm:flex-col sm:gap-1">
-            {quickLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.08]"
-              >
-                <span
-                  className="flex h-7 w-7 items-center justify-center rounded-md"
-                  style={
-                    link.href === "/pos"
-                      ? { background: "linear-gradient(135deg,#0b2f6f,#00b8b0)", color: "#fff" }
-                      : { color: "#94a3b8" }
-                  }
-                >
-                  <link.icon className="h-3.5 w-3.5" />
-                </span>
-              </Link>
-            ))}
-          </div>
-
           {/* Main content area */}
-          <div className="min-w-0 flex-1 p-3.5 sm:p-5">
+          <div className="p-3.5 sm:p-5">
             {/* Welcome header */}
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -428,6 +436,44 @@ export default async function DashboardPage() {
               </div>
             </div>
 
+            {/* Monthly sales histogram */}
+            <div className="mt-3 sm:mt-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                <p className="mb-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Monthly sales
+                </p>
+                {monthSales.length === 0 ? (
+                  <div className="flex h-[52px] items-center justify-center">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">No monthly sales yet</p>
+                  </div>
+                ) : (
+                  <div className="flex items-end gap-px" style={{ height: "52px" }}>
+                    {monthSales.map((bar) => {
+                      const pct = (bar.total / maxMonthlyBar) * 100;
+                      const isPeak = bar.total === maxMonthlyBar;
+                      return (
+                        <div key={bar.day} className="flex flex-1 flex-col items-center gap-1">
+                          <div className="flex h-[44px] w-full items-end">
+                            <div
+                              className="w-full rounded-t-sm"
+                              style={{
+                                height: `${Math.max(pct, 3)}%`,
+                                background: isPeak
+                                  ? "linear-gradient(to top,#0b2f6f,#00b8b0)"
+                                  : "rgba(11,47,111,0.2)",
+                                transition: "height 0.3s ease",
+                              }}
+                            />
+                          </div>
+                          <span className="text-[6px] font-medium text-slate-400 dark:text-slate-500">{bar.day}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Sales summary + quick links for mobile */}
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
@@ -537,7 +583,6 @@ export default async function DashboardPage() {
               </Link>
             </div>
           </div>
-        </div>
       </div>
     </AppShell>
   );
