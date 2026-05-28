@@ -175,3 +175,32 @@ export async function updateSettingsAction(
 
   return { error: null, success: "Shop settings saved." };
 }
+
+export async function updateProfilePictureAction(
+  _prev: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  const { user } = await getCurrentContext();
+  if (!user) {
+    return { error: "You must be signed in.", success: null };
+  }
+
+  const profilePictureUrl = formData.get("profilePictureUrl");
+  const url = typeof profilePictureUrl === "string" ? profilePictureUrl.trim() : "";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ profile_picture_url: url || null })
+    .eq("id", user.id);
+
+  if (error) {
+    return { error: error.message, success: null };
+  }
+
+  revalidatePath("/settings");
+  return {
+    error: null,
+    success: url ? "Profile picture updated." : "Profile picture removed.",
+  };
+}

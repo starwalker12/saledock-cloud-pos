@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { completeOnboardingAction, type OnboardingState } from "./actions";
+import { ImageUpload } from "@/components/shared/image-upload";
 
 const initialState: OnboardingState = { error: null };
 
@@ -91,9 +92,11 @@ function getDefaultTimezone(): string {
 export function OnboardingWizard({
   defaultFullName,
   userEmail,
+  userId,
 }: {
   defaultFullName: string;
   userEmail: string;
+  userId: string;
 }) {
   const [step, setStep] = useState<StepName>("profile");
   const [state, formAction, pending] = useActionState(completeOnboardingAction, initialState);
@@ -193,13 +196,13 @@ export function OnboardingWizard({
   const currentStep = (function () {
     switch (step) {
       case "profile":
-        return <ProfileStep data={formData} onChange={updateField} />;
+        return <ProfileStep data={formData} onChange={updateField} userId={userId} />;
       case "shop":
         return <ShopStep data={formData} onChange={updateField} />;
       case "branch":
         return <BranchStep data={formData} onChange={updateField} />;
       case "branding":
-        return <BrandingStep data={formData} onChange={updateField} />;
+        return <BrandingStep data={formData} onChange={updateField} userId={userId} />;
       case "confirm":
         return <ConfirmStep data={formData} />;
     }
@@ -309,9 +312,11 @@ export function OnboardingWizard({
 function ProfileStep({
   data,
   onChange,
+  userId,
 }: {
   data: Record<string, string>;
   onChange: (key: string, value: string) => void;
+  userId: string;
 }) {
   return (
     <div className="space-y-4">
@@ -363,25 +368,26 @@ function ProfileStep({
         />
         <p className="mt-1 text-xs text-slate-400">Your sign-in email. Update in account settings later.</p>
       </label>
-      <label className="block">
-        <span className={labelTextClass}>Profile picture (optional)</span>
-        <input
-          value={data.profilePictureUrl}
-          onChange={(e) => onChange("profilePictureUrl", e.target.value)}
-          className={inputClass}
-          placeholder="https://example.com/photo.jpg"
+      <div className="rounded-xl border border-slate-200 p-4">
+        <ImageUpload
+          bucket="profile-pictures"
+          folderPath={`users/${userId}/profile-picture`}
+          currentUrl={data.profilePictureUrl || null}
+          onUploadComplete={(url) => onChange("profilePictureUrl", url)}
+          onRemove={() => onChange("profilePictureUrl", "")}
+          label="Profile picture (optional)"
+          aspectRatio="square"
         />
-        <p className="mt-1 text-xs text-slate-400">URL to your profile picture. You can upload one later.</p>
-      </label>
-      {data.profilePictureUrl && (
-        <img
-          src={data.profilePictureUrl}
-          alt="Profile preview"
-          className="h-16 w-16 rounded-full object-cover border-2"
-          style={{ borderColor: data.accentColor || "#00b8b0" }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
-      )}
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600">Or use a URL</summary>
+          <input
+            value={data.profilePictureUrl}
+            onChange={(e) => onChange("profilePictureUrl", e.target.value)}
+            className={`${inputClass} mt-2`}
+            placeholder="https://example.com/photo.jpg"
+          />
+        </details>
+      </div>
     </div>
   );
 }
@@ -743,9 +749,11 @@ function BranchStep({
 function BrandingStep({
   data,
   onChange,
+  userId,
 }: {
   data: Record<string, string>;
   onChange: (key: string, value: string) => void;
+  userId: string;
 }) {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>(() => {
     try {
@@ -783,24 +791,27 @@ function BrandingStep({
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Customize your shop appearance, colors, and social links.</p>
       </div>
 
-      <label className="block">
-        <span className={labelTextClass}>Shop logo (optional)</span>
-        <input
-          value={data.logoUrl}
-          onChange={(e) => onChange("logoUrl", e.target.value)}
-          className={inputClass}
-          placeholder="https://example.com/logo.png"
+      <div className="rounded-xl border border-slate-200 p-4">
+        <ImageUpload
+          bucket="public-branding"
+          folderPath={`temp/${userId}/logo`}
+          currentUrl={data.logoUrl || null}
+          onUploadComplete={(url) => onChange("logoUrl", url)}
+          onRemove={() => onChange("logoUrl", "")}
+          label="Shop logo (optional)"
+          aspectRatio="landscape"
+          uploadingText="Uploading logo..."
         />
-        <p className="mt-1 text-xs text-slate-400">URL to your shop logo. You can upload one later.</p>
-      </label>
-      {data.logoUrl && (
-        <img
-          src={data.logoUrl}
-          alt="Logo preview"
-          className="h-14 w-auto max-w-[120px] object-contain rounded-lg border"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
-      )}
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600">Or use a URL</summary>
+          <input
+            value={data.logoUrl}
+            onChange={(e) => onChange("logoUrl", e.target.value)}
+            className={`${inputClass} mt-2`}
+            placeholder="https://example.com/logo.png"
+          />
+        </details>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="block">

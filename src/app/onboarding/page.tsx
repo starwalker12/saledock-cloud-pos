@@ -34,7 +34,7 @@ export default async function OnboardingPage() {
           </p>
         </div>
 
-        <OnboardingWizard defaultFullName={defaultFullName} userEmail={user.email ?? ""} />
+        <OnboardingWizard defaultFullName={defaultFullName} userEmail={user.email ?? ""} userId={user.id} />
 
         {/* Recovery buttons */}
         <div className="mt-8 flex flex-col items-center gap-3 border-t border-slate-200 pt-6 dark:border-slate-600">

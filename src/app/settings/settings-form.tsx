@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { BrandingSettings } from "@/lib/data/settings";
-import { updateSettingsAction, type SettingsActionState } from "./actions";
+import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState } from "./actions";
+import { ImageUpload } from "@/components/shared/image-upload";
 
 const initialState: SettingsActionState = { error: null, success: null };
 
@@ -39,13 +40,23 @@ export function SettingsForm({
   canEdit,
   organizationId,
   branchId,
+  userId,
+  profilePictureUrl,
 }: {
   settings: BrandingSettings;
   canEdit: boolean;
   organizationId: string;
   branchId: string | null;
+  userId: string;
+  profilePictureUrl?: string | null;
 }) {
   const [state, formAction, pending] = useActionState(updateSettingsAction, initialState);
+  const [ppState, ppAction, ppPending] = useActionState(updateProfilePictureAction, initialState);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  function handleLogoUpload(url: string) {
+    setLogoPreview(url);
+  }
 
   return (
     <form action={formAction} className="space-y-5">
@@ -120,21 +131,28 @@ export function SettingsForm({
 
       <Section
         title="Invoice & Receipt Branding"
-        description="Branding fields used by invoice prints, repair receipts, and reports. Upload storage is deferred."
+        description="Branding fields used by invoice prints, repair receipts, and reports."
       >
         <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex aspect-square items-center justify-center rounded-xl bg-white p-5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={settings.logoUrl || "/saledock-logo-full.png"}
+                src={logoPreview || settings.logoUrl || "/saledock-logo-full.png"}
                 alt="Shop logo preview"
                 className="h-auto max-h-28 w-auto object-contain"
               />
             </div>
-            <p className="mt-3 text-xs leading-5 text-slate-500">
-              Current logo path. File uploads and paid storage are deferred.
-            </p>
+            <div className="mt-3 space-y-2">
+              <ImageUpload
+                bucket="public-branding"
+                folderPath={`orgs/${organizationId}/logo`}
+                currentUrl={null}
+                onUploadComplete={handleLogoUpload}
+                aspectRatio="landscape"
+                uploadingText="Uploading logo..."
+              />
+            </div>
           </div>
           <div className="grid gap-4">
             <label className={labelClass}>
@@ -222,6 +240,44 @@ export function SettingsForm({
       </Section>
 
       <Section
+        title="Profile Picture"
+        description="Your profile photo shown in the app header and staff list."
+      >
+        <form
+          action={(formData: FormData) => {
+            ppAction(formData);
+          }}
+        >
+          <input type="hidden" name="profilePictureUrl" value="" />
+          <div className="flex items-start gap-4">
+            <ImageUpload
+              bucket="profile-pictures"
+              folderPath={`users/${userId}/profile-picture`}
+              currentUrl={profilePictureUrl || null}
+              onUploadComplete={(url) => {
+                const fd = new FormData();
+                fd.append("profilePictureUrl", url);
+                ppAction(fd);
+              }}
+              onRemove={() => {
+                const fd = new FormData();
+                fd.append("profilePictureUrl", "");
+                ppAction(fd);
+              }}
+              label="Profile picture"
+              aspectRatio="square"
+            />
+          </div>
+          {ppState.success && (
+            <p className="mt-3 text-xs font-semibold text-emerald-600">{ppState.success}</p>
+          )}
+          {ppState.error && (
+            <p className="mt-3 text-xs font-semibold text-red-600">{ppState.error}</p>
+          )}
+        </form>
+      </Section>
+
+      <Section
         title="Regional / Currency"
         description="Regional defaults for money formatting, reporting, and future branch operations."
       >
@@ -259,7 +315,7 @@ export function SettingsForm({
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
             <dt className={labelTextClass}>Uploads/storage</dt>
-            <dd className="mt-1 font-semibold text-slate-800">Deferred; no paid storage enabled.</dd>
+            <dd className="mt-1 font-semibold text-slate-800">Enabled via Supabase Storage (profile-pictures, public-branding buckets).</dd>
           </div>
           <details className="rounded-xl bg-slate-50 p-3 md:col-span-2">
             <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">Technical IDs</summary>
@@ -277,7 +333,7 @@ export function SettingsForm({
           disabled={!canEdit || pending}
           className="min-h-12 w-full rounded-xl bg-blue-700 px-5 text-sm font-black text-white transition hover:bg-blue-800 disabled:opacity-60 sm:w-auto"
         >
-          {pending ? "Saving settings..." : "Save settings"}
+          {pending || ppPending ? "Saving settings..." : "Save settings"}
         </button>
       </div>
     </form>

@@ -9,6 +9,7 @@ export type ProfileRow = {
   role: "owner" | "admin" | "manager" | "cashier" | "technician";
   is_active: boolean;
   avatar_url?: string | null;
+  profile_picture_url?: string | null;
   phone?: string | null;
   onboarding_completed?: boolean | null;
 };
@@ -54,7 +55,7 @@ export async function getCurrentContext() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, organization_id, branch_id, full_name, role, is_active, avatar_url, phone, onboarding_completed")
+    .select("id, organization_id, branch_id, full_name, role, is_active, avatar_url, profile_picture_url, phone, onboarding_completed")
     .eq("id", user.id)
     .maybeSingle<ProfileRow>();
 
