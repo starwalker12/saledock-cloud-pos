@@ -89,28 +89,58 @@ To export full business records, use the Backup & Restore tab (owner/admin only)
 
 ## Platform Admin Handling
 
-In the Platform Console (`/platform`), a **Privacy Requests** overview section shows:
+### Privacy Requests Triage Page
 
-- Total request count
-- Pending review count
-- Deletion request count
+Route: `/platform/privacy-requests` (platform admin only)
 
-Full management UI (filter, triage, mark as completed/rejected, add admin notes) is a future
-enhancement. Currently, admins can manage requests directly from the Supabase Dashboard or
-via the `privacy_requests` table.
+The triage page provides a full management UI for reviewing and processing privacy requests:
 
----
+- **Summary cards**: Total requests, pending, in review, deletion requests, completed this month
+- **Filters**: By status (all/pending/in_review/completed/rejected/cancelled), request type (all/access/export/deletion/etc.), and search (by requester name, email, or shop name)
+- **Expandable rows**: Click any row to see full details and the update form
+- **Status update**: Change status to `pending`, `in_review`, `completed`, or `rejected`
+- **Admin notes**: Add or update notes visible to the user in their data export
+- **Process tracking**: `processed_at` and `processed_by` are automatically recorded when status changes to completed/rejected/cancelled
+- **Warning banner**: Reminds admins that marking as completed does not perform automatic deletion
+- **Checklist**: Step-by-step review process
 
-## Manual Deletion Process
+Access is restricted to active platform admins via `getPlatformAdmin()` / `createAdminClient()`.
 
-This release does **not** implement automatic deletion. When a deletion request is received:
+### Status Meanings
 
-1. Admin marks request as `in_review`
-2. Admin verifies account/shop ownership
-3. Admin performs manual deletion via Supabase Dashboard or script
-4. Admin marks request as `completed` with notes
+| Status | Meaning |
+|--------|---------|
+| `pending` | Awaiting admin review |
+| `in_review` | Admin is actively working on the request |
+| `completed` | Request fulfilled (action taken; for deletion, manual deletion must still be performed) |
+| `rejected` | Request denied with admin notes explaining why |
+| `cancelled` | Cancelled by the requester |
 
-Future releases will implement a semi-automated deletion workflow.
+### Important: What "Completed" Means
+
+Marking a request as **completed** records the review outcome only. It does **not**:
+
+- Delete the user's account or auth record
+- Delete the organization, branches, or business data
+- Delete audit logs, invoices, or tax records
+- Email or notify the user
+
+### Recommended Manual Deletion Process
+
+1. Open the request in the triage page
+2. Set status to `in_review`
+3. Verify the requester's identity and shop ownership
+4. Review legal/audit/tax retention requirements
+5. Perform manual deletion via Supabase Dashboard (Auth → Users, Table Editor)
+6. Add admin notes documenting what was deleted and why
+7. Set status to `completed`
+
+### Future Follow-up
+
+- Automatic deletion of auth user + org data after admin approval
+- Email notifications to users when their request status changes
+- User-facing response_message field (currently uses `admin_notes` only)
+- Bulk operations for processing multiple requests
 
 ---
 

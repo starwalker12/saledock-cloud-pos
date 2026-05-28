@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getPlatformAdmin } from "@/lib/platform/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -132,17 +133,20 @@ export default async function PlatformPage() {
         {/* Privacy Requests */}
         {privacyCounts && (
           <section>
-            <h2 className="mb-4 text-lg font-black text-slate-950 dark:text-slate-50">Privacy Requests</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Privacy Requests</h2>
+              <Link
+                href="/platform/privacy-requests"
+                className="rounded-lg bg-blue-700 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-800"
+              >
+                Manage requests
+              </Link>
+            </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <Card label="Total Requests" value={privacyCounts.total} />
               <Card label="Pending Review" value={privacyCounts.pending} warn={privacyCounts.pending > 0} />
               <Card label="Deletion Requests" value={privacyCounts.deletion} warn={privacyCounts.deletion > 0} />
             </div>
-            {privacyCounts.total > 0 && (
-              <p className="mt-2 text-xs text-slate-500">
-                Manage individual requests from the database. Full Privacy Request management UI coming in a future release.
-              </p>
-            )}
           </section>
         )}
 
