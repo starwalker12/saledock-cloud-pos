@@ -30,6 +30,7 @@ export default async function SettingsPage({
   const currentTab = params.tab ?? "general";
 
   const settings = await getBrandingSettings(profile.organization_id, profile.branch_id);
+  const profilePictureUrl = profile?.profile_picture_url ?? profile?.avatar_url ?? null;
   const canEdit = canManageSettings(profile.role);
   const isPrivileged = profile.role === "owner" || profile.role === "admin";
 
@@ -89,6 +90,8 @@ export default async function SettingsPage({
             canEdit={canEdit}
             organizationId={profile.organization_id}
             branchId={profile.branch_id}
+            userId={user.id}
+            profilePictureUrl={profilePictureUrl}
           />
         )}
 
