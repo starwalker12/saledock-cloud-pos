@@ -18,6 +18,11 @@ export function ScrollReveal({
     const el = ref.current;
     if (!el) return;
 
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const timer = setTimeout(() => setVisible(true), 0);
+      return () => clearTimeout(timer);
+    }
+
     // Check if element is already in viewport on mount
     const rect = el.getBoundingClientRect();
     const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
