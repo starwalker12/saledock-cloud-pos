@@ -296,32 +296,30 @@ export default async function HomePage() {
     <div className="flex min-h-screen flex-col bg-white dark:bg-[#050c1a]">
 
       {/* ── STICKY NAV ── */}
-      <nav className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/90 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#050c1a]/90">
+      <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="group flex shrink-0 items-center">
-            {/* Light: coloured SVG logo */}
-            <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1254} height={1254}
-              className="h-9 w-auto object-contain transition-opacity duration-200 group-hover:opacity-75 dark:hidden" priority />
-            {/* Dark: white-readable version */}
-            <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1254} height={1254}
-              className="hidden h-9 w-auto object-contain brightness-0 invert opacity-85 transition-opacity duration-200 group-hover:opacity-60 dark:block" priority />
+          <Link href="/" className="flex shrink-0 items-center">
+            <div className="rounded-xl bg-white/95 px-3 py-1.5 shadow-sm">
+              <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1177} height={416}
+                className="h-9 w-auto object-contain sm:h-10" priority />
+            </div>
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
             {signedInUser ? (
               <Link href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
-                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-4 text-xs font-bold text-white shadow-lg shadow-blue-900/25 transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5 sm:text-sm">
+                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white/20 px-4 text-xs font-bold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/30 hover:-translate-y-0.5 sm:text-sm">
                 {signedInUser.needsOnboarding ? "Continue setup" : "Dashboard"}
               </Link>
             ) : (
               <>
                 <Link href="/login"
-                  className="hidden h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10 sm:flex sm:text-sm">
+                  className="hidden h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 text-xs font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 sm:flex sm:text-sm">
                   Sign in
                 </Link>
                 <Link href="/login?signup=1"
-                  className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-4 text-xs font-bold text-white shadow-lg shadow-blue-900/25 transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5 sm:text-sm">
+                  className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-white/90 hover:-translate-y-0.5 sm:text-sm">
                   Start free
                 </Link>
               </>
@@ -397,11 +395,9 @@ export default async function HomePage() {
           <div className="flex flex-col items-start">
 
             {/* Logo mark in hero */}
-            <div className="animate-fade-in-up mb-5" style={{ animationDelay: "0.04s" }}>
-              <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1254} height={1254}
-                className="h-14 w-auto object-contain dark:hidden" priority />
-              <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1254} height={1254}
-                className="hidden h-14 w-auto object-contain brightness-0 invert opacity-90 dark:block" priority />
+            <div className="animate-fade-in-up mb-5 rounded-2xl bg-white/95 px-5 py-3 shadow-sm ring-1 ring-slate-200/50 dark:bg-white/10 dark:ring-white/10" style={{ animationDelay: "0.04s" }}>
+              <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1177} height={416}
+                className="max-w-[200px] w-full h-auto object-contain sm:max-w-[280px]" priority />
             </div>
 
             {/* Badge */}
@@ -785,10 +781,8 @@ export default async function HomePage() {
       <footer className="border-t border-slate-200 bg-slate-50 px-4 py-12 dark:border-white/[0.05] dark:bg-[#070b16]">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="flex items-center">
-            <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1254} height={1254}
-              className="h-7 w-auto object-contain dark:hidden" />
-            <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1254} height={1254}
-              className="hidden h-7 w-auto object-contain brightness-0 invert opacity-45 dark:block" />
+            <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={1177} height={416}
+              className="h-7 w-auto object-contain" />
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500">
