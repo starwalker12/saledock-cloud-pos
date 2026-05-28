@@ -6,18 +6,42 @@ export type LinkedProviders = {
   identityCount: number;
 };
 
+function normalizeProvider(provider: string): string {
+  if (provider === "facebook_oidc" || provider === "facebook") return "facebook";
+  if (provider === "google") return "google";
+  if (provider === "email") return "email";
+  return provider;
+}
+
 export function getLinkedProviders(
-  identities?: { provider: string; id: string }[],
+  user?: {
+    identities?: { provider: string; id: string }[] | null;
+    app_metadata?: {
+      provider?: string;
+      providers?: string[];
+    };
+  } | null,
 ): LinkedProviders {
-  const providers = (identities ?? []).map((i) => i.provider);
-  const hasPassword = providers.includes("email");
-  const hasGoogle = providers.includes("google");
-  const hasFacebook = providers.includes("facebook");
+  const seen = new Set<string>();
+
+  for (const identity of user?.identities ?? []) {
+    seen.add(normalizeProvider(identity.provider));
+  }
+
+  if (user?.app_metadata?.provider) {
+    seen.add(normalizeProvider(user.app_metadata.provider));
+  }
+
+  for (const p of user?.app_metadata?.providers ?? []) {
+    seen.add(normalizeProvider(p));
+  }
+
+  const providers = Array.from(seen);
 
   return {
-    hasPassword,
-    hasGoogle,
-    hasFacebook,
+    hasPassword: providers.includes("email"),
+    hasGoogle: providers.includes("google"),
+    hasFacebook: providers.includes("facebook"),
     providers,
     identityCount: providers.length,
   };

@@ -11,6 +11,8 @@ import { DemoTab } from "./demo-tab";
 import { BackupTab } from "./backup-tab";
 import { ConnectedAccounts } from "./connected-accounts";
 import { PrivacyCenter } from "./privacy-center";
+import { getLinkedProviders } from "@/lib/auth/identities";
+import { createClient } from "@/lib/supabase/server";
 import { AlertTriangle, Settings, Database, Archive, ShieldCheck, UserCircle, Shield } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +36,11 @@ export default async function SettingsPage({
   const params = await searchParams;
   const currentTab = params.tab ?? "general";
   const linkParam = params.link ?? null;
+
+  // Fetch fresh auth user for linked provider detection (server-side has full identities)
+  const supabase = await createClient();
+  const { data: { user: freshUser } } = await supabase.auth.getUser();
+  const linkedProviders = getLinkedProviders(freshUser);
 
   const settings = await getBrandingSettings(profile.organization_id, profile.branch_id);
   const profilePictureUrl = profile?.profile_picture_url ?? profile?.avatar_url ?? null;
@@ -120,7 +127,7 @@ export default async function SettingsPage({
         )}
 
         {currentTab === "accounts" && (
-          <ConnectedAccounts linkParam={linkParam} />
+          <ConnectedAccounts linkParam={linkParam} linkedProviders={linkedProviders} />
         )}
 
         {currentTab === "privacy" && (
