@@ -64,6 +64,8 @@ const dashboardRows = [
   { icon: CreditCard, left: "Payment reminder — Sample customer due", right: "Rs 18,500", accent: "bg-emerald-500" },
 ];
 
+const sidebarNavIcons = [ShoppingCart, PackageCheck, Wrench, BarChart3, Receipt];
+
 const howItWorks = [
   { step: "1", title: "Create your account", desc: "Sign up with your email or Google/Facebook. Takes less than a minute." },
   { step: "2", title: "Set up your shop", desc: "Name your shop, pick your brand colors, add your location, and configure your currency." },
@@ -102,7 +104,7 @@ export default async function HomePage() {
             {signedInUser ? (
               <Link
                 href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
-                className="flex h-10 items-center gap-1.5 rounded-xl bg-blue-700 px-4 text-xs font-bold text-white shadow-lg shadow-blue-700/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-xl hover:-translate-y-0.5 sm:text-sm"
+                className="flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 px-4 text-xs font-bold text-white shadow-lg shadow-blue-600/20 transition-all duration-200 hover:from-blue-700 hover:to-teal-600 hover:shadow-xl hover:-translate-y-0.5 sm:text-sm cursor-pointer"
               >
                 {signedInUser.needsOnboarding ? "Continue setup" : "Dashboard"}
               </Link>
@@ -110,15 +112,15 @@ export default async function HomePage() {
               <>
                 <Link
                   href="/login"
-                  className="flex h-10 items-center gap-1.5 rounded-xl bg-blue-700 px-4 text-xs font-bold text-white shadow-lg shadow-blue-700/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-xl hover:-translate-y-0.5 sm:text-sm"
+                  className="hidden sm:flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:text-sm cursor-pointer"
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/login?signup=1"
-                  className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 sm:text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                  className="flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 px-4 text-xs font-bold text-white shadow-lg shadow-blue-600/20 transition-all duration-200 hover:from-blue-700 hover:to-teal-600 hover:shadow-xl hover:-translate-y-0.5 sm:text-sm cursor-pointer"
                 >
-                  Create account
+                  Start free
                 </Link>
               </>
             )}
@@ -137,10 +139,19 @@ export default async function HomePage() {
               backgroundSize: "300% 300%",
             }}
           />
+          {/* Subtle dot grid */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.035] dark:opacity-[0.06]"
+            style={{
+              backgroundImage: "radial-gradient(circle, #334155 1px, transparent 1px)",
+              backgroundSize: "28px 28px",
+            }}
+          />
           {/* Radial vignette */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(13,148,136,0.08)_0%,transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(13,148,136,0.12)_0%,transparent_70%)]" />
-          {/* Teal accent dot top-right */}
+          {/* Accent glows */}
           <div className="pointer-events-none absolute -top-20 right-1/4 h-64 w-64 rounded-full bg-teal-500/5 blur-3xl dark:bg-teal-400/10" />
+          <div className="pointer-events-none absolute -bottom-20 left-1/4 h-80 w-80 rounded-full bg-blue-500/5 blur-3xl dark:bg-blue-600/10" />
 
           <div className="relative">
             <ScrollReveal delay={100}>
@@ -153,12 +164,19 @@ export default async function HomePage() {
               </div>
             </ScrollReveal>
 
+            <ScrollReveal delay={150}>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-teal-50/80 px-3.5 py-1.5 backdrop-blur-sm dark:border-teal-700/40 dark:bg-teal-950/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-500 animate-pulse" />
+                <span className="text-xs font-semibold tracking-wide text-teal-700 dark:text-teal-400">Cloud POS Platform</span>
+              </div>
+            </ScrollReveal>
+
             <ScrollReveal delay={200}>
               <h1 className="mx-auto max-w-3xl text-4xl font-black leading-tight text-slate-950 sm:text-5xl md:text-6xl dark:text-white">
-                SaleDock Cloud POS
+                Run your shop smarter
               </h1>
               <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg dark:text-slate-400">
-                A modern cloud POS platform for shops to manage sales, inventory, repairs,
+                A complete cloud POS for modern retail. Manage sales, inventory, repairs,
                 invoices, expenses, and reports — all from one place.
               </p>
             </ScrollReveal>
@@ -168,7 +186,7 @@ export default async function HomePage() {
                 {signedInUser ? (
                   <Link
                     href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
-                    className="group flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-blue-700 px-8 text-sm font-bold text-white shadow-lg shadow-blue-700/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto"
+                    className="group flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 px-8 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all duration-200 hover:from-blue-700 hover:to-teal-600 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto cursor-pointer"
                   >
                     {signedInUser.needsOnboarding ? "Continue setup" : "Go to dashboard"}
                     <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -177,20 +195,23 @@ export default async function HomePage() {
                   <>
                     <Link
                       href="/login?signup=1"
-                      className="group flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-blue-700 px-8 text-sm font-bold text-white shadow-lg shadow-blue-700/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto"
+                      className="group flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 px-8 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all duration-200 hover:from-blue-700 hover:to-teal-600 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto cursor-pointer"
                     >
                       Start free
                       <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                     </Link>
                     <Link
                       href="/login"
-                      className="flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-8 text-sm font-bold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 sm:w-auto dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                      className="flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-8 text-sm font-bold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 sm:w-auto dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer"
                     >
                       Sign in
                     </Link>
                   </>
                 )}
               </div>
+              <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+                No credit card required · Free to start
+              </p>
             </ScrollReveal>
 
             {!env.isSupabaseConfigured && (
@@ -221,51 +242,72 @@ export default async function HomePage() {
       {/* ── PRODUCT PREVIEW ── */}
       <ScrollReveal delay={100}>
         <section className="mx-auto w-full max-w-5xl px-4 pb-16 sm:pb-24">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/50 transition-all duration-300 hover:shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:shadow-none dark:hover:shadow-xl dark:hover:shadow-slate-900/50">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 transition-all duration-300 hover:shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:shadow-none dark:hover:shadow-xl dark:hover:shadow-slate-900/50">
             {/* Browser chrome mock */}
-            <div className="mb-4 flex items-center gap-1.5 border-b border-slate-100 pb-3 dark:border-slate-700">
+            <div className="flex items-center gap-1.5 border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
               <span className="inline-block h-3 w-3 rounded-full bg-red-400" />
               <span className="inline-block h-3 w-3 rounded-full bg-amber-400" />
               <span className="inline-block h-3 w-3 rounded-full bg-emerald-400" />
-              <span className="ml-2 truncate rounded-md bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              <span className="ml-2 truncate rounded-md bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm dark:bg-slate-700 dark:text-slate-400">
                 saledock-cloud-pos.vercel.app/dashboard
               </span>
             </div>
 
-            {/* KPI cards */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {kpiData.map((kpi) => (
-                <div
-                  key={kpi.label}
-                  className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{kpi.label}</span>
-                    <span className={`inline-block h-2 w-2 rounded-full ${kpi.accent} animate-pulse`} />
-                  </div>
-                  <p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{kpi.value}</p>
-                  <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{kpi.change}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Dashboard activity rows */}
-            <div className="mt-4 space-y-1.5">
-              {dashboardRows.map((row) => {
-                const Icon = row.icon;
-                return (
-                  <div
-                    key={row.left}
-                    className="flex items-center gap-3 rounded-lg bg-slate-50 p-3 transition-all duration-200 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700"
+            <div className="flex">
+              {/* Sidebar strip */}
+              <div className="hidden border-r border-slate-100 bg-slate-50/60 p-2 dark:border-slate-700/60 dark:bg-slate-800/40 sm:flex sm:flex-col sm:gap-1">
+                {sidebarNavIcons.map((Icon, i) => (
+                  <span
+                    key={i}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-150 ${
+                      i === 0
+                        ? "bg-gradient-to-br from-blue-600 to-teal-500 text-white shadow-sm"
+                        : "text-slate-400 hover:bg-slate-200 dark:text-slate-500 dark:hover:bg-slate-700"
+                    }`}
                   >
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${row.accent} text-white shadow-sm`}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{row.left}</span>
-                    <span className={`ml-auto text-sm font-bold ${row.accent.replace("bg-", "text-")}`}>{row.right}</span>
-                  </div>
-                );
-              })}
+                    <Icon className="h-4 w-4" />
+                  </span>
+                ))}
+              </div>
+
+              {/* Main dashboard content */}
+              <div className="flex-1 p-4">
+                {/* KPI cards */}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {kpiData.map((kpi) => (
+                    <div
+                      key={kpi.label}
+                      className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{kpi.label}</span>
+                        <span className={`inline-block h-2 w-2 rounded-full ${kpi.accent} animate-pulse`} />
+                      </div>
+                      <p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{kpi.value}</p>
+                      <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{kpi.change}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Activity feed */}
+                <div className="mt-4 space-y-1.5">
+                  {dashboardRows.map((row) => {
+                    const Icon = row.icon;
+                    return (
+                      <div
+                        key={row.left}
+                        className="flex items-center gap-3 rounded-lg bg-slate-50 p-3 transition-all duration-200 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700"
+                      >
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${row.accent} text-white shadow-sm`}>
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="truncate text-sm font-semibold text-slate-700 dark:text-slate-300">{row.left}</span>
+                        <span className={`ml-auto shrink-0 text-sm font-bold ${row.accent.replace("bg-", "text-")}`}>{row.right}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -273,17 +315,22 @@ export default async function HomePage() {
 
       {/* ── FEATURES ── */}
       <section className="relative border-t border-slate-200 bg-slate-50 px-4 py-16 sm:py-24 dark:border-slate-700 dark:bg-[#0b1220]">
-        {/* Accent decoration */}
         <div className="pointer-events-none absolute left-0 top-0 h-px w-1/3 bg-gradient-to-r from-transparent via-teal-500/30 to-transparent" />
 
         <div className="mx-auto max-w-6xl">
           <ScrollReveal>
-            <h2 className="text-center text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
-              Everything your shop needs
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-center text-base leading-relaxed text-slate-500 dark:text-slate-400">
-              From ringing up sales to managing repairs and generating reports — SaleDock ships with a complete toolkit for modern retail.
-            </p>
+            <div className="flex flex-col items-center">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-blue-50/80 px-3.5 py-1.5 dark:border-blue-800/40 dark:bg-blue-950/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                <span className="text-xs font-semibold tracking-wide text-blue-700 dark:text-blue-400">Features</span>
+              </div>
+              <h2 className="text-center text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
+                Everything your shop needs
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-center text-base leading-relaxed text-slate-500 dark:text-slate-400">
+                From ringing up sales to managing repairs and generating reports — SaleDock ships with a complete toolkit for modern retail.
+              </p>
+            </div>
           </ScrollReveal>
 
           <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -291,8 +338,7 @@ export default async function HomePage() {
               const Icon = f.icon;
               return (
                 <ScrollReveal key={f.title} delay={i * 80}>
-                  <div className="group relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:shadow-slate-900/60">
-                    {/* Hover accent bar */}
+                  <div className="group relative cursor-default rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:shadow-slate-900/60">
                     <div className="absolute inset-x-0 -top-px h-0.5 rounded-t-2xl bg-gradient-to-r from-blue-600 to-teal-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
                     <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-teal-500 text-white shadow-md transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-600/25">
@@ -314,12 +360,18 @@ export default async function HomePage() {
 
         <div className="mx-auto max-w-4xl">
           <ScrollReveal>
-            <h2 className="text-center text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
-              Built with security first
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-center text-base leading-relaxed text-slate-500 dark:text-slate-400">
-              Your data stays yours. SaleDock is designed with tenant isolation, role-based access, and defensive coding from day one.
-            </p>
+            <div className="flex flex-col items-center">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-teal-50/80 px-3.5 py-1.5 dark:border-teal-800/40 dark:bg-teal-950/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+                <span className="text-xs font-semibold tracking-wide text-teal-700 dark:text-teal-400">Security</span>
+              </div>
+              <h2 className="text-center text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
+                Built with security first
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-center text-base leading-relaxed text-slate-500 dark:text-slate-400">
+                Your data stays yours. SaleDock is designed with tenant isolation, role-based access, and defensive coding from day one.
+              </p>
+            </div>
           </ScrollReveal>
 
           <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -327,7 +379,7 @@ export default async function HomePage() {
               const Icon = item.icon;
               return (
                 <ScrollReveal key={item.title} delay={i * 100}>
-                  <div className="group relative rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:hover:shadow-slate-900/60">
+                  <div className="group relative cursor-default rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:hover:shadow-slate-900/60">
                     <div className="absolute inset-x-0 -top-px h-0.5 rounded-t-2xl bg-gradient-to-r from-teal-500 to-emerald-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
                     <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-600 to-emerald-500 text-white shadow-md transition-all duration-300 group-hover:shadow-lg group-hover:shadow-teal-600/25">
@@ -349,19 +401,28 @@ export default async function HomePage() {
 
         <div className="mx-auto max-w-4xl">
           <ScrollReveal>
-            <h2 className="text-center text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
-              Get started in minutes
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-center text-base leading-relaxed text-slate-500 dark:text-slate-400">
-              No credit card required. No complicated setup. Just three simple steps.
-            </p>
+            <div className="flex flex-col items-center">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-violet-50/80 px-3.5 py-1.5 dark:border-violet-800/40 dark:bg-violet-950/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                <span className="text-xs font-semibold tracking-wide text-violet-700 dark:text-violet-400">Getting started</span>
+              </div>
+              <h2 className="text-center text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
+                Get started in minutes
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-center text-base leading-relaxed text-slate-500 dark:text-slate-400">
+                No credit card required. No complicated setup. Just three simple steps.
+              </p>
+            </div>
           </ScrollReveal>
 
-          <div className="mt-12 grid grid-cols-1 gap-10 sm:grid-cols-3">
+          <div className="relative mt-12 grid grid-cols-1 gap-10 sm:grid-cols-3">
+            {/* Dashed connector between steps on desktop */}
+            <div className="pointer-events-none absolute left-[calc(100%/6)] right-[calc(100%/6)] top-7 hidden border-t-2 border-dashed border-slate-200 dark:border-slate-700 sm:block" />
+
             {howItWorks.map((item, i) => (
               <ScrollReveal key={item.step} delay={i * 120}>
                 <div className="group text-center">
-                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-teal-500 text-xl font-black text-white shadow-lg transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-600/25 group-hover:-translate-y-0.5">
+                  <span className="relative z-10 mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-teal-500 text-xl font-black text-white shadow-lg transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-600/25 group-hover:-translate-y-0.5">
                     {item.step}
                   </span>
                   <h3 className="mt-6 text-base font-extrabold text-slate-950 dark:text-white">{item.title}</h3>
@@ -375,44 +436,70 @@ export default async function HomePage() {
 
       {/* ── FINAL CTA ── */}
       <ScrollReveal delay={100}>
-        <section className="relative border-t border-slate-200 bg-white px-4 py-16 text-center sm:py-24 dark:border-slate-700 dark:bg-[#070b16]">
-          {/* Gradient glow */}
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(13,148,136,0.06)_0%,transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(13,148,136,0.08)_0%,transparent_70%)]" />
+        <section className="relative overflow-hidden border-t border-slate-200 bg-[#0b1220] px-4 py-16 text-center sm:py-24 dark:border-slate-700/50">
+          {/* Deep gradient background */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: "linear-gradient(135deg, #0f172a 0%, #0b2f6f 45%, #0d4f6f 100%)",
+            }}
+          />
+          {/* Dot grid texture */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage: "radial-gradient(circle, #94a3b8 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
+          {/* Teal radial glow */}
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(13,148,136,0.2)_0%,transparent_65%)]" />
 
           <div className="relative mx-auto max-w-2xl">
             <ScrollReveal delay={150}>
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-teal-500 text-white shadow-lg">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white shadow-lg backdrop-blur-sm">
                 <CheckCircle className="h-8 w-8" />
               </div>
             </ScrollReveal>
 
             <ScrollReveal delay={200}>
-              <h2 className="text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">
+              <h2 className="text-2xl font-black text-white sm:text-3xl">
                 Launch your shop on SaleDock Cloud POS
               </h2>
-              <p className="mx-auto mt-3 max-w-lg text-base leading-relaxed text-slate-500 dark:text-slate-400">
+              <p className="mx-auto mt-3 max-w-lg text-base leading-relaxed text-slate-300">
                 Join shops that trust SaleDock for their daily operations. Free to start, no commitment.
               </p>
             </ScrollReveal>
 
             <ScrollReveal delay={300}>
               {signedInUser ? (
-                <Link
-                  href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
-                  className="group mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-8 text-sm font-bold text-white shadow-lg shadow-blue-700/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-xl hover:-translate-y-0.5"
-                >
-                  {signedInUser.needsOnboarding ? "Continue setup" : "Go to dashboard"}
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
+                <div className="mt-8 flex flex-col items-center gap-3">
+                  <Link
+                    href={signedInUser.needsOnboarding ? "/onboarding" : "/dashboard"}
+                    className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-8 text-sm font-bold text-slate-900 shadow-lg transition-all duration-200 hover:bg-slate-100 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
+                  >
+                    {signedInUser.needsOnboarding ? "Continue setup" : "Go to dashboard"}
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </Link>
+                </div>
               ) : (
-                <Link
-                  href="/login?signup=1"
-                  className="group mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-8 text-sm font-bold text-white shadow-lg shadow-blue-700/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-xl hover:-translate-y-0.5"
-                >
-                  Create your account
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
+                <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                  <Link
+                    href="/login?signup=1"
+                    className="group inline-flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-white px-8 text-sm font-bold text-slate-900 shadow-lg transition-all duration-200 hover:bg-slate-100 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto cursor-pointer"
+                  >
+                    Create your account
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="inline-flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-8 text-sm font-bold text-white backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 sm:w-auto cursor-pointer"
+                  >
+                    Sign in
+                  </Link>
+                </div>
               )}
+              <p className="mt-4 text-xs text-slate-500">No credit card required · Free to start</p>
             </ScrollReveal>
           </div>
         </section>
