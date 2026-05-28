@@ -44,9 +44,11 @@ async function stockValueStats(organizationId: string) {
 
 async function weeklySales(organizationId: string, branchId: string | null) {
   const supabase = await createClient();
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const startStr = sevenDaysAgo.toISOString().split("T")[0];
+  const today = new Date();
+  const dayAgo = new Date(today);
+  dayAgo.setDate(dayAgo.getDate() - 6);
+  dayAgo.setHours(0, 0, 0, 0);
+  const startStr = dayAgo.toISOString();
 
   let query = supabase
     .from("invoices")
@@ -65,7 +67,7 @@ async function weeklySales(organizationId: string, branchId: string | null) {
 
   const dayTotals = new Map<string, number>();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
+    const d = new Date(today);
     d.setDate(d.getDate() - i);
     dayTotals.set(d.toISOString().split("T")[0], 0);
   }
@@ -78,7 +80,6 @@ async function weeklySales(organizationId: string, branchId: string | null) {
   }
 
   const labels = ["S", "M", "T", "W", "T", "F", "S"];
-  const today = new Date();
   const dayOfWeek = today.getDay();
   const orderedLabels = [...labels.slice(dayOfWeek + 1), ...labels.slice(0, dayOfWeek + 1)];
 
