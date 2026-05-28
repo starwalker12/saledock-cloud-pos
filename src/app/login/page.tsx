@@ -6,6 +6,18 @@ import { getPublicPlatformSetting } from "@/lib/platform/admin";
 import { signOutAction } from "@/app/(auth)/actions";
 import { ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
 
+function friendlyError(errorCode: string | undefined): string | null {
+  if (!errorCode) return null;
+  switch (errorCode) {
+    case "facebook_invalid_scopes":
+      return "Facebook login is almost ready, but the email permission is not enabled in Meta yet. Please contact the platform owner.";
+    case "auth_callback_failed":
+      return "Sign-in link was invalid or expired. Please try again.";
+    default:
+      return null;
+  }
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -62,8 +74,8 @@ export default async function LoginPage({
 
             {signedInUser.needsOnboarding ? (
               <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                <p className="font-semibold">You are signed in but your shop setup is not complete.</p>
-                <p className="mt-1 text-xs">Continue setting up your shop or sign out to use another account.</p>
+                <p className="font-semibold">Your shop setup is not complete</p>
+                <p className="mt-1 text-xs">You started setting up SaleDock but did not finish. You can continue where you left off or restart setup.</p>
               </div>
             ) : (
               <div className="text-center text-sm text-slate-500">
@@ -73,13 +85,27 @@ export default async function LoginPage({
 
             <div className="flex flex-col gap-2">
               {signedInUser.needsOnboarding ? (
-                <Link
-                  href="/onboarding"
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
-                >
-                  <ArrowRight className="size-4" />
-                  Continue setup
-                </Link>
+                <>
+                  <Link
+                    href="/onboarding"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+                  >
+                    <ArrowRight className="size-4" />
+                    Continue setup
+                  </Link>
+                  <form action="/api/restart-setup" method="POST">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const { restartSetupAction } = await import("@/app/(auth)/actions");
+                        await restartSetupAction();
+                      }}
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Restart setup
+                    </button>
+                  </form>
+                </>
               ) : (
                 <Link
                   href="/dashboard"
@@ -126,6 +152,11 @@ export default async function LoginPage({
               <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
                 Supabase is not configured yet. Add credentials to <code>.env.local</code>.
               </p>
+            )}
+            {friendlyError(error) && (
+              <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                {friendlyError(error)}
+              </div>
             )}
             <LoginForm callbackError={error ?? null} publicSignupEnabled={publicSignupEnabled} initialMode={signup === "1" ? "sign-up" : "sign-in"} />
           </>

@@ -9,10 +9,12 @@ import { getPublicPlatformSetting } from "@/lib/platform/admin";
 import { SettingsForm } from "./settings-form";
 import { DemoTab } from "./demo-tab";
 import { BackupTab } from "./backup-tab";
-import { AlertTriangle, Settings, Database, Archive, ShieldCheck } from "lucide-react";
+import { ConnectedAccounts } from "./connected-accounts";
+import { AlertTriangle, Settings, Database, Archive, ShieldCheck, UserCircle } from "lucide-react";
 
 type SearchParams = {
   tab?: string;
+  link?: string;
 };
 
 export default async function SettingsPage({
@@ -28,6 +30,7 @@ export default async function SettingsPage({
 
   const params = await searchParams;
   const currentTab = params.tab ?? "general";
+  const linkParam = params.link ?? null;
 
   const settings = await getBrandingSettings(profile.organization_id, profile.branch_id);
   const profilePictureUrl = profile?.profile_picture_url ?? profile?.avatar_url ?? null;
@@ -41,6 +44,7 @@ export default async function SettingsPage({
   // Tab configurations
   const tabs = [
     { id: "general", label: "Shop Profile", icon: Settings },
+    { id: "accounts", label: "Connected Accounts", icon: UserCircle },
     ...(isPrivileged ? [
       { id: "demo-data", label: "Demo Data", icon: Database },
       { id: "backup", label: "Backup & Restore", icon: Archive },
@@ -109,6 +113,10 @@ export default async function SettingsPage({
           ) : (
             <AccessDeniedView />
           )
+        )}
+
+        {currentTab === "accounts" && (
+          <ConnectedAccounts linkParam={linkParam} />
         )}
 
         {currentTab === "security" && (

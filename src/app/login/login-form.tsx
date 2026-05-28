@@ -1,7 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { signInAction, signUpAction, signInWithGoogleAction, signInWithFacebookAction, resetPasswordAction, type AuthState } from "@/app/(auth)/actions";
+import {
+  signInAction,
+  signUpAction,
+  signInWithGoogleAction,
+  signInWithFacebookAction,
+  resetPasswordAction,
+  type AuthState,
+} from "@/app/(auth)/actions";
 
 const initialState: AuthState = { error: null };
 
@@ -11,12 +18,30 @@ type Props = {
   initialMode?: "sign-in" | "sign-up";
 };
 
+const FACEBOOK_SCOPE_HELP =
+  "Facebook login is almost ready, but the email permission is not enabled in Meta yet. Please contact the platform owner.";
+
+function friendlyCallbackError(errorCode: string | null | undefined): string | null {
+  if (!errorCode) return null;
+  switch (errorCode) {
+    case "facebook_invalid_scopes":
+      return FACEBOOK_SCOPE_HELP;
+    case "auth_callback_failed":
+      return "Sign-in link was invalid or expired. Please try again.";
+    default:
+      return null;
+  }
+}
+
 export function LoginForm({ callbackError, publicSignupEnabled = true, initialMode = "sign-in" }: Props) {
   const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot">(initialMode);
   const action = mode === "sign-in" ? signInAction : mode === "sign-up" ? signUpAction : resetPasswordAction;
   const [state, formAction, pending] = useActionState(action, initialState);
 
-  const displayError = state.error ?? (callbackError ? "Sign-in link was invalid or expired. Please try again." : null);
+  const fbError = callbackError === "facebook_invalid_scopes" ? FACEBOOK_SCOPE_HELP : null;
+  const genericCallbackError = friendlyCallbackError(callbackError);
+  const displayError = fbError ?? state.error ?? genericCallbackError;
+  const isDuplicateSignup = !state.error && state.info?.includes("already exist");
 
   if (mode === "forgot") {
     return (
@@ -120,15 +145,43 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
           />
         </label>
 
-        {state.info && (
+        {isDuplicateSignup && (
+          <div className="rounded-lg bg-amber-50 px-3 py-3 text-sm space-y-2">
+            <p className="font-medium text-amber-800">{state.info}</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("sign-in")}
+                className="h-9 rounded-lg bg-amber-700 px-4 text-xs font-bold text-white hover:bg-amber-800"
+              >
+                Go to sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                className="h-9 rounded-lg border border-amber-300 px-4 text-xs font-bold text-amber-800 hover:bg-amber-100"
+              >
+                Reset password
+              </button>
+            </div>
+          </div>
+        )}
+
+        {state.info && !isDuplicateSignup && (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
             {state.info}
           </p>
         )}
 
-        {displayError && (
+        {displayError && !isDuplicateSignup && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
             {displayError}
+          </p>
+        )}
+
+        {fbError && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+            {fbError}
           </p>
         )}
 

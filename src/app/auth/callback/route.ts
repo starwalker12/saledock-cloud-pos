@@ -13,13 +13,31 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
   const errorParam = url.searchParams.get("error_description") ?? url.searchParams.get("error");
+  const linkingParam = url.searchParams.get("linking");
 
   const forwardedHost = request.headers.get("x-forwarded-host");
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
   const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin;
 
+  // ── Error handling ────────────────────────────────────────────────────────
   if (errorParam) {
     const loginUrl = new URL("/login", origin);
+    const lower = errorParam.toLowerCase();
+
+    // OAuth identity/email conflict
+    if (lower.includes("email already registered") || lower.includes("email already exists") || lower.includes("identity conflict") || lower.includes("already linked")) {
+      const settingsUrl = new URL("/settings?tab=accounts", origin);
+      settingsUrl.searchParams.set("link", "conflict");
+      return NextResponse.redirect(settingsUrl);
+    }
+
+    // Facebook "Invalid Scopes: email" / invalid_scope
+    if (lower.includes("invalid_scope") || lower.includes("invalid scope") || lower.includes("scopes")) {
+      loginUrl.searchParams.set("error", "facebook_invalid_scopes");
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Generic OAuth error
     loginUrl.searchParams.set("error", "auth_callback_failed");
     return NextResponse.redirect(loginUrl);
   }
@@ -28,14 +46,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", origin));
   }
 
+  // ── Exchange code for session ─────────────────────────────────────────────
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     const loginUrl = new URL("/login", origin);
+    const msg = error.message.toLowerCase();
+
+    if (msg.includes("email already registered") || msg.includes("email already exists") || msg.includes("identity conflict") || msg.includes("already linked")) {
+      const settingsUrl = new URL("/settings?tab=accounts", origin);
+      settingsUrl.searchParams.set("link", "conflict");
+      return NextResponse.redirect(settingsUrl);
+    }
+
     loginUrl.searchParams.set("error", "auth_callback_failed");
     return NextResponse.redirect(loginUrl);
   }
 
+  // ── Account linking flow ──────────────────────────────────────────────────
+  if (linkingParam === "1") {
+    const settingsUrl = new URL("/settings?tab=accounts", origin);
+    settingsUrl.searchParams.set("link", "success");
+    return NextResponse.redirect(settingsUrl);
+  }
+
+  // ── Regular login flow: route to onboarding or dashboard ──────────────────
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.redirect(new URL("/login", origin));

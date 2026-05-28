@@ -111,20 +111,91 @@ The server protects management changes:
 
 Public signup remains closed; new staff should use the invite email.
 
+## Duplicate Signup Handling
+
+### Email/password duplicate
+
+If a user tries to sign up with an email that already exists, the `signUpAction` catches the error and returns a friendly message instead of the raw Supabase error:
+
+> "An account may already exist for this email. Sign in to continue setup, or use password reset if you forgot your password."
+
+The login form displays the message with "Go to sign in" and "Reset password" action buttons.
+
+**Account enumeration protection:** The server does **not** expose whether an email exists before authentication. The `signInAction` returns a neutral *"Invalid email or password"* regardless of which field caused the error.
+
+### OAuth conflict
+
+If Google/Facebook OAuth returns an identity conflict (email already in use), the callback route redirects to `/settings?tab=accounts&link=conflict` with the message:
+
+> "This email is already used by another sign-in method. Sign in with your original method first, then link this provider from Profile Settings."
+
+See `docs/oauth-account-linking.md` for full details.
+
+## Incomplete Signup Recovery
+
+### Detection
+
+When a signed-in user visits `/login`:
+- `getCurrentContext()` checks `profile.organization_id` and `profile.onboarding_completed`
+- If either is missing/false, the user is marked as `needsOnboarding`
+
+### Recovery card
+
+Instead of showing the login form, the user sees:
+
+> **Your shop setup is not complete**
+> You started setting up SaleDock but did not finish. You can continue where you left off or restart setup.
+
+**Buttons:**
+- **Continue setup** → `/onboarding` (preserves existing form data if any)
+- **Restart setup** → calls `restartSetupAction`, which:
+  1. Verifies the user is authenticated
+  2. Checks if the user has no completed org (rejects if already complete)
+  3. If a partial org exists (organization_id set but onboarding_completed = false), deletes it safely
+  4. Resets the profile to pre-onboarding state (org_id = null, onboarding_completed = false)
+  5. Redirects to `/onboarding`
+- **Sign out** → switches to another account
+
+### Safety rules for restart
+
+| Scenario | Behavior |
+|----------|----------|
+| User has no org yet | Redirect to `/onboarding` (no cleanup needed) |
+| User has partial org (incomplete) | Delete partial org, reset profile, redirect to `/onboarding` |
+| User has completed org | Returns error: *"Your shop setup is already complete. You cannot restart setup."* |
+| Unauthenticated user | Returns error: *"You must be signed in."* |
+
+No destructive cleanup runs unless the current user is authenticated and incomplete. The server uses `auth.uid()` exclusively — no arbitrary user_id from the client.
+
+### Auth callback routing
+
+The callback route (`/auth/callback`) handles both login and linking:
+- Normal login → checks onboarding status → redirects to `/onboarding` or `/dashboard`
+- Account linking (`?linking=1`) → redirects to `/settings?tab=accounts&link=success`
+
+### OAuth incomplete user
+
+If a user signs in with Google/Facebook using an email that already has an incomplete profile:
+- Supabase may automatically link the identity by verified email
+- The callback routes to `/onboarding` (same as first-time onboarding)
+- No duplicate org/profile rows are created
+
 ## Status
 
 - SaaS self-service signup: **live** (Stage 2).
 - Google OAuth: **configured in code, requires Supabase Dashboard Google provider setup**.
+- Facebook OAuth: **configured in code, requires Supabase Dashboard Facebook provider setup + Meta App email permission**.
 - Multi-step onboarding wizard: **live** (`/onboarding`).
 - Theme customization (primary/accent color, default theme): **live**.
 - Staff invite + role assignment flow: **live**.
 - Password reset / forgot password: **live**.
 - Public sign-up: **open** (self-service).
+- Account linking (Google/Facebook): **live** via Settings → Connected Accounts.
+- Duplicate signup handling + incomplete signup recovery: **live**.
 
 ## Remaining tasks
 
 - Dedicated invitation status columns and granular permission editor.
 - Branch switcher for multi-branch organizations.
 - Per-role RLS refinements (cashier-only insert on invoices, technician-only writes on repairs, etc.).
-- Supabase Storage for logo/avatar file uploads (URL fields used currently).
 - CAPTCHA / rate limiting on public endpoints.
