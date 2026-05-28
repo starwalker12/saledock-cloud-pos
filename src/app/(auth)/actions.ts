@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { sanitizePlainText } from "@/lib/security/sanitize";
+import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
 
 const credentialsSchema = z.object({
   email: z.string().email("Enter a valid email address."),
@@ -45,6 +46,12 @@ const POST_AUTH_PATH = "/auth/callback?next=%2Fdashboard";
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
 
+  const recaptchaToken = formData.get("recaptchaToken") as string | null;
+  const recaptchaResult = await verifyRecaptchaToken(recaptchaToken);
+  if (!recaptchaResult.success) {
+    return { error: recaptchaResult.error ?? "Security check failed." };
+  }
+
   const parsed = credentialsSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -65,6 +72,12 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
 
 export async function signUpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
+
+  const recaptchaToken = formData.get("recaptchaToken") as string | null;
+  const recaptchaResult = await verifyRecaptchaToken(recaptchaToken);
+  if (!recaptchaResult.success) {
+    return { error: recaptchaResult.error ?? "Security check failed." };
+  }
 
   // Enforce public_signup_enabled platform setting server-side
   try {
@@ -168,6 +181,13 @@ export async function signInWithFacebookAction(_prev: AuthState, _formData: Form
 
 export async function resetPasswordAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
+
+  const recaptchaToken = formData.get("recaptchaToken") as string | null;
+  const recaptchaResult = await verifyRecaptchaToken(recaptchaToken);
+  if (!recaptchaResult.success) {
+    return { error: recaptchaResult.error ?? "Security check failed." };
+  }
+
   const parsed = resetSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };

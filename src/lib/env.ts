@@ -7,6 +7,8 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().default("SaleDock Cloud POS"),
   PLATFORM_ADMIN_EMAILS: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: z.string().optional(),
+  NEXT_PUBLIC_RECAPTCHA_SITE_KEY: z.string().optional(),
+  RECAPTCHA_SECRET_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -25,5 +27,7 @@ export const env = {
   NEXT_PUBLIC_APP_NAME: data.NEXT_PUBLIC_APP_NAME ?? "SaleDock Cloud POS",
   PLATFORM_ADMIN_EMAILS: data.PLATFORM_ADMIN_EMAILS,
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: data.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  NEXT_PUBLIC_RECAPTCHA_SITE_KEY: data.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+  RECAPTCHA_SECRET_KEY: data.RECAPTCHA_SECRET_KEY,
   isSupabaseConfigured,
 };

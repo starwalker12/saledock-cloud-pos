@@ -198,4 +198,9 @@ If a user signs in with Google/Facebook using an email that already has an incom
 - Dedicated invitation status columns and granular permission editor.
 - Branch switcher for multi-branch organizations.
 - Per-role RLS refinements (cashier-only insert on invoices, technician-only writes on repairs, etc.).
-- CAPTCHA / rate limiting on public endpoints.
+
+## CAPTCHA Protection
+
+Google reCAPTCHA v2 Checkbox protects sign-in, sign-up, and forgot-password forms. OAuth (Google/Facebook) is excluded.
+
+See `docs/security-hardening.md` for full details on setup, env vars, and local dev behavior.

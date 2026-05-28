@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef, useCallback } from "react";
 import {
   signInAction,
   signUpAction,
@@ -9,6 +9,7 @@ import {
   resetPasswordAction,
   type AuthState,
 } from "@/app/(auth)/actions";
+import { Recaptcha } from "@/components/auth/recaptcha";
 
 const initialState: AuthState = { error: null };
 
@@ -37,6 +38,14 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
   const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot">(initialMode);
   const action = mode === "sign-in" ? signInAction : mode === "sign-up" ? signUpAction : resetPasswordAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const recaptchaResetRef = useRef<(() => void) | null>(null);
+
+  const switchMode = useCallback((newMode: "sign-in" | "sign-up" | "forgot") => {
+    setMode(newMode);
+    setRecaptchaToken(null);
+    recaptchaResetRef.current?.();
+  }, []);
 
   const fbError = callbackError === "facebook_invalid_scopes" ? FACEBOOK_SCOPE_HELP : null;
   const genericCallbackError = friendlyCallbackError(callbackError);
@@ -46,7 +55,7 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
   if (mode === "forgot") {
     return (
       <div className="space-y-5">
-        <button type="button" onClick={() => setMode("sign-in")} className="text-sm font-semibold text-blue-700 hover:underline">
+        <button type="button" onClick={() => switchMode("sign-in")} className="text-sm font-semibold text-blue-700 hover:underline">
           &larr; Back to sign in
         </button>
         <form action={formAction} className="space-y-4">
@@ -71,6 +80,8 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
               {displayError}
             </p>
           )}
+          <Recaptcha onChange={setRecaptchaToken} resetRef={recaptchaResetRef} />
+          <input type="hidden" name="recaptchaToken" value={recaptchaToken ?? ""} />
           <button
             type="submit"
             disabled={pending}
@@ -88,7 +99,7 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
       <div className={`grid gap-2 rounded-xl bg-slate-100 p-1 text-sm font-semibold ${publicSignupEnabled ? "grid-cols-2" : "grid-cols-1"}`}>
         <button
           type="button"
-          onClick={() => setMode("sign-in")}
+          onClick={() => switchMode("sign-in")}
           className={`h-10 rounded-lg transition ${
             mode === "sign-in" ? "bg-white text-blue-700 shadow" : "text-slate-500"
           }`}
@@ -98,7 +109,7 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
         {publicSignupEnabled && (
           <button
             type="button"
-            onClick={() => setMode("sign-up")}
+            onClick={() => switchMode("sign-up")}
             className={`h-10 rounded-lg transition ${
               mode === "sign-up" ? "bg-white text-blue-700 shadow" : "text-slate-500"
             }`}
@@ -151,14 +162,14 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setMode("sign-in")}
+                onClick={() => switchMode("sign-in")}
                 className="h-9 rounded-lg bg-amber-700 px-4 text-xs font-bold text-white hover:bg-amber-800"
               >
                 Go to sign in
               </button>
               <button
                 type="button"
-                onClick={() => setMode("forgot")}
+                onClick={() => switchMode("forgot")}
                 className="h-9 rounded-lg border border-amber-300 px-4 text-xs font-bold text-amber-800 hover:bg-amber-100"
               >
                 Reset password
@@ -184,6 +195,9 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
             {fbError}
           </p>
         )}
+
+        <Recaptcha onChange={setRecaptchaToken} resetRef={recaptchaResetRef} />
+        <input type="hidden" name="recaptchaToken" value={recaptchaToken ?? ""} />
 
         <button
           type="submit"
@@ -230,7 +244,7 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
       {mode === "sign-in" && (
         <button
           type="button"
-          onClick={() => setMode("forgot")}
+          onClick={() => switchMode("forgot")}
           className="block w-full text-center text-sm font-semibold text-slate-500 hover:text-blue-700"
         >
           Forgot password?

@@ -43,12 +43,53 @@ This document outlines the security posture of SaleDock Cloud POS.
 - Sidebar Platform link is conditionally rendered based on `isPlatformAdmin()` — never shown to regular users
 - `/platform` route is protected by middleware (in `protectedPrefixes`)
 
- ## CAPTCHA & Rate Limiting (Recommended)
+ ## CAPTCHA Protection
 
-- Supabase supports CAPTCHA protection for auth endpoints:
-  Authentication → Settings → CAPTCHA protection (turn on, requires hCaptcha key)
-- Consider rate limiting on `signInAction`, `signUpAction`, and `resetPasswordAction`
-- Future: add Cloudflare Turnstile or Google reCAPTCHA to login form
+Google reCAPTCHA v2 Checkbox protects public auth forms from spam and abuse:
+
+- **Sign in** — email/password sign-in requires CAPTCHA
+- **Sign up** — new account registration requires CAPTCHA
+- **Forgot password** — password reset email requires CAPTCHA
+- **OAuth** — Google and Facebook sign-in buttons do NOT require CAPTCHA
+- **Authenticated actions** — settings, dashboard, and server-to-server callbacks do NOT require CAPTCHA
+
+### How it works
+
+1. `Recaptcha` client component (`src/components/auth/recaptcha.tsx`) renders the widget on login forms
+2. On form submit, the reCAPTCHA token is included as a hidden field `recaptchaToken`
+3. Server actions (`signInAction`, `signUpAction`, `resetPasswordAction`) call `verifyRecaptchaToken()` before proceeding
+4. `verifyRecaptchaToken()` POSTs the token + secret to `https://www.google.com/recaptcha/api/siteverify`
+
+### Env vars
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Yes (production) | reCAPTCHA site key (public, safe in client bundle) |
+| `RECAPTCHA_SECRET_KEY` | Yes (production) | reCAPTCHA secret key (server-only, never in client bundle) |
+
+### Local / development behavior
+
+- If both env vars are missing in development, CAPTCHA is bypassed with a console warning
+- If `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` is missing, the widget is hidden and a dev warning badge is shown
+- If `RECAPTCHA_SECRET_KEY` is missing, `verifyRecaptchaToken()` bypasses in dev with `console.warn`, but **fails closed** in production
+
+### OAuth exclusion
+
+OAuth actions (`signInWithGoogleAction`, `signInWithFacebookAction`, `linkGoogleAccountAction`, `linkFacebookAccountAction`) do NOT call `verifyRecaptchaToken()`. OAuth redirects go through the provider's own security verification.
+
+### Security
+
+- The secret key (`RECAPTCHA_SECRET_KEY`) is never logged, never exposed to the client, and never returned in error messages
+- Google's raw error details are never forwarded to the user — only generic "Security check failed" messages
+- The verification helper has no access to user data or session tokens
+- If the secret is exposed, rotate it immediately in the Google reCAPTCHA admin console
+
+### Google reCAPTCHA admin
+
+- Admin URL: https://www.google.com/recaptcha/admin
+- Domain: `saledock-cloud-pos.vercel.app`
+- Type: v2 Checkbox ("I'm not a robot")
+- Add `localhost` for local development
 
 ## Testing Checklist
 
