@@ -13,6 +13,8 @@ import { ConnectedAccounts } from "./connected-accounts";
 import { PrivacyCenter } from "./privacy-center";
 import { AlertTriangle, Settings, Database, Archive, ShieldCheck, UserCircle, Shield } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 type SearchParams = {
   tab?: string;
   link?: string;

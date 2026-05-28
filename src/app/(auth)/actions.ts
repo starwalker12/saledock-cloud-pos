@@ -308,6 +308,51 @@ export async function unlinkIdentityAction(
   return { error: null, success: `${provider.charAt(0).toUpperCase() + provider.slice(1)} account unlinked.` };
 }
 
+// ── Set Password (for users without email/password) ───────────────────────────
+
+export async function setPasswordAction(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const password = formData.get("password") as string | null;
+  const confirm = formData.get("confirmPassword") as string | null;
+
+  if (!password || password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  if (password !== confirm) {
+    return { error: "Passwords do not match." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "You must be signed in." };
+  }
+  if (!user.email) {
+    return { error: "No email address on your account. Contact support." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    if (error.message.toLowerCase().includes("same password")) {
+      return { error: "New password must be different from your current password." };
+    }
+    if (error.message.toLowerCase().includes("reauthentication") || error.message.toLowerCase().includes("recent")) {
+      return { error: "For security, please sign out and sign back in, then try again." };
+    }
+    return { error: error.message };
+  }
+
+  return {
+    error: null,
+    success: "Password added. You can now sign in with email and password.",
+  };
+}
+
 // ── Incomplete Signup Recovery ────────────────────────────────────────────────
 
 export async function restartSetupAction(): Promise<{ error: string | null }> {

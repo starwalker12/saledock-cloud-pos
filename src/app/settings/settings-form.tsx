@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import type { BrandingSettings } from "@/lib/data/settings";
 import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
+import { ImageIcon } from "lucide-react";
 
 const initialState: SettingsActionState = { error: null, success: null };
 
@@ -53,9 +54,11 @@ export function SettingsForm({
   const [state, formAction, pending] = useActionState(updateSettingsAction, initialState);
   const [ppState, ppAction, ppPending] = useActionState(updateProfilePictureAction, initialState);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState(false);
 
   function handleLogoUpload(url: string) {
     setLogoPreview(url);
+    setLogoError(false);
   }
 
   return (
@@ -136,12 +139,17 @@ export function SettingsForm({
         <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex aspect-square items-center justify-center rounded-xl bg-white p-5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logoPreview || settings.logoUrl || "/saledock-logo-full.png"}
-                alt="Shop logo preview"
-                className="h-auto max-h-28 w-auto object-contain"
-              />
+              {logoError ? (
+                <ImageIcon className="size-10 text-slate-300" />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={logoPreview || settings.logoUrl || "/saledock-logo-full.png"}
+                  alt="Shop logo preview"
+                  className="h-auto max-h-28 w-auto object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              )}
             </div>
             <div className="mt-3 space-y-2">
               <ImageUpload

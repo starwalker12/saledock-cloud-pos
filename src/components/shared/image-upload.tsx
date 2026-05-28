@@ -33,6 +33,7 @@ export function ImageUpload({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -47,6 +48,7 @@ export function ImageUpload({
       return;
     }
 
+    setImgError(false);
     const localPreview = URL.createObjectURL(file);
     setPreview(localPreview);
     setUploading(true);
@@ -55,6 +57,7 @@ export function ImageUpload({
       setUploading(false);
       if (result.error) {
         setError(result.error);
+        setImgError(false);
         setPreview(currentUrl ?? null);
         return;
       }
@@ -64,6 +67,7 @@ export function ImageUpload({
       URL.revokeObjectURL(localPreview);
     }).catch(() => {
       setUploading(false);
+      setImgError(false);
       setError("Upload failed. Please try again.");
       setPreview(currentUrl ?? null);
     });
@@ -92,13 +96,14 @@ export function ImageUpload({
               <Loader2 className="size-5 animate-spin text-slate-400" />
               <span className="text-[10px] text-slate-400">{uploadingText}</span>
             </div>
-          ) : preview ? (
+          ) : preview && !imgError ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={preview}
                 alt="Preview"
                 className="h-full w-full object-cover"
+                onError={() => setImgError(true)}
               />
               {onRemove && (
                 <button
@@ -113,6 +118,16 @@ export function ImageUpload({
             </>
           ) : (
             <ImageIcon className="size-8 text-slate-300" />
+          )}
+          {imgError && preview && onRemove && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="absolute right-1 top-1 z-10 flex size-5 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600"
+              title="Remove"
+            >
+              <X className="size-3" />
+            </button>
           )}
         </div>
 
@@ -135,7 +150,7 @@ export function ImageUpload({
             {preview ? "Change" : "Upload"}
           </button>
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            PNG, JPG or WebP. Max 2 MB.
+            PNG, JPG or WebP. Max 5 MB.
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 
 export const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
-export const MAX_FILE_SIZE = 2 * 1024 * 1024;
+export const MAX_FILE_SIZE = 5 * 1024 * 1024;
 export const ALLOWED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"] as const;
 
 export type UploadResult = {
@@ -20,7 +20,7 @@ export function validateImageFile(file: File): string | null {
     return "Only PNG, JPG, and WebP images are allowed.";
   }
   if (file.size > MAX_FILE_SIZE) {
-    return "File must be under 2 MB.";
+    return "File must be under 5 MB.";
   }
   const name = file.name.toLowerCase();
   if (name.endsWith(".svg")) {
