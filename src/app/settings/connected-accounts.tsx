@@ -10,8 +10,9 @@ import {
   setPasswordAction,
   type AuthState,
 } from "@/app/(auth)/actions";
-import { Link, Unlink, AlertTriangle, Loader2, KeyRound, Globe, MessageCircle } from "lucide-react";
-import { getLinkedProviders } from "@/lib/auth/identities";
+import { Link, Unlink, AlertTriangle, Loader2, CheckCircle } from "lucide-react";
+import { getLinkedProviders, type LinkedProviders } from "@/lib/auth/identities";
+import { GoogleIcon, FacebookIcon, PasswordIcon } from "@/components/icons/provider-icons";
 
 const initialState: AuthState = { error: null };
 const passwordInitialState: AuthState = { error: null };
@@ -24,9 +25,16 @@ type IdentityProvider = {
   identity_data?: Record<string, unknown>;
 };
 
-export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) {
+export function ConnectedAccounts({
+  linkParam,
+  linkedProviders: initialLinkedProviders,
+}: {
+  linkParam?: string | null;
+  linkedProviders: LinkedProviders;
+}) {
   const [identities, setIdentities] = useState<IdentityProvider[]>([]);
   const [loading, setLoading] = useState(true);
+  const [serverProviders, setServerProviders] = useState<LinkedProviders>(initialLinkedProviders);
   const [unlinkState, unlinkAction] = useActionState(unlinkIdentityAction, initialState);
   const [passwordState, passwordAction] = useActionState(setPasswordAction, passwordInitialState);
 
@@ -34,17 +42,19 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
     async function load() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.identities) {
-        setIdentities(user.identities as IdentityProvider[]);
+      if (user) {
+        const providers = getLinkedProviders(user);
+        setServerProviders(providers);
+        if (user.identities) {
+          setIdentities(user.identities as IdentityProvider[]);
+        }
       }
       setLoading(false);
     }
     load();
   }, [unlinkState, passwordState]);
 
-  const { hasPassword, hasGoogle, hasFacebook, identityCount } = getLinkedProviders(
-    identities as { provider: string; id: string }[],
-  );
+  const { hasPassword, hasGoogle, hasFacebook, identityCount } = serverProviders;
   const googleIdentity = identities.find((id) => id.provider === "google");
   const facebookIdentity = identities.find((id) => id.provider === "facebook");
 
@@ -117,7 +127,7 @@ export function ConnectedAccounts({ linkParam }: { linkParam?: string | null }) 
               provider="email"
               locked={identityCount <= 1 && hasPassword}
             >
-              {hasPassword && <p className="text-xs text-slate-400">Set during sign-up</p>}
+              {hasPassword && <p className="text-xs text-slate-400">Connected</p>}
               {!hasPassword && (
                 <div className="mt-2">
                   <details className="group">
@@ -236,7 +246,7 @@ function ProviderRow({
   locked?: boolean;
   children?: React.ReactNode;
 }) {
-  const Icon = provider === "email" ? KeyRound : provider === "google" ? Globe : MessageCircle;
+  const Icon = provider === "email" ? PasswordIcon : provider === "google" ? GoogleIcon : FacebookIcon;
 
   return (
     <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
@@ -250,7 +260,11 @@ function ProviderRow({
                 : "bg-slate-100 text-slate-400"
           }`}
         >
-          {locked && connected ? <AlertTriangle className="size-5" /> : <Icon className="size-5" />}
+          {locked && connected ? (
+            <AlertTriangle className="size-5" />
+          ) : (
+            <Icon className="size-5" />
+          )}
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-800">{label}</p>
@@ -270,8 +284,23 @@ function ProviderRow({
             </button>
           </form>
         )}
-        {connected && locked && <span className="text-xs text-slate-400">Required</span>}
-        {!connected && <span className="text-xs text-slate-400">Not connected</span>}
+        {connected && locked && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+            <AlertTriangle className="size-3" />
+            Required
+          </span>
+        )}
+        {connected && !locked && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+            <CheckCircle className="size-3" />
+            Connected
+          </span>
+        )}
+        {!connected && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500">
+            Not connected
+          </span>
+        )}
       </div>
     </div>
   );
