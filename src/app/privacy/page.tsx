@@ -43,6 +43,10 @@ export default function PrivacyPage() {
           <p className="font-semibold text-blue-700 dark:text-blue-400">
             fardan.aatir@outlook.com
           </p>
+          <p className="mt-2">
+            If you have a signed-in account, you can also submit privacy requests directly from{" "}
+            <a href="/settings?tab=privacy" className="text-blue-700 underline dark:text-blue-400">Settings → Privacy Center</a>.
+          </p>
 
           <h2 className="text-lg font-bold text-slate-950 dark:text-white">2. Personal Data We Collect</h2>
 

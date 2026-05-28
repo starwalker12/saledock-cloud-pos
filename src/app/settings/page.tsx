@@ -10,7 +10,8 @@ import { SettingsForm } from "./settings-form";
 import { DemoTab } from "./demo-tab";
 import { BackupTab } from "./backup-tab";
 import { ConnectedAccounts } from "./connected-accounts";
-import { AlertTriangle, Settings, Database, Archive, ShieldCheck, UserCircle } from "lucide-react";
+import { PrivacyCenter } from "./privacy-center";
+import { AlertTriangle, Settings, Database, Archive, ShieldCheck, UserCircle, Shield } from "lucide-react";
 
 type SearchParams = {
   tab?: string;
@@ -45,6 +46,7 @@ export default async function SettingsPage({
   const tabs = [
     { id: "general", label: "Shop Profile", icon: Settings },
     { id: "accounts", label: "Connected Accounts", icon: UserCircle },
+    { id: "privacy", label: "Privacy Center", icon: Shield },
     ...(isPrivileged ? [
       { id: "demo-data", label: "Demo Data", icon: Database },
       { id: "backup", label: "Backup & Restore", icon: Archive },
@@ -117,6 +119,10 @@ export default async function SettingsPage({
 
         {currentTab === "accounts" && (
           <ConnectedAccounts linkParam={linkParam} />
+        )}
+
+        {currentTab === "privacy" && (
+          <PrivacyCenter />
         )}
 
         {currentTab === "security" && (

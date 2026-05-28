@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPlatformAdmin } from "@/lib/platform/admin";
+import { createClient } from "@/lib/supabase/server";
 import {
   getPlatformOverview,
   getPlatformTenants,
@@ -19,12 +20,31 @@ async function enforceAdmin() {
 export default async function PlatformPage() {
   const admin = await enforceAdmin();
 
+  const supabase = await createClient();
+
   const [overview, tenants, activity, settingsMap] = await Promise.all([
     getPlatformOverview().catch(() => null),
     getPlatformTenants().catch(() => []),
     getPlatformRecentActivity().catch(() => []),
     getPlatformSettingsMap().catch(() => ({} as Record<string, unknown>)),
   ]);
+
+  // Privacy requests overview
+  let privacyCounts: { total: number; pending: number; deletion: number } | null = null;
+  try {
+    const [total, pending, deletion] = await Promise.all([
+      supabase.from("privacy_requests").select("*", { count: "exact", head: true }),
+      supabase.from("privacy_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("privacy_requests").select("*", { count: "exact", head: true }).eq("request_type", "deletion"),
+    ]);
+    privacyCounts = {
+      total: total.count ?? 0,
+      pending: pending.count ?? 0,
+      deletion: deletion.count ?? 0,
+    };
+  } catch {
+    privacyCounts = null;
+  }
 
   const getBool = (key: string, def = false): boolean => {
     const v = settingsMap[key];
@@ -108,6 +128,23 @@ export default async function PlatformPage() {
             </dl>
           </div>
         </section>
+
+        {/* Privacy Requests */}
+        {privacyCounts && (
+          <section>
+            <h2 className="mb-4 text-lg font-black text-slate-950 dark:text-slate-50">Privacy Requests</h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card label="Total Requests" value={privacyCounts.total} />
+              <Card label="Pending Review" value={privacyCounts.pending} warn={privacyCounts.pending > 0} />
+              <Card label="Deletion Requests" value={privacyCounts.deletion} warn={privacyCounts.deletion > 0} />
+            </div>
+            {privacyCounts.total > 0 && (
+              <p className="mt-2 text-xs text-slate-500">
+                Manage individual requests from the database. Full Privacy Request management UI coming in a future release.
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Tenant Table */}
         <section>

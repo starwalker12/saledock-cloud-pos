@@ -54,10 +54,18 @@ export default function DataDeletionPage() {
             <p className="text-sm font-bold text-blue-700 dark:text-blue-400">
               fardan.aatir@outlook.com
             </p>
-            <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">Subject</p>
-            <p className="text-sm font-bold text-slate-950 dark:text-white">
-              SaleDock Data Deletion Request
+          <div className="mt-4 mb-4 rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-950/30">
+            <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-700 dark:bg-blue-800 dark:text-blue-200">New</span>
+            <p className="mt-1 text-sm font-semibold text-blue-800 dark:text-blue-200">
+              Signed-in users can submit privacy requests from{" "}
+              <a href="/settings?tab=privacy" className="underline">Settings → Privacy Center</a>.
             </p>
+          </div>
+
+          <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">Subject</p>
+          <p className="text-sm font-bold text-slate-950 dark:text-white">
+            SaleDock Data Deletion Request
+          </p>
 
             <a
               href="mailto:fardan.aatir@outlook.com?subject=SaleDock%20Data%20Deletion%20Request"
