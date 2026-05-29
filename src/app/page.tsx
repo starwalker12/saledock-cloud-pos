@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
+import { FaqSection } from "@/components/faq-section";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { getServerDict } from "@/lib/i18n/server";
 import {
   ShoppingCart,
   PackageCheck,
@@ -282,6 +285,10 @@ function DashboardPreview({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default async function HomePage() {
+  const { dict } = await getServerDict();
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const d = dict as any;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   if (env.isSupabaseConfigured) {
     const { user, profile, organization } = await getCurrentContext();
     if (user) {
@@ -300,19 +307,20 @@ export default async function HomePage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="inline-flex items-center rounded-2xl bg-white/95 px-4 py-2 shadow-sm ring-1 ring-white/40 dark:bg-white/95">
             <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={488} height={178}
-              className="h-8 w-auto object-contain sm:h-9" priority />
+              className="h-8 w-auto object-contain sm:h-9 dark:brightness-0 dark:invert" priority />
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
+            <LanguageToggle />
             <>
               <Link href="/login"
                 className="hidden h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 text-xs font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 sm:flex sm:text-sm">
-                Sign in
+                {d.nav?.signIn || "Sign in"}
               </Link>
               <Link href="/login?signup=1"
-                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-white/90 hover:-translate-y-0.5 sm:text-sm">
-                Start free
+                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-white/90 hover:-translate-y-0.5 sm:text-sm dark:bg-white dark:text-[#0b2f6f]">
+                {d.nav?.startFree || "Start free"}
               </Link>
             </>
           </div>
@@ -394,7 +402,7 @@ export default async function HomePage() {
               <div aria-hidden className="pointer-events-none absolute inset-0 animate-logo-shimmer rounded-2xl bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-white/15" />
               {/* Logo image */}
               <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={488} height={178}
-                className="relative z-10 max-w-[280px] w-full h-auto object-contain drop-shadow-[0_0_20px_rgba(20,184,166,0.25)] sm:max-w-[380px] lg:max-w-[520px] xl:max-w-[580px] dark:drop-shadow-[0_0_30px_rgba(20,184,166,0.4)]" priority />
+                className="relative z-10 max-w-[280px] w-full h-auto object-contain drop-shadow-[0_0_20px_rgba(20,184,166,0.25)] sm:max-w-[380px] lg:max-w-[520px] xl:max-w-[580px] dark:drop-shadow-[0_0_30px_rgba(20,184,166,0.4)] dark:brightness-0 dark:invert" priority />
             </div>
 
             {/* Badge */}
@@ -407,7 +415,7 @@ export default async function HomePage() {
             >
               <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#00b8b0" }} />
               <span className="font-display text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: "#00b8b0" }}>
-                Cloud POS Platform
+                {d.hero?.badge || "Cloud POS Platform"}
               </span>
             </div>
 
@@ -416,31 +424,30 @@ export default async function HomePage() {
               className="animate-fade-in-up font-display font-extrabold leading-[1.07] tracking-tight text-slate-950 dark:text-white"
               style={{ animationDelay: "0.16s", fontSize: "clamp(2.4rem,5vw,3.75rem)" }}
             >
-              Run your shop smarter
+              {d.hero?.title || "Run your shop smarter"}
             </h1>
 
             {/* Subtitle */}
             <p className="animate-fade-in-up mt-5 max-w-lg text-base leading-relaxed text-slate-600 dark:text-slate-400 sm:text-lg"
               style={{ animationDelay: "0.26s" }}>
-              A modern cloud POS platform for shops to manage sales, inventory, repairs,
-              invoices, expenses, and reports — all from one place.
+              {d.hero?.subtitle || "A modern cloud POS platform for shops to manage sales, inventory, repairs, invoices, expenses, and reports — all from one place."}
             </p>
 
             {/* CTAs */}
             <div className="animate-fade-in-up mt-8 flex flex-wrap gap-3" style={{ animationDelay: "0.36s" }}>
               <Link href="/login?signup=1"
                 className="group flex h-12 cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-7 text-sm font-bold text-white shadow-lg shadow-blue-900/25 transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5">
-                Start free
+                {d.cta?.startFree || "Start free"}
                 <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
               <Link href="/login"
                 className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-7 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
-                Sign in
+                {d.cta?.signIn || "Sign in"}
               </Link>
             </div>
 
             <p className="animate-fade-in-up mt-3 text-xs text-slate-400 dark:text-slate-500" style={{ animationDelay: "0.42s" }}>
-              No credit card required · Free to start
+              {d.hero?.noCredit || "No credit card required · Free to start"}
             </p>
 
             {!env.isSupabaseConfigured && (
@@ -740,26 +747,29 @@ export default async function HomePage() {
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <Link href="/login?signup=1"
                   className="group inline-flex h-12 w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#00b8b0] px-8 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5 sm:w-auto">
-                  Create your account
+                  {d.cta?.createAccount || "Create your account"}
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
                 <Link href="/login"
                   className="inline-flex h-12 w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-8 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-200 hover:bg-white/15 hover:-translate-y-0.5 sm:w-auto">
-                  Sign in
+                  {d.cta?.signIn || "Sign in"}
                 </Link>
               </div>
-              <p className="mt-4 text-xs text-slate-600">No credit card required · Free to start</p>
+              <p className="mt-4 text-xs text-slate-600">{d.cta?.noCredit || "No credit card required · Free to start"}</p>
             </ScrollReveal>
           </div>
         </section>
       </ScrollReveal>
+
+      {/* ── FAQ ── */}
+      <FaqSection />
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-slate-200 bg-slate-50 px-4 py-12 dark:border-white/[0.05] dark:bg-[#070b16]">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="flex items-center">
             <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={488} height={178}
-              className="h-7 w-auto object-contain" />
+              className="h-7 w-auto object-contain dark:brightness-0 dark:invert" />
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500">

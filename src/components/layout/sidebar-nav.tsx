@@ -8,6 +8,7 @@ import {
   RotateCcw, Wrench, Wallet, CalendarCheck, BarChart3,
   Truck, ScrollText, UserCog, Settings, MonitorCog,
 } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   dashboard: LayoutDashboard,
@@ -35,6 +36,10 @@ export type NavItem = {
 
 export function SidebarNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  const { dict } = useLanguage();
+  const sidebarDict = dict.sidebar as Record<string, string> | undefined;
+
+  const t = (key: string) => sidebarDict?.[key] || key;
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -65,7 +70,7 @@ export function SidebarNav({ items }: { items: NavItem[] }) {
             }`}
           >
             <Icon className="size-4 shrink-0" />
-            {item.label}
+            {t(item.label)}
           </Link>
         );
       })}

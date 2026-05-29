@@ -2,9 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLanguage } from "@/lib/i18n/language-provider";
+
+const labelKeyMap: Record<string, string> = {
+  "/dashboard": "dashboard",
+  "/pos": "pos",
+  "/products": "products",
+  "/repairs": "repairs",
+  "/invoices": "invoices",
+  "/returns": "returns",
+  "/expenses": "expenses",
+  "/daily-closing": "dailyClosing",
+  "/reports": "reports",
+  "/suppliers/purchases": "purchases",
+  "/customers": "customers",
+  "/audit-log": "auditLog",
+  "/users": "users",
+};
 
 export function MobileNav({ links }: { links: string[][] }) {
   const pathname = usePathname();
+  const { dict } = useLanguage();
+  const sidebarDict = dict.sidebar as Record<string, string> | undefined;
+  const t = (href: string, fallback: string) => {
+    const key = labelKeyMap[href];
+    return key && sidebarDict?.[key] ? sidebarDict[key] : fallback;
+  };
 
   return (
     <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-950 lg:hidden">
@@ -25,7 +48,7 @@ export function MobileNav({ links }: { links: string[][] }) {
                   : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
               }`}
             >
-              {label}
+              {t(href, label)}
             </Link>
           );
         })}

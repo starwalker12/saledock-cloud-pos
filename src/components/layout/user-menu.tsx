@@ -12,6 +12,8 @@ import {
   LogOut,
 } from "lucide-react";
 import { signOutAction } from "@/app/(auth)/actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
+import { LanguageToggleMinimal } from "@/components/language-toggle";
 
 type UserMenuProps = {
   name: string;
@@ -24,6 +26,9 @@ type UserMenuProps = {
 export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { dict } = useLanguage();
+  const shellDict = dict.shell as Record<string, string> | undefined;
+  const t = (key: string, fallback: string) => shellDict?.[key] || fallback;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -76,7 +81,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
             {name}
           </span>
           <span className="max-w-32 truncate text-[10px] text-slate-500 dark:text-slate-400 lg:max-w-48">
-            {role ?? "no profile"}
+            {role ?? t("noProfile", "no profile")}
           </span>
         </span>
         <ChevronDown className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
@@ -94,13 +99,17 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
           </div>
 
           <div className="p-1.5">
-            <MenuItem href="/settings" icon={Settings} label="Shop Profile" />
-            <MenuItem href="/settings?tab=accounts" icon={UserCircle} label="Connected Accounts" />
-            <MenuItem href="/settings?tab=privacy" icon={Shield} label="Privacy Center" />
-            <MenuItem href="/settings?tab=security" icon={ShieldCheck} label="Security" />
+            <MenuItem href="/settings" icon={Settings} label={t("settings", "Shop Profile")} />
+            <MenuItem href="/settings?tab=accounts" icon={UserCircle} label={t("connectedAccounts", "Connected Accounts")} />
+            <MenuItem href="/settings?tab=privacy" icon={Shield} label={t("privacyCenter", "Privacy Center")} />
+            <MenuItem href="/settings?tab=security" icon={ShieldCheck} label={t("security", "Security")} />
             {isPlatformAdmin && (
-              <MenuItem href="/platform" icon={MonitorCog} label="Platform Admin" />
+              <MenuItem href="/platform" icon={MonitorCog} label={t("platformAdmin", "Platform Admin")} />
             )}
+          </div>
+
+          <div className="border-t border-slate-100 p-1.5 dark:border-slate-800">
+            <LanguageToggleMinimal />
           </div>
 
           <div className="border-t border-slate-100 p-1.5 dark:border-slate-800">
@@ -110,7 +119,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
               >
                 <LogOut className="size-4" />
-                Sign out
+                {t("signOut", "Sign out")}
               </button>
             </form>
           </div>

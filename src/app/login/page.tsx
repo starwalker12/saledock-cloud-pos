@@ -6,6 +6,8 @@ import { getPublicPlatformSetting } from "@/lib/platform/admin";
 import { signOutAction } from "@/app/(auth)/actions";
 import { ArrowLeft, ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
+import { getServerDict } from "@/lib/i18n/server";
 
 function friendlyError(errorCode: string | undefined): string | null {
   if (!errorCode) return null;
@@ -25,6 +27,9 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string; signup?: string }>;
 }) {
   const { error, signup } = await searchParams;
+  const { dict } = await getServerDict();
+  const authDict = dict.auth as Record<string, string> | undefined;
+  const t = (key: string, fallback: string) => authDict?.[key] || fallback;
 
   const publicSignupRaw = await getPublicPlatformSetting("public_signup_enabled");
   const publicSignupEnabled = publicSignupRaw !== false && publicSignupRaw !== "false";
@@ -55,8 +60,9 @@ export default async function LoginPage({
           aria-label="Back to home"
         >
           <ArrowLeft className="size-4 shrink-0" />
-          <span className="hidden sm:inline">Back to home</span>
+          <span className="hidden sm:inline">{t("backToHome", "Back to home")}</span>
         </Link>
+        <LanguageToggle />
         <ThemeToggle />
       </div>
 
@@ -81,19 +87,19 @@ export default async function LoginPage({
           <div className="space-y-5">
             <div className="rounded-xl bg-blue-50 px-4 py-4 text-center dark:bg-blue-950/30">
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Signed in as {signedInUser.name}
+                {t("signedInAs", "Signed in as {name}").replace("{name}", signedInUser.name)}
               </p>
               <p className="mt-0.5 text-xs text-slate-500">{signedInUser.email}</p>
             </div>
 
             {signedInUser.needsOnboarding ? (
               <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                <p className="font-semibold">Your shop setup is not complete</p>
-                <p className="mt-1 text-xs">You started setting up SaleDock but did not finish. You can continue where you left off or restart setup.</p>
+                <p className="font-semibold">{t("needsOnboarding", "Your shop setup is not complete")}</p>
+                <p className="mt-1 text-xs">{t("needsOnboardingDesc", "You started setting up SaleDock but did not finish. You can continue where you left off or restart setup.")}</p>
               </div>
             ) : (
               <div className="text-center text-sm text-slate-500">
-                You are already signed in and your shop is ready.
+                {t("alreadyReady", "You are already signed in and your shop is ready.")}
               </div>
             )}
 
@@ -105,7 +111,7 @@ export default async function LoginPage({
                     className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
                   >
                     <ArrowRight className="size-4" />
-                    Continue setup
+                    {t("continueSetup", "Continue setup")}
                   </Link>
                   <form action="/api/restart-setup" method="POST">
                     <button
@@ -116,7 +122,7 @@ export default async function LoginPage({
                       }}
                       className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     >
-                      Restart setup
+                      {t("restartSetup", "Restart setup")}
                     </button>
                   </form>
                 </>
@@ -126,7 +132,7 @@ export default async function LoginPage({
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
                 >
                   <LayoutDashboard className="size-4" />
-                  Go to dashboard
+                  {t("goToDashboard", "Go to dashboard")}
                 </Link>
               )}
 
@@ -136,7 +142,7 @@ export default async function LoginPage({
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                 >
                   <DoorOpen className="size-4" />
-                  Sign out
+                  {t("signOut", "Sign out")}
                 </button>
               </form>
             </div>
@@ -146,18 +152,18 @@ export default async function LoginPage({
           <>
             <div className="mb-6 text-center">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700 sm:tracking-[0.28em]">
-                SaleDock Cloud POS
+                {t("brand", "SaleDock Cloud POS")}
               </p>
-              <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Sign in to your shop</h1>
+              <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">{t("signInTitle", "Sign in to your shop")}</h1>
               {maintenanceMode && (
                 <p className="mt-3 text-sm leading-6 text-slate-500">
-                  The system is undergoing scheduled maintenance. Please check back later.
+                  {t("maintenanceDesc", "The system is undergoing scheduled maintenance. Please check back later.")}
                 </p>
               )}
             </div>
             {maintenanceMode && (
               <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-                Maintenance mode is active. Some features may be unavailable.
+                {t("maintenanceActive", "Maintenance mode is active. Some features may be unavailable.")}
               </p>
             )}
             {!env.isSupabaseConfigured && (

@@ -7,16 +7,16 @@ import { isPlatformAdmin } from "@/lib/platform/admin";
 import { SidebarNav, type NavItem } from "@/components/layout/sidebar-nav";
 
 const items: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/pos", label: "POS", icon: "pos" },
-  { href: "/products", label: "Products", icon: "products" },
-  { href: "/customers", label: "Customers", icon: "customers" },
-  { href: "/invoices", label: "Invoices", icon: "invoices" },
-  { href: "/returns", label: "Returns", icon: "returns" },
-  { href: "/repairs", label: "Repairs", icon: "repairs" },
-  { href: "/expenses", label: "Expenses", icon: "expenses" },
-  { href: "/daily-closing", label: "Daily Closing", icon: "dailyClosing" },
-  { href: "/reports", label: "Reports", icon: "reports" },
+  { href: "/dashboard", label: "dashboard", icon: "dashboard" },
+  { href: "/pos", label: "pos", icon: "pos" },
+  { href: "/products", label: "products", icon: "products" },
+  { href: "/customers", label: "customers", icon: "customers" },
+  { href: "/invoices", label: "invoices", icon: "invoices" },
+  { href: "/returns", label: "returns", icon: "returns" },
+  { href: "/repairs", label: "repairs", icon: "repairs" },
+  { href: "/expenses", label: "expenses", icon: "expenses" },
+  { href: "/daily-closing", label: "dailyClosing", icon: "dailyClosing" },
+  { href: "/reports", label: "reports", icon: "reports" },
 ];
 
 async function getDb() {
@@ -56,12 +56,12 @@ export async function Sidebar() {
   const visibleItems: NavItem[] = [
     ...items,
     ...(canManageSupplierPurchases(profile?.role)
-      ? [{ href: "/suppliers/purchases", label: "Purchases", icon: "purchases" }]
+      ? [{ href: "/suppliers/purchases", label: "purchases" as const, icon: "purchases" }]
       : []),
-    ...(canViewAuditLog(profile?.role) ? [{ href: "/audit-log", label: "Audit Log", icon: "auditLog" }] : []),
-    ...(canManageUsers(profile?.role) ? [{ href: "/users", label: "Users", icon: "users" }] : []),
-    { href: "/settings", label: "Settings", icon: "settings" },
-    ...(platformAdmin ? [{ href: "/platform", label: "Platform", icon: "platform" }] : []),
+    ...(canViewAuditLog(profile?.role) ? [{ href: "/audit-log", label: "auditLog" as const, icon: "auditLog" }] : []),
+    ...(canManageUsers(profile?.role) ? [{ href: "/users", label: "users" as const, icon: "users" }] : []),
+    { href: "/settings", label: "settings" as const, icon: "settings" },
+    ...(platformAdmin ? [{ href: "/platform", label: "platform" as const, icon: "platform" }] : []),
   ];
 
   return (
