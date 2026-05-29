@@ -319,7 +319,7 @@ export default async function HomePage() {
                 {d.nav?.signIn || "Sign in"}
               </Link>
               <Link href="/login?signup=1"
-                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-white/90 hover:-translate-y-0.5 sm:text-sm dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200">
+                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-[#fff] px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-[#fff]/90 hover:-translate-y-0.5 sm:text-sm dark:bg-cyan-300 dark:text-[#020617] dark:hover:bg-cyan-200">
                 {d.nav?.startFree || "Start free"}
               </Link>
             </>
@@ -402,7 +402,7 @@ export default async function HomePage() {
               <div aria-hidden className="pointer-events-none absolute inset-0 animate-logo-shimmer rounded-2xl bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-white/15" />
               {/* Logo image */}
               <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={488} height={178}
-                className="relative z-10 max-w-[280px] w-full h-auto object-contain drop-shadow-[0_0_20px_rgba(20,184,166,0.25)] sm:max-w-[380px] lg:max-w-[520px] xl:max-w-[580px] dark:drop-shadow-[0_0_30px_rgba(20,184,166,0.4)] dark:brightness-0 dark:invert" priority />
+                className="relative z-10 max-w-[280px] w-full h-auto object-contain drop-shadow-[0_0_20px_rgba(20,184,166,0.25)] sm:max-w-[380px] lg:max-w-[520px] xl:max-w-[580px] hero-logo-filter" priority />
             </div>
 
             {/* Badge */}

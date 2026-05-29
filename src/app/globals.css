@@ -225,6 +225,11 @@ body {
   animation: logo-glow-pulse 4s ease-in-out infinite;
 }
 
+/* Hero logo: white in dark mode (avoids Tailwind v4 dark:variant specificity issues) */
+.dark .hero-logo-filter {
+  filter: brightness(0) invert(1) drop-shadow(0 0 30px rgba(20,184,166,0.4));
+}
+
 /* 3-D perspective tilt on dashboard preview */
 .dashboard-3d {
   transform: perspective(1400px) rotateY(-9deg) rotateX(5deg) scale(1.01);
