@@ -168,6 +168,7 @@ export async function updateSettingsAction(
   revalidatePath("/invoices");
   revalidatePath("/repairs");
   revalidatePath("/reports");
+  revalidatePath("/", "layout");
 
   logAudit({
     module: "settings",

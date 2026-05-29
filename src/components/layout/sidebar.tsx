@@ -18,17 +18,21 @@ const items: NavItem[] = [
   { href: "/reports", label: "Reports", icon: "reports" },
 ];
 
-async function getAppLogoUrl(organizationId: string): Promise<string | null> {
+async function getAppLogoUrl(organizationId: string, branchId: string | null): Promise<string | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data: rows } = await supabase
     .from("app_settings")
-    .select("settings")
+    .select("branch_id, settings")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle<{ settings: Record<string, unknown> | null }>();
-  if (!data?.settings) return null;
-  const url = data.settings.app_logo_url;
+    .returns<{ branch_id: string | null; settings: Record<string, unknown> | null }[]>();
+  if (!rows || rows.length === 0) return null;
+  const row =
+    rows.find((r) => r.branch_id === branchId) ??
+    rows.find((r) => r.branch_id === null) ??
+    rows[0];
+  if (!row?.settings) return null;
+  const url = row.settings.app_logo_url;
   return typeof url === "string" && url.length > 0 ? url : null;
 }
 
@@ -37,7 +41,7 @@ export async function Sidebar() {
   const [platformAdmin] = await Promise.all([isPlatformAdmin()]);
 
   const appLogoUrl = profile?.organization_id
-    ? await getAppLogoUrl(profile.organization_id)
+    ? await getAppLogoUrl(profile.organization_id, profile.branch_id)
     : null;
 
   const visibleItems: NavItem[] = [

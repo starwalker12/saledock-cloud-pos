@@ -111,13 +111,14 @@ export function ImageUpload({
         <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
       )}
 
-      <div className="flex items-start gap-4">
+      {/* Vertical stack: preview on top, controls below */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         {/* Preview */}
         <div
-          className={`relative flex w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-200 bg-slate-50 ${aspectClasses[aspectRatio]}`}
+          className={`relative flex w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-200 bg-slate-50 sm:w-24 ${aspectClasses[aspectRatio]}`}
         >
           {uploading ? (
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-1 py-3 sm:py-0">
               <Loader2 className="size-5 animate-spin text-slate-400" />
               <span className="text-[10px] text-slate-400">{uploadingText}</span>
             </div>
@@ -150,7 +151,9 @@ export function ImageUpload({
               </span>
             </div>
           ) : (
-            <ImageIcon className="size-8 text-slate-300" aria-hidden="true" />
+            <div className="py-3 sm:py-0">
+              <ImageIcon className="size-8 text-slate-300" aria-hidden="true" />
+            </div>
           )}
           {imgError && preview && onRemove && (
             <button
@@ -165,7 +168,7 @@ export function ImageUpload({
         </div>
 
         {/* Controls */}
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-0 sm:flex-1">
           <input
             ref={inputRef}
             type="file"
@@ -184,7 +187,7 @@ export function ImageUpload({
             ) : (
               <Upload className="size-3.5 shrink-0" />
             )}
-            <span className="truncate">{!authReady ? "Preparing…" : preview ? "Change" : "Upload"}</span>
+            <span>{!authReady ? "Preparing…" : preview ? "Change" : "Upload"}</span>
           </button>
           {(preview || showErrorState) && onRemove && (
             <button
@@ -193,7 +196,7 @@ export function ImageUpload({
               className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50"
             >
               <X className="size-3.5 shrink-0" />
-              <span className="truncate">{removeLabel ?? "Remove"}</span>
+              <span>{removeLabel ?? "Remove"}</span>
             </button>
           )}
           <p className="text-[10px] text-slate-400 leading-relaxed">
