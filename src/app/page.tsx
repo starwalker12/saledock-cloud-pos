@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
+import { FaqSection } from "@/components/faq-section";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { getServerDict } from "@/lib/i18n/server";
 import {
@@ -759,6 +760,9 @@ export default async function HomePage() {
           </div>
         </section>
       </ScrollReveal>
+
+      {/* ── FAQ ── */}
+      <FaqSection />
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-slate-200 bg-slate-50 px-4 py-12 dark:border-white/[0.05] dark:bg-[#070b16]">
