@@ -44,11 +44,13 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
   const [state, formAction, pending] = useActionState(action, initialState);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [recaptchaStatus, setRecaptchaStatus] = useState<RecaptchaStatus>("unconfigured");
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const recaptchaResetRef = useRef<(() => void) | null>(null);
 
   const switchMode = useCallback((newMode: "sign-in" | "sign-up" | "forgot") => {
     setMode(newMode);
     setRecaptchaToken(null);
+    setConfirmError(null);
     recaptchaResetRef.current?.();
   }, []);
 
@@ -133,7 +135,23 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
         )}
       </div>
 
-      <form action={formAction} className="space-y-4">
+      <form
+        action={formAction}
+        onSubmit={(e) => {
+          if (mode === "sign-up") {
+            const form = e.currentTarget;
+            const password = (form.elements.namedItem("password") as HTMLInputElement)?.value;
+            const confirmPassword = (form.elements.namedItem("confirmPassword") as HTMLInputElement)?.value;
+            if (password !== confirmPassword) {
+              e.preventDefault();
+              setConfirmError(t("passwordsDoNotMatch", "Passwords do not match."));
+              return;
+            }
+            setConfirmError(null);
+          }
+        }}
+        className="space-y-4"
+      >
         {mode === "sign-up" && (
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">{t("fullName", "Full name")}</span>
@@ -169,6 +187,20 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
             className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
           />
         </label>
+        {mode === "sign-up" && (
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-700">{t("confirmPassword", "Confirm password")}</span>
+            <input
+              required
+              name="confirmPassword"
+              type="password"
+              minLength={8}
+              autoComplete="new-password"
+              placeholder={t("confirmPassword", "Confirm password")}
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
+            />
+          </label>
+        )}
 
         {isDuplicateSignup && (
           <div className="rounded-lg bg-amber-50 px-3 py-3 text-sm space-y-2">
@@ -198,6 +230,11 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
           </p>
         )}
 
+        {confirmError && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+            {confirmError}
+          </p>
+        )}
         {displayError && !isDuplicateSignup && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
             {displayError}

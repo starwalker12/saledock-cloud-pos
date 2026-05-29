@@ -230,6 +230,11 @@ body {
   filter: brightness(0) invert(1) drop-shadow(0 0 30px rgba(20,184,166,0.4));
 }
 
+/* Auth/Login logo: white in dark mode — no extra glow to keep it clean on the auth card */
+.dark .auth-logo-filter {
+  filter: brightness(0) invert(1);
+}
+
 /* 3-D perspective tilt on dashboard preview */
 .dashboard-3d {
   transform: perspective(1400px) rotateY(-9deg) rotateX(5deg) scale(1.01);

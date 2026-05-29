@@ -62,7 +62,7 @@ export default async function LoginPage({
           <img
             src="/saledock-logo-full.png"
             alt="SaleDock Cloud POS"
-            className="mx-auto mb-4 h-14 w-auto max-w-[200px] object-contain sm:h-16"
+            className="mx-auto mb-4 h-14 w-auto max-w-[200px] object-contain auth-logo-filter sm:h-16"
           />
         </Link>
       </div>

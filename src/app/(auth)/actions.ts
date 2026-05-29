@@ -15,6 +15,10 @@ const credentialsSchema = z.object({
 
 const signUpSchema = credentialsSchema.extend({
   fullName: z.string().min(2, "Enter your full name."),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"],
 });
 
 const resetSchema = z.object({
@@ -95,6 +99,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     email: formData.get("email"),
     password: formData.get("password"),
     fullName: formData.get("fullName"),
+    confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
