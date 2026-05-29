@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
 import { settingsSchema } from "@/lib/validation/settings";
@@ -59,7 +60,6 @@ export async function updateSettingsAction(
   }
 
   const values = parsed.data;
-  const supabase = await createClient();
   const organizationId = profile.organization_id;
   const branchId = profile.branch_id;
 
@@ -87,7 +87,10 @@ export async function updateSettingsAction(
     lowStockDefaultThreshold: values.lowStockDefaultThreshold,
   };
 
-  const { error: orgError } = await supabase
+  // Use admin client to bypass RLS for writes (auth already verified above)
+  const admin = createAdminClient();
+
+  const { error: orgError } = await admin
     .from("organizations")
     .update({
       name: safe.shopName,
@@ -106,7 +109,7 @@ export async function updateSettingsAction(
   if (orgError) return { error: orgError.message, success: null };
 
   if (branchId) {
-    const { error: branchError } = await supabase
+    const { error: branchError } = await admin
       .from("branches")
       .update({
         name: safe.branchName,
@@ -118,7 +121,7 @@ export async function updateSettingsAction(
     if (branchError) return { error: branchError.message, success: null };
   }
 
-  const { data: settingsRows, error: settingsReadError } = await supabase
+  const { data: settingsRows, error: settingsReadError } = await admin
     .from("app_settings")
     .select("id, branch_id, settings")
     .eq("organization_id", organizationId)
@@ -156,8 +159,8 @@ export async function updateSettingsAction(
   };
 
   const appSettingsResult = existing
-    ? await supabase.from("app_settings").update(appSettingsPayload).eq("id", existing.id)
-    : await supabase.from("app_settings").insert(appSettingsPayload);
+    ? await admin.from("app_settings").update(appSettingsPayload).eq("id", existing.id)
+    : await admin.from("app_settings").insert(appSettingsPayload);
 
   if (appSettingsResult.error) {
     return { error: appSettingsResult.error.message, success: null };

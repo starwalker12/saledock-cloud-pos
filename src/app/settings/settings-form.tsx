@@ -87,7 +87,7 @@ export function SettingsForm({
   }
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form key={`${settings.logoUrl}-${settings.appLogoUrl}`} action={formAction} className="space-y-5">
       {!canEdit && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
           Your role can view these settings, but only owners and admins can save changes.
@@ -178,7 +178,7 @@ export function SettingsForm({
         title="Invoice & Receipt Branding"
         description="Branding fields used by invoice prints, repair receipts, and reports."
       >
-        <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+        <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex aspect-square items-center justify-center rounded-xl bg-white p-5">
               {logoError ? (
