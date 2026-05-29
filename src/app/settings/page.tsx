@@ -14,6 +14,7 @@ import { getLinkedProviders } from "@/lib/auth/identities";
 import { createClient } from "@/lib/supabase/server";
 import { AlertTriangle } from "lucide-react";
 import { SettingsTabShell, type TabDef } from "@/components/settings/settings-tab-shell";
+import { SettingsSecurity } from "./settings-security";
 
 export const dynamic = "force-dynamic";
 
@@ -58,10 +59,10 @@ export default async function SettingsPage({
     { id: "general", label: "Shop Profile", icon: "general" },
     { id: "accounts", label: "Connected Accounts", icon: "accounts" },
     { id: "privacy", label: "Privacy Center", icon: "privacy" },
+    { id: "security", label: "Security", icon: "security" },
     ...(isPrivileged ? [
       { id: "demo-data", label: "Demo Data", icon: "demo-data" },
       { id: "backup", label: "Backup & Restore", icon: "backup" },
-      { id: "security", label: "Security", icon: "security" }
     ] : [])
   ];
 
@@ -109,82 +110,12 @@ export default async function SettingsPage({
         )}
 
         {currentTab === "security" && (
-          isPrivileged ? <SecurityChecklist /> : <AccessDeniedView />
+          <SettingsSecurity />
         )}
       </SettingsTabShell>
     </AppShell>
   );
 }
-
-function SecurityChecklist() {
-  const inCode = [
-    "RLS enabled on every business table",
-    "RPC EXECUTE grants restricted to authenticated + service_role (migration 0012)",
-    "Function search_path hardened on set_updated_at, current_organization_id, current_user_role (0010)",
-    "Service role key is server-only — never bundled to the browser",
-    "POS checkout is atomic, security invoker, server-side total recompute",
-    "Strict service required-field enforcement at the database layer (0013)",
-    "Loss-prevention events table populated via audit_logs trigger (0013)",
-  ];
-  const manual = [
-    {
-      title: "Enable leaked password protection",
-      path: "Authentication → Providers → Email → Password security → toggle on",
-      explainer: "Blocks newly created or rotated passwords found in breach corpora (HaveIBeenPwned).",
-    },
-    {
-      title: "(Optional) Disable open email signups",
-      path: "Authentication → Providers → Email → toggle off",
-      explainer: "Belt-and-braces alongside the app's signup lock. Use /users to invite staff instead.",
-    },
-    {
-      title: "(Optional) Configure email templates",
-      path: "Authentication → Email Templates",
-      explainer: "Required for /users staff invites to actually be delivered.",
-    },
-  ];
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-      <header className="mb-5">
-        <h3 className="text-base font-black text-slate-950">Security Checklist</h3>
-        <p className="text-xs text-slate-500">
-          A snapshot of the security posture. Done items are enforced in code; manual items
-          require a one-time Supabase dashboard action by the owner.
-        </p>
-      </header>
-
-      <div className="space-y-2">
-        <h4 className="text-xs font-bold uppercase tracking-wide text-emerald-700">Done in code</h4>
-        <ul className="space-y-1.5 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
-          {inCode.map((item) => (
-            <li key={item} className="flex items-start gap-2 text-sm text-emerald-900">
-              <span className="mt-0.5 inline-block size-1.5 shrink-0 rounded-full bg-emerald-600" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="mt-5 space-y-2">
-        <h4 className="text-xs font-bold uppercase tracking-wide text-amber-700">Manual dashboard actions</h4>
-        <ul className="space-y-2 rounded-xl border border-amber-100 bg-amber-50/40 p-3">
-          {manual.map((m) => (
-            <li key={m.title}>
-              <p className="text-sm font-semibold text-amber-900">{m.title}</p>
-              <p className="text-xs text-amber-700">{m.path}</p>
-              <p className="text-xs text-amber-800/80">{m.explainer}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <p className="mt-5 text-xs text-slate-500">
-        Full write-up in <code>docs/security-hardening.md</code>.
-      </p>
-    </section>
-  );
-}
-
 
 function AccessDeniedView() {
   return (
