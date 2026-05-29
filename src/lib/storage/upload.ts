@@ -29,6 +29,38 @@ export function validateImageFile(file: File): string | null {
   return null;
 }
 
+type UploadAttemptResult =
+  | { ok: true }
+  | { ok: false; error: string; isNetworkError: boolean };
+
+async function uploadAttempt(
+  bucket: "profile-pictures" | "public-branding",
+  fullPath: string,
+  file: File,
+): Promise<UploadAttemptResult> {
+  const supabase = createClient();
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return { ok: false, error: "You must be signed in to upload images.", isNetworkError: false };
+  }
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(fullPath, file, {
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+  if (!error) return { ok: true };
+
+  const msg = error.message;
+  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+    return { ok: false, error: "Could not connect to storage. Please check your connection and try again.", isNetworkError: true };
+  }
+  return { ok: false, error: msg, isNetworkError: false };
+}
+
 export async function uploadImage(
   bucket: "profile-pictures" | "public-branding",
   folderPath: string,
@@ -42,24 +74,25 @@ export async function uploadImage(
   const filename = generateSafeFilename(file);
   const fullPath = `${folderPath}/${filename}`;
 
-  const supabase = createClient();
-  const { error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(fullPath, file, {
-      cacheControl: "3600",
-      upsert: true,
-    });
-
-  if (uploadError) {
-    const msg = uploadError.message;
-    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-      return { publicUrl: null, error: "Could not connect to storage. Please check your connection and try again." };
+  const result = await uploadAttempt(bucket, fullPath, file);
+  if (!result.ok) {
+    if (result.isNetworkError) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const retryResult = await uploadAttempt(bucket, fullPath, file);
+      if (!retryResult.ok) {
+        return { publicUrl: null, error: retryResult.error };
+      }
+    } else {
+      return { publicUrl: null, error: result.error };
     }
-    return { publicUrl: null, error: msg };
   }
 
+  const supabase = createClient();
   const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fullPath);
-  return { publicUrl: urlData?.publicUrl ?? null, error: null };
+  if (!urlData?.publicUrl) {
+    return { publicUrl: null, error: "Upload succeeded but could not generate a public URL." };
+  }
+  return { publicUrl: urlData.publicUrl, error: null };
 }
 
 export async function removeImage(
@@ -67,6 +100,12 @@ export async function removeImage(
   path: string,
 ): Promise<string | null> {
   const supabase = createClient();
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return "You must be signed in to remove images.";
+  }
+
   const { error } = await supabase.storage.from(bucket).remove([path]);
   return error?.message ?? null;
 }
