@@ -2,6 +2,7 @@
 
 import { ChevronDown, Check, Languages } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { LANGUAGE_NAMES, type Lang } from "@/lib/i18n/translations";
 
@@ -13,6 +14,7 @@ const langOptions: { value: Lang; labelKey: Lang }[] = [
 
 export function LanguageToggle() {
   const { lang, setLang } = useLanguage();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +62,7 @@ export function LanguageToggle() {
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => { setLang(option.value); setOpen(false); }}
+                  onClick={() => { setLang(option.value); setOpen(false); router.refresh(); }}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
                     isActive
                       ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
@@ -81,6 +83,7 @@ export function LanguageToggle() {
 
 export function LanguageToggleMinimal() {
   const { lang, setLang } = useLanguage();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -123,7 +126,7 @@ export function LanguageToggleMinimal() {
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => { setLang(option.value); setOpen(false); }}
+                  onClick={() => { setLang(option.value); setOpen(false); router.refresh(); }}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
                     isActive
                       ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
