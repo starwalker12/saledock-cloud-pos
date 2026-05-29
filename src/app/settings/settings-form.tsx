@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
 import type { BrandingSettings } from "@/lib/data/settings";
 import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -57,6 +57,14 @@ export function SettingsForm({
   const [logoError, setLogoError] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState(settings.logoUrl ?? "");
   const [appLogoUrlInput, setAppLogoUrlInput] = useState(settings.appLogoUrl ?? "");
+
+  // Sync controlled state when server re-renders after save
+  useEffect(() => {
+    setLogoUrlInput(settings.logoUrl ?? "");
+    setAppLogoUrlInput(settings.appLogoUrl ?? "");
+    setLogoPreview(null);
+    setLogoError(false);
+  }, [settings.logoUrl, settings.appLogoUrl]);
 
   const DEFAULT_LOGO = "/saledock-logo-full.png";
   const effectiveLogoUrl = logoPreview || settings.logoUrl || DEFAULT_LOGO;
@@ -178,7 +186,7 @@ export function SettingsForm({
         title="Invoice & Receipt Branding"
         description="Branding fields used by invoice prints, repair receipts, and reports."
       >
-        <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+        <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex aspect-square items-center justify-center rounded-xl bg-white p-5">
               {logoError ? (
