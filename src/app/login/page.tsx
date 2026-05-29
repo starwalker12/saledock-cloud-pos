@@ -177,64 +177,26 @@ export default async function LoginPage({
   );
 
   return (
-    <main className="flex min-h-screen flex-col bg-slate-100 lg:flex-row lg:h-screen">
-      {/* LEFT: Auth panel */}
-      <div className="flex flex-1 flex-col items-center justify-center px-3 py-8 sm:px-4 sm:py-10">
-        {/* Top controls */}
-        <div className="mb-3 flex w-full max-w-md items-center justify-between sm:mb-4">
-          <Link
-            href="/"
-            className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/80 px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
-            aria-label="Back to home"
-          >
-            <ArrowLeft className="size-4 shrink-0" />
-            <span className="hidden sm:inline">{t("backToHome", "Back to home")}</span>
-          </Link>
-          <LanguageToggle />
-          <ThemeToggle />
-        </div>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-3 py-8">
+      {/* Top controls */}
+      <div className="mb-3 flex w-full max-w-2xl items-center justify-between sm:mb-4">
+        <Link
+          href="/"
+          className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/80 px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
+          aria-label="Back to home"
+        >
+          <ArrowLeft className="size-4 shrink-0" />
+          <span className="hidden sm:inline">{t("backToHome", "Back to home")}</span>
+        </Link>
+        <LanguageToggle />
+        <ThemeToggle />
+      </div>
 
-        <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
+      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
+        <div className="mx-auto max-w-md">
           {authCard}
-        </section>
-      </div>
-
-      {/* RIGHT: Benefits panel — large screens only */}
-      <div className="hidden flex-col justify-center bg-gradient-to-br from-[#0b2f6f] to-[#0d9488] p-10 lg:flex lg:w-[420px] xl:w-[480px]">
-        <div className="mx-auto max-w-sm space-y-8">
-          <div>
-            <h2 className="font-display text-2xl font-extrabold text-white">
-              Everything your shop needs
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-white/70">
-              SaleDock helps you manage sales, inventory, repairs, invoices, and reports — all from one dashboard.
-            </p>
-          </div>
-
-          <ul className="space-y-4">
-            {[
-              { label: "Sales & POS", desc: "Fast checkout with barcode scanning, discounts, and instant receipts." },
-              { label: "Inventory & FIFO", desc: "Multi-lot stock tracking with low-stock alerts and supplier management." },
-              { label: "Repairs", desc: "Complete repair lifecycle from intake to customer notifications." },
-              { label: "Invoices & Returns", desc: "Professional A4 invoices, thermal receipts, and credit notes." },
-              { label: "Reports & Analytics", desc: "Daily closing, sales analytics, and exportable performance reports." },
-            ].map((item) => (
-              <li key={item.label} className="flex gap-3">
-                <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-300" />
-                <div>
-                  <p className="text-sm font-semibold text-white">{item.label}</p>
-                  <p className="text-xs leading-relaxed text-white/60">{item.desc}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <div className="rounded-xl border border-white/15 bg-white/[0.07] px-5 py-4 backdrop-blur-sm">
-            <p className="text-sm font-semibold text-white">Free to start</p>
-            <p className="mt-1 text-xs text-white/60">No credit card required. No commitment. Start selling in minutes.</p>
-          </div>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

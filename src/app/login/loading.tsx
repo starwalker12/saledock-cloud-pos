@@ -2,15 +2,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function LoginLoading() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-3 py-8 sm:px-4 sm:py-10">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-3 py-8">
       {/* Top controls */}
-      <div className="mb-3 flex w-full max-w-md items-center justify-between sm:mb-4">
+      <div className="mb-3 flex w-full max-w-2xl items-center justify-between sm:mb-4">
         <Skeleton className="h-10 w-32 rounded-xl sm:h-11" />
         <Skeleton className="h-10 w-20 rounded-xl sm:h-11" />
         <Skeleton className="h-10 w-20 rounded-xl sm:h-11" />
       </div>
 
-      <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
+      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
+        <div className="mx-auto max-w-md">
         {/* Logo */}
         <div className="mb-6 flex justify-center">
           <Skeleton className="h-14 w-[180px] rounded-lg sm:h-16" />
@@ -72,6 +73,7 @@ export default function LoginLoading() {
           <Skeleton className="h-3 w-28" />
           <Skeleton className="h-3 w-4" />
           <Skeleton className="h-3 w-20" />
+        </div>
         </div>
       </section>
     </main>
