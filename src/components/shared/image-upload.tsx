@@ -98,6 +98,7 @@ export function ImageUpload({
     }
 
     if (result.publicUrl) {
+      setUploadError(null);
       setPreview(result.publicUrl);
       onUploadComplete(result.publicUrl);
     }
