@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useState } from "react";
 import type { BrandingSettings } from "@/lib/data/settings";
 import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -58,14 +58,6 @@ export function SettingsForm({
   const [logoUrlInput, setLogoUrlInput] = useState(settings.logoUrl ?? "");
   const [appLogoUrlInput, setAppLogoUrlInput] = useState(settings.appLogoUrl ?? "");
 
-  // Sync controlled state when server re-renders after save
-  useEffect(() => {
-    setLogoUrlInput(settings.logoUrl ?? "");
-    setAppLogoUrlInput(settings.appLogoUrl ?? "");
-    setLogoPreview(null);
-    setLogoError(false);
-  }, [settings.logoUrl, settings.appLogoUrl]);
-
   const DEFAULT_LOGO = "/saledock-logo-full.png";
   const effectiveLogoUrl = logoPreview || settings.logoUrl || DEFAULT_LOGO;
   const isDefaultLogo = !logoPreview && (!settings.logoUrl || settings.logoUrl === DEFAULT_LOGO);
@@ -95,7 +87,7 @@ export function SettingsForm({
   }
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form key={`${settings.logoUrl}-${settings.appLogoUrl}`} action={formAction} className="space-y-5">
       {!canEdit && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
           Your role can view these settings, but only owners and admins can save changes.
