@@ -165,7 +165,7 @@ export function ImageUpload({
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <input
             ref={inputRef}
             type="file"
@@ -177,23 +177,23 @@ export function ImageUpload({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading || !authReady}
-            className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
           >
             {!authReady ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-3.5 animate-spin shrink-0" />
             ) : (
-              <Upload className="size-3.5" />
+              <Upload className="size-3.5 shrink-0" />
             )}
-            {!authReady ? "Preparing…" : preview ? "Change" : "Upload"}
+            <span className="truncate">{!authReady ? "Preparing…" : preview ? "Change" : "Upload"}</span>
           </button>
           {(preview || showErrorState) && onRemove && (
             <button
               type="button"
               onClick={handleRemove}
-              className="flex h-9 items-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50"
             >
-              <X className="size-3.5" />
-              {removeLabel ?? "Remove"}
+              <X className="size-3.5 shrink-0" />
+              <span className="truncate">{removeLabel ?? "Remove"}</span>
             </button>
           )}
           <p className="text-[10px] text-slate-400 leading-relaxed">

@@ -56,6 +56,7 @@ export function SettingsForm({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState(settings.logoUrl ?? "");
+  const [appLogoUrlInput, setAppLogoUrlInput] = useState(settings.appLogoUrl ?? "");
 
   const DEFAULT_LOGO = "/saledock-logo-full.png";
   const effectiveLogoUrl = logoPreview || settings.logoUrl || DEFAULT_LOGO;
@@ -75,6 +76,14 @@ export function SettingsForm({
 
   function handleLogoError() {
     if (!logoError) setLogoError(true);
+  }
+
+  function handleAppLogoUpload(url: string) {
+    setAppLogoUrlInput(url);
+  }
+
+  function handleAppLogoRemove() {
+    setAppLogoUrlInput("");
   }
 
   return (
@@ -125,6 +134,23 @@ export function SettingsForm({
             <span className={labelTextClass}>Address</span>
             <textarea name="address" defaultValue={settings.address} disabled={!canEdit || pending} className={textareaClass} />
           </label>
+        </div>
+        <div className="mt-5 border-t border-slate-100 pt-5">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">App / Shop Logo</p>
+          <p className="mt-1 text-xs text-slate-400">Shown in the app sidebar/header next to the SaleDock logo.</p>
+          <input type="hidden" name="appLogoUrl" value={appLogoUrlInput} />
+          <div className="mt-3">
+            <ImageUpload
+              bucket="public-branding"
+              folderPath={`orgs/${organizationId}/app-logo`}
+              currentUrl={settings.appLogoUrl || null}
+              onUploadComplete={handleAppLogoUpload}
+              onRemove={handleAppLogoRemove}
+              aspectRatio="landscape"
+              uploadingText="Uploading logo..."
+              removeLabel="Remove shop logo"
+            />
+          </div>
         </div>
       </Section>
 

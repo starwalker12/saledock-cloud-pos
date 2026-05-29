@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentContext } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
 import { canManageUsers, canViewAuditLog, canManageSupplierPurchases } from "@/lib/permissions";
 import { isPlatformAdmin } from "@/lib/platform/admin";
 import { SidebarNav, type NavItem } from "@/components/layout/sidebar-nav";
@@ -17,9 +18,28 @@ const items: NavItem[] = [
   { href: "/reports", label: "Reports", icon: "reports" },
 ];
 
+async function getAppLogoUrl(organizationId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("app_settings")
+    .select("settings")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<{ settings: Record<string, unknown> | null }>();
+  if (!data?.settings) return null;
+  const url = data.settings.app_logo_url;
+  return typeof url === "string" && url.length > 0 ? url : null;
+}
+
 export async function Sidebar() {
   const { profile } = await getCurrentContext();
   const [platformAdmin] = await Promise.all([isPlatformAdmin()]);
+
+  const appLogoUrl = profile?.organization_id
+    ? await getAppLogoUrl(profile.organization_id)
+    : null;
+
   const visibleItems: NavItem[] = [
     ...items,
     ...(canManageSupplierPurchases(profile?.role)
@@ -43,6 +63,18 @@ export async function Sidebar() {
           alt="SaleDock Cloud POS"
           className="h-9 w-auto max-w-[160px] object-contain brightness-0 dark:invert"
         />
+        {appLogoUrl && (
+          <>
+            <div className="h-8 w-px shrink-0 bg-slate-300 dark:bg-slate-600" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={appLogoUrl}
+              src={appLogoUrl}
+              alt="Shop logo"
+              className="h-8 w-auto max-w-[120px] object-contain"
+            />
+          </>
+        )}
       </Link>
       <SidebarNav items={visibleItems} />
     </aside>

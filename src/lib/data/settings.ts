@@ -58,6 +58,7 @@ export type BrandingSettings = {
   currencyCode: string;
   timezone: string;
   logoUrl: string;
+  appLogoUrl: string;
   invoiceFooter: string;
   receiptTerms: string;
   printFormat: "a4" | "80mm_planned";
@@ -142,6 +143,7 @@ export async function getBrandingSettings(
     currencyCode: org.currency_code || "PKR",
     timezone: org.timezone || "Asia/Karachi",
     logoUrl: stringSetting(json, "logo_url") || org.logo_url || "/saledock-logo-full.png",
+    appLogoUrl: stringSetting(json, "app_logo_url"),
     invoiceFooter: appSettings?.receipt_footer || "",
     receiptTerms: stringSetting(json, "receipt_terms"),
     printFormat: printFormat(json.print_format ?? appSettings?.invoice_template),
