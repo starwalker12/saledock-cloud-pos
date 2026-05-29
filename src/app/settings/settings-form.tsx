@@ -56,9 +56,17 @@ export function SettingsForm({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
 
+  const DEFAULT_LOGO = "/saledock-logo-full.png";
+  const effectiveLogoUrl = logoPreview || settings.logoUrl || DEFAULT_LOGO;
+  const isDefaultLogo = !logoPreview && (!settings.logoUrl || settings.logoUrl === DEFAULT_LOGO);
+
   function handleLogoUpload(url: string) {
     setLogoPreview(url);
     setLogoError(false);
+  }
+
+  function handleLogoError() {
+    if (!logoError) setLogoError(true);
   }
 
   return (
@@ -140,17 +148,26 @@ export function SettingsForm({
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex aspect-square items-center justify-center rounded-xl bg-white p-5">
               {logoError ? (
-                <ImageIcon className="size-10 text-slate-300" />
+                <div className="flex flex-col items-center gap-2">
+                  <ImageIcon className="size-10 text-slate-300" />
+                  <span className="text-xs text-slate-400">Logo preview unavailable</span>
+                </div>
               ) : (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={logoPreview || settings.logoUrl || "/saledock-logo-full.png"}
+                  key={effectiveLogoUrl}
+                  src={effectiveLogoUrl}
                   alt="Shop logo preview"
                   className="h-auto max-h-28 w-auto object-contain"
-                  onError={() => setLogoError(true)}
+                  onError={handleLogoError}
                 />
               )}
             </div>
+            {isDefaultLogo && (
+              <p className="mt-2 text-center text-[10px] text-slate-400">
+                Using default SaleDock logo
+              </p>
+            )}
             <div className="mt-3 space-y-2">
               <ImageUpload
                 bucket="public-branding"

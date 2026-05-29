@@ -76,9 +76,13 @@ export function ImageUpload({
   function handleRemove() {
     setPreview(null);
     setError(null);
+    setImgError(false);
     onRemove?.();
     if (inputRef.current) inputRef.current.value = "";
   }
+
+  const showImage = preview && !imgError;
+  const showErrorState = preview && imgError;
 
   return (
     <div className="space-y-2">
@@ -96,10 +100,11 @@ export function ImageUpload({
               <Loader2 className="size-5 animate-spin text-slate-400" />
               <span className="text-[10px] text-slate-400">{uploadingText}</span>
             </div>
-          ) : preview && !imgError ? (
+          ) : showImage ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
+                key={preview}
                 src={preview}
                 alt="Preview"
                 className="h-full w-full object-cover"
@@ -116,8 +121,15 @@ export function ImageUpload({
                 </button>
               )}
             </>
+          ) : showErrorState ? (
+            <div className="flex flex-col items-center gap-1 p-2">
+              <ImageIcon className="size-6 text-slate-300" aria-hidden="true" />
+              <span className="text-[10px] text-center leading-tight text-slate-400">
+                Preview unavailable
+              </span>
+            </div>
           ) : (
-            <ImageIcon className="size-8 text-slate-300" />
+            <ImageIcon className="size-8 text-slate-300" aria-hidden="true" />
           )}
           {imgError && preview && onRemove && (
             <button
@@ -152,6 +164,11 @@ export function ImageUpload({
           <p className="text-[10px] text-slate-400 leading-relaxed">
             PNG, JPG or WebP. Max 5 MB.
           </p>
+          {showErrorState && !preview?.startsWith("blob:") && (
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              This image could not be loaded. Re-upload it or use a different file.
+            </p>
+          )}
         </div>
       </div>
 
