@@ -51,7 +51,11 @@ export async function uploadImage(
     });
 
   if (uploadError) {
-    return { publicUrl: null, error: uploadError.message };
+    const msg = uploadError.message;
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return { publicUrl: null, error: "Could not connect to storage. Please check your connection and try again." };
+    }
+    return { publicUrl: null, error: msg };
   }
 
   const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fullPath);

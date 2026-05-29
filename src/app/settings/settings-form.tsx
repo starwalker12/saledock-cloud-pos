@@ -55,6 +55,7 @@ export function SettingsForm({
   const [ppState, ppAction, ppPending] = useActionState(updateProfilePictureAction, initialState);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
+  const [logoUrlInput, setLogoUrlInput] = useState(settings.logoUrl ?? "");
 
   const DEFAULT_LOGO = "/saledock-logo-full.png";
   const effectiveLogoUrl = logoPreview || settings.logoUrl || DEFAULT_LOGO;
@@ -63,6 +64,13 @@ export function SettingsForm({
   function handleLogoUpload(url: string) {
     setLogoPreview(url);
     setLogoError(false);
+    setLogoUrlInput(url);
+  }
+
+  function handleLogoRemove() {
+    setLogoPreview(null);
+    setLogoError(false);
+    setLogoUrlInput("");
   }
 
   function handleLogoError() {
@@ -174,15 +182,17 @@ export function SettingsForm({
                 folderPath={`orgs/${organizationId}/logo`}
                 currentUrl={null}
                 onUploadComplete={handleLogoUpload}
+                onRemove={handleLogoRemove}
                 aspectRatio="landscape"
                 uploadingText="Uploading logo..."
+                removeLabel="Remove logo"
               />
             </div>
           </div>
           <div className="grid gap-4">
             <label className={labelClass}>
               <span className={labelTextClass}>Logo URL or path</span>
-              <input name="logoUrl" defaultValue={settings.logoUrl} disabled={!canEdit || pending} className={inputClass} />
+              <input name="logoUrl" value={logoUrlInput} onChange={(e) => setLogoUrlInput(e.target.value)} disabled={!canEdit || pending} className={inputClass} />
             </label>
             <label className={labelClass}>
               <span className={labelTextClass}>Invoice footer / note</span>
@@ -291,6 +301,7 @@ export function SettingsForm({
               }}
               label="Profile picture"
               aspectRatio="square"
+              removeLabel="Remove photo"
             />
           </div>
           {ppState.success && (

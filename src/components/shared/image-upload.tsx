@@ -13,6 +13,7 @@ type ImageUploadProps = {
   label?: string;
   aspectRatio?: "square" | "landscape";
   uploadingText?: string;
+  removeLabel?: string;
 };
 
 const aspectClasses = {
@@ -29,6 +30,7 @@ export function ImageUpload({
   label,
   aspectRatio = "square",
   uploadingText = "Uploading...",
+  removeLabel,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
@@ -63,12 +65,13 @@ export function ImageUpload({
       }
       if (result.publicUrl) {
         onUploadComplete(result.publicUrl);
+        setPreview(result.publicUrl);
       }
       URL.revokeObjectURL(localPreview);
     }).catch(() => {
       setUploading(false);
       setImgError(false);
-      setError("Upload failed. Please try again.");
+      setError("Unexpected upload error. Please try again.");
       setPreview(currentUrl ?? null);
     });
   }
@@ -161,6 +164,16 @@ export function ImageUpload({
             <Upload className="size-3.5" />
             {preview ? "Change" : "Upload"}
           </button>
+          {(preview || showErrorState) && onRemove && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="flex h-9 items-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50"
+            >
+              <X className="size-3.5" />
+              {removeLabel ?? "Remove"}
+            </button>
+          )}
           <p className="text-[10px] text-slate-400 leading-relaxed">
             PNG, JPG or WebP. Max 5 MB.
           </p>
