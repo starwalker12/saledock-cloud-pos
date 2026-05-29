@@ -272,6 +272,7 @@ body {
   }
   @page {
     margin: 12mm;
+    size: A4 portrait;
   }
   @page thermalReceipt {
     size: 80mm auto;
@@ -279,6 +280,8 @@ body {
   }
   body {
     background: #fff !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
   }
   aside,
   nav,
@@ -295,6 +298,54 @@ body {
     border: 0 !important;
     max-width: none !important;
     padding: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+  }
+  #invoice-print table {
+    font-size: 10.5px !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+  }
+  #invoice-print thead {
+    display: table-header-group !important;
+    border-bottom: 1px solid #d8e1ef !important;
+  }
+  #invoice-print tbody {
+    page-break-inside: auto !important;
+  }
+  #invoice-print tbody tr {
+    page-break-inside: avoid !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+  }
+  #invoice-print tbody tr:last-child {
+    border-bottom: none !important;
+  }
+  #invoice-print th {
+    padding: 6px 8px !important;
+    font-weight: 700 !important;
+    font-size: 9px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #64748b !important;
+    border: none !important;
+  }
+  #invoice-print td {
+    padding: 6px 8px !important;
+    vertical-align: top !important;
+    border: none !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  #invoice-print .tabular-nums {
+    font-variant-numeric: tabular-nums !important;
+  }
+  #invoice-print .text-right {
+    text-align: right !important;
+  }
+  #invoice-print img {
+    max-height: 48px !important;
+    width: auto !important;
   }
   .thermal-print {
     display: none !important;
@@ -319,6 +370,7 @@ body {
     box-shadow: none !important;
     border: 0 !important;
     font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 9px !important;
     page: thermalReceipt;
   }
   .dark .bg-white,

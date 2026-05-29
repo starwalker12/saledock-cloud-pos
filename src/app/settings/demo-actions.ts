@@ -26,6 +26,30 @@ export type DemoActionState = {
   message?: string;
 };
 
+const DEMO_PREFIX = "[DEMO]";
+
+async function demoDataAlreadyLoaded(orgId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("product_categories")
+    .select("id")
+    .eq("organization_id", orgId)
+    .like("name", `${DEMO_PREFIX}%`)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+function formatDemoDataError(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  const lower = msg.toLowerCase();
+  if (lower.includes("duplicate key") || lower.includes("unique constraint") || lower.includes("already exists")) {
+    return "Some demo records already exist. No duplicate records were added.";
+  }
+  if (lower.includes("not authenticated")) return "You must be signed in to load demo data.";
+  if (lower.includes("permission") || lower.includes("not authorized")) return "You do not have permission to load demo data.";
+  return msg;
+}
+
 export async function loadDemoDataAction(
   prevState: DemoActionState | null,
   formData: FormData
@@ -56,16 +80,24 @@ export async function loadDemoDataAction(
       return { success: false, error: "No organization/branch assigned." };
     }
 
+    // Check if demo data already exists — if so, return friendly info instead of raw DB error
+    if (await demoDataAlreadyLoaded(orgId)) {
+      return {
+        success: true,
+        message: "Demo data already exists for this shop. You can continue using the existing demo data or remove it first.",
+      };
+    }
+
     const supabase = await createClient();
 
-    // 1. Insert product categories
+    // 1. Insert product categories — use upsert for idempotency
     const categoriesData = [
       { organization_id: orgId, name: "[DEMO] Accessories", description: "[DEMO] Chargers, cables, hubs and screen protectors", is_active: true },
       { organization_id: orgId, name: "[DEMO] Devices", description: "[DEMO] Smartphones, tablets and smartwatches", is_active: true }
     ];
     const { data: categories, error: catErr } = await supabase
       .from("product_categories")
-      .insert(categoriesData)
+      .upsert(categoriesData, { onConflict: "organization_id,name", ignoreDuplicates: false })
       .select();
     if (catErr) throw new Error("Categories creation failed: " + catErr.message);
 
@@ -588,7 +620,7 @@ export async function loadDemoDataAction(
   } catch (error) {
     const err = error as Error;
     console.error("Failed to seed demo data:", err);
-    return { success: false, error: err.message || "An unexpected error occurred during demo data creation." };
+    return { success: false, error: formatDemoDataError(err) || "An unexpected error occurred during demo data creation." };
   }
 }
 
@@ -681,6 +713,6 @@ export async function removeDemoDataAction(
   } catch (error) {
     const err = error as Error;
     console.error("Failed to remove demo data:", err);
-    return { success: false, error: err.message || "An unexpected error occurred during demo data removal." };
+    return { success: false, error: formatDemoDataError(err) || "An unexpected error occurred during demo data removal." };
   }
 }

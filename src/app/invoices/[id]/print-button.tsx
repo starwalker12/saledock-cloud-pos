@@ -26,7 +26,7 @@ export function PrintButton({ whatsappHref }: PrintButtonProps) {
         className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
       >
         <Printer className="size-4" />
-        Print A4
+        Print A4 / Save PDF
       </button>
       <button
         type="button"
