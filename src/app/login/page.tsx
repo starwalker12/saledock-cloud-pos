@@ -4,7 +4,8 @@ import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getPublicPlatformSetting } from "@/lib/platform/admin";
 import { signOutAction } from "@/app/(auth)/actions";
-import { ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function friendlyError(errorCode: string | undefined): string | null {
   if (!errorCode) return null;
@@ -45,7 +46,20 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-3 py-8 sm:px-4 sm:py-10">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-3 py-8 sm:px-4 sm:py-10">
+      {/* Top controls */}
+      <div className="mb-3 flex w-full max-w-md items-center justify-between sm:mb-4">
+        <Link
+          href="/"
+          className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/80 px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
+          aria-label="Back to home"
+        >
+          <ArrowLeft className="size-4 shrink-0" />
+          <span className="hidden sm:inline">Back to home</span>
+        </Link>
+        <ThemeToggle />
+      </div>
+
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
         {/* Logo */}
         <div className="mb-6 text-center">
