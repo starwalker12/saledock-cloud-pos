@@ -83,7 +83,7 @@ function dayBounds(date: string): { start: string; end: string } {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-function emptyMethodTotals(): MethodTotals {
+export function emptyMethodTotals(): MethodTotals {
   return {
     cash: 0,
     card: 0,

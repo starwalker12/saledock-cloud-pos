@@ -10,11 +10,12 @@ import {
   Wallet,
   HandCoins,
   BadgeMinus,
+  Clock,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canCloseDay, canReopenDay } from "@/lib/permissions";
+import { canCloseDay, canReopenDay, canOpenShift } from "@/lib/permissions";
 import {
   getClosing,
   getDayActivity,
@@ -24,10 +25,18 @@ import {
   todayLocalDate,
   type PaymentMethodKey,
 } from "@/lib/data/daily-closing";
+import { getCurrentShift, getShiftHistory, getShiftActivity, getShiftStaffSummary } from "@/lib/data/shifts";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { CloseDayForm, ReopenDayForm } from "./closing-form";
-import { ClosingPrintButtons } from "./print-button";
+import { ClosingPrintButtons, ShiftPrintButton } from "./print-button";
+import {
+  OpenShiftForm,
+  CloseShiftForm,
+  ShiftHistoryTable,
+  ShiftStaffSummary,
+  ShiftPrintSection,
+} from "./shift-ui";
 
 type SearchParams = { date?: string };
 
@@ -82,12 +91,24 @@ export default async function DailyClosingPage({
   const currency = organization?.currency_code ?? "PKR";
   const writer = canCloseDay(profile.role);
   const reopener = canReopenDay(profile.role);
+  const canOpen = canOpenShift(profile.role);
 
-  const [activity, closing, recent] = await Promise.all([
+  const [activity, closing, recent, currentShift, shiftHistory] = await Promise.all([
     getDayActivity(orgId, branchId, date),
     getClosing(orgId, branchId, date),
     listRecentClosings(orgId, branchId, 14),
+    getCurrentShift(orgId, branchId),
+    getShiftHistory(orgId, branchId, 10),
   ]);
+
+  let shiftActivity = null;
+  let shiftStaff = null;
+  if (currentShift) {
+    [shiftActivity, shiftStaff] = await Promise.all([
+      getShiftActivity(orgId, branchId, currentShift.opened_at),
+      getShiftStaffSummary(orgId, branchId, currentShift.opened_at),
+    ]);
+  }
 
   const isClosed = Boolean(closing?.finalized_by);
   const isToday = date === todayLocalDate();
@@ -162,6 +183,7 @@ export default async function DailyClosingPage({
             <p>{fmtDay(date)}</p>
           </div>
           <ClosingPrintButtons />
+          <ShiftPrintButton hasShift={Boolean(currentShift)} />
         </div>
       </form>
 
@@ -191,6 +213,35 @@ export default async function DailyClosingPage({
           {isClosed && reopener && <ReopenDayForm closingDate={date} canReopen={reopener} />}
         </div>
       </div>
+
+      {/* ── Shift Card ──────────────────────────────────────────────────── */}
+      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <Clock className="size-5 text-slate-400" />
+          <h2 className="text-base font-black text-slate-950">
+            {currentShift ? "Active Shift" : "Cash Drawer Shift"}
+          </h2>
+          {currentShift && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+              Open
+            </span>
+          )}
+        </div>
+
+        {currentShift && shiftActivity ? (
+          <CloseShiftForm
+            shift={currentShift}
+            activity={shiftActivity}
+            canClose={writer}
+            currency={currency}
+          />
+        ) : (
+          <OpenShiftForm
+            canOpen={canOpen}
+            startingCashDefault={0}
+          />
+        )}
+      </section>
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -323,6 +374,22 @@ export default async function DailyClosingPage({
           </div>
         </section>
       </div>
+
+      {/* Staff-wise summary for active shift */}
+      {currentShift && shiftStaff && shiftStaff.length > 0 && (
+        <div className="mt-6">
+          <ShiftStaffSummary staff={shiftStaff} currency={currency} />
+        </div>
+      )}
+
+      {/* Shift history */}
+      <section className="mt-6">
+        <div className="mb-3 flex items-center gap-2">
+          <Clock className="size-5 text-slate-400" />
+          <h2 className="text-base font-black text-slate-950">Shift History</h2>
+        </div>
+        <ShiftHistoryTable shifts={shiftHistory} currency={currency} />
+      </section>
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
@@ -464,6 +531,18 @@ export default async function DailyClosingPage({
           Thank you. Closing summary.
         </footer>
       </article>
+
+      {/* Shift thermal print receipt — hidden on screen */}
+      {currentShift && shiftActivity && (
+        <ShiftPrintSection
+          shift={currentShift}
+          activity={shiftActivity}
+          staff={shiftStaff ?? []}
+          organizationName={organization?.name ?? null}
+          branchName={branch?.name ?? null}
+          currency={currency}
+        />
+      )}
     </AppShell>
   );
 }

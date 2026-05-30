@@ -2,7 +2,7 @@
 
 import { Printer } from "lucide-react";
 
-function printWithMode(mode: "a4" | "thermal") {
+function printWithMode(mode: "a4" | "thermal" | "shift-thermal") {
   document.body.dataset.printMode = mode;
   const cleanup = () => {
     delete document.body.dataset.printMode;
@@ -33,5 +33,19 @@ export function ClosingPrintButtons() {
         Print 80mm
       </button>
     </div>
+  );
+}
+
+export function ShiftPrintButton({ hasShift }: { hasShift: boolean }) {
+  if (!hasShift) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => printWithMode("shift-thermal")}
+      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-800 hover:bg-blue-100"
+    >
+      <Printer className="size-4" />
+      Print shift report
+    </button>
   );
 }

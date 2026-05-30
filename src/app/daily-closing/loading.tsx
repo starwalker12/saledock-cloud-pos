@@ -10,7 +10,25 @@ export default function DailyClosingLoading() {
           <Skeleton className="h-3 w-24" />
           <Skeleton className="h-7 w-44" />
         </div>
-        <Skeleton className="h-10 w-32 rounded-lg" />
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-24 rounded-lg" />
+          <Skeleton className="h-9 w-32 rounded-lg" />
+        </div>
+      </div>
+
+      {/* Day status banner */}
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+        <Skeleton className="h-4 w-40" />
+      </div>
+
+      {/* Shift card skeleton */}
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <Skeleton className="h-5 w-36" />
+        <div className="mt-4 space-y-3">
+          <Skeleton className="h-11 w-full rounded-lg" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-11 w-full rounded-lg" />
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -50,7 +68,19 @@ export default function DailyClosingLoading() {
         </div>
       </div>
 
-      {/* Closing history table */}
+      {/* Shift history table */}
+      <div className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="border-b border-slate-100 p-4 dark:border-slate-800">
+          <Skeleton className="h-5 w-28" />
+        </div>
+        <div className="space-y-3 p-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      </div>
+
+      {/* Day closing history table */}
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="border-b border-slate-100 p-4 dark:border-slate-800">
           <Skeleton className="h-5 w-36" />
