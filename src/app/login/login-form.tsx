@@ -46,6 +46,20 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
   const [recaptchaStatus, setRecaptchaStatus] = useState<RecaptchaStatus>("unconfigured");
   const recaptchaResetRef = useRef<(() => void) | null>(null);
 
+  const [passwordVal, setPasswordVal] = useState("");
+  const [confirmPasswordVal, setConfirmPasswordVal] = useState("");
+
+  const passwordChecks = {
+    minChars: passwordVal.length >= 8,
+    uppercase: /[A-Z]/.test(passwordVal),
+    lowercase: /[a-z]/.test(passwordVal),
+    number: /[0-9]/.test(passwordVal),
+    special: /[^a-zA-Z0-9]/.test(passwordVal),
+  };
+  const allPasswordChecksPass = Object.values(passwordChecks).every(Boolean);
+  const passwordsMatch = confirmPasswordVal.length > 0 && passwordVal === confirmPasswordVal;
+  const passwordsMismatch = confirmPasswordVal.length > 0 && passwordVal !== confirmPasswordVal;
+
   const switchMode = useCallback((newMode: "sign-in" | "sign-up" | "forgot") => {
     setMode(newMode);
     setRecaptchaToken(null);
@@ -166,8 +180,37 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
             minLength={8}
             autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
             placeholder={t("passwordPlaceholder", "At least 8 characters")}
+            value={passwordVal}
+            onChange={(e) => setPasswordVal(e.target.value)}
             className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
           />
+          {mode === "sign-up" && passwordVal.length > 0 && (
+            <div className="mt-2 space-y-1 text-xs">
+              <p className="font-medium text-slate-500">
+                <span>{t("passwordRequirements", "Password must include:")}</span>
+              </p>
+              {[
+                { key: "minChars", label: t("passwordMinChars", "At least 8 characters") },
+                { key: "uppercase", label: t("passwordUppercase", "One uppercase letter") },
+                { key: "lowercase", label: t("passwordLowercase", "One lowercase letter") },
+                { key: "number", label: t("passwordNumber", "One number") },
+                { key: "special", label: t("passwordSpecial", "One special character") },
+              ].map(({ key, label }) => {
+                const passed = passwordChecks[key as keyof typeof passwordChecks];
+                return (
+                  <p
+                    key={key}
+                    className={`flex items-center gap-1.5 ${
+                      passed ? "text-emerald-600" : passwordVal.length > 0 ? "text-slate-400" : "text-slate-400"
+                    }`}
+                  >
+                    <span className="shrink-0">{passed ? "\u2713" : "\u2022"}</span>
+                    <span>{label}</span>
+                  </p>
+                );
+              })}
+            </div>
+          )}
         </label>
         {mode === "sign-up" && (
           <label className="block">
@@ -179,8 +222,21 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
               minLength={8}
               autoComplete="new-password"
               placeholder={t("confirmPassword", "Confirm password")}
+              value={confirmPasswordVal}
+              onChange={(e) => setConfirmPasswordVal(e.target.value)}
               className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
             />
+            {confirmPasswordVal.length > 0 && (
+              <p
+                className={`mt-1.5 text-xs font-medium ${
+                  passwordsMatch ? "text-emerald-600" : "text-red-600"
+                }`}
+              >
+                {passwordsMatch
+                  ? t("passwordsMatch", "Passwords match.")
+                  : t("passwordsDoNotMatch", "Passwords do not match.")}
+              </p>
+            )}
           </label>
         )}
 
@@ -229,7 +285,7 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || (mode === "sign-up" && (!allPasswordChecksPass || passwordsMismatch))}
           className="h-12 w-full rounded-xl bg-blue-700 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-60"
         >
           {pending
