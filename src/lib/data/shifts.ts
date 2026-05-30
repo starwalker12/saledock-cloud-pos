@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { emptyMethodTotals, type MethodTotals, type PaymentMethodKey, type ExpenseBreakdown } from "./daily-closing";
+import { emptyMethodTotals, FINALIZED_INVOICE_STATUSES, type MethodTotals, type PaymentMethodKey, type ExpenseBreakdown } from "./daily-closing";
 
 export type CashShiftRow = {
   id: string;
@@ -124,9 +124,12 @@ export async function getShiftActivity(
     .select("id, grand_total, balance_due")
     .eq("organization_id", organizationId)
     .eq("branch_id", branchId)
+    .in("status", FINALIZED_INVOICE_STATUSES)
     .gte("invoice_date", openedAt)
     .lte("invoice_date", end);
 
+  // Payments in the shift window. No invoice_status filter needed:
+  // POS checkout creates payments only for finalized invoices; no void/cancel RPC exists.
   const paymentsRes = await supabase
     .from("payments")
     .select("amount, method")
@@ -274,6 +277,8 @@ export async function getShiftStaffSummary(
   const supabase = await createClient();
   const end = closedAt ?? new Date().toISOString();
 
+  // Payments for staff summary. No invoice_status filter needed:
+  // POS checkout creates payments only for finalized invoices; no void/cancel RPC exists.
   const paymentsRes = await supabase
     .from("payments")
     .select("amount, method, received_by")

@@ -1,5 +1,9 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import type { InvoiceStatus } from "@/lib/types";
+
+/** Invoice statuses that represent real completed/finalized sales. */
+export const FINALIZED_INVOICE_STATUSES: InvoiceStatus[] = ["paid", "partial", "unpaid"];
 
 export type PaymentMethodKey =
   | "cash"
@@ -103,15 +107,19 @@ export async function getDayActivity(
   const { start, end } = dayBounds(date);
 
   // Invoices in the day: gross sales + count + credit pending.
+  // Only finalized statuses (paid/partial/unpaid) count — draft/void invoices are not real sales.
   const invoicesRes = await supabase
     .from("invoices")
     .select("id, grand_total, balance_due")
     .eq("organization_id", organizationId)
     .eq("branch_id", branchId)
+    .in("status", FINALIZED_INVOICE_STATUSES)
     .gte("invoice_date", start)
     .lte("invoice_date", end);
 
   // Payments received in the day, by method (independent of invoice_date — captures partial payments on older invoices).
+  // No invoice_status filter needed: POS checkout never creates payments for draft/void invoices,
+  // and no void/cancel RPC exists in the app. Payments inherently belong to finalized invoices only.
   const paymentsRes = await supabase
     .from("payments")
     .select("amount, method")
