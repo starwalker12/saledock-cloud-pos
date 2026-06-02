@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canManageSupplierPurchases } from "@/lib/permissions";
+import { canManageSupplierPurchases, canManageUsers } from "@/lib/permissions";
 import {
   createPurchaseSchema,
   recordPaymentSchema,
@@ -136,4 +136,59 @@ export async function recordSupplierPaymentAction(
   revalidatePath("/dashboard");
   revalidatePath("/reports");
   return { ok: true, payment_id: paymentId };
+}
+
+export type WriteOffResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function recordSupplierWriteOffAction(
+  supplierId: string,
+  amount: number,
+  reason: string,
+): Promise<WriteOffResult> {
+  const ctx = await getCurrentContext();
+  if (!ctx.user) redirect("/login");
+  if (!ctx.profile?.organization_id) redirect("/setup");
+  if (!ctx.profile?.branch_id) {
+    return { ok: false, error: "No branch assigned for this user." };
+  }
+
+  if (!canManageUsers(ctx.profile.role)) {
+    return { ok: false, error: "Only owner or admin can write off supplier dues." };
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, error: "Amount must be greater than 0." };
+  }
+
+  if (!reason || reason.trim().length === 0) {
+    return { ok: false, error: "A reason is required for write-off." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_supplier_write_off", {
+    p_supplier_id: supplierId,
+    p_branch_id: ctx.profile.branch_id,
+    p_amount: amount,
+    p_reason: reason.trim(),
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  logAudit({
+    module: "purchases",
+    action: "supplier_write_off.recorded",
+    details: `Wrote off supplier dues Rs ${amount} — ${reason.trim()}`,
+    metadata: {
+      supplier_id: supplierId,
+      amount,
+      reason: reason.trim(),
+    },
+  });
+
+  revalidatePath(`/suppliers/${supplierId}/ledger`);
+  revalidatePath("/suppliers/dues");
+  revalidatePath("/dashboard");
+  return { ok: true };
 }
