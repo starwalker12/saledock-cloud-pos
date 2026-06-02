@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   linkGoogleAccountAction,
-  linkFacebookAccountAction,
   unlinkIdentityAction,
   setPasswordAction,
   changeEmailAction,
@@ -14,7 +13,7 @@ import {
 } from "@/app/(auth)/actions";
 import { Link, Unlink, AlertTriangle, CheckCircle, X, Mail, Shield } from "lucide-react";
 import { getLinkedProviders, type LinkedProviders } from "@/lib/auth/identities";
-import { GoogleIcon, FacebookIcon } from "@/components/icons/provider-icons";
+import { GoogleIcon } from "@/components/icons/provider-icons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const initialState: AuthState = { error: null };
@@ -67,9 +66,9 @@ export function ConnectedAccounts({
     load();
   }, [unlinkState, passwordState, emailState]);
 
-  const { hasPassword, hasGoogle, hasFacebook, identityCount } = serverProviders;
+  const { hasPassword, hasGoogle, identityCount } = serverProviders;
 
-  const hasAnyOAuthConnected = hasGoogle || hasFacebook;
+  const hasAnyOAuthConnected = hasGoogle;
 
   const showConflictBanner = linkParam === "conflict" && !hasAnyOAuthConnected && !conflictDismissed;
 
@@ -85,16 +84,15 @@ export function ConnectedAccounts({
   }, [router]);
 
   const googleIdentity = identities.find((id) => id.provider === "google");
-  const facebookIdentity = identities.find((id) => id.provider === "facebook");
 
-  const linkProviderLabel = providerParam === "google" ? "Google" : providerParam === "facebook" ? "Facebook" : "";
+  const linkProviderLabel = providerParam === "google" ? "Google" : "";
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
       <div>
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Connected Accounts</h2>
         <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-          Link Google or Facebook so you can sign in using either provider. For security,
+          Link Google so you can sign in using another provider. For security,
           sign in with your existing account first before linking a new provider.
         </p>
       </div>
@@ -194,7 +192,6 @@ export function ConnectedAccounts({
             <ProviderRow
               label="Google"
               connected={hasGoogle}
-              provider="google"
               detail={googleIdentity?.identity_data?.email as string ?? undefined}
               canUnlink={hasGoogle && identityCount > 1}
               onUnlink={() => {
@@ -212,32 +209,6 @@ export function ConnectedAccounts({
                   >
                     <Link className="size-3.5" />
                     Link Google Account
-                  </button>
-                </form>
-              )}
-            </ProviderRow>
-
-            <ProviderRow
-              label="Facebook"
-              connected={hasFacebook}
-              provider="facebook"
-              detail={facebookIdentity?.identity_data?.email as string ?? undefined}
-              canUnlink={hasFacebook && identityCount > 1}
-              onUnlink={() => {
-                const fd = new FormData();
-                fd.append("provider", "facebook");
-                unlinkAction(fd);
-              }}
-              required={identityCount <= 1 && hasFacebook}
-            >
-              {!hasFacebook && (
-                <form action={async (fd: FormData) => { await linkFacebookAccountAction(initialState, fd); }}>
-                  <button
-                    type="submit"
-                    className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    <Link className="size-3.5" />
-                    Link Facebook Account
                   </button>
                 </form>
               )}
@@ -377,7 +348,7 @@ function EmailPasswordRow({
         <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-700">
           <form action={emailAction} className="space-y-3">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Changing your email will keep your Google and Facebook accounts linked.
+              Changing your email will keep your Google account linked.
               You may need to confirm the change from both your current and new email addresses.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -477,7 +448,6 @@ function ProviderRowSkeleton() {
 function ProviderRow({
   label,
   connected,
-  provider,
   detail,
   required,
   canUnlink,
@@ -486,14 +456,13 @@ function ProviderRow({
 }: {
   label: string;
   connected: boolean;
-  provider: string;
   detail?: string;
   required?: boolean;
   canUnlink?: boolean;
   onUnlink?: () => void;
   children?: React.ReactNode;
 }) {
-  const Icon = provider === "google" ? GoogleIcon : FacebookIcon;
+  const Icon = GoogleIcon;
 
   return (
     <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-700">
@@ -558,7 +527,7 @@ function HelpText() {
     <div className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
       <p>
         <strong className="text-slate-700 dark:text-slate-300">Need help?</strong> If you signed up with email/password,
-        you can link Google or Facebook so you have more sign-in options.
+        you can link Google so you have more sign-in options.
         You can always unlink a provider as long as at least one other sign-in method remains.
       </p>
       <p className="mt-2">

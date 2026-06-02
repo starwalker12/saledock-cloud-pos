@@ -1,13 +1,11 @@
 export type LinkedProviders = {
   hasPassword: boolean;
   hasGoogle: boolean;
-  hasFacebook: boolean;
   providers: string[];
   identityCount: number;
 };
 
 function normalizeProvider(provider: string): string {
-  if (provider === "facebook_oidc" || provider === "facebook") return "facebook";
   if (provider === "google") return "google";
   if (provider === "email") return "email";
   return provider;
@@ -41,7 +39,6 @@ export function getLinkedProviders(
   return {
     hasPassword: providers.includes("email"),
     hasGoogle: providers.includes("google"),
-    hasFacebook: providers.includes("facebook"),
     providers,
     identityCount: providers.length,
   };

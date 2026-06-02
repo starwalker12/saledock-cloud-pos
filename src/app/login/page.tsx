@@ -12,8 +12,6 @@ import { getServerDict } from "@/lib/i18n/server";
 function friendlyError(errorCode: string | undefined): string | null {
   if (!errorCode) return null;
   switch (errorCode) {
-    case "facebook_invalid_scopes":
-      return "Facebook login is almost ready, but the email permission is not enabled in Meta yet. Please contact the platform owner.";
     case "auth_callback_failed":
       return "Sign-in link was invalid or expired. Please try again.";
     default:

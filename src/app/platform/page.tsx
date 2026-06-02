@@ -122,7 +122,6 @@ export default async function PlatformPage() {
             <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
               <HealthItem label="Latest Migration" value="0020 — Platform Console" />
               <HealthItem label="Google OAuth" value="Needs Supabase config" warn />
-              <HealthItem label="Facebook OAuth" value="Needs Supabase config" warn />
               <HealthItem label="Apple OAuth" value="Deferred" />
               <HealthItem label="Storage Buckets" value="Not configured" warn />
               <HealthItem label="Leaked Password Protection" value="Supabase handles this" ok />

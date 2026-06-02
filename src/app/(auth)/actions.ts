@@ -146,7 +146,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   redirect("/onboarding");
 }
 
-async function oAuthAction(provider: "google" | "facebook"): Promise<AuthState> {
+async function oAuthAction(provider: "google"): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
 
   const origin = await publicOrigin();
@@ -159,21 +159,18 @@ async function oAuthAction(provider: "google" | "facebook"): Promise<AuthState> 
   });
   if (error) {
     const msg = error.message.toLowerCase();
-    // Facebook invalid scopes / provider not configured
     if (msg.includes("invalid_scope") || msg.includes("invalid scope")) {
       return {
-        error: `${provider === "facebook" ? "Facebook" : "Google"} login is almost ready, but a required permission is not enabled yet. Please contact the platform owner.`,
+        error: "Google login is almost ready, but a required permission is not enabled yet. Please contact the platform owner.",
       };
     }
     if (msg.includes("unsupported provider") || msg.includes("provider is not enabled") || msg.includes("not enabled")) {
-      const label = provider.charAt(0).toUpperCase() + provider.slice(1);
-      return { error: `${label} login is not configured yet. Enable the ${label} provider in Supabase Dashboard.` };
+      return { error: "Google login is not configured yet. Enable the Google provider in Supabase Dashboard." };
     }
     return { error: error.message };
   }
   if (!data?.url) {
-    const label = provider.charAt(0).toUpperCase() + provider.slice(1);
-    return { error: `${label} sign-in is not configured. Enable the ${label} provider in Supabase Dashboard.` };
+    return { error: "Google sign-in is not configured. Enable the Google provider in Supabase Dashboard." };
   }
 
   redirect(data.url);
@@ -183,12 +180,6 @@ export async function signInWithGoogleAction(_prev: AuthState, _formData: FormDa
   void _prev;
   void _formData;
   return oAuthAction("google");
-}
-
-export async function signInWithFacebookAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
-  void _prev;
-  void _formData;
-  return oAuthAction("facebook");
 }
 
 export async function resetPasswordAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -224,7 +215,7 @@ export async function signOutAction() {
 
 // ── OAuth Account Linking ─────────────────────────────────────────────────────
 
-async function linkOAuthAction(provider: "google" | "facebook"): Promise<AuthState> {
+async function linkOAuthAction(provider: "google"): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
 
   const origin = await publicOrigin();
@@ -274,12 +265,6 @@ export async function linkGoogleAccountAction(_prev: AuthState, _formData: FormD
   void _prev;
   void _formData;
   return linkOAuthAction("google");
-}
-
-export async function linkFacebookAccountAction(_prev: AuthState, _formData: FormData): Promise<AuthState> {
-  void _prev;
-  void _formData;
-  return linkOAuthAction("facebook");
 }
 
 // ── Unlink Identity ───────────────────────────────────────────────────────────

@@ -44,12 +44,6 @@ export async function GET(request: NextRequest) {
 
     const loginUrl = new URL("/login", origin);
 
-    // Facebook "Invalid Scopes: email" / invalid_scope
-    if (lower.includes("invalid_scope") || lower.includes("invalid scope") || lower.includes("scopes")) {
-      loginUrl.searchParams.set("error", "facebook_invalid_scopes");
-      return NextResponse.redirect(loginUrl);
-    }
-
     // Generic OAuth error
     loginUrl.searchParams.set("error", "auth_callback_failed");
     return NextResponse.redirect(loginUrl);
