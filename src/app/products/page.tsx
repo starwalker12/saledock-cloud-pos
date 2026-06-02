@@ -43,6 +43,7 @@ type SearchParams = {
   lowstock?: string;
   inactive?: string;
   edit?: string;
+  barcode?: string;
 };
 
 export default async function ProductsPage({
@@ -183,18 +184,21 @@ async function ProductsTab({
   const products = await listProducts(orgId, filters);
   const editing = params.edit ? products.find((p) => p.id === params.edit) : undefined;
   const isEdit = Boolean(editing);
+  const prefillBarcode = params.barcode?.trim();
+  const showForm = isEdit || Boolean(prefillBarcode);
+  const createInitial = prefillBarcode && !isEdit ? { barcode: prefillBarcode } as Partial<ProductRow> : editing;
 
   return (
     <div className="space-y-5">
       {canWrite && (
-        <details open={isEdit} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <details open={showForm} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <summary className="cursor-pointer text-sm font-bold text-slate-800">
             {isEdit ? `Edit product: ${editing!.name}` : "Add a new product"}
           </summary>
           <div className="mt-4">
             <ProductForm
-              key={editing?.id ?? "new"}
-              initialValues={editing}
+              key={editing?.id ?? (prefillBarcode ? `new-${prefillBarcode}` : "new")}
+              initialValues={createInitial}
               categories={categories}
               suppliers={suppliers}
               canWrite={canWrite}

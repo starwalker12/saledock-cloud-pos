@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Search, Trash2, UserPlus2 } from "lucide-react";
@@ -23,6 +23,7 @@ type Props = {
   categories: { id: string; name: string }[];
   currency: string;
   canCheckout: boolean;
+  canWriteCatalog: boolean;
 };
 
 type ServiceFields = {
@@ -74,12 +75,13 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   customer_credit: "Customer credit",
 };
 
-export function PosClient({ products: initialProducts, customers: initialCustomers, categories, currency, canCheckout }: Props) {
+export function PosClient({ products: initialProducts, customers: initialCustomers, categories, currency, canCheckout, canWriteCatalog }: Props) {
   const router = useRouter();
   const [products, setProducts] = useState(initialProducts);
   const [customers, setCustomers] = useState(initialCustomers);
 
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [categoryId, setCategoryId] = useState<string>("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [customerId, setCustomerId] = useState<string>("");
@@ -95,7 +97,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
   const [success, setSuccess] = useState<{ id: string; no: string } | null>(null);
   const [mobileTab, setMobileTab] = useState<"products" | "cart">("products");
   const [pending, startTransition] = useTransition();
-  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<{ barcode: string } | null>(null);
 
   function handleBarcodeScan(value: string) {
     const trimmed = value.trim();
@@ -104,11 +106,12 @@ export function PosClient({ products: initialProducts, customers: initialCustome
     if (match) {
       addToCart(match);
       setSearch("");
-      setScanMessage(null);
+      setScanResult(null);
+      searchRef.current?.focus();
       return;
     }
-    setScanMessage(`No product found for barcode ${trimmed}.`);
-    setTimeout(() => setScanMessage(null), 4000);
+    setScanResult({ barcode: trimmed });
+    setTimeout(() => setScanResult(null), 8000);
   }
 
   const filteredProducts = useMemo(() => {
@@ -350,6 +353,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <input
+                ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
@@ -385,10 +389,18 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             </select>
           </label>
         </div>
-        {scanMessage && (
-          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-            {scanMessage}
-          </p>
+        {scanResult && (
+          <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+            <span>No product found for barcode {scanResult.barcode}.</span>
+            {canWriteCatalog && (
+              <Link
+                href={`/products?tab=products&barcode=${encodeURIComponent(scanResult.barcode)}`}
+                className="ml-2 font-bold text-blue-700 underline hover:text-blue-800"
+              >
+                Create product?
+              </Link>
+            )}
+          </div>
         )}
 
         {filteredProducts.length === 0 ? (

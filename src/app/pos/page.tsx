@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { listCategories } from "@/lib/data/catalog";
 import { listPosCustomers, listPosProducts } from "@/lib/data/pos";
-import { canUsePos } from "@/lib/permissions";
+import { canUsePos, canWriteCatalog } from "@/lib/permissions";
 import { PosClient } from "./pos-client";
 
 export default async function PosPage() {
@@ -29,6 +29,7 @@ export default async function PosPage() {
         categories={categories.filter((c) => c.is_active).map((c) => ({ id: c.id, name: c.name }))}
         currency={organization?.currency_code ?? "PKR"}
         canCheckout={canUsePos(profile.role)}
+        canWriteCatalog={canWriteCatalog(profile.role)}
       />
     </AppShell>
   );
