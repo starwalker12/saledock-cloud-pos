@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { updateStaffPermissionsAction, type PermissionActionState } from "./actions";
-import { PERMISSIONS, type Permission } from "@/lib/staff-permissions";
+import { PERMISSIONS, type Permission } from "@/lib/staff-permissions-shared";
 import type { PermissionEditorStaff } from "@/lib/data/staff-permissions-data";
 import type { StaffRole } from "@/lib/validation/users";
 

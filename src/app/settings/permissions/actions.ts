@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
-import { PERMISSIONS } from "@/lib/staff-permissions";
+import { PERMISSIONS } from "@/lib/staff-permissions-shared";
 import { logAudit } from "@/lib/audit";
 
 export type PermissionActionState = {
