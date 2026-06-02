@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StaffRole } from "@/lib/validation/users";
-import { ROLE_DEFAULTS, type Permission, PERMISSIONS } from "@/lib/staff-permissions";
+import { ROLE_DEFAULTS, type Permission, PERMISSIONS } from "@/lib/staff-permissions-shared";
 import type { StaffBranch } from "./users";
 
 type ProfileRow = {
