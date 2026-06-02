@@ -15,31 +15,38 @@ export type Permission =
 
 type PermissionMap = Record<Permission, boolean>;
 
-const ALL_ENABLED: PermissionMap = {
-  can_sell: true,
-  can_discount: true,
-  can_return: true,
-  can_void_invoice: true,
-  can_view_reports: true,
-  can_manage_stock: true,
-  can_sell_at_loss: true,
-  can_change_settings: true,
-};
+export const PERMISSIONS: Permission[] = [
+  "can_sell",
+  "can_discount",
+  "can_return",
+  "can_void_invoice",
+  "can_view_reports",
+  "can_manage_stock",
+  "can_sell_at_loss",
+  "can_change_settings",
+];
 
-const ALL_DISABLED: PermissionMap = {
-  can_sell: false,
-  can_discount: false,
-  can_return: false,
-  can_void_invoice: false,
-  can_view_reports: false,
-  can_manage_stock: false,
-  can_sell_at_loss: false,
-  can_change_settings: false,
-};
-
-const ROLE_DEFAULTS: Record<string, PermissionMap> = {
-  owner: ALL_ENABLED,
-  admin: ALL_ENABLED,
+export const ROLE_DEFAULTS: Record<string, PermissionMap> = {
+  owner: {
+    can_sell: true,
+    can_discount: true,
+    can_return: true,
+    can_void_invoice: true,
+    can_view_reports: true,
+    can_manage_stock: true,
+    can_sell_at_loss: true,
+    can_change_settings: true,
+  },
+  admin: {
+    can_sell: true,
+    can_discount: true,
+    can_return: true,
+    can_void_invoice: true,
+    can_view_reports: true,
+    can_manage_stock: true,
+    can_sell_at_loss: true,
+    can_change_settings: true,
+  },
   manager: {
     can_sell: true,
     can_discount: true,
@@ -60,7 +67,16 @@ const ROLE_DEFAULTS: Record<string, PermissionMap> = {
     can_sell_at_loss: false,
     can_change_settings: false,
   },
-  technician: ALL_DISABLED,
+  technician: {
+    can_sell: false,
+    can_discount: false,
+    can_return: false,
+    can_void_invoice: false,
+    can_view_reports: false,
+    can_manage_stock: false,
+    can_sell_at_loss: false,
+    can_change_settings: false,
+  },
 };
 
 type StaffPermissionsRow = {
