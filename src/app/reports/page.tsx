@@ -18,6 +18,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canViewReports } from "@/lib/permissions";
+import { canViewReportsNew } from "@/lib/staff-permissions";
 import { getReportsData } from "@/lib/data/reports";
 import { getBrandingSettings } from "@/lib/data/settings";
 import {
@@ -112,7 +113,7 @@ export default async function ReportsPage({
   if (!profile?.organization_id) redirect("/setup");
 
   // Enforce access control permissions: Cashier and Technician must be redirected
-  if (!canViewReports(profile.role)) {
+  if (!(await canViewReportsNew(profile))) {
     redirect("/dashboard");
   }
 
