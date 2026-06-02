@@ -77,9 +77,19 @@ export function canManageLossOverride(role: Role | null | undefined): boolean {
 const SHIFT_OPENERS: Role[] = ["owner", "admin", "manager"];
 const SHIFT_CLOSERS: Role[] = ["owner", "admin", "manager"];
 const PURCHASE_MANAGERS: Role[] = ["owner", "admin", "manager"];
+const REPLENISHMENT_VIEWERS: Role[] = ["owner", "admin", "manager"];
+const REPLENISHMENT_MANAGERS: Role[] = ["owner", "admin", "manager"];
 
 export function canManageSupplierPurchases(role: Role | null | undefined): boolean {
   return role !== null && role !== undefined && PURCHASE_MANAGERS.includes(role);
+}
+
+export function canViewReplenishment(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && REPLENISHMENT_VIEWERS.includes(role);
+}
+
+export function canManageReplenishment(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && REPLENISHMENT_MANAGERS.includes(role);
 }
 
 export function canOpenShift(role: Role | null | undefined): boolean {

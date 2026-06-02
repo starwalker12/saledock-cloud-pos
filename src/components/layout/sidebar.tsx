@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getCurrentContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canManageUsers, canViewAuditLog, canManageSupplierPurchases } from "@/lib/permissions";
+import { canManageUsers, canViewAuditLog, canManageSupplierPurchases, canViewReplenishment } from "@/lib/permissions";
 import { isPlatformAdmin } from "@/lib/platform/admin";
 import { SidebarNav, type NavItem } from "@/components/layout/sidebar-nav";
 
@@ -57,6 +57,9 @@ export async function Sidebar() {
     ...items,
     ...(canManageSupplierPurchases(profile?.role)
       ? [{ href: "/suppliers/purchases", label: "purchases" as const, icon: "purchases" }]
+      : []),
+    ...(canViewReplenishment(profile?.role)
+      ? [{ href: "/purchases/replenishment", label: "replenishment" as const, icon: "replenishment" }]
       : []),
     ...(canViewAuditLog(profile?.role) ? [{ href: "/audit-log", label: "auditLog" as const, icon: "auditLog" }] : []),
     ...(canManageUsers(profile?.role) ? [{ href: "/users", label: "users" as const, icon: "users" }] : []),

@@ -255,6 +255,7 @@ export default async function DashboardPage() {
       change: dashSummary.lowStockCount > 0 ? "Below minimum stock" : "All stocked",
       color: "#d97706",
       icon: PackageSearch,
+      href: "/purchases/replenishment",
     },
     {
       label: t.pendingRepairs,
@@ -344,9 +345,8 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
               {statCards.map((k) => {
                 const Icon = k.icon;
-                return (
+                const card = (
                   <div
-                    key={k.label}
                     className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]"
                   >
                     <div className="flex items-center justify-between">
@@ -364,6 +364,13 @@ export default async function DashboardPage() {
                       {k.change}
                     </p>
                   </div>
+                );
+                return "href" in k ? (
+                  <Link key={k.label} href={(k as { href: string }).href} className="transition hover:opacity-80">
+                    {card}
+                  </Link>
+                ) : (
+                  <div key={k.label}>{card}</div>
                 );
               })}
             </div>
