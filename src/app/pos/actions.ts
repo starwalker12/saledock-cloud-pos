@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canUsePos, canWriteCatalog } from "@/lib/permissions";
+import { canSellNew, canDiscountNew, canSellAtLossNew } from "@/lib/staff-permissions";
 import { logAudit } from "@/lib/audit";
 import {
   checkoutSchema,
@@ -30,8 +31,8 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
   const ctx = await getCurrentContext();
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
-  if (!canUsePos(ctx.profile.role)) {
-    return { ok: false, error: "You do not have permission to use the POS." };
+  if (!(await canSellNew(ctx.profile))) {
+    return { ok: false, error: "You do not have permission to sell." };
   }
 
   const parsed = checkoutSchema.safeParse(input);
@@ -39,9 +40,20 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
+  const profile = ctx.profile;
+
+  // ── can_discount check ──
+  const hasDiscount = parsed.data.discount_total > 0 || parsed.data.cart.some((item) => item.discount > 0);
+  if (hasDiscount && !(await canDiscountNew(profile))) {
+    return { ok: false, error: "You do not have permission to apply discounts." };
+  }
+
   const supabase = await createClient();
+
+  // ── can_sell_at_loss: pass override flag as an explicit RPC parameter ──
+  const allowLossOverride = await canSellAtLossNew(profile);
   const { data, error } = await supabase.rpc("pos_checkout", {
-    p_branch_id: ctx.profile.branch_id,
+    p_branch_id: profile.branch_id,
     p_customer_id: parsed.data.customer_id ?? null,
     p_cart: parsed.data.cart,
     p_discount_total: parsed.data.discount_total,
@@ -49,13 +61,14 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     p_amount_paid: parsed.data.amount_paid,
     p_payment_ref: parsed.data.payment_reference ?? null,
     p_note: parsed.data.note ?? null,
+    p_allow_loss_override: allowLossOverride,
   });
 
   if (error) {
     return { ok: false, error: error.message };
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = Array.isArray(data) ? data[0] : (data as { invoice_id: string; invoice_no: string } | null);
   if (!row?.invoice_id) {
     return { ok: false, error: "Checkout returned no invoice." };
   }
