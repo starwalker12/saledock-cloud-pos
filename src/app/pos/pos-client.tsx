@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Search, Trash2, UserPlus2 } from "lucide-react";
 import { checkoutAction, quickCreateCustomerAction } from "./actions";
+import { BarcodeScanner } from "@/app/products/barcode-scanner";
 import {
   PAYMENT_METHODS,
   SERVICE_DIRECTIONS,
@@ -94,6 +95,21 @@ export function PosClient({ products: initialProducts, customers: initialCustome
   const [success, setSuccess] = useState<{ id: string; no: string } | null>(null);
   const [mobileTab, setMobileTab] = useState<"products" | "cart">("products");
   const [pending, startTransition] = useTransition();
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+
+  function handleBarcodeScan(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    const match = products.find((p) => p.barcode === trimmed);
+    if (match) {
+      addToCart(match);
+      setSearch("");
+      setScanMessage(null);
+      return;
+    }
+    setScanMessage(`No product found for barcode ${trimmed}.`);
+    setTimeout(() => setScanMessage(null), 4000);
+  }
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -328,7 +344,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
       {/* Products column */}
       <section className={`${mobileTab === "products" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 xl:block`}>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
           <label className="min-w-0">
             <span className="sr-only">Search</span>
             <div className="relative">
@@ -336,11 +352,23 @@ export function PosClient({ products: initialProducts, customers: initialCustome
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleBarcodeScan(search);
+                  }
+                }}
                 placeholder="Search by name, SKU, or barcode"
                 className="h-11 w-full rounded-lg border border-slate-200 pl-9 pr-3 outline-none focus:border-blue-600"
               />
             </div>
           </label>
+          <BarcodeScanner
+            onDetected={(code) => {
+              handleBarcodeScan(code);
+            }}
+            disabled={false}
+          />
           <label className="min-w-0">
             <span className="sr-only">Category</span>
             <select
@@ -357,6 +385,11 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             </select>
           </label>
         </div>
+        {scanMessage && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+            {scanMessage}
+          </p>
+        )}
 
         {filteredProducts.length === 0 ? (
           <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">
