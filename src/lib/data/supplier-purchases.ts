@@ -268,9 +268,10 @@ export async function listSupplierPayments(
 export async function listSupplierLedger(
   organizationId: string,
   supplierId: string,
+  filters?: { from?: string; to?: string },
 ): Promise<SupplierLedgerEntry[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("supplier_ledger_entries")
     .select(
       "id, entry_type, direction, amount, balance_after, description, reference_number, purchase_id, payment_id, created_at",
@@ -278,6 +279,11 @@ export async function listSupplierLedger(
     .eq("organization_id", organizationId)
     .eq("supplier_id", supplierId)
     .order("created_at", { ascending: false });
+
+  if (filters?.from) query = query.gte("created_at", filters.from);
+  if (filters?.to) query = query.lte("created_at", filters.to);
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
 
   return (data ?? []).map((r) => ({
@@ -292,6 +298,25 @@ export async function listSupplierLedger(
     payment_id: r.payment_id,
     created_at: r.created_at,
   }));
+}
+
+export async function getSupplierLedgerOpeningBalance(
+  organizationId: string,
+  supplierId: string,
+  beforeDate: string,
+): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("supplier_ledger_entries")
+    .select("balance_after")
+    .eq("organization_id", organizationId)
+    .eq("supplier_id", supplierId)
+    .lt("created_at", beforeDate)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? Number(data.balance_after ?? 0) : 0;
 }
 
 export type SupplierWithBalance = {

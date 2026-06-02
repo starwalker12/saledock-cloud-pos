@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canManageSupplierPurchases } from "@/lib/permissions";
+import { canManageSupplierPurchases, canManageUsers } from "@/lib/permissions";
 import { env } from "@/lib/env";
 import {
   listSupplierLedger,
@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/formatters";
 import { RecordPaymentForm } from "../../purchases/[id]/record-payment-form";
+import { SupplierWriteOffForm } from "./supplier-write-off-form";
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("en-PK", {
@@ -62,12 +63,19 @@ export default async function SupplierLedgerPage({
 
   const outstanding = Number(supplier.outstanding_balance ?? 0);
   const canPay = canManageSupplierPurchases(profile.role);
+  const canWriteOff = canManageUsers(profile.role);
 
   return (
     <AppShell pageTitle={`Supplier: ${supplier.name}`}>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <Link href="/suppliers/purchases" className="text-xs font-semibold text-slate-600 underline">
           ← Back to purchases
+        </Link>
+        <Link
+          href={`/suppliers/${id}/statement`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          View statement
         </Link>
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -197,6 +205,17 @@ export default async function SupplierLedgerPage({
                 purchase, open that purchase and use its payment form.
               </p>
               <RecordPaymentForm supplierId={id} maxAmount={outstanding} />
+            </section>
+          )}
+
+          {canWriteOff && outstanding > 0 && (
+            <section className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
+              <h3 className="mb-3 text-base font-black text-slate-950">Write off balance</h3>
+              <p className="mb-3 text-xs text-slate-500">
+                Forgive part or all of the supplier&apos;s outstanding balance. This is NOT an expense &mdash;
+                it clears a payable and is fully traceable.
+              </p>
+              <SupplierWriteOffForm supplierId={id} maxAmount={outstanding} />
             </section>
           )}
 

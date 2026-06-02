@@ -56,7 +56,10 @@ export async function Sidebar() {
   const visibleItems: NavItem[] = [
     ...items,
     ...(canManageSupplierPurchases(profile?.role)
-      ? [{ href: "/suppliers/purchases", label: "purchases" as const, icon: "purchases" }]
+      ? [
+          { href: "/suppliers/purchases", label: "purchases" as const, icon: "purchases" },
+          { href: "/suppliers/dues", label: "supplierDues" as const, icon: "dues" },
+        ]
       : []),
     ...(canViewReplenishment(profile?.role)
       ? [{ href: "/purchases/replenishment", label: "replenishment" as const, icon: "replenishment" }]

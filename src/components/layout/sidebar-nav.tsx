@@ -6,7 +6,7 @@ import type { ComponentType } from "react";
 import {
   LayoutDashboard, ShoppingCart, Boxes, Users, ReceiptText,
   RotateCcw, Wrench, Wallet, CalendarCheck, BarChart3,
-  Truck, ScrollText, UserCog, Settings, MonitorCog, PackageCheck,
+  Truck, ScrollText, UserCog, Settings, MonitorCog, PackageCheck, ListChecks,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 
@@ -22,6 +22,7 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   dailyClosing: CalendarCheck,
   reports: BarChart3,
   purchases: Truck,
+  dues: ListChecks,
   replenishment: PackageCheck,
   auditLog: ScrollText,
   users: UserCog,
