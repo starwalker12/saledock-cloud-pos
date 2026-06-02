@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
+import { canChangeSettingsNew } from "@/lib/staff-permissions";
 import { logAudit } from "@/lib/audit";
 import { sanitizePlainText, sanitizeNullableText, normalizePhone, validateImageUrl } from "@/lib/security/sanitize";
 import { z } from "zod";
@@ -106,7 +107,7 @@ export async function updateSettingsAction(
     if (!user || !profile?.organization_id) {
       return { error: "You must be signed in to update settings.", success: null };
     }
-    if (!canManageSettings(profile.role)) {
+    if (!(await canChangeSettingsNew(profile))) {
       return { error: "Only owners and admins can update shop settings.", success: null };
     }
 

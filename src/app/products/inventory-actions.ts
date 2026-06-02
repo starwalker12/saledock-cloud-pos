@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canWriteCatalog } from "@/lib/permissions";
+import { canManageStockNew } from "@/lib/staff-permissions";
 import { stockLotSchema, stockAdjustmentSchema } from "@/lib/validation/inventory";
 import { listStockLots, listStockMovements, getProductStockSummary } from "@/lib/data/inventory";
 import { logAudit } from "@/lib/audit";
@@ -19,7 +20,7 @@ async function requireWriter() {
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
   // Owner, Manager, or Admin role check
-  if (!canWriteCatalog(ctx.profile.role)) {
+  if (!(await canManageStockNew(ctx.profile))) {
     return { ctx, denied: true as const };
   }
   return { ctx, denied: false as const };
