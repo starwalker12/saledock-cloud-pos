@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canProcessReturns } from "@/lib/permissions";
 import { canReturnNew } from "@/lib/staff-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createReturnSchema, type RefundMethod } from "@/lib/validation/returns";

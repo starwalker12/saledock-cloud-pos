@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canManageSettings } from "@/lib/permissions";
 import { canChangeSettingsNew } from "@/lib/staff-permissions";
 import { logAudit } from "@/lib/audit";
 import { sanitizePlainText, sanitizeNullableText, normalizePhone, validateImageUrl } from "@/lib/security/sanitize";

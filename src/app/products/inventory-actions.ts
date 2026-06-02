@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canWriteCatalog } from "@/lib/permissions";
 import { canManageStockNew } from "@/lib/staff-permissions";
 import { stockLotSchema, stockAdjustmentSchema } from "@/lib/validation/inventory";
 import { listStockLots, listStockMovements, getProductStockSummary } from "@/lib/data/inventory";

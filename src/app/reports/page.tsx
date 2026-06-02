@@ -17,7 +17,6 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentContext } from "@/lib/auth/session";
-import { canViewReports } from "@/lib/permissions";
 import { canViewReportsNew } from "@/lib/staff-permissions";
 import { getReportsData } from "@/lib/data/reports";
 import { getBrandingSettings } from "@/lib/data/settings";
