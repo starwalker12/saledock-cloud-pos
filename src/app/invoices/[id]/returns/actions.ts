@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canProcessReturns } from "@/lib/permissions";
+import { canReturnNew } from "@/lib/staff-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createReturnSchema, type RefundMethod } from "@/lib/validation/returns";
 import { logAudit } from "@/lib/audit";
@@ -25,7 +26,7 @@ export async function createInvoiceReturnAction(
   const ctx = await getCurrentContext();
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
-  if (!canProcessReturns(ctx.profile.role)) {
+  if (!(await canReturnNew(ctx.profile))) {
     return err("You do not have permission to process returns.");
   }
 
