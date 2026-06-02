@@ -38,6 +38,10 @@ export async function updateStaffPermissionsAction(
     return { error: "Missing profile ID.", success: null };
   }
 
+  if (profileId === profile.id) {
+    return { error: "You cannot edit your own permissions.", success: null };
+  }
+
   const changes: Record<string, boolean | null> = {};
   for (const perm of PERMISSIONS) {
     const raw = formData.get(perm);
