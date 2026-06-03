@@ -16,7 +16,7 @@ import { getLinkedProviders, type LinkedProviders } from "@/lib/auth/identities"
 import { GoogleIcon } from "@/components/icons/provider-icons";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const initialState: AuthState = { error: null };
+const linkGoogleInitialState: AuthState = { error: null };
 const passwordInitialState: AuthState = { error: null };
 const emailInitialState: AuthState = { error: null };
 
@@ -43,7 +43,8 @@ export function ConnectedAccounts({
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [serverProviders, setServerProviders] = useState<LinkedProviders>(initialLinkedProviders);
-  const [unlinkState, unlinkAction] = useActionState(unlinkIdentityAction, initialState);
+  const [linkGoogleState, linkGoogleAction] = useActionState(linkGoogleAccountAction, linkGoogleInitialState);
+  const [unlinkState, unlinkAction] = useActionState(unlinkIdentityAction, linkGoogleInitialState);
   const [passwordState, passwordAction] = useActionState(setPasswordAction, passwordInitialState);
   const [emailState, emailAction] = useActionState(changeEmailAction, emailInitialState);
   const [conflictDismissed, setConflictDismissed] = useState(false);
@@ -64,7 +65,7 @@ export function ConnectedAccounts({
       setLoading(false);
     }
     load();
-  }, [unlinkState, passwordState, emailState]);
+  }, [linkGoogleState, unlinkState, passwordState, emailState]);
 
   const { hasPassword, hasGoogle, identityCount } = serverProviders;
 
@@ -158,6 +159,18 @@ export function ConnectedAccounts({
           </Banner>
         )}
 
+        {linkGoogleState.success && (
+          <Banner type="success" onDismiss={dismissAll}>
+            {linkGoogleState.success}
+          </Banner>
+        )}
+
+        {linkGoogleState.error && (
+          <Banner type="error">
+            {linkGoogleState.error}
+          </Banner>
+        )}
+
         {emailState.success && (
           <Banner type="success" onDismiss={dismissAll}>
             {emailState.success}
@@ -202,7 +215,7 @@ export function ConnectedAccounts({
               required={identityCount <= 1 && hasGoogle}
             >
               {!hasGoogle && (
-                <form action={async (fd: FormData) => { await linkGoogleAccountAction(initialState, fd); }}>
+                <form action={linkGoogleAction}>
                   <button
                     type="submit"
                     className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
