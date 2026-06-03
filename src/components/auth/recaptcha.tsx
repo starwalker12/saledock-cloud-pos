@@ -113,20 +113,7 @@ export function Recaptcha({ onChange, onStatus, resetRef }: RecaptchaProps) {
     document.head.appendChild(script);
   }, [siteKey, reportStatus, onChange, resolvedTheme]);
 
-  if (!siteKey) {
-    if (process.env.NODE_ENV === "development") {
-      return (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-700">
-          reCAPTCHA not configured — set NEXT_PUBLIC_RECAPTCHA_SITE_KEY
-        </div>
-      );
-    }
-    return (
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-        Security check unavailable
-      </div>
-    );
-  }
+  if (!siteKey) return null;
 
   return (
     <div className="relative flex min-h-[78px] items-center justify-center">
