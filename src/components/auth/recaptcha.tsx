@@ -116,20 +116,14 @@ export function Recaptcha({ onChange, onStatus, resetRef }: RecaptchaProps) {
   if (!siteKey) return null;
 
   return (
-    <div className="relative flex min-h-[78px] items-center justify-center">
+    <div className="relative flex items-center justify-center">
       <div ref={containerRef} />
       {status === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="h-16 w-[200px] animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
         </div>
       )}
-      {status === "failed" && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-700">
-            Security check could not load. Refresh the page or try again.
-          </div>
-        </div>
-      )}
+      {status === "failed" && null}
     </div>
   );
 }
