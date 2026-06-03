@@ -22,6 +22,7 @@ async function requireManager() {
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
   if (!canManageSupplierPurchases(ctx.profile.role)) {
+    logAudit({ module: "purchases", action: "permission.denied", details: "Attempted supplier purchase action without permission" });
     return { ctx, denied: true as const };
   }
   return { ctx, denied: false as const };
@@ -155,6 +156,7 @@ export async function recordSupplierWriteOffAction(
   }
 
   if (!canManageSupplierWriteOffs(ctx.profile.role)) {
+    logAudit({ module: "purchases", action: "permission.denied", details: "Attempted supplier write-off without owner/admin role" });
     return { ok: false, error: "Only owner or admin can write off supplier dues." };
   }
 

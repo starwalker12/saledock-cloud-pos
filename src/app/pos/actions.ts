@@ -32,6 +32,7 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
   if (!(await canSellNew(ctx.profile))) {
+    logAudit({ module: "pos", action: "permission.denied", details: "Attempted checkout without sell permission" });
     return { ok: false, error: "You do not have permission to sell." };
   }
 
@@ -45,6 +46,7 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
   // ── can_discount check ──
   const hasDiscount = parsed.data.discount_total > 0 || parsed.data.cart.some((item) => item.discount > 0);
   if (hasDiscount && !(await canDiscountNew(profile))) {
+    logAudit({ module: "pos", action: "permission.denied", details: "Attempted discount without discount permission" });
     return { ok: false, error: "You do not have permission to apply discounts." };
   }
 

@@ -71,6 +71,7 @@ export async function loadDemoDataAction(
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: "Demo data creation denied" });
       return { success: false, error: "Only Owners and Admins can create demo data." };
     }
 
@@ -645,6 +646,7 @@ export async function removeDemoDataAction(
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: "Demo data removal denied" });
       return { success: false, error: "Only Owners and Admins can remove demo data." };
     }
 

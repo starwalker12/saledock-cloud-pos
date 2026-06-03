@@ -84,6 +84,7 @@ export async function startImportJobAction(
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: `Backup import start denied for role ${profile.role}` });
       return { success: false, error: "Only Owners and Admins can export data." };
     }
 
@@ -409,6 +410,7 @@ export async function importTableChunkAction(
 
     // Only owner and admin can import data chunks (same gate as startImportJobAction)
     if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: `Import chunk denied for role ${profile.role}` });
       return { success: false, inserted: 0, skipped: 0, skippedOrphan: 0, failed: 0, warnings, error: "Only owners and admins can import data." };
     }
 
@@ -1445,6 +1447,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: `Export data denied for role ${profile.role}` });
       return { success: false, error: "Only Owners and Admins can export data." };
     }
 
@@ -1565,6 +1568,7 @@ export async function previewFactoryResetAction(): Promise<{ success: boolean; c
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: `Factory reset preview denied for role ${profile.role}` });
       return { success: false, error: "Only Owners and Admins can access factory reset preview." };
     }
 
@@ -1664,6 +1668,7 @@ export async function restoreFactoryDefaultsAction(
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: `Factory reset execution denied for role ${profile.role}` });
       return { success: false, error: "Only Owners and Admins can reset shop data." };
     }
 

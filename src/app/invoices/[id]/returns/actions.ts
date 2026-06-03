@@ -26,6 +26,7 @@ export async function createInvoiceReturnAction(
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
   if (!(await canReturnNew(ctx.profile))) {
+    logAudit({ module: "returns", action: "permission.denied", details: "Attempted return without return permission" });
     return err("You do not have permission to process returns.");
   }
 

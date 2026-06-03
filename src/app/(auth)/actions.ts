@@ -75,7 +75,7 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    // Keep error message neutral — do not reveal whether email exists
+    console.error("[security] Failed sign-in attempt for", parsed.data.email);
     return { error: "Invalid email or password." };
   }
 
@@ -133,7 +133,8 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
         info: "An account may already exist for this email. Sign in to continue setup, or use password reset if you forgot your password.",
       };
     }
-    return { error: error.message };
+    console.error("[security] signUp failed:", error.message);
+    return { error: "Something went wrong. Please try again." };
   }
 
   // If email confirmation is enabled, no session is created yet — tell the user.
@@ -168,7 +169,8 @@ async function oAuthAction(provider: "google"): Promise<AuthState> {
     if (msg.includes("unsupported provider") || msg.includes("provider is not enabled") || msg.includes("not enabled")) {
       return { error: "Google login is not configured yet. Enable the Google provider in Supabase Dashboard." };
     }
-    return { error: error.message };
+    console.error("[security] oAuth failed:", error.message);
+    return { error: "Something went wrong. Please try again later." };
   }
   if (!data?.url) {
     return { error: "Google sign-in is not configured. Enable the Google provider in Supabase Dashboard." };
@@ -201,7 +203,10 @@ export async function resetPasswordAction(_prev: AuthState, formData: FormData):
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${origin}/auth/callback?next=%2Fonboarding`,
   });
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[security] resetPassword failed:", error.message);
+    return { error: "Something went wrong. Please try again." };
+  }
   return {
     error: null,
     info: "If an account exists, a password reset email has been sent.",
@@ -300,7 +305,8 @@ export async function unlinkIdentityAction(
 
   const { error } = await supabase.auth.unlinkIdentity(identity);
   if (error) {
-    return { error: error.message };
+    console.error("[security] unlinkIdentity failed:", error.message);
+    return { error: "Could not unlink account. Please try again." };
   }
 
   return { error: null, success: `${provider.charAt(0).toUpperCase() + provider.slice(1)} account unlinked.` };
@@ -346,7 +352,8 @@ export async function setPasswordAction(
     if (error.message.toLowerCase().includes("reauthentication") || error.message.toLowerCase().includes("recent")) {
       return { error: "For security, please sign out and sign back in, then try again." };
     }
-    return { error: error.message };
+    console.error("[security] setPassword failed:", error.message);
+    return { error: "Could not update password. Please try again." };
   }
 
   logAudit({
@@ -404,7 +411,8 @@ export async function changeEmailAction(
     if (error.message.toLowerCase().includes("already") || error.message.toLowerCase().includes("exists") || error.message.toLowerCase().includes("in use")) {
       return { error: "This email address is already in use." };
     }
-    return { error: error.message };
+    console.error("[security] changeEmail failed:", error.message);
+    return { error: "Could not update email. Please try again." };
   }
 
   logAudit({

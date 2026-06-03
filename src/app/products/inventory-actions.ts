@@ -20,6 +20,7 @@ async function requireWriter() {
   if (!ctx.profile?.organization_id) redirect("/setup");
   // Owner, Manager, or Admin role check
   if (!(await canManageStockNew(ctx.profile))) {
+    logAudit({ module: "inventory", action: "permission.denied", details: "Attempted inventory action without permission" });
     return { ctx, denied: true as const };
   }
   return { ctx, denied: false as const };
@@ -134,6 +135,7 @@ export async function getProductInventoryDataAction(productId: string) {
     throw new Error("Unauthorized");
   }
   if (!(await canManageStockNew(ctx.profile))) {
+    logAudit({ module: "inventory", action: "permission.denied", details: "Attempted to view inventory data without permission" });
     throw new Error("You do not have permission to view inventory data.");
   }
   const orgId = ctx.profile.organization_id;

@@ -18,6 +18,7 @@ async function requireOwnerOrAdmin() {
     return { error: "You must be signed in.", context: null as null };
   }
   if (!canManageUsers(context.profile.role)) {
+    logAudit({ module: "settings", action: "permission.denied", details: "Attempted permission edit without owner/admin role" });
     return { error: "Only owners and admins can edit permissions.", context: null as null };
   }
   return { error: null, context };

@@ -24,6 +24,7 @@ async function requireAuthorizedUser() {
   if (!ctx.profile?.organization_id) redirect("/setup");
   // General management requires admin/owner/manager roles, which match catalog write permissions.
   if (!canWriteCatalog(ctx.profile.role)) {
+    logAudit({ module: "customers", action: "permission.denied", details: "Attempted customer management action without catalog write permission" });
     return { ctx, denied: true as const };
   }
   return { ctx, denied: false as const };
@@ -123,6 +124,7 @@ export async function recordCreditPaymentAction(
   // Owner, admin, manager, and cashier can record credit payments. Only technician is blocked.
   // This uses the same positive-role-set pattern as other permission checks in permissions.ts.
   if (ctx.profile.role !== "owner" && ctx.profile.role !== "admin" && ctx.profile.role !== "manager" && ctx.profile.role !== "cashier") {
+    logAudit({ module: "customers", action: "permission.denied", details: "Attempted credit payment without permission" });
     return err("You do not have permission to log payments.");
   }
 
@@ -168,6 +170,7 @@ export async function recordWriteOffAction(
   if (!ctx.profile?.organization_id) redirect("/setup");
 
   if (ctx.profile.role !== "owner" && ctx.profile.role !== "admin") {
+    logAudit({ module: "customers", action: "permission.denied", details: "Attempted customer write-off without owner/admin role" });
     return err("Only owner or admin can write off customer credit.");
   }
 

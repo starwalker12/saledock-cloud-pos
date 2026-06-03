@@ -110,7 +110,8 @@ export async function completeOnboardingAction(
     if (rpcError.message.includes("already belong to a shop")) {
       return { error: "You already have a shop. Redirecting to dashboard..." };
     }
-    return { error: rpcError.message };
+    console.error("[security] Onboarding RPC failed:", rpcError.message);
+    return { error: "Something went wrong while setting up your shop. Please try again." };
   }
 
   redirect("/dashboard");
