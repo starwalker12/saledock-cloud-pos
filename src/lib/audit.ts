@@ -27,6 +27,6 @@ export async function logAudit(params: {
       metadata: params.metadata ?? {},
     });
   } catch (err) {
-    console.error("[audit] Failed to log audit event:", err);
+    console.error(`[audit] FAILED to record "${params.action}" (${params.module}):`, err);
   }
 }

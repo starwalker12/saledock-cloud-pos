@@ -133,6 +133,9 @@ export async function getProductInventoryDataAction(productId: string) {
   if (!ctx.user || !ctx.profile?.organization_id) {
     throw new Error("Unauthorized");
   }
+  if (!(await canManageStockNew(ctx.profile))) {
+    throw new Error("You do not have permission to view inventory data.");
+  }
   const orgId = ctx.profile.organization_id;
   const lots = await listStockLots(productId, orgId);
   const movements = await listStockMovements(productId, orgId);

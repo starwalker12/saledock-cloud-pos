@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { sanitizePlainText } from "@/lib/security/sanitize";
 import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
+import { logAudit } from "@/lib/audit";
 
 const passwordSchema = z.string()
   .min(8, "Password must be at least 8 characters.")
@@ -319,6 +320,10 @@ export async function setPasswordAction(
   if (!password || password.length < 8) {
     return { error: "Password must be at least 8 characters." };
   }
+  const passwordParsed = passwordSchema.safeParse(password);
+  if (!passwordParsed.success) {
+    return { error: passwordParsed.error.issues[0]?.message ?? "Password does not meet requirements." };
+  }
   if (password !== confirm) {
     return { error: "Passwords do not match." };
   }
@@ -343,6 +348,12 @@ export async function setPasswordAction(
     }
     return { error: error.message };
   }
+
+  logAudit({
+    module: "auth",
+    action: "auth.password_set",
+    details: `Password set/updated for user ${user.email}`,
+  });
 
   return {
     error: null,
@@ -396,9 +407,15 @@ export async function changeEmailAction(
     return { error: error.message };
   }
 
+  logAudit({
+    module: "auth",
+    action: "auth.email_change_requested",
+    details: `Email change requested from ${user.email} to ${newEmail}`,
+  });
+
   return {
     error: null,
-    success: "Check your new email to confirm the change. You may need to confirm from your current and new email addresses.",
+    success: "Email change requested. Check your new email for a confirmation link.",
   };
 }
 
