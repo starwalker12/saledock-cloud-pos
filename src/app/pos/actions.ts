@@ -50,6 +50,27 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
 
   const supabase = await createClient();
 
+  // ── unit_price guard: reject below-list-price sales without discount permission ──
+  if (!(await canDiscountNew(profile))) {
+    const priceIds = [...new Set(parsed.data.cart.map((i) => i.product_id))];
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, sale_price, type")
+      .eq("organization_id", profile.organization_id)
+      .in("id", priceIds);
+    const priceMap = new Map(
+      (products ?? []).map((p) => [p.id, { price: Number(p.sale_price ?? 0), type: p.type }]),
+    );
+    for (const item of parsed.data.cart) {
+      const p = priceMap.get(item.product_id);
+      if (!p) continue;
+      if (p.type === "service") continue;
+      if (item.unit_price < p.price - 0.001) {
+        return { ok: false, error: "You don't have permission to sell below the listed price." };
+      }
+    }
+  }
+
   // ── can_sell_at_loss: pass override flag as an explicit RPC parameter ──
   const allowLossOverride = await canSellAtLossNew(profile);
   const { data, error } = await supabase.rpc("pos_checkout", {
