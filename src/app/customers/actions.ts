@@ -120,8 +120,9 @@ export async function recordCreditPaymentAction(
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
 
-  // Viewers cannot modify balances or log payments.
-  if (ctx.profile.role === "technician") {
+  // Owner, admin, manager, and cashier can record credit payments. Only technician is blocked.
+  // This uses the same positive-role-set pattern as other permission checks in permissions.ts.
+  if (ctx.profile.role !== "owner" && ctx.profile.role !== "admin" && ctx.profile.role !== "manager" && ctx.profile.role !== "cashier") {
     return err("You do not have permission to log payments.");
   }
 

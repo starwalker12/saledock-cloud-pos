@@ -319,7 +319,7 @@ function EmailPasswordRow({
                 <input
                   type="password"
                   name="password"
-                  placeholder="Min 8 characters"
+                  placeholder="Min 8 characters, upper + lower + digit + special"
                   required
                   minLength={8}
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"

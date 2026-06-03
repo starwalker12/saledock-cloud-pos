@@ -15,7 +15,7 @@ const onboardingSchema = z.object({
   profilePictureUrl: z.string().optional().default(""),
   organizationName: z.string().min(2, "Shop name is required."),
   ownerName: z.string().optional().default(""),
-  orgPhone: z.string().optional().default(""),
+  orgPhone: z.string().min(1, "Please enter your shop phone number."),
   orgWhatsapp: z.string().optional().default(""),
   orgEmail: z.string().email().optional().or(z.literal("")).default(""),
   orgAddress: z.string().optional().default(""),

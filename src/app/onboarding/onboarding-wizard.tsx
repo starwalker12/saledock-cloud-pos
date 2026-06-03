@@ -99,6 +99,7 @@ export function OnboardingWizard({
   userId: string;
 }) {
   const [step, setStep] = useState<StepName>("profile");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [state, formAction, pending] = useActionState(completeOnboardingAction, initialState);
   const defaultCurrency = getDefaultCurrency();
   const defaultTimezone = getDefaultTimezone();
@@ -138,11 +139,41 @@ export function OnboardingWizard({
   const isLastStep = step === "confirm";
   const progress = ((stepIndex + 1) / STEP_ORDER.length) * 100;
 
+  function validateStep(stepName: StepName): Record<string, string> {
+    const errs: Record<string, string> = {};
+    switch (stepName) {
+      case "profile":
+        if (!formData.fullName || formData.fullName.trim().length < 2) {
+          errs.fullName = "Please enter your full name.";
+        }
+        break;
+      case "shop":
+        if (!formData.organizationName || formData.organizationName.trim().length < 2) {
+          errs.organizationName = "Please enter your shop name.";
+        }
+        if (!formData.orgPhone || formData.orgPhone.trim().length < 1) {
+          errs.orgPhone = "Please enter your shop phone number.";
+        }
+        break;
+    }
+    return errs;
+  }
+
   function updateField(key: string, value: string) {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    if (errors[key]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   }
 
   function nextStep() {
+    const stepErrors = validateStep(step);
+    setErrors(stepErrors);
+    if (Object.keys(stepErrors).length > 0) return;
     const next = STEP_ORDER[stepIndex + 1];
     if (next) setStep(next);
   }
@@ -196,9 +227,9 @@ export function OnboardingWizard({
   const currentStep = (function () {
     switch (step) {
       case "profile":
-        return <ProfileStep data={formData} onChange={updateField} userId={userId} />;
+        return <ProfileStep data={formData} onChange={updateField} errors={errors} userId={userId} />;
       case "shop":
-        return <ShopStep data={formData} onChange={updateField} />;
+        return <ShopStep data={formData} onChange={updateField} errors={errors} />;
       case "branch":
         return <BranchStep data={formData} onChange={updateField} />;
       case "branding":
@@ -312,10 +343,12 @@ export function OnboardingWizard({
 function ProfileStep({
   data,
   onChange,
+  errors,
   userId,
 }: {
   data: Record<string, string>;
   onChange: (key: string, value: string) => void;
+  errors: Record<string, string>;
   userId: string;
 }) {
   return (
@@ -324,15 +357,19 @@ function ProfileStep({
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Owner Profile</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your personal details as the shop owner.</p>
       </div>
+      <p className="text-xs text-slate-400"><span className="text-red-500">*</span> Required</p>
       <label className="block">
-        <span className={labelTextClass}>Full name *</span>
+        <span className={labelTextClass}>Full name <span className="text-red-500">*</span></span>
         <input
           required
           value={data.fullName}
           onChange={(e) => onChange("fullName", e.target.value)}
-          className={inputClass}
+          className={`${inputClass} ${errors.fullName ? "border-red-400 focus:border-red-600" : ""}`}
           placeholder="Your full name"
         />
+        {errors.fullName && (
+          <p className="mt-1 text-xs font-medium text-red-600">{errors.fullName}</p>
+        )}
       </label>
       <label className="block">
         <span className={labelTextClass}>Username (optional)</span>
@@ -395,9 +432,11 @@ function ProfileStep({
 function ShopStep({
   data,
   onChange,
+  errors,
 }: {
   data: Record<string, string>;
   onChange: (key: string, value: string) => void;
+  errors: Record<string, string>;
 }) {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -429,15 +468,19 @@ function ShopStep({
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Shop Profile</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your business information used on invoices, receipts, and public profile.</p>
       </div>
+      <p className="text-xs text-slate-400"><span className="text-red-500">*</span> Required</p>
       <label className="block">
-        <span className={labelTextClass}>Shop name *</span>
+        <span className={labelTextClass}>Shop name <span className="text-red-500">*</span></span>
         <input
           required
           value={data.organizationName}
           onChange={(e) => onChange("organizationName", e.target.value)}
-          className={inputClass}
+          className={`${inputClass} ${errors.organizationName ? "border-red-400 focus:border-red-600" : ""}`}
           placeholder="Star Mobile Store"
         />
+        {errors.organizationName && (
+          <p className="mt-1 text-xs font-medium text-red-600">{errors.organizationName}</p>
+        )}
         <p className="mt-1 text-xs text-slate-400">Multiple shops can have the same name.</p>
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -451,14 +494,17 @@ function ShopStep({
           />
         </label>
         <label className="block">
-          <span className={labelTextClass}>Phone</span>
+          <span className={labelTextClass}>Phone <span className="text-red-500">*</span></span>
           <input
             type="tel"
             value={data.orgPhone}
             onChange={(e) => onChange("orgPhone", e.target.value)}
-            className={inputClass}
+            className={`${inputClass} ${errors.orgPhone ? "border-red-400 focus:border-red-600" : ""}`}
             placeholder="+92 300 1234567"
           />
+          {errors.orgPhone && (
+            <p className="mt-1 text-xs font-medium text-red-600">{errors.orgPhone}</p>
+          )}
         </label>
         <label className="block">
           <span className={labelTextClass}>WhatsApp</span>
@@ -672,7 +718,7 @@ function BranchStep({
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className={labelTextClass}>Branch phone</span>
+              <span className={labelTextClass}>Branch phone (optional)</span>
               <input
                 type="tel"
                 value={data.branchPhone}

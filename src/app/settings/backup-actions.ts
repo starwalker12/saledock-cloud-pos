@@ -407,6 +407,11 @@ export async function importTableChunkAction(
       return { success: false, inserted: 0, skipped: 0, skippedOrphan: 0, failed: 0, warnings, error: "Not authenticated." };
     }
 
+    // Only owner and admin can import data chunks (same gate as startImportJobAction)
+    if (profile.role !== "owner" && profile.role !== "admin") {
+      return { success: false, inserted: 0, skipped: 0, skippedOrphan: 0, failed: 0, warnings, error: "Only owners and admins can import data." };
+    }
+
     const orgId = profile.organization_id;
     const branchId = profile.branch_id;
     const supabase = await createClient();
