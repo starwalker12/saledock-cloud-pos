@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 interface GrecaptchaWidget {
   render: (container: HTMLElement, params: Record<string, unknown>) => number;
   reset: (widgetId: number) => void;
+  getResponse: (widgetId: number) => string;
 }
 
 interface GrecaptchaWindow {
@@ -18,6 +19,7 @@ interface RecaptchaProps {
   onChange: (token: string | null) => void;
   onStatus?: (status: RecaptchaStatus) => void;
   resetRef?: { current: (() => void) | null };
+  getTokenRef?: { current: (() => string | null) | null };
 }
 
 function getGrecaptcha(): GrecaptchaWidget | null {
@@ -26,7 +28,7 @@ function getGrecaptcha(): GrecaptchaWidget | null {
   return g && typeof g.render === "function" ? g : null;
 }
 
-export function Recaptcha({ onChange, onStatus, resetRef }: RecaptchaProps) {
+export function Recaptcha({ onChange, onStatus, resetRef, getTokenRef }: RecaptchaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<number | null>(null);
   const renderStartedRef = useRef(false);
@@ -53,6 +55,15 @@ export function Recaptcha({ onChange, onStatus, resetRef }: RecaptchaProps) {
     }
   }, [onChange]);
 
+  const getCurrentToken = useCallback((): string | null => {
+    const g = getGrecaptcha();
+    if (widgetIdRef.current !== null && g) {
+      const response = g.getResponse(widgetIdRef.current);
+      return response || null;
+    }
+    return null;
+  }, []);
+
   useEffect(() => {
     if (resetRef) {
       resetRef.current = reset;
@@ -63,6 +74,17 @@ export function Recaptcha({ onChange, onStatus, resetRef }: RecaptchaProps) {
       }
     };
   }, [reset, resetRef]);
+
+  useEffect(() => {
+    if (getTokenRef) {
+      getTokenRef.current = getCurrentToken;
+    }
+    return () => {
+      if (getTokenRef) {
+        getTokenRef.current = null;
+      }
+    };
+  }, [getCurrentToken, getTokenRef]);
 
   useEffect(() => {
     if (!siteKey || !containerRef.current || renderStartedRef.current) return;

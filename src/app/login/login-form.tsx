@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useRef, useCallback } from "react";
+import { useActionState, useState, useRef, useCallback, useEffect } from "react";
 import {
   signInAction,
   signUpAction,
@@ -10,6 +10,7 @@ import {
 } from "@/app/(auth)/actions";
 import { Recaptcha, type RecaptchaStatus } from "@/components/auth/recaptcha";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { Eye, EyeOff } from "lucide-react";
 
 const initialState: AuthState = { error: null };
 
@@ -39,9 +40,22 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [recaptchaStatus, setRecaptchaStatus] = useState<RecaptchaStatus>("unconfigured");
   const recaptchaResetRef = useRef<(() => void) | null>(null);
+  const recaptchaGetTokenRef = useRef<(() => string | null) | null>(null);
+  const captchaHiddenRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
+  const [emailVal, setEmailVal] = useState("");
+  const [fullNameVal, setFullNameVal] = useState("");
   const [passwordVal, setPasswordVal] = useState("");
   const [confirmPasswordVal, setConfirmPasswordVal] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // After every server response (success or error), reset the captcha widget
+  // so the stale/consumed token is discarded and a fresh one is required.
+  useEffect(() => {
+    recaptchaResetRef.current?.();
+  }, [state]);
 
   const passwordChecks = {
     minChars: passwordVal.length >= 8,
@@ -57,7 +71,21 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
   const switchMode = useCallback((newMode: "sign-in" | "sign-up" | "forgot") => {
     setMode(newMode);
     setRecaptchaToken(null);
+    setEmailVal("");
+    setFullNameVal("");
+    setPasswordVal("");
+    setConfirmPasswordVal("");
     recaptchaResetRef.current?.();
+  }, []);
+
+  // On form submit, read the CURRENT captcha token from the widget
+  // (not stale stored state) and inject it into the hidden input.
+  const handleFormSubmit = useCallback(() => {
+    const token = recaptchaGetTokenRef.current?.();
+    if (captchaHiddenRef.current) {
+      captchaHiddenRef.current.value = token ?? "";
+    }
+    // Let the native form submission proceed with the updated hidden input value.
   }, []);
 
   // Suppress "Please complete the security check" when no visible widget was shown
@@ -79,7 +107,7 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
         <button type="button" onClick={() => switchMode("sign-in")} className="text-sm font-semibold text-blue-700 hover:underline">
           &larr; {t("backToSignIn", "Back to sign in")}
         </button>
-        <form action={formAction} className="space-y-4">
+        <form ref={formRef} action={formAction} onSubmit={handleFormSubmit} className="space-y-4">
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">{t("email", "Email")}</span>
             <input
@@ -88,6 +116,8 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
               type="email"
               autoComplete="email"
               placeholder={t("emailPlaceholder", "you@example.com")}
+              value={emailVal}
+              onChange={(e) => setEmailVal(e.target.value)}
               className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
             />
           </label>
@@ -101,8 +131,8 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
               {displayError}
             </p>
           )}
-          <Recaptcha onChange={setRecaptchaToken} onStatus={setRecaptchaStatus} resetRef={recaptchaResetRef} />
-          <input type="hidden" name="recaptchaToken" value={recaptchaToken ?? ""} />
+          <Recaptcha onChange={setRecaptchaToken} onStatus={setRecaptchaStatus} resetRef={recaptchaResetRef} getTokenRef={recaptchaGetTokenRef} />
+          <input ref={captchaHiddenRef} type="hidden" name="recaptchaToken" value={recaptchaToken ?? ""} />
           <button
             type="submit"
             disabled={pending}
@@ -140,7 +170,7 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
         )}
       </div>
 
-      <form action={formAction} className="space-y-4">
+      <form ref={formRef} action={formAction} onSubmit={handleFormSubmit} className="space-y-4">
         {mode === "sign-up" && (
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">{t("fullName", "Full name")}</span>
@@ -149,6 +179,8 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
               name="fullName"
               type="text"
               placeholder={t("ownerName", "Owner full name")}
+              value={fullNameVal}
+              onChange={(e) => setFullNameVal(e.target.value)}
               className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
             />
           </label>
@@ -161,22 +193,35 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
             type="email"
             autoComplete="email"
             placeholder={t("emailPlaceholder", "you@example.com")}
+            value={emailVal}
+            onChange={(e) => setEmailVal(e.target.value)}
             className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
           />
         </label>
         <label className="block">
           <span className="text-sm font-semibold text-slate-700">{t("password", "Password")}</span>
-          <input
-            required
-            name="password"
-            type="password"
-            minLength={8}
-            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-            placeholder={t("passwordPlaceholder", "At least 8 characters")}
-            value={passwordVal}
-            onChange={(e) => setPasswordVal(e.target.value)}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
-          />
+          <div className="relative mt-2">
+            <input
+              required
+              name="password"
+              type={showPassword ? "text" : "password"}
+              minLength={8}
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+              placeholder={t("passwordPlaceholder", "At least 8 characters")}
+              value={passwordVal}
+              onChange={(e) => setPasswordVal(e.target.value)}
+              className="h-12 w-full rounded-xl border border-slate-200 px-4 pr-12 outline-none transition focus:border-blue-600"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </button>
+          </div>
           {mode === "sign-up" && passwordVal.length > 0 && (
             <div className="mt-2 space-y-1 text-xs">
               <p className="font-medium text-slate-500">
@@ -208,17 +253,28 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
         {mode === "sign-up" && (
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">{t("confirmPassword", "Confirm password")}</span>
-            <input
-              required
-              name="confirmPassword"
-              type="password"
-              minLength={8}
-              autoComplete="new-password"
-              placeholder={t("confirmPassword", "Confirm password")}
-              value={confirmPasswordVal}
-              onChange={(e) => setConfirmPasswordVal(e.target.value)}
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600"
-            />
+            <div className="relative mt-2">
+              <input
+                required
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                minLength={8}
+                autoComplete="new-password"
+                placeholder={t("confirmPassword", "Confirm password")}
+                value={confirmPasswordVal}
+                onChange={(e) => setConfirmPasswordVal(e.target.value)}
+                className="h-12 w-full rounded-xl border border-slate-200 px-4 pr-12 outline-none transition focus:border-blue-600"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+              </button>
+            </div>
             {confirmPasswordVal.length > 0 && (
               <p
                 className={`mt-1.5 text-xs font-medium ${
@@ -267,8 +323,8 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
           </p>
         )}
 
-        <Recaptcha onChange={setRecaptchaToken} onStatus={setRecaptchaStatus} resetRef={recaptchaResetRef} />
-        <input type="hidden" name="recaptchaToken" value={recaptchaToken ?? ""} />
+        <Recaptcha onChange={setRecaptchaToken} onStatus={setRecaptchaStatus} resetRef={recaptchaResetRef} getTokenRef={recaptchaGetTokenRef} />
+        <input ref={captchaHiddenRef} type="hidden" name="recaptchaToken" value={recaptchaToken ?? ""} />
 
         <button
           type="submit"

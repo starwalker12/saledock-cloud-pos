@@ -41,6 +41,13 @@ export async function verifyRecaptchaToken(
       return { success: true };
     }
 
+    const errorCodes: string[] = data["error-codes"] ?? [];
+    console.error("[recaptcha] verify failed", errorCodes);
+
+    if (errorCodes.includes("timeout-or-duplicate")) {
+      return { success: false, error: "Your security check expired — please tick the box again." };
+    }
+
     return { success: false, error: "Security check failed. Please try again." };
   } catch {
     return { success: false, error: "Security check failed. Please try again." };

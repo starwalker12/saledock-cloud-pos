@@ -64,11 +64,11 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   }
 
   const parsed = credentialsSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
+    email: formData.get("email") ?? "",
+    password: formData.get("password") ?? "",
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Please enter your email and password." };
   }
 
   const supabase = await createClient();
@@ -103,13 +103,13 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   }
 
   const parsed = signUpSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-    fullName: formData.get("fullName"),
-    confirmPassword: formData.get("confirmPassword"),
+    email: formData.get("email") ?? "",
+    password: formData.get("password") ?? "",
+    fullName: formData.get("fullName") ?? "",
+    confirmPassword: formData.get("confirmPassword") ?? "",
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Please enter your name, email, and password." };
   }
 
   const origin = await publicOrigin();
@@ -191,9 +191,9 @@ export async function resetPasswordAction(_prev: AuthState, formData: FormData):
     return { error: recaptchaResult.error ?? "Security check failed." };
   }
 
-  const parsed = resetSchema.safeParse({ email: formData.get("email") });
+  const parsed = resetSchema.safeParse({ email: formData.get("email") ?? "" });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Please enter your email." };
   }
   const origin = await publicOrigin();
   const supabase = await createClient();
