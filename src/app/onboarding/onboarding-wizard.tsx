@@ -357,8 +357,9 @@ function ProfileStep({
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Owner Profile</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your personal details as the shop owner.</p>
       </div>
+      <p className="text-xs text-slate-400"><span className="text-red-500">*</span> Required</p>
       <label className="block">
-        <span className={labelTextClass}>Full name *</span>
+        <span className={labelTextClass}>Full name <span className="text-red-500">*</span></span>
         <input
           required
           value={data.fullName}
@@ -467,8 +468,9 @@ function ShopStep({
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Shop Profile</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your business information used on invoices, receipts, and public profile.</p>
       </div>
+      <p className="text-xs text-slate-400"><span className="text-red-500">*</span> Required</p>
       <label className="block">
-        <span className={labelTextClass}>Shop name *</span>
+        <span className={labelTextClass}>Shop name <span className="text-red-500">*</span></span>
         <input
           required
           value={data.organizationName}
@@ -492,7 +494,7 @@ function ShopStep({
           />
         </label>
         <label className="block">
-          <span className={labelTextClass}>Phone *</span>
+          <span className={labelTextClass}>Phone <span className="text-red-500">*</span></span>
           <input
             type="tel"
             value={data.orgPhone}
@@ -716,7 +718,7 @@ function BranchStep({
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className={labelTextClass}>Branch phone</span>
+              <span className={labelTextClass}>Branch phone (optional)</span>
               <input
                 type="tel"
                 value={data.branchPhone}
