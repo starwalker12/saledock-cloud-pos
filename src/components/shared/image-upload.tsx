@@ -76,7 +76,8 @@ export function ImageUpload({
     let result: UploadResult;
     try {
       result = await uploadImage(bucket, folderPath, file);
-    } catch {
+    } catch (e) {
+      console.error("[ImageUpload]", e);
       setUploading(false);
       setImgError(false);
       setUploadError("Upload could not complete. Please try again.");

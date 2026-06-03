@@ -50,7 +50,8 @@ export async function uploadImageAction(
     }
 
     return { publicUrl: urlData.publicUrl, error: null };
-  } catch {
+  } catch (err) {
+    console.error("[uploadImageAction]", err);
     return { publicUrl: null, error: "Upload could not complete. Please try again." };
   }
 }
@@ -68,7 +69,8 @@ export async function removeImageAction(
 
     const { error } = await supabase.storage.from(bucket).remove([path]);
     return error?.message ?? null;
-  } catch {
+  } catch (err) {
+    console.error("[removeImageAction]", err);
     return "Upload could not complete. Please try again.";
   }
 }
