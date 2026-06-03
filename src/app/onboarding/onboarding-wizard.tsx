@@ -151,6 +151,9 @@ export function OnboardingWizard({
         if (!formData.organizationName || formData.organizationName.trim().length < 2) {
           errs.organizationName = "Please enter your shop name.";
         }
+        if (!formData.orgPhone || formData.orgPhone.trim().length < 1) {
+          errs.orgPhone = "Please enter your shop phone number.";
+        }
         break;
     }
     return errs;
@@ -489,14 +492,17 @@ function ShopStep({
           />
         </label>
         <label className="block">
-          <span className={labelTextClass}>Phone</span>
+          <span className={labelTextClass}>Phone *</span>
           <input
             type="tel"
             value={data.orgPhone}
             onChange={(e) => onChange("orgPhone", e.target.value)}
-            className={inputClass}
+            className={`${inputClass} ${errors.orgPhone ? "border-red-400 focus:border-red-600" : ""}`}
             placeholder="+92 300 1234567"
           />
+          {errors.orgPhone && (
+            <p className="mt-1 text-xs font-medium text-red-600">{errors.orgPhone}</p>
+          )}
         </label>
         <label className="block">
           <span className={labelTextClass}>WhatsApp</span>
