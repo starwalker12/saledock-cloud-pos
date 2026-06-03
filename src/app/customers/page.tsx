@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Users, AlertCircle, ShieldAlert, BadgeCent } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
+import { ConfirmForm } from "@/components/ui/confirm-form";
 import { getCurrentContext } from "@/lib/auth/session";
 import { listCustomers, type CustomerRow } from "@/lib/data/customers";
 import { canWriteCatalog } from "@/lib/permissions";
@@ -283,7 +284,7 @@ function CustomerActions({ c, canWrite }: { c: CustomerRow; canWrite: boolean })
               </button>
             </form>
           ) : (
-            <form action={archiveCustomerAction}>
+            <ConfirmForm action={archiveCustomerAction} message="Archive this customer? Their sales history will be preserved.">
               <input type="hidden" name="id" value={c.id} />
               <button
                 type="submit"
@@ -291,7 +292,7 @@ function CustomerActions({ c, canWrite }: { c: CustomerRow; canWrite: boolean })
               >
                 Archive
               </button>
-            </form>
+            </ConfirmForm>
           )}
         </>
       )}

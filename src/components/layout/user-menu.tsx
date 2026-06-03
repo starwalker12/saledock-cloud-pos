@@ -113,7 +113,14 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
           </div>
 
           <div className="border-t border-slate-100 p-1.5 dark:border-slate-800">
-            <form action={signOutAction}>
+            <form
+              action={signOutAction}
+              onSubmit={(e) => {
+                if (!window.confirm("Sign out of SaleDock?")) {
+                  e.preventDefault();
+                }
+              }}
+            >
               <button
                 type="submit"
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"

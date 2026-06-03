@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertTriangle, Boxes, Tag, Truck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
+import { ConfirmForm } from "@/components/ui/confirm-form";
 import { getCurrentContext } from "@/lib/auth/session";
 import {
   catalogCounts,
@@ -473,12 +474,12 @@ function ProductActions({ p, canWrite }: { p: ProductRow; canWrite: boolean }) {
         Edit
       </Link>
       {p.is_active ? (
-        <form action={archiveProductAction}>
+        <ConfirmForm action={archiveProductAction} message="Archive this product? You can restore it later.">
           <input type="hidden" name="id" value={p.id} />
           <button type="submit" className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">
             Archive
           </button>
-        </form>
+        </ConfirmForm>
       ) : (
         <form action={unarchiveProductAction}>
           <input type="hidden" name="id" value={p.id} />
@@ -561,14 +562,14 @@ function CategoriesTab({
                         >
                           Edit
                         </Link>
-                        {c.is_active ? (
-                          <form action={archiveCategoryAction}>
-                            <input type="hidden" name="id" value={c.id} />
-                            <button type="submit" className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">
-                              Archive
-                            </button>
-                          </form>
-                        ) : (
+{c.is_active ? (
+  <ConfirmForm action={archiveCategoryAction} message="Archive this category? Products in this category won't be affected.">
+    <input type="hidden" name="id" value={c.id} />
+    <button type="submit" className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">
+      Archive
+    </button>
+  </ConfirmForm>
+) : (
                           <form action={unarchiveCategoryAction}>
                             <input type="hidden" name="id" value={c.id} />
                             <button type="submit" className="rounded-md border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
@@ -636,12 +637,12 @@ function CategoryActions({ category, canWrite }: { category: CategoryRow; canWri
         Edit
       </Link>
       {category.is_active ? (
-        <form action={archiveCategoryAction}>
+        <ConfirmForm action={archiveCategoryAction} message="Archive this category? Products in this category won't be affected.">
           <input type="hidden" name="id" value={category.id} />
           <button type="submit" className="min-h-9 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50">
             Archive
           </button>
-        </form>
+        </ConfirmForm>
       ) : (
         <form action={unarchiveCategoryAction}>
           <input type="hidden" name="id" value={category.id} />
@@ -728,14 +729,14 @@ function SuppliersTab({
                         >
                           Edit
                         </Link>
-                        {s.is_active ? (
-                          <form action={archiveSupplierAction}>
-                            <input type="hidden" name="id" value={s.id} />
-                            <button type="submit" className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">
-                              Archive
-                            </button>
-                          </form>
-                        ) : (
+{s.is_active ? (
+  <ConfirmForm action={archiveSupplierAction} message="Archive this supplier? Their purchase history will be preserved.">
+    <input type="hidden" name="id" value={s.id} />
+    <button type="submit" className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">
+      Archive
+    </button>
+  </ConfirmForm>
+) : (
                           <form action={unarchiveSupplierAction}>
                             <input type="hidden" name="id" value={s.id} />
                             <button type="submit" className="rounded-md border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
@@ -814,12 +815,12 @@ function SupplierActions({ supplier, canWrite }: { supplier: SupplierRow; canWri
         Edit
       </Link>
       {supplier.is_active ? (
-        <form action={archiveSupplierAction}>
+        <ConfirmForm action={archiveSupplierAction} message="Archive this supplier? Their purchase history will be preserved.">
           <input type="hidden" name="id" value={supplier.id} />
           <button type="submit" className="min-h-9 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50">
             Archive
           </button>
-        </form>
+        </ConfirmForm>
       ) : (
         <form action={unarchiveSupplierAction}>
           <input type="hidden" name="id" value={supplier.id} />

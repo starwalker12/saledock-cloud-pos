@@ -80,7 +80,8 @@ export default async function SupplierDuesPage() {
             <p className="mt-1 text-xs text-slate-500">All suppliers are currently settled.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto p-5 sm:p-6">
+          <>
+          <div className="hidden overflow-x-auto p-5 sm:p-6 md:block">
             <table className="w-full min-w-[600px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800">
                 <tr>
@@ -122,6 +123,37 @@ export default async function SupplierDuesPage() {
               </tbody>
             </table>
           </div>
+          <div className="space-y-3 p-5 sm:p-6 md:hidden">
+            {dueSuppliers.map((s) => (
+              <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 dark:text-white">{s.name}</p>
+                    {s.company && <p className="text-sm text-slate-500">{s.company}</p>}
+                  </div>
+                  <span className="shrink-0 text-right font-bold text-rose-700">
+                    {formatCurrency(s.outstanding_balance, currency)}
+                  </span>
+                </div>
+                <div className="mt-2 text-sm text-slate-500 dark:text-slate-300">{s.phone ?? "—"}</div>
+                <div className="mt-3 flex gap-2">
+                  <Link
+                    href={`/suppliers/${s.id}/statement`}
+                    className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    Statement
+                  </Link>
+                  <Link
+                    href={`/suppliers/${s.id}/ledger`}
+                    className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    View ledger
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </div>
     </AppShell>

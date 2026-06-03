@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertCircle, CalendarDays, Receipt, Tag, Wallet } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
+import { ConfirmForm } from "@/components/ui/confirm-form";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageExpenses } from "@/lib/permissions";
 import {
@@ -342,7 +343,7 @@ function ExpenseActions({ id, status }: { id: string; status: "active" | "archiv
         Edit
       </Link>
       {status === "active" ? (
-        <form action={voidExpenseAction}>
+        <ConfirmForm action={voidExpenseAction} message="Void this expense? It will be hidden from reports.">
           <input type="hidden" name="id" value={id} />
           <button
             type="submit"
@@ -350,7 +351,7 @@ function ExpenseActions({ id, status }: { id: string; status: "active" | "archiv
           >
             Void
           </button>
-        </form>
+        </ConfirmForm>
       ) : (
         <form action={restoreExpenseAction}>
           <input type="hidden" name="id" value={id} />

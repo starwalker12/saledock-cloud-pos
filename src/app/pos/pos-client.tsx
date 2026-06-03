@@ -501,10 +501,10 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                   <button
                     type="button"
                     onClick={() => removeLine(l.product.id)}
-                    className="rounded-md p-1 text-red-600 hover:bg-red-50"
+                    className="flex size-10 items-center justify-center rounded-md text-red-600 hover:bg-red-50"
                     title="Remove"
                   >
-                    <Trash2 className="size-4" />
+                    <Trash2 className="size-5" />
                   </button>
                 </div>
                 <div className="mt-2 grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
@@ -512,17 +512,17 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                     <button
                       type="button"
                       onClick={() => updateQty(l.product.id, -1)}
-                      className="flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-600"
+                      className="flex size-11 items-center justify-center rounded-md border border-slate-200 text-slate-600"
                     >
-                      <Minus className="size-3" />
+                      <Minus className="size-4" />
                     </button>
-                    <span className="w-8 text-center text-sm font-bold">{l.quantity}</span>
+                    <span className="w-10 text-center text-sm font-bold">{l.quantity}</span>
                     <button
                       type="button"
                       onClick={() => updateQty(l.product.id, 1)}
-                      className="flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-600"
+                      className="flex size-11 items-center justify-center rounded-md border border-slate-200 text-slate-600"
                     >
-                      <Plus className="size-3" />
+                      <Plus className="size-4" />
                     </button>
                     <span className="ml-auto text-right text-sm font-bold text-slate-900">
                       {formatCurrency(Math.max(l.unit_price * l.quantity - l.discount, 0), currency)}
@@ -625,19 +625,19 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                 placeholder="Name"
                 value={newCustomerName}
                 onChange={(e) => setNewCustomerName(e.target.value)}
-                className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-600"
+                className="h-10 min-w-0 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-600"
               />
               <input
                 placeholder="Phone"
                 value={newCustomerPhone}
                 onChange={(e) => setNewCustomerPhone(e.target.value)}
-                className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-600"
+                className="h-10 min-w-0 rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-600"
               />
               <button
                 type="button"
                 onClick={createCustomer}
                 disabled={pending || !newCustomerName.trim()}
-                className="h-9 rounded-md bg-blue-700 text-sm font-bold text-white disabled:opacity-60 sm:col-span-2"
+                className="h-10 rounded-md bg-blue-700 text-sm font-bold text-white disabled:opacity-60 sm:col-span-2"
               >
                 {pending ? "Saving…" : "Save customer"}
               </button>

@@ -218,7 +218,8 @@ export default async function SupplierPurchasesPage({
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <tr>
@@ -263,6 +264,48 @@ export default async function SupplierPurchasesPage({
                 </tbody>
               </table>
             </div>
+            <div className="space-y-3 md:hidden">
+              {purchases.map((p) => (
+                <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900">{p.purchase_no}</p>
+                      <p className="text-sm text-slate-500">{fmtDate(p.purchase_date)}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CLASS[p.status]}`}>
+                      {STATUS_LABEL[p.status]}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid gap-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500">Supplier</dt>
+                      <dd className="font-semibold text-slate-700">{p.supplier_name ?? "—"}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500">Total</dt>
+                      <dd className="font-bold text-slate-900">{formatCurrency(p.grand_total, currency)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500">Paid</dt>
+                      <dd className="font-bold text-emerald-700">{formatCurrency(p.amount_paid, currency)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500">Balance</dt>
+                      <dd className="font-bold text-rose-700">{formatCurrency(p.balance_due, currency)}</dd>
+                    </div>
+                  </dl>
+                  <div className="mt-3 flex justify-end">
+                    <Link
+                      href={`/suppliers/purchases/${p.id}`}
+                      className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Open
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </div>
       </div>
@@ -273,7 +316,7 @@ export default async function SupplierPurchasesPage({
             <h3 className="text-base font-black text-slate-950">Supplier dues</h3>
             <p className="text-xs text-slate-500">Outstanding amounts owed to your suppliers.</p>
           </div>
-          <div className="overflow-x-auto p-5 sm:p-6">
+          <div className="hidden overflow-x-auto p-5 sm:p-6 md:block">
             <table className="w-full min-w-[600px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
@@ -309,6 +352,33 @@ export default async function SupplierPurchasesPage({
                   ))}
               </tbody>
             </table>
+          </div>
+          <div className="space-y-3 p-5 sm:p-6 md:hidden">
+            {suppliers
+              .filter((s) => s.outstanding_balance > 0)
+              .sort((a, b) => b.outstanding_balance - a.outstanding_balance)
+              .map((s) => (
+                <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900">{s.name}</p>
+                      {s.company && <p className="text-sm text-slate-500">{s.company}</p>}
+                    </div>
+                    <span className="shrink-0 text-right font-bold text-rose-700">
+                      {formatCurrency(s.outstanding_balance, currency)}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-sm text-slate-500">{s.phone ?? "—"}</span>
+                    <Link
+                      href={`/suppliers/${s.id}/ledger`}
+                      className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      View ledger
+                    </Link>
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}

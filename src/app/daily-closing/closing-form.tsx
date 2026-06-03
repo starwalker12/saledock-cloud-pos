@@ -115,7 +115,15 @@ export function ReopenDayForm({
   const [state, action, pending] = useActionState(reopenDayAction, initial);
   if (!canReopen) return null;
   return (
-    <form action={action} className="mt-3">
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!window.confirm("Reopen this closed day? This will allow editing sales and expenses again.")) {
+          e.preventDefault();
+        }
+      }}
+      className="mt-3"
+    >
       <input type="hidden" name="closing_date" value={closingDate} />
       {state.error && (
         <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{state.error}</p>
