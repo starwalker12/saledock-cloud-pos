@@ -32,11 +32,15 @@ function friendlyCallbackError(errorCode: string | null | undefined): string | n
 
 export function LoginForm({ callbackError, publicSignupEnabled = true, initialMode = "sign-in" }: Props) {
   const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot">(initialMode);
-  const action = mode === "sign-in" ? signInAction : mode === "sign-up" ? signUpAction : resetPasswordAction;
   const { dict } = useLanguage();
   const authDict = dict.auth as Record<string, string> | undefined;
   const t = (key: string, fallback: string) => authDict?.[key] || fallback;
-  const [state, formAction, pending] = useActionState(action, initialState);
+  const [signInState, signInFormAction, signInPending] = useActionState(signInAction, initialState);
+  const [signUpState, signUpFormAction, signUpPending] = useActionState(signUpAction, initialState);
+  const [forgotState, forgotFormAction, forgotPending] = useActionState(resetPasswordAction, initialState);
+  const state = mode === "sign-in" ? signInState : mode === "sign-up" ? signUpState : forgotState;
+  const formAction = mode === "sign-in" ? signInFormAction : mode === "sign-up" ? signUpFormAction : forgotFormAction;
+  const pending = mode === "sign-in" ? signInPending : mode === "sign-up" ? signUpPending : forgotPending;
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [recaptchaStatus, setRecaptchaStatus] = useState<RecaptchaStatus>("unconfigured");
   const recaptchaResetRef = useRef<(() => void) | null>(null);
