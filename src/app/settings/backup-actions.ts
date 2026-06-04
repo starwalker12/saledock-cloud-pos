@@ -533,6 +533,10 @@ export async function importTableChunkAction(
         .eq("organization_id", orgId);
       const catMap = new Map(existing?.map(c => [c.name.trim().toLowerCase(), c.id]) ?? []);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const newCategories = new Map<string, any>();
+      const newCategorySourceIds = new Map<string, string[]>();
+
       for (const row of typedRows) {
         const name = row.Name?.toString().trim();
         if (!name) {
@@ -546,24 +550,45 @@ export async function importTableChunkAction(
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId });
           skipped++;
         } else {
-          const { data, error } = await supabase
-            .from("product_categories")
-            .insert({
+          if (!newCategories.has(lowerName)) {
+            newCategories.set(lowerName, {
               organization_id: orgId,
               name,
               description: row.Description?.toString() || "",
               is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
-            })
-            .select("id")
-            .single();
-
-          if (error) {
-            failed++;
-            warnings.push(`Category insert error: ${error.message} (Category: ${name}).`);
+            });
+            newCategorySourceIds.set(lowerName, [row.Id.toString()]);
           } else {
-            catMap.set(lowerName, data.id);
-            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
-            inserted++;
+            newCategorySourceIds.get(lowerName)!.push(row.Id.toString());
+          }
+        }
+      }
+
+      if (newCategories.size > 0) {
+        const categoriesToInsert = Array.from(newCategories.values());
+        const { data, error } = await supabase
+          .from("product_categories")
+          .insert(categoriesToInsert)
+          .select("id, name");
+
+        if (error || !data) {
+          for (const [lowerName, category] of newCategories.entries()) {
+            const sourceIds = newCategorySourceIds.get(lowerName) || [];
+            failed += sourceIds.length;
+            warnings.push(`Category insert error: ${error?.message || "Unknown error"} (Category: ${category.name}).`);
+          }
+        } else {
+          for (const cat of data) {
+            const lowerName = cat.name.toLowerCase();
+            catMap.set(lowerName, cat.id);
+
+            const sourceIds = newCategorySourceIds.get(lowerName) || [];
+            for (let i = 0; i < sourceIds.length; i++) {
+              const sourceId = sourceIds[i];
+              mappingsToSave.push({ sourceId, targetId: cat.id });
+              if (i === 0) inserted++;
+              else skipped++;
+            }
           }
         }
       }
