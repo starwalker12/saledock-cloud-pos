@@ -345,6 +345,15 @@ export async function getReportsData(
   if (closingsError) throw new Error(`Closings query error: ${closingsError.message}`);
   const dailyClosings = closings ?? [];
 
+  // 10. Sales by Day RPC
+  const { data: salesByDayData, error: salesByDayError } = await supabase.rpc("get_sales_by_day", {
+    p_org_id: orgId,
+    p_branch_id: branchId ?? null,
+    p_start_date: start,
+    p_end_date: end,
+  });
+  if (salesByDayError) throw new Error(`Sales by day query error: ${salesByDayError.message}`);
+
   // ================= CALCULATIONS =================
 
   // 1. Service Principal and Commission calculations
@@ -378,33 +387,15 @@ export async function getReportsData(
   const invoiceCount = activeInvoices.length;
   const averageInvoiceValue = invoiceCount > 0 ? salesRevenue / invoiceCount : 0;
 
-  // Group sales by day, excluding service principal!
-  const salesByDayMap = new Map<string, { date: string; count: number; gross: number; net: number }>();
-  for (const inv of activeInvoices) {
-    const day = inv.invoice_date.slice(0, 10);
-    const items = itemsByInvoiceId.get(inv.id) ?? [];
-    
-    const invProductTotal = items
-      .filter((item) => item.product_type === "product")
-      .reduce((sum, item) => sum + Number(item.line_total ?? 0), 0);
-      
-    const invServiceComm = items
-      .filter((item) => item.product_type === "service")
-      .reduce((sum, item) => {
-        const comm = Number(item.service_commission ?? 0);
-        return sum + (comm > 0 ? comm : Number(item.line_total ?? 0));
-      }, 0);
-
-    const invGross = invProductTotal + invServiceComm;
-    const invNet = Math.max(invGross - Number(inv.discount_total ?? 0), 0);
-
-    const existing = salesByDayMap.get(day) ?? { date: day, count: 0, gross: 0, net: 0 };
-    existing.count += 1;
-    existing.gross += invGross;
-    existing.net += invNet;
-    salesByDayMap.set(day, existing);
-  }
-  const salesByDay = [...salesByDayMap.values()].sort((a, b) => a.date.localeCompare(b.date));
+  // Bolt Optimization: Offload "Group sales by day" aggregation to Postgres via RPC.
+  // Expected impact: Significant reduction in Node.js CPU/memory usage for grouping thousands of invoices,
+  // pushing the heavy aggregation to the database layer which is optimized for GROUP BY operations.
+  const salesByDay = ((salesByDayData as { date: string; count: number; gross: number; net: number }[]) ?? []).map((row) => ({
+    date: row.date,
+    count: Number(row.count),
+    gross: Number(row.gross),
+    net: Number(row.net),
+  }));
 
   // 2. Payment Summary calculations
   let payCash = 0;
