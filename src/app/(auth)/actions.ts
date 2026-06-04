@@ -255,11 +255,15 @@ export async function resetPasswordAction(_prev: AuthState, formData: FormData):
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${origin}/auth/callback?next=%2Fonboarding`,
   });
+
+  // Each reset submission consumes one captcha-pass attempt
+  // (parse errors above are NOT submissions, so they don't decrement)
+  if (ip) {
+    await decrementCaptchaPass(ip);
+  }
+
   if (error) {
     console.error("[security] resetPassword failed:", error.message);
-    if (ip) {
-      await decrementCaptchaPass(ip);
-    }
     return { error: "Something went wrong. Please try again." };
   }
   return {
