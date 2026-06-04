@@ -62,6 +62,77 @@ type OrphanFinding = {
 
 type OrphanPolicy = "drop" | "stop";
 
+interface BaseRow {
+  Id: number | string;
+}
+
+type CategoryRow = BaseRow;
+
+interface SupplierRow extends BaseRow {
+  IsActive?: boolean;
+}
+
+type CustomerRow = BaseRow;
+
+interface ProductRow extends BaseRow {
+  CategoryId?: number | string;
+  SupplierId?: number | string;
+  purchase_price?: number;
+  PurchasePrice?: number;
+  ItemName?: string;
+  ProductName?: string;
+  Name?: string;
+  name?: string;
+  Type?: string;
+  type?: string;
+}
+
+interface ProductStockLotRow extends BaseRow {
+  ProductId: number | string;
+}
+
+interface StockMovementRow extends BaseRow {
+  ProductId: number | string;
+  movement_type?: string;
+  MovementType?: string;
+}
+
+interface BillRow extends BaseRow {
+  BillNo?: string | number;
+  CustomerId?: number | string;
+  payment_status?: string;
+  PaymentStatus?: string;
+  Status?: string;
+}
+
+interface BillItemRow extends BaseRow {
+  BillId: number | string;
+}
+
+interface CustomerLedgerEntryRow extends BaseRow {
+  CustomerId: number | string;
+}
+
+interface CreditPaymentRow extends BaseRow {
+  CustomerId: number | string;
+}
+
+interface ReturnRefundRow extends BaseRow {
+  BillId: number | string;
+}
+
+interface ReturnItemRow extends BaseRow {
+  ReturnId: number | string;
+}
+
+interface RepairJobRow extends BaseRow {
+  CustomerId?: number | string;
+}
+
+interface BillItemBatchAllocationRow extends BaseRow {
+  BillItemId: number | string;
+}
+
 export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = true }: { backupImportEnabled?: boolean; factoryResetEnabled?: boolean }) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -276,22 +347,20 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
   }
 
   // SQLite table rows helper
-  function getTableRows(db: unknown, tableName: string): unknown[] {
+  function getTableRows<T = Record<string, unknown>>(db: unknown, tableName: string): T[] {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clientDb = db as any;
       const res = clientDb.exec(`SELECT * FROM "${tableName}"`);
       if (res.length === 0) return [];
-      const columns = res[0].columns;
-      const values = res[0].values;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return values.map((row: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const obj: any = {};
-        columns.forEach((col: string, idx: number) => {
+      const columns = res[0].columns as string[];
+      const values = res[0].values as unknown[][];
+      return values.map((row) => {
+        const obj: Record<string, unknown> = {};
+        columns.forEach((col, idx) => {
           obj[col] = row[idx];
         });
-        return obj;
+        return obj as T;
       });
     } catch {
       return [];
@@ -566,22 +635,14 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
     setOrphanPolicy(null);
     const warnings: string[] = [];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const categories = getTableRows(sqliteDb, "Categories") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const suppliers = getTableRows(sqliteDb, "Suppliers") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const customers = getTableRows(sqliteDb, "Customers") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const products = getTableRows(sqliteDb, "Products") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const lots = getTableRows(sqliteDb, "ProductStockLots") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const movements = getTableRows(sqliteDb, "StockMovements") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bills = getTableRows(sqliteDb, "Bills") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const billItems = getTableRows(sqliteDb, "BillItems") as any[];
+    const categories = getTableRows<CategoryRow>(sqliteDb, "Categories");
+    const suppliers = getTableRows<SupplierRow>(sqliteDb, "Suppliers");
+    const customers = getTableRows<CustomerRow>(sqliteDb, "Customers");
+    const products = getTableRows<ProductRow>(sqliteDb, "Products");
+    const lots = getTableRows<ProductStockLotRow>(sqliteDb, "ProductStockLots");
+    const movements = getTableRows<StockMovementRow>(sqliteDb, "StockMovements");
+    const bills = getTableRows<BillRow>(sqliteDb, "Bills");
+    const billItems = getTableRows<BillItemRow>(sqliteDb, "BillItems");
 
     // Check sizes
     if (products.length > 1000) {
@@ -633,18 +694,12 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
     // here, surface them in a required-choice card in the UI, and remove
     // them from each chunk before upload if the user picks "drop".
     // ====================================================================
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ledger = getTableRows(sqliteDb, "CustomerLedgerEntries") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const creditPayments = getTableRows(sqliteDb, "CreditPayments") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const returnRefunds = getTableRows(sqliteDb, "ReturnRefunds") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const returnItems = getTableRows(sqliteDb, "ReturnItems") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const repairs = getTableRows(sqliteDb, "RepairJobs") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const billAllocs = getTableRows(sqliteDb, "BillItemBatchAllocations") as any[];
+    const ledger = getTableRows<CustomerLedgerEntryRow>(sqliteDb, "CustomerLedgerEntries");
+    const creditPayments = getTableRows<CreditPaymentRow>(sqliteDb, "CreditPayments");
+    const returnRefunds = getTableRows<ReturnRefundRow>(sqliteDb, "ReturnRefunds");
+    const returnItems = getTableRows<ReturnItemRow>(sqliteDb, "ReturnItems");
+    const repairs = getTableRows<RepairJobRow>(sqliteDb, "RepairJobs");
+    const billAllocs = getTableRows<BillItemBatchAllocationRow>(sqliteDb, "BillItemBatchAllocations");
 
     const customerIds = new Set(customers.map((c) => c.Id));
     const billIds = new Set(bills.map((b) => b.Id));
@@ -685,7 +740,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "CustomerLedgerEntries",
       ledger,
       "CustomerLedgerEntries.CustomerId not found in Customers",
-      (r) => r.CustomerId && !customerIds.has(r.CustomerId),
+      (r) => !!r.CustomerId && !customerIds.has(r.CustomerId),
       (r) => r.CustomerId,
       "Drop these rows or fix the desktop backup before retrying.",
     );
@@ -694,7 +749,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "CreditPayments",
       creditPayments,
       "CreditPayments.CustomerId not found in Customers",
-      (r) => r.CustomerId && !customerIds.has(r.CustomerId),
+      (r) => !!r.CustomerId && !customerIds.has(r.CustomerId),
       (r) => r.CustomerId,
       "Drop these rows or fix the desktop backup before retrying.",
     );
@@ -703,7 +758,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "ReturnItems",
       returnItems,
       "ReturnItems.ReturnId not found in ReturnRefunds",
-      (r) => r.ReturnId && !returnRefundIds.has(r.ReturnId),
+      (r) => !!r.ReturnId && !returnRefundIds.has(r.ReturnId),
       (r) => r.ReturnId,
       "Drop these rows; ReturnRefunds parent is empty or missing.",
     );
@@ -712,7 +767,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "BillItems",
       billItems,
       "BillItems.BillId not found in Bills",
-      (r) => r.BillId && !billIds.has(r.BillId),
+      (r) => !!r.BillId && !billIds.has(r.BillId),
       (r) => r.BillId,
       "Drop these rows; sale receipt is missing.",
     );
@@ -721,7 +776,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "BillItemBatchAllocations",
       billAllocs,
       "BillItemBatchAllocations.BillItemId not found in BillItems",
-      (r) => r.BillItemId && !billItemIds.has(r.BillItemId),
+      (r) => !!r.BillItemId && !billItemIds.has(r.BillItemId),
       (r) => r.BillItemId,
       "Drop these rows; FIFO allocation is missing its line item.",
     );
@@ -730,7 +785,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "StockMovements",
       movements,
       "StockMovements.ProductId not found in Products",
-      (r) => r.ProductId && !productIdsSet.has(r.ProductId),
+      (r) => !!r.ProductId && !productIdsSet.has(r.ProductId),
       (r) => r.ProductId,
       "Drop these rows; movement points at a deleted product.",
     );
@@ -739,7 +794,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "ProductStockLots",
       lots,
       "ProductStockLots.ProductId not found in Products",
-      (r) => r.ProductId && !productIdsSet.has(r.ProductId),
+      (r) => !!r.ProductId && !productIdsSet.has(r.ProductId),
       (r) => r.ProductId,
       "Drop these rows; stock lot points at a deleted product.",
     );
@@ -748,7 +803,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       "ReturnRefunds",
       returnRefunds,
       "ReturnRefunds.BillId not found in Bills",
-      (r) => r.BillId && !billIds.has(r.BillId),
+      (r) => !!r.BillId && !billIds.has(r.BillId),
       (r) => r.BillId,
       "Drop these rows; refund references a missing invoice.",
     );
@@ -763,7 +818,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
         r.CustomerId !== null &&
         Number(r.CustomerId) > 0 &&
         !customerIds.has(r.CustomerId),
-      (r) => r.CustomerId,
+      (r) => r.CustomerId!,
       "Drop these rows or recreate the customer manually first.",
     );
 
@@ -779,8 +834,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
     // ====================================================================
     const blockers: string[] = [];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const productNameOf = (r: any): string => {
+    const productNameOf = (r: Record<string, unknown>): string => {
       for (const k of ["ItemName", "ProductName", "Name", "name"]) {
         const v = r?.[k];
         if (v !== undefined && v !== null) {
@@ -792,7 +846,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
     };
 
     if (products.length > 0) {
-      const noName = products.filter((p) => !productNameOf(p)).length;
+      const noName = products.filter((p) => !productNameOf(p as unknown as Record<string, unknown>)).length;
       if (noName > 0 && noName === products.length) {
         blockers.push(
           `Product mapping failed: expected ItemName / ProductName / Name field was not resolved on any of ${products.length} product rows. ` +
@@ -847,8 +901,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
     // fields that would be rejected server-side. These are warnings, not
     // blockers — the server will skip individual bad rows.
     // ====================================================================
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pickNum = (row: any, keys: string[], fallback = 0): number => {
+    const pickNum = (row: Record<string, unknown>, keys: string[], fallback = 0): number => {
       for (const k of keys) {
         const v = row?.[k];
         if (v === undefined || v === null || v === "") continue;
@@ -857,33 +910,35 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       }
       return fallback;
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cheq = (row: any, keys: string[], fallback = 0) => { const v = pickNum(row, keys, fallback); return v < 0 ? v : null; };
+    const cheq = (row: Record<string, unknown>, keys: string[], fallback = 0) => { const v = pickNum(row, keys, fallback); return v < 0 ? v : null; };
 
     for (const p of products) {
-      const n = cheq(p, ["purchase_price", "PurchasePrice"]);
+      const pRecord = p as unknown as Record<string, unknown>;
+      const n = cheq(pRecord, ["purchase_price", "PurchasePrice"]);
       if (n !== null) warnings.push(`Negative purchase_price (${n}) in Products ID ${p.Id}.`);
-      const s = cheq(p, ["sale_price", "SalePrice"]);
+      const s = cheq(pRecord, ["sale_price", "SalePrice"]);
       if (s !== null) warnings.push(`Negative sale_price (${s}) in Products ID ${p.Id}.`);
-      const st = cheq(p, ["stock_quantity", "Stock", "StockQuantity"]);
+      const st = cheq(pRecord, ["stock_quantity", "Stock", "StockQuantity"]);
       if (st !== null) warnings.push(`Negative stock_quantity (${st}) in Products ID ${p.Id}.`);
-      const ms = cheq(p, ["minimum_stock", "MinStock", "MinimumStock"]);
+      const ms = cheq(pRecord, ["minimum_stock", "MinStock", "MinimumStock"]);
       if (ms !== null) warnings.push(`Negative minimum_stock (${ms}) in Products ID ${p.Id}.`);
     }
     for (const b of bills) {
-      const gt = cheq(b, ["grand_total", "GrandTotal"]);
+      const bRecord = b as unknown as Record<string, unknown>;
+      const gt = cheq(bRecord, ["grand_total", "GrandTotal"]);
       if (gt !== null) warnings.push(`Negative grand_total (${gt}) in Bills BillNo ${b.BillNo}.`);
-      const ap = cheq(b, ["amount_paid", "AmountPaid"]);
+      const ap = cheq(bRecord, ["amount_paid", "AmountPaid"]);
       if (ap !== null) warnings.push(`Negative amount_paid (${ap}) in Bills BillNo ${b.BillNo}.`);
-      const bd = cheq(b, ["balance_due", "BalanceDue"]);
+      const bd = cheq(bRecord, ["balance_due", "BalanceDue"]);
       if (bd !== null) warnings.push(`Negative balance_due (${bd}) in Bills BillNo ${b.BillNo}.`);
     }
     for (const bi of billItems) {
-      const q = cheq(bi, ["quantity", "Qty", "Quantity"], 1);
+      const biRecord = bi as unknown as Record<string, unknown>;
+      const q = cheq(biRecord, ["quantity", "Qty", "Quantity"], 1);
       if (q !== null) warnings.push(`Negative quantity (${q}) in BillItems ID ${bi.Id}.`);
-      const up = cheq(bi, ["unit_price", "Price", "UnitPrice", "SalePrice"]);
+      const up = cheq(biRecord, ["unit_price", "Price", "UnitPrice", "SalePrice"]);
       if (up !== null) warnings.push(`Negative unit_price (${up}) in BillItems ID ${bi.Id}.`);
-      const lt = cheq(bi, ["line_total", "LineTotal"]);
+      const lt = cheq(biRecord, ["line_total", "LineTotal"]);
       if (lt !== null) warnings.push(`Negative line_total (${lt}) in BillItems ID ${bi.Id}.`);
     }
 
@@ -986,15 +1041,14 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
         setCurrentProgressIndex(i);
 
         // Fetch sqlite data chunk
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const allRows = getTableRows(sqliteDb, table.name) as any[];
+        const allRows = getTableRows<{ Id?: number | string } & Record<string, unknown>>(sqliteDb, table.name);
         // Filter orphan rows out before upload when the policy is "drop".
         // The server re-validates this with the same policy as a safety net.
         const orphanIds = orphanIdsByTable[table.name];
         const orphanCountForTable = orphanIds?.size ?? 0;
         const rows =
           effectiveOrphanPolicy === "drop" && orphanIds && orphanIds.size > 0
-            ? allRows.filter((r) => !orphanIds.has(r.Id))
+            ? allRows.filter((r) => r.Id !== undefined && !orphanIds.has(r.Id))
             : allRows;
         if (effectiveOrphanPolicy === "drop" && orphanCountForTable > 0) {
           logs.push(
