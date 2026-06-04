@@ -121,20 +121,21 @@ export async function saveRepairAction(
 
     while (attempts < 5 && !success) {
       attempts++;
-      // Fetch all repairs to find max sequence code safely
-      const { data: currentRepairs, error: listErr } = await supabase
+      // Fetch only the latest repair to find max sequence code safely
+      const { data: latestRepairs, error: listErr } = await supabase
         .from("repairs")
         .select("job_no")
-        .eq("organization_id", orgId);
+        .eq("organization_id", orgId)
+        .order("job_no", { ascending: false })
+        .limit(1);
 
       if (listErr) return err(listErr.message);
 
-      const maxSeq = (currentRepairs ?? [])
-        .map((r) => {
-          const num = r.job_no.replace(/\D/g, "");
-          return num ? parseInt(num, 10) : 0;
-        })
-        .reduce((max, val) => Math.max(max, val), 0);
+      let maxSeq = 0;
+      if (latestRepairs && latestRepairs.length > 0) {
+        const num = latestRepairs[0].job_no.replace(/\D/g, "");
+        maxSeq = num ? parseInt(num, 10) : 0;
+      }
 
       const seq = maxSeq + 1;
       jobNo = `RJ-${String(seq).padStart(6, "0")}`;
