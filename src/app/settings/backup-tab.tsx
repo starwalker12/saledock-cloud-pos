@@ -42,6 +42,9 @@ type ManifestData = {
 
 type BackupZipKind = "online" | "desktop" | "unknown";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SQLiteRow = Record<string, any>;
+
 type TableCount = {
   name: string;
   count: number;
@@ -276,7 +279,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
   }
 
   // SQLite table rows helper
-  function getTableRows(db: unknown, tableName: string): unknown[] {
+  function getTableRows(db: unknown, tableName: string): SQLiteRow[] {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clientDb = db as any;
@@ -566,22 +569,14 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
     setOrphanPolicy(null);
     const warnings: string[] = [];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const categories = getTableRows(sqliteDb, "Categories") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const suppliers = getTableRows(sqliteDb, "Suppliers") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const customers = getTableRows(sqliteDb, "Customers") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const products = getTableRows(sqliteDb, "Products") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const lots = getTableRows(sqliteDb, "ProductStockLots") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const movements = getTableRows(sqliteDb, "StockMovements") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bills = getTableRows(sqliteDb, "Bills") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const billItems = getTableRows(sqliteDb, "BillItems") as any[];
+        const categories = getTableRows(sqliteDb, "Categories");
+        const suppliers = getTableRows(sqliteDb, "Suppliers");
+        const customers = getTableRows(sqliteDb, "Customers");
+        const products = getTableRows(sqliteDb, "Products");
+        const lots = getTableRows(sqliteDb, "ProductStockLots");
+        const movements = getTableRows(sqliteDb, "StockMovements");
+        const bills = getTableRows(sqliteDb, "Bills");
+        const billItems = getTableRows(sqliteDb, "BillItems");
 
     // Check sizes
     if (products.length > 1000) {
@@ -633,18 +628,12 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
     // here, surface them in a required-choice card in the UI, and remove
     // them from each chunk before upload if the user picks "drop".
     // ====================================================================
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ledger = getTableRows(sqliteDb, "CustomerLedgerEntries") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const creditPayments = getTableRows(sqliteDb, "CreditPayments") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const returnRefunds = getTableRows(sqliteDb, "ReturnRefunds") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const returnItems = getTableRows(sqliteDb, "ReturnItems") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const repairs = getTableRows(sqliteDb, "RepairJobs") as any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const billAllocs = getTableRows(sqliteDb, "BillItemBatchAllocations") as any[];
+        const ledger = getTableRows(sqliteDb, "CustomerLedgerEntries");
+        const creditPayments = getTableRows(sqliteDb, "CreditPayments");
+        const returnRefunds = getTableRows(sqliteDb, "ReturnRefunds");
+        const returnItems = getTableRows(sqliteDb, "ReturnItems");
+        const repairs = getTableRows(sqliteDb, "RepairJobs");
+        const billAllocs = getTableRows(sqliteDb, "BillItemBatchAllocations");
 
     const customerIds = new Set(customers.map((c) => c.Id));
     const billIds = new Set(bills.map((b) => b.Id));
@@ -986,8 +975,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
         setCurrentProgressIndex(i);
 
         // Fetch sqlite data chunk
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const allRows = getTableRows(sqliteDb, table.name) as any[];
+                const allRows = getTableRows(sqliteDb, table.name);
         // Filter orphan rows out before upload when the policy is "drop".
         // The server re-validates this with the same policy as a safety net.
         const orphanIds = orphanIdsByTable[table.name];
