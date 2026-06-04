@@ -842,6 +842,51 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
       warnings.push("ℹ️ Preflight configuration: ActivityLog import is disabled by default to keep DB clean.");
     }
 
+    // ====================================================================
+    // Value bounds preflight: detect negative values in money/stock/quantity
+    // fields that would be rejected server-side. These are warnings, not
+    // blockers — the server will skip individual bad rows.
+    // ====================================================================
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pickNum = (row: any, keys: string[], fallback = 0): number => {
+      for (const k of keys) {
+        const v = row?.[k];
+        if (v === undefined || v === null || v === "") continue;
+        const n = Number(v);
+        if (Number.isFinite(n)) return n;
+      }
+      return fallback;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cheq = (row: any, keys: string[], fallback = 0) => { const v = pickNum(row, keys, fallback); return v < 0 ? v : null; };
+
+    for (const p of products) {
+      const n = cheq(p, ["purchase_price", "PurchasePrice"]);
+      if (n !== null) warnings.push(`Negative purchase_price (${n}) in Products ID ${p.Id}.`);
+      const s = cheq(p, ["sale_price", "SalePrice"]);
+      if (s !== null) warnings.push(`Negative sale_price (${s}) in Products ID ${p.Id}.`);
+      const st = cheq(p, ["stock_quantity", "Stock", "StockQuantity"]);
+      if (st !== null) warnings.push(`Negative stock_quantity (${st}) in Products ID ${p.Id}.`);
+      const ms = cheq(p, ["minimum_stock", "MinStock", "MinimumStock"]);
+      if (ms !== null) warnings.push(`Negative minimum_stock (${ms}) in Products ID ${p.Id}.`);
+    }
+    for (const b of bills) {
+      const gt = cheq(b, ["grand_total", "GrandTotal"]);
+      if (gt !== null) warnings.push(`Negative grand_total (${gt}) in Bills BillNo ${b.BillNo}.`);
+      const ap = cheq(b, ["amount_paid", "AmountPaid"]);
+      if (ap !== null) warnings.push(`Negative amount_paid (${ap}) in Bills BillNo ${b.BillNo}.`);
+      const bd = cheq(b, ["balance_due", "BalanceDue"]);
+      if (bd !== null) warnings.push(`Negative balance_due (${bd}) in Bills BillNo ${b.BillNo}.`);
+    }
+    for (const bi of billItems) {
+      const q = cheq(bi, ["quantity", "Qty", "Quantity"], 1);
+      if (q !== null) warnings.push(`Negative quantity (${q}) in BillItems ID ${bi.Id}.`);
+      const up = cheq(bi, ["unit_price", "Price", "UnitPrice", "SalePrice"]);
+      if (up !== null) warnings.push(`Negative unit_price (${up}) in BillItems ID ${bi.Id}.`);
+      const lt = cheq(bi, ["line_total", "LineTotal"]);
+      if (lt !== null) warnings.push(`Negative line_total (${lt}) in BillItems ID ${bi.Id}.`);
+    }
+
     setDryRunBlockers(blockers);
     setDryRunWarnings(warnings);
     setDryRunChecked(true);
