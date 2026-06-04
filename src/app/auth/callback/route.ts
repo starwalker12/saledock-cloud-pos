@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isSafeRedirectPath } from "@/lib/security/sanitize";
 
 function safeRedirect(origin: string, next: string | null): string {
-  if (next && next.startsWith("/") && !next.startsWith("//")) {
+  if (next && isSafeRedirectPath(next)) {
     return `${origin}${next}`;
   }
   return `${origin}/dashboard`;
