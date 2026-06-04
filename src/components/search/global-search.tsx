@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -207,16 +207,18 @@ export function GlobalSearch() {
   };
 
   // Group results dynamically by groupLabel
-  const groupedResults = results.reduce<Record<string, { item: SearchResult; index: number }[]>>(
-    (acc, item, globalIdx) => {
-      if (!acc[item.groupLabel]) {
-        acc[item.groupLabel] = [];
-      }
-      acc[item.groupLabel].push({ item, index: globalIdx });
-      return acc;
-    },
-    {},
-  );
+  const groupedResults = useMemo(() => {
+    return results.reduce<Record<string, { item: SearchResult; index: number }[]>>(
+      (acc, item, globalIdx) => {
+        if (!acc[item.groupLabel]) {
+          acc[item.groupLabel] = [];
+        }
+        acc[item.groupLabel].push({ item, index: globalIdx });
+        return acc;
+      },
+      {},
+    );
+  }, [results]);
 
   return (
     <>
