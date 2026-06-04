@@ -626,6 +626,10 @@ export async function importTableChunkAction(
       const emailMap = new Map(existing?.filter(c => c.email).map(c => [c.email!.trim().toLowerCase(), c.id]) ?? []);
       const nameMap = new Map(existing?.map(c => [c.name.trim().toLowerCase(), c.id]) ?? []);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payloadToInsert: any[] = [];
+      const rowMappingQueue: { rowId: string, phone: string | undefined, email: string | undefined, name: string }[] = [];
+
       for (const row of typedRows) {
         const name = row.Name?.toString().trim();
         if (!name) {
@@ -642,6 +646,9 @@ export async function importTableChunkAction(
         else if (nameMap.has(name.toLowerCase())) matchedId = nameMap.get(name.toLowerCase())!;
 
         if (matchedId) {
+          // If the matched ID is a pending placeholder, it means this is a duplicate
+          // within the same file. We will link it to the same pending placeholder for now,
+          // but we must resolve this placeholder after the batch insert completes.
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: matchedId });
           skipped++;
         } else {
@@ -649,33 +656,67 @@ export async function importTableChunkAction(
           const err = assertNonNeg(outstandingBalance, "outstanding_balance", row.Id);
           if (err) { failed++; warnings.push(err); continue; }
 
-          const { data, error } = await supabase
-            .from("customers")
-            .insert({
-              organization_id: orgId,
-              name,
-              phone: phone || "",
-              email: email || "",
-              address: row.Address?.toString() || "",
-              notes: row.Notes?.toString() || "",
-              outstanding_balance: outstandingBalance
-            })
-            .select("id")
-            .single();
+          payloadToInsert.push({
+            organization_id: orgId,
+            name,
+            phone: phone || "",
+            email: email || "",
+            address: row.Address?.toString() || "",
+            notes: row.Notes?.toString() || "",
+            outstanding_balance: outstandingBalance
+          });
+          rowMappingQueue.push({ rowId: row.Id.toString(), phone, email, name });
 
-          if (error) {
-            failed++;
-            warnings.push(`Customer insert error: ${error.message} (Customer: ${name}).`);
-          } else {
-            if (phone) phoneMap.set(phone, data.id);
-            if (email) emailMap.set(email, data.id);
-            nameMap.set(name.toLowerCase(), data.id);
-            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          // Optimistically map to a placeholder to prevent intra-batch duplicates
+          const placeholder = `pending-${row.Id.toString()}`;
+          if (phone) phoneMap.set(phone, placeholder);
+          if (email) emailMap.set(email, placeholder);
+          nameMap.set(name.toLowerCase(), placeholder);
+        }
+      }
+
+      const chunkSize = 100;
+      for (let i = 0; i < payloadToInsert.length; i += chunkSize) {
+        const chunk = payloadToInsert.slice(i, i + chunkSize);
+        const chunkMap = rowMappingQueue.slice(i, i + chunkSize);
+
+        const { data, error } = await supabase
+          .from("customers")
+          .insert(chunk)
+          .select("id");
+
+        if (error || !data || data.length !== chunk.length) {
+          // If a batch fails, we log it and fallback to failing the whole batch
+          // (a more robust strategy would retry one by one, but batch failure is standard here)
+          failed += chunk.length;
+          warnings.push(`Customer batch insert error: ${error?.message || "Mismatched returned rows"}.`);
+        } else {
+          for (let j = 0; j < data.length; j++) {
+            const { phone, email, name, rowId } = chunkMap[j];
+            const insertedId = data[j].id;
+
+            if (phone) phoneMap.set(phone, insertedId);
+            if (email) emailMap.set(email, insertedId);
+            nameMap.set(name.toLowerCase(), insertedId);
+
+            // Resolve the placeholder in the mapping array.
+            // Any mappings matching the pending placeholder will be updated with the real ID.
+            const placeholder = `pending-${rowId}`;
+            mappingsToSave.push({ sourceId: rowId, targetId: insertedId });
+            for (const mapItem of mappingsToSave) {
+              if (mapItem.targetId === placeholder) {
+                mapItem.targetId = insertedId;
+              }
+            }
             inserted++;
           }
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Customers", "customers", mappingsToSave);
+
+      // Filter out any placeholders that might have failed to resolve (due to batch failure)
+      const validMappingsToSave = mappingsToSave.filter(m => !m.targetId.startsWith("pending-"));
+
+      await saveRowMappingsBatch(supabase, orgId, jobId, "Customers", "customers", validMappingsToSave);
 
     } else if (tableName === "Products") {
       const { data: existing } = await supabase
