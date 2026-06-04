@@ -105,7 +105,7 @@ export function PrivacyCenter() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [supabase]);
 
   // Refetch requests after create/cancel
   useEffect(() => {
@@ -120,7 +120,7 @@ export function PrivacyCenter() {
       });
     });
     return () => clearTimeout(id);
-  }, [createState.success, cancelState.success]);
+  }, [createState.success, cancelState.success, supabase]);
 
   async function handleExport() {
     try {

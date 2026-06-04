@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Role } from "./auth/session";
 
 import {
+  Role,
   canWriteCatalog,
   canUsePos,
   canProcessReturns,
