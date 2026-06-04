@@ -301,6 +301,17 @@ function pickBool(row: any, keys: string[], fallback = false): boolean {
   return fallback;
 }
 
+function assertNonNeg(
+  value: number,
+  fieldLabel: string,
+  rowId: string | number | undefined | null,
+): string | null {
+  if (value < 0) {
+    return `Negative ${fieldLabel} (${value}) in row ID ${rowId ?? "?"}. Value must be >= 0.`;
+  }
+  return null;
+}
+
 function normalizeInvoiceStatus(
   raw: unknown,
   amountPaid: number,
@@ -634,6 +645,10 @@ export async function importTableChunkAction(
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: matchedId });
           skipped++;
         } else {
+          const outstandingBalance = Number(row.OutstandingBalance || 0);
+          const err = assertNonNeg(outstandingBalance, "outstanding_balance", row.Id);
+          if (err) { failed++; warnings.push(err); continue; }
+
           const { data, error } = await supabase
             .from("customers")
             .insert({
@@ -643,7 +658,7 @@ export async function importTableChunkAction(
               email: email || "",
               address: row.Address?.toString() || "",
               notes: row.Notes?.toString() || "",
-              outstanding_balance: Number(row.OutstandingBalance || 0)
+              outstanding_balance: outstandingBalance
             })
             .select("id")
             .single();
@@ -715,6 +730,22 @@ export async function importTableChunkAction(
           const supId =
             supplierRaw && supplierRaw !== "0" ? (supMappings.get(supplierRaw) ?? null) : null;
 
+          const purchasePrice = pickNumber(row, ["PurchasePrice", "purchase_price"]);
+          const salePrice = pickNumber(row, ["SalePrice", "sale_price"]);
+          const stockQty = pickNumber(row, ["Stock", "StockQuantity", "stock_quantity"]);
+          const minStock = pickNumber(row, ["MinimumStock", "MinStock", "minimum_stock"]);
+          const commAmount = pickNumber(row, ["DefaultCommissionAmount", "default_commission_amount"]);
+          const commPct = pickNumber(row, ["DefaultCommissionPercent", "default_commission_percent"]);
+
+          const vErr =
+            assertNonNeg(purchasePrice, "purchase_price", row.Id) ??
+            assertNonNeg(salePrice, "sale_price", row.Id) ??
+            assertNonNeg(stockQty, "stock_quantity", row.Id) ??
+            assertNonNeg(minStock, "minimum_stock", row.Id) ??
+            assertNonNeg(commAmount, "default_commission_amount", row.Id) ??
+            assertNonNeg(commPct, "default_commission_percent", row.Id);
+          if (vErr) { failed++; warnings.push(vErr); continue; }
+
           const { data, error } = await supabase
             .from("products")
             .insert({
@@ -725,18 +756,18 @@ export async function importTableChunkAction(
               sku: sku || null,
               barcode: pickString(row, ["Barcode"]) || null,
               type,
-              purchase_price: pickNumber(row, ["PurchasePrice", "purchase_price"]),
-              sale_price: pickNumber(row, ["SalePrice", "sale_price"]),
-              stock_quantity: pickNumber(row, ["Stock", "StockQuantity", "stock_quantity"]),
-              minimum_stock: pickNumber(row, ["MinimumStock", "MinStock", "minimum_stock"]),
+              purchase_price: purchasePrice,
+              sale_price: salePrice,
+              stock_quantity: stockQty,
+              minimum_stock: minStock,
               allow_sell_at_loss: pickBool(row, ["AllowSellAtLoss", "allow_sell_at_loss"]),
               sell_at_loss_reason: pickString(row, ["SellAtLossReason", "sell_at_loss_reason"]),
               notes: pickString(row, ["Notes", "notes"]),
               is_active: pickBool(row, ["IsActive", "is_active"], true),
               service_type: pickString(row, ["ServiceType", "service_type"]) || null,
               service_pricing_mode: pickString(row, ["ServicePricingMode", "service_pricing_mode"]) || null,
-              default_commission_amount: pickNumber(row, ["DefaultCommissionAmount", "default_commission_amount"]),
-              default_commission_percent: pickNumber(row, ["DefaultCommissionPercent", "default_commission_percent"]),
+              default_commission_amount: commAmount,
+              default_commission_percent: commPct,
               requires_account_number: pickBool(row, ["RequiresAccountNumber", "requires_account_number"]),
               requires_provider: pickBool(row, ["RequiresProvider", "requires_provider"]),
               requires_reference: pickBool(row, ["RequiresReference", "requires_reference"]),
@@ -790,6 +821,15 @@ export async function importTableChunkAction(
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId });
           skipped++;
         } else {
+          const qtyReceived = Number(row.QuantityAdded || 0);
+          const qtyRemaining = Number(row.QuantityRemaining || 0);
+          const unitCost = Number(row.PurchasePrice || 0);
+          const lErr =
+            assertNonNeg(qtyReceived, "quantity_received", row.Id) ??
+            assertNonNeg(qtyRemaining, "quantity_remaining", row.Id) ??
+            assertNonNeg(unitCost, "unit_cost", row.Id);
+          if (lErr) { failed++; warnings.push(lErr); continue; }
+
           const { data, error } = await supabase
             .from("product_stock_lots")
             .insert({
@@ -797,9 +837,9 @@ export async function importTableChunkAction(
               branch_id: branchId,
               product_id: prodId,
               lot_number: lotNo,
-              quantity_received: Number(row.QuantityAdded || 0),
-              quantity_remaining: Number(row.QuantityRemaining || 0),
-              unit_cost: Number(row.PurchasePrice || 0),
+              quantity_received: qtyReceived,
+              quantity_remaining: qtyRemaining,
+              unit_cost: unitCost,
               supplier_id: supId || null,
               purchase_date: row.AddedAt || new Date().toISOString(),
               is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
@@ -855,6 +895,9 @@ export async function importTableChunkAction(
         const qty = Math.max(1, Math.abs(Number(row.Difference || row.QuantityChange || row.Quantity || 0)));
         const cost = Number(row.unit_cost || row.NewPurchasePrice || row.OldPurchasePrice || 0);
 
+        const smErr = assertNonNeg(cost, "unit_cost", row.Id);
+        if (smErr) { failed++; warnings.push(smErr); continue; }
+
         const { error } = await supabase
           .from("stock_movements")
           .insert({
@@ -908,6 +951,16 @@ export async function importTableChunkAction(
         const grandTotal = pickNumber(row, ["GrandTotal", "grand_total"]);
         const amountPaid = pickNumber(row, ["AmountPaid", "amount_paid"]);
         const balanceDue = pickNumber(row, ["BalanceDue", "balance_due"]);
+        const subtotal = pickNumber(row, ["Subtotal", "subtotal"]);
+        const discountTotal = pickNumber(row, ["Discount", "DiscountTotal", "discount_total"]);
+        const bErr =
+          assertNonNeg(grandTotal, "grand_total", row.Id) ??
+          assertNonNeg(amountPaid, "amount_paid", row.Id) ??
+          assertNonNeg(balanceDue, "balance_due", row.Id) ??
+          assertNonNeg(subtotal, "subtotal", row.Id) ??
+          assertNonNeg(discountTotal, "discount_total", row.Id);
+        if (bErr) { failed++; warnings.push(bErr); continue; }
+
         const status = normalizeInvoiceStatus(
           row.PaymentStatus ?? row.Status ?? row.status,
           amountPaid,
@@ -926,8 +979,8 @@ export async function importTableChunkAction(
             customer_id: custId || null,
             invoice_no: invoiceNo,
             status,
-            subtotal: pickNumber(row, ["Subtotal", "subtotal"]),
-            discount_total: pickNumber(row, ["Discount", "DiscountTotal", "discount_total"]),
+            subtotal,
+            discount_total: discountTotal,
             grand_total: grandTotal,
             amount_paid: amountPaid,
             balance_due: balanceDue,
@@ -973,6 +1026,24 @@ export async function importTableChunkAction(
           String(row.ProductType ?? "").toLowerCase() === "service";
         const unitPrice = pickNumber(row, ["Price", "UnitPrice", "SalePrice", "unit_price"]);
 
+        const qty = pickNumber(row, ["Qty", "Quantity", "quantity"], 1);
+        const purchasePrice = pickNumber(row, ["PurchasePrice", "purchase_price"]);
+        const itemDiscount = pickNumber(row, ["ItemDiscount", "item_discount"]);
+        const lineTotal = pickNumber(row, ["LineTotal", "line_total"]);
+        const svcTransAmt = pickNumber(row, ["ServiceTransactionAmount"]);
+        const svcComm = pickNumber(row, ["ServiceCommission"]);
+        const svcTotalCharged = pickNumber(row, ["ServiceTotalCharged"]);
+        const biErr =
+          assertNonNeg(qty, "quantity", row.Id) ??
+          assertNonNeg(unitPrice, "unit_price", row.Id) ??
+          assertNonNeg(purchasePrice, "purchase_price", row.Id) ??
+          assertNonNeg(itemDiscount, "item_discount", row.Id) ??
+          assertNonNeg(lineTotal, "line_total", row.Id) ??
+          assertNonNeg(svcTransAmt, "service_transaction_amount", row.Id) ??
+          assertNonNeg(svcComm, "service_commission", row.Id) ??
+          assertNonNeg(svcTotalCharged, "service_total_charged", row.Id);
+        if (biErr) { failed++; warnings.push(biErr); continue; }
+
         const { data, error } = await supabase
           .from("invoice_items")
           .insert({
@@ -981,19 +1052,19 @@ export async function importTableChunkAction(
             product_id: prodId || null,
             product_name: productName,
             product_type: isService ? "service" : "product",
-            quantity: pickNumber(row, ["Qty", "Quantity", "quantity"], 1),
-            purchase_price: pickNumber(row, ["PurchasePrice", "purchase_price"]),
+            quantity: qty,
+            purchase_price: purchasePrice,
             unit_price: unitPrice,
-            item_discount: pickNumber(row, ["ItemDiscount", "item_discount"]),
-            line_total: pickNumber(row, ["LineTotal", "line_total"]),
+            item_discount: itemDiscount,
+            line_total: lineTotal,
             service_provider: pickString(row, ["ServiceProvider"]) || null,
             service_direction: pickString(row, ["ServiceDirection"]) || null,
             service_account_number: pickString(row, ["ServiceAccountNumber"]) || null,
             service_receiver_account: pickString(row, ["ServiceReceiverAccount"]) || null,
             service_reference_no: pickString(row, ["ServiceReferenceNo"]) || null,
-            service_transaction_amount: pickNumber(row, ["ServiceTransactionAmount"]),
-            service_commission: pickNumber(row, ["ServiceCommission"]),
-            service_total_charged: pickNumber(row, ["ServiceTotalCharged"]),
+            service_transaction_amount: svcTransAmt,
+            service_commission: svcComm,
+            service_total_charged: svcTotalCharged,
             service_note: pickString(row, ["ServiceNote"]) || null,
             effective_unit_price_snapshot: unitPrice,
             loss_amount_snapshot: 0,
@@ -1045,6 +1116,13 @@ export async function importTableChunkAction(
           continue;
         }
 
+        const allocQty = pickNumber(row, ["Qty", "Quantity"]);
+        const allocUnitCost = pickNumber(row, ["PurchasePrice"]);
+        const allocErr =
+          assertNonNeg(allocQty, "quantity", row.Id) ??
+          assertNonNeg(allocUnitCost, "unit_cost", row.Id);
+        if (allocErr) { failed++; warnings.push(allocErr); continue; }
+
         const { error } = await supabase
           .from("invoice_item_stock_allocations")
           .insert({
@@ -1053,9 +1131,8 @@ export async function importTableChunkAction(
             invoice_item_id: itemId,
             product_id: productId,
             stock_lot_id: lotId,
-            // Desktop column is `Qty`, not `Quantity`.
-            quantity: pickNumber(row, ["Qty", "Quantity"]),
-            unit_cost: pickNumber(row, ["PurchasePrice"]),
+            quantity: allocQty,
+            unit_cost: allocUnitCost,
           });
 
         if (error) {
@@ -1076,6 +1153,10 @@ export async function importTableChunkAction(
         const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
         const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
 
+        const paymentAmount = Number(row.Amount || 0);
+        const payErr = assertNonNeg(paymentAmount, "amount", row.Id);
+        if (payErr) { failed++; warnings.push(payErr); continue; }
+
         const { error } = await supabase
           .from("payments")
           .insert({
@@ -1084,7 +1165,7 @@ export async function importTableChunkAction(
             invoice_id: billId || null,
             customer_id: custId || null,
             method: row.Method || "cash",
-            amount: Number(row.Amount || 0),
+            amount: paymentAmount,
             reference_no: row.ReferenceNo?.toString() || "",
             received_by: profile.id,
             created_at: row.CreatedAt || new Date().toISOString()
@@ -1113,6 +1194,13 @@ export async function importTableChunkAction(
         }
         const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
 
+        const ledAmount = Number(row.Amount || 0);
+        const ledBalance = Number(row.BalanceAfter || 0);
+        const ledErr =
+          assertNonNeg(ledAmount, "amount", row.Id) ??
+          assertNonNeg(ledBalance, "balance_after", row.Id);
+        if (ledErr) { failed++; warnings.push(ledErr); continue; }
+
         const { error } = await supabase
           .from("customer_ledger_entries")
           .insert({
@@ -1122,8 +1210,8 @@ export async function importTableChunkAction(
             invoice_id: billId || null,
             entry_type: row.EntryType || "invoice_credit",
             direction: row.Direction || "debit",
-            amount: Number(row.Amount || 0),
-            balance_after: Number(row.BalanceAfter || 0),
+            amount: ledAmount,
+            balance_after: ledBalance,
             description: row.Description?.toString() || "",
             created_by: profile.id,
             created_at: row.Date || new Date().toISOString()
@@ -1175,6 +1263,10 @@ export async function importTableChunkAction(
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId });
           skipped++;
         } else {
+          const refundAmt = pickNumber(row, ["RefundAmount"]);
+          const retErr = assertNonNeg(refundAmt, "refund_amount", row.Id);
+          if (retErr) { failed++; warnings.push(retErr); continue; }
+
           const { data, error } = await supabase
             .from("returns")
             .insert({
@@ -1184,8 +1276,8 @@ export async function importTableChunkAction(
               customer_id: custId || null,
               return_no: retNo,
               status: normalizeReturnStatus(row.Status),
-              subtotal: pickNumber(row, ["RefundAmount"]),
-              refund_amount: pickNumber(row, ["RefundAmount"]),
+              subtotal: refundAmt,
+              refund_amount: refundAmt,
               refund_method: finalRefundMethod,
               notes: pickString(row, ["Reason", "Notes"]),
               created_by: profile.id,
@@ -1244,6 +1336,15 @@ export async function importTableChunkAction(
           continue;
         }
 
+        const riQty = pickNumber(row, ["QtyReturned", "Qty", "Quantity"]);
+        const riUnitPrice = pickNumber(row, ["UnitPrice"], itemPriceMap.get(itemId) || 0);
+        const riLineTotal = pickNumber(row, ["LineTotal", "RefundAmount"]);
+        const riErr =
+          assertNonNeg(riQty, "quantity", row.Id) ??
+          assertNonNeg(riUnitPrice, "unit_price", row.Id) ??
+          assertNonNeg(riLineTotal, "line_total", row.Id);
+        if (riErr) { failed++; warnings.push(riErr); continue; }
+
         const { error } = await supabase
           .from("return_items")
           .insert({
@@ -1254,10 +1355,9 @@ export async function importTableChunkAction(
             product_id: prodId || null,
             item_name: itemNameMap.get(itemId) || "Unknown Returned Item",
             item_type: itemTypeMap.get(itemId) || "product",
-            // Desktop column is `QtyReturned`, not `Quantity`.
-            quantity: pickNumber(row, ["QtyReturned", "Qty", "Quantity"]),
-            unit_price: pickNumber(row, ["UnitPrice"], itemPriceMap.get(itemId) || 0),
-            line_total: pickNumber(row, ["LineTotal", "RefundAmount"]),
+            quantity: riQty,
+            unit_price: riUnitPrice,
+            line_total: riLineTotal,
             restock: pickBool(row, ["Restocked", "Restock"]),
           });
 
@@ -1278,13 +1378,17 @@ export async function importTableChunkAction(
           continue;
         }
 
+        const expenseAmount = Number(row.Amount || 0);
+        const expErr = assertNonNeg(expenseAmount, "amount", row.Id);
+        if (expErr) { failed++; warnings.push(expErr); continue; }
+
         const { error } = await supabase
           .from("expenses")
           .insert({
             organization_id: orgId,
             branch_id: branchId,
             category,
-            amount: Number(row.Amount || 0),
+            amount: expenseAmount,
             payment_method: row.PaymentMethod || "cash",
             vendor_name: row.VendorName?.toString() || "",
             notes: row.Notes?.toString() || "",
@@ -1315,6 +1419,13 @@ export async function importTableChunkAction(
           continue;
         }
 
+        const estCost = Number(row.EstimatedCost || 0);
+        const advPaid = Number(row.AdvancePaid || 0);
+        const rjErr =
+          assertNonNeg(estCost, "estimated_cost", row.Id) ??
+          assertNonNeg(advPaid, "advance_paid", row.Id);
+        if (rjErr) { failed++; warnings.push(rjErr); continue; }
+
         const { data, error } = await supabase
           .from("repairs")
           .insert({
@@ -1329,8 +1440,8 @@ export async function importTableChunkAction(
             serial_imei: row.SerialImei?.toString() || "",
             problem: row.Problem?.toString() || "",
             accessories: row.Accessories?.toString() || "",
-            estimated_cost: Number(row.EstimatedCost || 0),
-            advance_paid: Number(row.AdvancePaid || 0),
+            estimated_cost: estCost,
+            advance_paid: advPaid,
             payment_method: normalizePaymentMethod(row.PaymentMethod),
             status: normalizeRepairStatus(row.Status),
             notes: row.Notes?.toString() || "",
@@ -1360,6 +1471,13 @@ export async function importTableChunkAction(
           continue;
         }
 
+        const cashExpected = Number(row.CashExpected || 0);
+        const cashCounted = Number(row.CashCounted || 0);
+        const dcErr =
+          assertNonNeg(cashExpected, "CashExpected", row.Id) ??
+          assertNonNeg(cashCounted, "CashCounted", row.Id);
+        if (dcErr) { failed++; warnings.push(dcErr); continue; }
+
         const { error } = await supabase
           .from("daily_closings")
           .insert({
@@ -1370,8 +1488,8 @@ export async function importTableChunkAction(
             opening_cash: 0,
             sales_cash: 0,
             expenses_cash: 0,
-            expected_cash: Number(row.CashExpected || 0),
-            actual_cash: Number(row.CashCounted || 0),
+            expected_cash: cashExpected,
+            actual_cash: cashCounted,
             difference: Number(row.CashDifference || 0),
             status: "closed",
             finalized_by: profile.id,
