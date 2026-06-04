@@ -286,9 +286,7 @@ function DashboardPreview({
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default async function HomePage() {
   const { dict } = await getServerDict();
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const d = dict as any;
-  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const d = dict as Record<string, Record<string, string>>;
   if (env.isSupabaseConfigured) {
     const { user, profile, organization } = await getCurrentContext();
     if (user) {
