@@ -171,6 +171,24 @@ async function recentActivity(organizationId: string) {
   });
 }
 
+const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  sale: TrendingUp,
+  stock: PackageSearch,
+  repair: Wrench,
+  payment: CreditCard,
+  expense: Wallet,
+  privacy: Bell,
+};
+
+const activityBg: Record<string, string> = {
+  sale: "rgba(59,130,246,0.12)",
+  stock: "rgba(245,158,11,0.12)",
+  repair: "rgba(139,92,246,0.12)",
+  payment: "rgba(16,185,129,0.12)",
+  expense: "rgba(239,68,68,0.12)",
+  privacy: "rgba(99,102,241,0.12)",
+};
+
 export default async function DashboardPage() {
   if (!env.isSupabaseConfigured) {
     return (
@@ -285,24 +303,6 @@ export default async function DashboardPage() {
   const maxBar = Math.max(...weekSales.map((w) => w.total), 1);
   const maxMonthlyBar = Math.max(...monthSales.map((m) => m.total), 1);
 
-  const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-    sale: TrendingUp,
-    stock: PackageSearch,
-    repair: Wrench,
-    payment: CreditCard,
-    expense: Wallet,
-    privacy: Bell,
-  };
-
-  const activityBg: Record<string, string> = {
-    sale: "rgba(59,130,246,0.12)",
-    stock: "rgba(245,158,11,0.12)",
-    repair: "rgba(139,92,246,0.12)",
-    payment: "rgba(16,185,129,0.12)",
-    expense: "rgba(239,68,68,0.12)",
-    privacy: "rgba(99,102,241,0.12)",
-  };
-
   return (
     <AppShell pageTitle="Dashboard">
       {/* Main dashboard card */}
@@ -344,331 +344,490 @@ export default async function DashboardPage() {
             </div>
 
             {/* Stat cards row */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-              {statCards.map((k) => {
-                const Icon = k.icon;
-                const card = (
-                  <div
-                    className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold tracking-wider text-slate-500 dark:text-slate-400">
-                        {k.label}
-                      </span>
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `${k.color}18`, color: k.color }}>
-                        <Icon className="size-3.5" />
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-sm font-bold text-slate-950 dark:text-white sm:text-base">
-                      {k.value}
-                    </p>
-                    <p className="mt-0.5 text-[10px] font-medium" style={{ color: k.color }}>
-                      {k.change}
-                    </p>
-                  </div>
-                );
-                return "href" in k ? (
-                  <Link key={k.label} href={(k as { href: string }).href} className="transition hover:opacity-80">
-                    {card}
-                  </Link>
-                ) : (
-                  <div key={k.label}>{card}</div>
-                );
-              })}
-            </div>
+            <StatCardsGrid statCards={statCards} />
 
             {/* Top-selling products */}
-            {dashSummary.topSellingProducts.length > 0 && (
-              <div className="mt-3 sm:mt-4">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      {t.topSelling}
-                    </p>
-                    <Link href="/products" className="text-[10px] font-semibold text-blue-700 hover:underline dark:text-blue-400">
-                      {t.viewReport}
-                    </Link>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[11px]">
-                      <thead>
-                        <tr className="border-b border-slate-200 dark:border-white/[0.06]">
-                          <th className="pb-1.5 font-semibold text-slate-500 dark:text-slate-400">#</th>
-                          <th className="pb-1.5 font-semibold text-slate-500 dark:text-slate-400">Product</th>
-                          <th className="pb-1.5 text-right font-semibold text-slate-500 dark:text-slate-400">{t.itemsSold}</th>
-                          <th className="pb-1.5 text-right font-semibold text-slate-500 dark:text-slate-400">Revenue</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dashSummary.topSellingProducts.map((p, i) => (
-                          <tr key={p.productName} className="border-b border-slate-100 last:border-0 dark:border-white/[0.04]">
-                            <td className="py-1.5 text-slate-400">{i + 1}</td>
-                            <td className="py-1.5 font-medium text-slate-950 dark:text-white">{p.productName}</td>
-                            <td className="py-1.5 text-right text-slate-700 dark:text-slate-300">{formatNumber(p.quantity)}</td>
-                            <td className="py-1.5 text-right font-semibold text-slate-950 dark:text-white">{formatCurrency(p.revenue, currency)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
+            <TopSellingTable topSellingProducts={dashSummary.topSellingProducts} t={t} currency={currency} />
 
             {/* Activity + weekly chart */}
             <div className="mt-3 grid grid-cols-1 gap-3 sm:mt-4 lg:grid-cols-[1fr_180px]">
               {/* Activity feed */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Recent activity
-                  </h2>
-                  <Link href="/audit-log" className="text-[10px] font-semibold text-blue-700 hover:underline dark:text-blue-400">
-                    View all
-                  </Link>
-                </div>
-
-                {activity.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center dark:border-white/[0.06] dark:bg-white/[0.02]">
-                    <Clock className="mb-1 size-5 text-slate-300 dark:text-slate-600" />
-                    <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">No activity yet</p>
-                    <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                      Start ringing up sales — activity will appear here.
-                    </p>
-                  </div>
-                ) : (
-                  activity.map((row) => {
-                    const ActIcon = ACTIVITY_ICONS[row.icon] ?? Bell;
-                    const bgColor = activityBg[row.icon] ?? "rgba(100,116,139,0.12)";
-                    return (
-                      <div
-                        key={row.id}
-                        className="flex items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50/30 p-2.5 transition hover:bg-slate-100/50 dark:border-white/[0.05] dark:bg-white/[0.02] dark:hover:bg-white/[0.05]"
-                      >
-                        <span
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                          style={{ background: bgColor, color: row.color }}
-                        >
-                          <ActIcon className="h-3 w-3" />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                          {row.left}
-                        </span>
-                        {row.right && (
-                          <span className="shrink-0 text-[11px] font-bold" style={{ color: row.color }}>
-                            {row.right}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              <ActivityFeedList activity={activity} />
 
               {/* Weekly sales bar chart */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <p className="mb-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Weekly sales
-                </p>
-                {weekSales.length === 0 ? (
-                  <div className="flex h-[52px] items-center justify-center">
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">No data</p>
-                  </div>
-                ) : (
-                  <div className="flex items-end gap-0.5" style={{ height: "52px" }}>
-                    {weekSales.map((bar) => {
-                      const pct = (bar.total / maxBar) * 100;
-                      const isPeak = bar.total === maxBar;
-                      return (
-                        <div key={bar.date} className="flex flex-1 flex-col items-center gap-1">
-                          <div className="flex h-[44px] w-full items-end">
-                            <div
-                              className="w-full rounded-t-sm"
-                              style={{
-                                height: `${Math.max(pct, 3)}%`,
-                                background: isPeak
-                                  ? "linear-gradient(to top,#0b2f6f,#00b8b0)"
-                                  : "rgba(11,47,111,0.2)",
-                                transition: "height 0.3s ease",
-                              }}
-                            />
-                          </div>
-                          <span className="text-[7px] font-medium text-slate-400 dark:text-slate-500">{bar.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <WeeklySalesBarChart weekSales={weekSales} maxBar={maxBar} />
             </div>
 
             {/* Monthly sales histogram */}
-            <div className="mt-3 sm:mt-4">
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <p className="mb-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Monthly sales
-                </p>
-                {monthSales.length === 0 ? (
-                  <div className="flex h-[52px] items-center justify-center">
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">No monthly sales yet</p>
-                  </div>
-                ) : (
-                  <div className="flex items-end gap-px" style={{ height: "52px" }}>
-                    {monthSales.map((bar) => {
-                      const pct = (bar.total / maxMonthlyBar) * 100;
-                      const isPeak = bar.total === maxMonthlyBar;
-                      return (
-                        <div key={bar.day} className="flex flex-1 flex-col items-center gap-1">
-                          <div className="flex h-[44px] w-full items-end">
-                            <div
-                              className="w-full rounded-t-sm"
-                              style={{
-                                height: `${Math.max(pct, 3)}%`,
-                                background: isPeak
-                                  ? "linear-gradient(to top,#0b2f6f,#00b8b0)"
-                                  : "rgba(11,47,111,0.2)",
-                                transition: "height 0.3s ease",
-                              }}
-                            />
-                          </div>
-                          <span className="text-[6px] font-medium text-slate-400 dark:text-slate-500">{bar.day}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
+            <MonthlySalesHistogram monthSales={monthSales} maxMonthlyBar={maxMonthlyBar} />
 
             {/* Sales summary + quick links for mobile */}
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Credit collected today
-                </p>
-                <p className="mt-1 text-base font-bold text-emerald-700 dark:text-emerald-400">
-                  {formatCurrency(creditCollectedToday, currency)}
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  Cash + digital settlements
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Today net
-                </p>
-                <p className={`mt-1 text-base font-bold ${todayNet >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
-                  {formatCurrency(todayNet, currency)}
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  Sales minus expenses
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {isTodayClosed ? "Today closed" : "Today closing"}
-                </p>
-                <p className="mt-1 text-base font-bold text-slate-950 dark:text-white">
-                  {isTodayClosed ? "Closed" : "Open"}
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  {isTodayClosed && closingDifference !== null
-                    ? `Cash diff: ${formatCurrency(closingDifference, currency)}`
-                    : branchId
-                      ? `Expected cash: ${formatCurrency(expectedCashToday, currency)}`
-                      : "No branch assigned"}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Today expenses
-                </p>
-                <p className="mt-1 text-base font-bold text-rose-700 dark:text-rose-400">
-                  {formatCurrency(expenses.todayTotal, currency)}
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  {expenses.todayCount === 0 ? "No expenses" : `${formatNumber(expenses.todayCount)} entr${expenses.todayCount === 1 ? "y" : "ies"}`}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Stock valuation
-                </p>
-                <p className="mt-1 text-base font-bold text-slate-950 dark:text-white">
-                  {formatCurrency(stockValue, currency)}
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  At purchase cost
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3 dark:border-amber-800/30 dark:bg-amber-900/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Potential profit in stock
-                </p>
-                <p className="mt-1 text-base font-bold text-amber-800 dark:text-amber-300">
-                  {formatCurrency(potentialProfit.potentialProfitInStock, currency)}
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500 dark:text-slate-400">
-                  <span>Sale value: {formatCurrency(potentialProfit.totalInventorySaleValue, currency)}</span>
-                  <span>Cost: {formatCurrency(potentialProfit.totalInventoryCostValue, currency)}</span>
-                  {potentialProfit.marginPercent !== null && (
-                    <span>Margin: {potentialProfit.marginPercent}%</span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-[10px] italic text-amber-600 dark:text-amber-400">
-                  If all current stock sold at current prices (not yet earned).
-                </p>
-              </div>
-            </div>
+            <SalesSummaryCards
+              creditCollectedToday={creditCollectedToday}
+              currency={currency}
+              todayNet={todayNet}
+              isTodayClosed={isTodayClosed}
+              closingDifference={closingDifference}
+              branchId={branchId}
+              expectedCashToday={expectedCashToday}
+              expenses={expenses}
+              stockValue={stockValue}
+              potentialProfit={potentialProfit}
+            />
 
             {/* Bottom links row */}
-            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
-              <Link
-                href="/reports"
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
-              >
-                <BarChart3 className="size-3" />
-                Reports
-              </Link>
-              {branchId && (
-                <Link
-                  href="/daily-closing"
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
-                >
-                  <CalendarCheck className="size-3" />
-                  {isTodayClosed ? "Review closing" : "Open closing"}
-                </Link>
-              )}
-              <Link
-                href="/products"
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
-              >
-                <Boxes className="size-3" />
-                Inventory
-              </Link>
-              {isPrivileged && (
-                <Link
-                  href="/audit-log"
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
-                >
-                  <Clock className="size-3" />
-                  Audit log
-                </Link>
-              )}
-              <Link
-                href="/customers"
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
-              >
-                <Users className="size-3" />
-                Customers
-              </Link>
-            </div>
+            <BottomLinksRow branchId={branchId} isTodayClosed={isTodayClosed} isPrivileged={isPrivileged} />
           </div>
       </div>
     </AppShell>
+  );
+}
+
+type StatCardProps = {
+  label: string;
+  value: string;
+  change: string;
+  color: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href?: string;
+};
+
+function StatCardsGrid({ statCards }: { statCards: StatCardProps[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+      {statCards.map((k) => {
+        const Icon = k.icon;
+        const card = (
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold tracking-wider text-slate-500 dark:text-slate-400">
+                {k.label}
+              </span>
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md"
+                style={{ background: `${k.color}18`, color: k.color }}
+              >
+                <Icon className="size-3.5" />
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm font-bold text-slate-950 dark:text-white sm:text-base">
+              {k.value}
+            </p>
+            <p className="mt-0.5 text-[10px] font-medium" style={{ color: k.color }}>
+              {k.change}
+            </p>
+          </div>
+        );
+        return k.href ? (
+          <Link
+            key={k.label}
+            href={k.href}
+            className="transition hover:opacity-80"
+          >
+            {card}
+          </Link>
+        ) : (
+          <div key={k.label}>{card}</div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TopSellingTable({
+  topSellingProducts,
+  t,
+  currency,
+}: {
+  topSellingProducts: { productName: string; quantity: number; revenue: number }[];
+  t: Record<string, string>;
+  currency: string;
+}) {
+  if (topSellingProducts.length === 0) return null;
+  return (
+    <div className="mt-3 sm:mt-4">
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            {t.topSelling}
+          </p>
+          <Link
+            href="/products"
+            className="text-[10px] font-semibold text-blue-700 hover:underline dark:text-blue-400"
+          >
+            {t.viewReport}
+          </Link>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[11px]">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-white/[0.06]">
+                <th className="pb-1.5 font-semibold text-slate-500 dark:text-slate-400">
+                  #
+                </th>
+                <th className="pb-1.5 font-semibold text-slate-500 dark:text-slate-400">
+                  Product
+                </th>
+                <th className="pb-1.5 text-right font-semibold text-slate-500 dark:text-slate-400">
+                  {t.itemsSold}
+                </th>
+                <th className="pb-1.5 text-right font-semibold text-slate-500 dark:text-slate-400">
+                  Revenue
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {topSellingProducts.map((p, i) => (
+                <tr
+                  key={p.productName}
+                  className="border-b border-slate-100 last:border-0 dark:border-white/[0.04]"
+                >
+                  <td className="py-1.5 text-slate-400">{i + 1}</td>
+                  <td className="py-1.5 font-medium text-slate-950 dark:text-white">
+                    {p.productName}
+                  </td>
+                  <td className="py-1.5 text-right text-slate-700 dark:text-slate-300">
+                    {formatNumber(p.quantity)}
+                  </td>
+                  <td className="py-1.5 text-right font-semibold text-slate-950 dark:text-white">
+                    {formatCurrency(p.revenue, currency)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type ActivityItem = {
+  id: string;
+  icon: string;
+  left: string;
+  right: string;
+  color: string;
+};
+function ActivityFeedList({ activity }: { activity: ActivityItem[] }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Recent activity
+        </h2>
+        <Link
+          href="/audit-log"
+          className="text-[10px] font-semibold text-blue-700 hover:underline dark:text-blue-400"
+        >
+          View all
+        </Link>
+      </div>
+
+      {activity.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <Clock className="mb-1 size-5 text-slate-300 dark:text-slate-600" />
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+            No activity yet
+          </p>
+          <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+            Start ringing up sales — activity will appear here.
+          </p>
+        </div>
+      ) : (
+        activity.map((row) => {
+          const ActIcon = ACTIVITY_ICONS[row.icon] ?? Bell;
+          const bgColor = activityBg[row.icon] ?? "rgba(100,116,139,0.12)";
+          return (
+            <div
+              key={row.id}
+              className="flex items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50/30 p-2.5 transition hover:bg-slate-100/50 dark:border-white/[0.05] dark:bg-white/[0.02] dark:hover:bg-white/[0.05]"
+            >
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: bgColor, color: row.color }}
+              >
+                <ActIcon className="h-3 w-3" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                {row.left}
+              </span>
+              {row.right && (
+                <span
+                  className="shrink-0 text-[11px] font-bold"
+                  style={{ color: row.color }}
+                >
+                  {row.right}
+                </span>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function WeeklySalesBarChart({
+  weekSales,
+  maxBar,
+}: {
+  weekSales: { label: string; total: number; date: string }[];
+  maxBar: number;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+      <p className="mb-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        Weekly sales
+      </p>
+      {weekSales.length === 0 ? (
+        <div className="flex h-[52px] items-center justify-center">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500">No data</p>
+        </div>
+      ) : (
+        <div className="flex items-end gap-0.5" style={{ height: "52px" }}>
+          {weekSales.map((bar) => {
+            const pct = (bar.total / maxBar) * 100;
+            const isPeak = bar.total === maxBar;
+            return (
+              <div key={bar.date} className="flex flex-1 flex-col items-center gap-1">
+                <div className="flex h-[44px] w-full items-end">
+                  <div
+                    className="w-full rounded-t-sm"
+                    style={{
+                      height: `${Math.max(pct, 3)}%`,
+                      background: isPeak
+                        ? "linear-gradient(to top,#0b2f6f,#00b8b0)"
+                        : "rgba(11,47,111,0.2)",
+                      transition: "height 0.3s ease",
+                    }}
+                  />
+                </div>
+                <span className="text-[7px] font-medium text-slate-400 dark:text-slate-500">
+                  {bar.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MonthlySalesHistogram({
+  monthSales,
+  maxMonthlyBar,
+}: {
+  monthSales: { day: number; total: number }[];
+  maxMonthlyBar: number;
+}) {
+  return (
+    <div className="mt-3 sm:mt-4">
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <p className="mb-2 text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Monthly sales
+        </p>
+        {monthSales.length === 0 ? (
+          <div className="flex h-[52px] items-center justify-center">
+            <p className="text-[10px] text-slate-400 dark:text-slate-500">
+              No monthly sales yet
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-end gap-px" style={{ height: "52px" }}>
+            {monthSales.map((bar) => {
+              const pct = (bar.total / maxMonthlyBar) * 100;
+              const isPeak = bar.total === maxMonthlyBar;
+              return (
+                <div key={bar.day} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="flex h-[44px] w-full items-end">
+                    <div
+                      className="w-full rounded-t-sm"
+                      style={{
+                        height: `${Math.max(pct, 3)}%`,
+                        background: isPeak
+                          ? "linear-gradient(to top,#0b2f6f,#00b8b0)"
+                          : "rgba(11,47,111,0.2)",
+                        transition: "height 0.3s ease",
+                    }}
+                  />
+                  </div>
+                  <span className="text-[6px] font-medium text-slate-400 dark:text-slate-500">
+                    {bar.day}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SalesSummaryCards({
+  creditCollectedToday,
+  currency,
+  todayNet,
+  isTodayClosed,
+  closingDifference,
+  branchId,
+  expectedCashToday,
+  expenses,
+  stockValue,
+  potentialProfit,
+}: {
+  creditCollectedToday: number;
+  currency: string;
+  todayNet: number;
+  isTodayClosed: boolean;
+  closingDifference: number | null;
+  branchId: string | null;
+  expectedCashToday: number;
+  expenses: { todayTotal: number; todayCount: number };
+  stockValue: number;
+  potentialProfit: { potentialProfitInStock: number; totalInventorySaleValue: number; totalInventoryCostValue: number; marginPercent: number | null };
+}) {
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Credit collected today
+        </p>
+        <p className="mt-1 text-base font-bold text-emerald-700 dark:text-emerald-400">
+          {formatCurrency(creditCollectedToday, currency)}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+          Cash + digital settlements
+        </p>
+      </div>
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Today net
+        </p>
+        <p
+          className={`mt-1 text-base font-bold ${
+            todayNet >= 0
+              ? "text-emerald-700 dark:text-emerald-400"
+              : "text-rose-700 dark:text-rose-400"
+          }`}
+        >
+          {formatCurrency(todayNet, currency)}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+          Sales minus expenses
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          {isTodayClosed ? "Today closed" : "Today closing"}
+        </p>
+        <p className="mt-1 text-base font-bold text-slate-950 dark:text-white">
+          {isTodayClosed ? "Closed" : "Open"}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+          {isTodayClosed && closingDifference !== null
+            ? `Cash diff: ${formatCurrency(closingDifference, currency)}`
+            : branchId
+              ? `Expected cash: ${formatCurrency(expectedCashToday, currency)}`
+              : "No branch assigned"}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Today expenses
+        </p>
+        <p className="mt-1 text-base font-bold text-rose-700 dark:text-rose-400">
+          {formatCurrency(expenses.todayTotal, currency)}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+          {expenses.todayCount === 0
+            ? "No expenses"
+            : `${formatNumber(expenses.todayCount)} entr${
+                expenses.todayCount === 1 ? "y" : "ies"
+              }`}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Stock valuation
+        </p>
+        <p className="mt-1 text-base font-bold text-slate-950 dark:text-white">
+          {formatCurrency(stockValue, currency)}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+          At purchase cost
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3 dark:border-amber-800/30 dark:bg-amber-900/10">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Potential profit in stock
+        </p>
+        <p className="mt-1 text-base font-bold text-amber-800 dark:text-amber-300">
+          {formatCurrency(potentialProfit.potentialProfitInStock, currency)}
+        </p>
+        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+          <span>Sale value: {formatCurrency(potentialProfit.totalInventorySaleValue, currency)}</span>
+          <span>Cost: {formatCurrency(potentialProfit.totalInventoryCostValue, currency)}</span>
+          {potentialProfit.marginPercent !== null && (
+            <span>Margin: {potentialProfit.marginPercent}%</span>
+          )}
+        </div>
+        <p className="mt-0.5 text-[10px] italic text-amber-600 dark:text-amber-400">
+          If all current stock sold at current prices (not yet earned).
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function BottomLinksRow({ branchId, isTodayClosed, isPrivileged }: { branchId: string | null; isTodayClosed: boolean; isPrivileged: boolean }) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
+      <Link
+        href="/reports"
+        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
+      >
+        <BarChart3 className="size-3" />
+        Reports
+      </Link>
+      {branchId && (
+        <Link
+          href="/daily-closing"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
+        >
+          <CalendarCheck className="size-3" />
+          {isTodayClosed ? "Review closing" : "Open closing"}
+        </Link>
+      )}
+      <Link
+        href="/products"
+        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
+      >
+        <Boxes className="size-3" />
+        Inventory
+      </Link>
+      {isPrivileged && (
+        <Link
+          href="/audit-log"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
+        >
+          <Clock className="size-3" />
+          Audit log
+        </Link>
+      )}
+      <Link
+        href="/customers"
+        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.05]"
+      >
+        <Users className="size-3" />
+        Customers
+      </Link>
+    </div>
   );
 }
