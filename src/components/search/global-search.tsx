@@ -135,8 +135,8 @@ export function GlobalSearch() {
         const res = await executeGlobalSearchAction(query);
         setResults(res);
         setHighlightIndex(0);
-      } catch (err) {
-        console.error("Global search failed:", err);
+      } catch {
+        // Ignored, server action handles logging and fallback
       } finally {
         setLoading(false);
       }
