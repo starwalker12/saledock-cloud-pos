@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -33,10 +34,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/coverage-v8": "^4.1.8",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "prettier": "^3.8.3",
+    "server-only": "^0.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

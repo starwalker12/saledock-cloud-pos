@@ -1,8 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const RATE_LIMIT_MAX_ATTEMPTS = 10;
-const RATE_LIMIT_WINDOW_MINUTES = 10;
+export const RATE_LIMIT_MAX_ATTEMPTS = 10;
+export const RATE_LIMIT_WINDOW_MINUTES = 10;
 
 export type RateLimitResult = {
   allowed: boolean;
