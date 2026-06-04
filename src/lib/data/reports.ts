@@ -612,14 +612,18 @@ export async function getReportsData(
   const closedDatesSet = new Set(dailyClosings.filter((c) => c.finalized_by !== null).map((c) => c.closing_date));
   const startDay = new Date(startDateStr);
   const endDay = new Date(endDateStr);
-  let openDaysCount = 0;
 
-  for (let d = new Date(startDay); d <= endDay; d.setDate(d.getDate() + 1)) {
-    const dayStr = d.toISOString().slice(0, 10);
-    if (!closedDatesSet.has(dayStr)) {
-      openDaysCount++;
+  const diffTime = endDay.getTime() - startDay.getTime();
+  const totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  let validClosedDays = 0;
+  for (const dateStr of closedDatesSet) {
+    const closedDate = new Date(dateStr);
+    if (closedDate >= startDay && closedDate <= endDay) {
+      validClosedDays++;
     }
   }
+  const openDaysCount = Math.max(0, totalDays - validClosedDays);
 
   const recentClosings = dailyClosings.slice(0, 5).map((c) => ({
     date: c.closing_date,
