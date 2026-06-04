@@ -8,6 +8,7 @@ import { env } from "@/lib/env";
 import { sanitizePlainText } from "@/lib/security/sanitize";
 import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
 import { logAudit } from "@/lib/audit";
+import { checkRateLimit, recordAttempt, clearAttempts, extractClientIp } from "@/lib/auth/rate-limit";
 
 const passwordSchema = z.string()
   .min(8, "Password must be at least 8 characters.")
@@ -72,13 +73,28 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
     return { error: parsed.error.issues[0]?.message ?? "Please enter your email and password." };
   }
 
+  const h = await headers();
+  const ip = extractClientIp(h.get("x-forwarded-for"));
+  if (ip) {
+    const rateCheck = await checkRateLimit(parsed.data.email, ip);
+    if (!rateCheck.allowed) {
+      return { error: "Too many attempts. Please try again in a few minutes." };
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     console.error("[security] Failed sign-in attempt for", parsed.data.email);
+    if (ip) {
+      await recordAttempt(parsed.data.email, ip, false);
+    }
     return { error: "Invalid email or password." };
   }
 
+  if (ip) {
+    await clearAttempts(parsed.data.email, ip);
+  }
   redirect("/auth/callback?next=%2Fdashboard");
 }
 
