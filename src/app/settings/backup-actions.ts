@@ -601,6 +601,20 @@ export async function importTableChunkAction(
         .eq("organization_id", orgId);
       const supMap = new Map(existing?.map(s => [s.name.trim().toLowerCase(), s.id]) ?? []);
 
+      // Avoid "any" by mapping standard typed schema for suppliers insert
+      type SupplierInsertType = {
+        organization_id: string;
+        name: string;
+        company: string;
+        phone: string;
+        email: string;
+        address: string;
+        notes: string;
+        is_active: boolean;
+      };
+      const toInsert: SupplierInsertType[] = [];
+      const rowMappingQueue: { sourceId: string; lowerName: string; name: string }[] = [];
+
       for (const row of typedRows) {
         const name = row.Name?.toString().trim();
         if (!name) {
@@ -609,14 +623,16 @@ export async function importTableChunkAction(
           continue;
         }
         const lowerName = name.toLowerCase();
+
         if (supMap.has(lowerName)) {
           const targetId = supMap.get(lowerName)!;
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId });
           skipped++;
         } else {
-          const { data, error } = await supabase
-            .from("suppliers")
-            .insert({
+          // Deduplicate within the current chunk
+          const alreadyInQueue = toInsert.find((i) => i.name.toLowerCase() === lowerName);
+          if (!alreadyInQueue) {
+            toInsert.push({
               organization_id: orgId,
               name,
               company: row.Company?.toString() || "",
@@ -625,20 +641,50 @@ export async function importTableChunkAction(
               address: row.Address?.toString() || "",
               notes: row.Notes?.toString() || "",
               is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
-            })
-            .select("id")
-            .single();
+            });
+          }
+          rowMappingQueue.push({ sourceId: row.Id.toString(), lowerName, name });
+        }
+      }
 
-          if (error) {
-            failed++;
-            warnings.push(`Supplier insert error: ${error.message} (Supplier: ${name}).`);
-          } else {
-            supMap.set(lowerName, data.id);
-            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
-            inserted++;
+      if (toInsert.length > 0) {
+        const { data, error } = await supabase
+          .from("suppliers")
+          .insert(toInsert)
+          .select("id, name");
+
+        if (error) {
+          warnings.push(`Bulk supplier insert error: ${error.message}`);
+        } else if (data) {
+          for (const item of data) {
+            supMap.set(item.name.toLowerCase(), item.id);
           }
         }
       }
+
+      // Process mappings for newly inserted (or failed) suppliers
+      const newlyInsertedNames = new Set(toInsert.map(i => i.name.toLowerCase()));
+      const seenInQueue = new Set<string>();
+
+      for (const q of rowMappingQueue) {
+        const targetId = supMap.get(q.lowerName);
+        if (targetId) {
+          mappingsToSave.push({ sourceId: q.sourceId, targetId });
+
+          if (newlyInsertedNames.has(q.lowerName)) {
+             if (!seenInQueue.has(q.lowerName)) {
+                inserted++;
+                seenInQueue.add(q.lowerName);
+             } else {
+                skipped++;
+             }
+          }
+        } else {
+          failed++;
+          warnings.push(`Supplier mapping missing after insert (Supplier: ${q.name}).`);
+        }
+      }
+
       await saveRowMappingsBatch(supabase, orgId, jobId, "Suppliers", "suppliers", mappingsToSave);
 
     } else if (tableName === "Customers") {
