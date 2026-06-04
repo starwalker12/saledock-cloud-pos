@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
@@ -186,7 +187,7 @@ export async function updateImportJobStatusAction(
 
 // Helper: Batch resolve mappings for parent foreign keys
 async function resolveTargetIdsBatch(
-  supabase: unknown,
+  supabase: SupabaseClient,
   orgId: string,
   jobId: string,
   sourceTable: string,
@@ -196,14 +197,11 @@ async function resolveTargetIdsBatch(
   const uniqueIds = Array.from(new Set(sourceIds.filter(Boolean)));
   if (uniqueIds.length === 0) return result;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = supabase as any;
-
   // Chunk large source ID parameters to avoid PostgreSQL param limits
   const size = 100;
   for (let i = 0; i < uniqueIds.length; i += size) {
     const chunkIds = uniqueIds.slice(i, i + size);
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from("import_row_mappings")
       .select("source_id, target_id")
       .eq("organization_id", orgId)
@@ -222,7 +220,7 @@ async function resolveTargetIdsBatch(
 
 // Helper: Insert mappings in chunks
 async function saveRowMappingsBatch(
-  supabase: unknown,
+  supabase: SupabaseClient,
   orgId: string,
   jobId: string,
   sourceTable: string,
@@ -239,12 +237,11 @@ async function saveRowMappingsBatch(
     target_id: m.targetId
   }));
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = supabase as any;
+
 
   const size = 100;
   for (let i = 0; i < insertPayload.length; i += size) {
-    await client
+    await supabase
       .from("import_row_mappings")
       .insert(insertPayload.slice(i, i + size));
   }
