@@ -21,7 +21,7 @@ import {
   canManageReplenishment,
   canOpenShift,
   canCloseShift,
-} from './permissions.ts';
+} from './permissions';
 
 type Role = "owner" | "admin" | "manager" | "cashier" | "technician";
 const ALL_ROLES: Role[] = ['owner', 'admin', 'manager', 'cashier', 'technician'];
