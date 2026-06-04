@@ -293,11 +293,6 @@ async function linkOAuthAction(provider: "google"): Promise<AuthState> {
     return { error: "You must be signed in to link an account. Sign in first, then try again." };
   }
 
-  // Developer-only diagnostic (safe — no tokens/secrets)
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[linkIdentity] provider=${provider}, redirectTo=${origin}/auth/callback?linking=1`);
-  }
-
   const { data, error } = await supabase.auth.linkIdentity({
     provider,
     options: {
