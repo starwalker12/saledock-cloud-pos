@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "jest"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/grecaptcha": "^3.0.9",
+    "@types/jest": "^30.0.0",
     "@types/jszip": "^3.4.0",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -35,8 +37,10 @@
     "@types/sql.js": "^1.4.11",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "jest": "^30.4.2",
     "prettier": "^3.8.3",
     "tailwindcss": "^4",
+    "ts-jest": "^29.4.11",
     "typescript": "^5"
   }
 }
