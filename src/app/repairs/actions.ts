@@ -114,66 +114,32 @@ export async function saveRepairAction(
 
     if (updateErr) return err(updateErr.message);
   } else {
-    // Intake Mode: Unique sequence generation RJ-XXXXXX with retry on conflict
-    let attempts = 0;
-    let success = false;
-    let jobNo = "";
+    // Intake Mode: Let database trigger handle unique sequence generation RJ-XXXXXX
+    const { data: newRepair, error: insertErr } = await supabase
+      .from("repairs")
+      .insert({
+        ...payload,
+        created_by: profile.id,
+        final_cost: parsed.data.estimated_cost, // Default final cost to estimated cost at intake
+      })
+      .select("id")
+      .maybeSingle();
 
-    while (attempts < 5 && !success) {
-      attempts++;
-      // Fetch all repairs to find max sequence code safely
-      const { data: currentRepairs, error: listErr } = await supabase
-        .from("repairs")
-        .select("job_no")
-        .eq("organization_id", orgId);
-
-      if (listErr) return err(listErr.message);
-
-      const maxSeq = (currentRepairs ?? [])
-        .map((r) => {
-          const num = r.job_no.replace(/\D/g, "");
-          return num ? parseInt(num, 10) : 0;
-        })
-        .reduce((max, val) => Math.max(max, val), 0);
-
-      const seq = maxSeq + 1;
-      jobNo = `RJ-${String(seq).padStart(6, "0")}`;
-
-      const { data: newRepair, error: insertErr } = await supabase
-        .from("repairs")
-        .insert({
-          ...payload,
-          job_no: jobNo,
-          created_by: profile.id,
-          final_cost: parsed.data.estimated_cost, // Default final cost to estimated cost at intake
-        })
-        .select("id")
-        .maybeSingle();
-
-      if (!insertErr && newRepair) {
-        savedId = newRepair.id;
-        success = true;
-
-        // Log initial received status history
-        await supabase.from("repair_status_history").insert({
-          organization_id: orgId,
-          repair_id: newRepair.id,
-          old_status: null,
-          new_status: parsed.data.status,
-          note: parsed.data.notes || "Device received for repair intake.",
-          changed_by: profile.id,
-        });
-      } else if (insertErr && insertErr.code === "23505") {
-        // Unique index violation (race condition on job_no). Loop will retry.
-        continue;
-      } else {
-        return err(insertErr?.message ?? "Failed to save repair job.");
-      }
+    if (insertErr || !newRepair) {
+      return err(insertErr?.message ?? "Failed to save repair job.");
     }
 
-    if (!success) {
-      return err("Failed to generate unique job number. Please try again.");
-    }
+    savedId = newRepair.id;
+
+    // Log initial received status history
+    await supabase.from("repair_status_history").insert({
+      organization_id: orgId,
+      repair_id: newRepair.id,
+      old_status: null,
+      new_status: parsed.data.status,
+      note: parsed.data.notes || "Device received for repair intake.",
+      changed_by: profile.id,
+    });
   }
 
   revalidatePath("/repairs");
