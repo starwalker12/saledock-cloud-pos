@@ -154,6 +154,9 @@ export function OnboardingWizard({
         if (!formData.orgPhone || formData.orgPhone.trim().length < 1) {
           errs.orgPhone = "Please enter your shop phone number.";
         }
+        if (!formData.orgEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.orgEmail.trim())) {
+          errs.orgEmail = "Please enter a valid shop email address.";
+        }
         break;
     }
     return errs;
@@ -517,14 +520,18 @@ function ShopStep({
           />
         </label>
         <label className="block">
-          <span className={labelTextClass}>Email</span>
+          <span className={labelTextClass}>Email <span className="text-red-500">*</span></span>
           <input
             type="email"
+            required
             value={data.orgEmail}
             onChange={(e) => onChange("orgEmail", e.target.value)}
-            className={inputClass}
+            className={`${inputClass} ${errors.orgEmail ? "border-red-400 focus:border-red-600" : ""}`}
             placeholder="shop@example.com"
           />
+          {errors.orgEmail && (
+            <p className="mt-1 text-xs font-medium text-red-600">{errors.orgEmail}</p>
+          )}
         </label>
       </div>
       <label className="block">
