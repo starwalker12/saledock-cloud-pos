@@ -17,7 +17,7 @@ const onboardingSchema = z.object({
   ownerName: z.string().optional().default(""),
   orgPhone: z.string().min(1, "Please enter your shop phone number."),
   orgWhatsapp: z.string().optional().default(""),
-  orgEmail: z.string().email().optional().or(z.literal("")).default(""),
+  orgEmail: z.string().email("Please enter a valid shop email address."),
   orgAddress: z.string().optional().default(""),
   currencyCode: z.string().optional().default("PKR"),
   timezone: z.string().optional().default("Asia/Karachi"),
