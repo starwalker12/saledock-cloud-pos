@@ -1,6 +1,28 @@
 import type { NextConfig } from "next";
 
+const projectRoot = process.cwd();
+
+const staticPublicAssetHeaders = [
+  { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+];
+
+const staticPublicAssetPaths = [
+  "/apple-touch-icon.png",
+  "/favicon.ico",
+  "/file.svg",
+  "/gadget-zone-logo.png",
+  "/globe.svg",
+  "/next.svg",
+  "/saledock-logo-full.png",
+  "/saledock-logo-mark.png",
+  "/vercel.svg",
+  "/window.svg",
+];
+
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: projectRoot,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "5mb",
@@ -8,6 +30,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      ...staticPublicAssetPaths.map((source) => ({
+        source,
+        headers: staticPublicAssetHeaders,
+      })),
       {
         source: "/:path*",
         headers: [

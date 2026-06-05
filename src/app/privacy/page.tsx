@@ -230,17 +230,19 @@ export default function PrivacyPage() {
 
           <h2 className="text-lg font-bold text-slate-950 dark:text-white">16. Analytics</h2>
           <p>
-            SaleDock uses Google Analytics 4 and Microsoft Clarity to understand how visitors use the
-            platform. These services may collect anonymized or masked usage data and session
-            recordings to help us improve the product.
+            SaleDock can use Google Analytics 4 and Microsoft Clarity to understand how visitors use
+            the platform, but these analytics tools load only after you accept analytics cookies.
+            You can reject analytics cookies and still use the site.
           </p>
           <p>
-            No personally identifiable business data (customer names, phone numbers, transaction
-            details, or inventory records) is sent to these analytics services. Data collected is
-            limited to general page views, feature interactions, and session behavior.
+            These services may collect general usage data and session behavior to help us improve
+            the product. No personally identifiable business data, such as customer names, phone
+            numbers, transaction details, or inventory records, is intentionally sent to these
+            analytics services.
           </p>
           <p>
-            You can limit analytics collection through your browser settings or by installing the{" "}
+            You can change your choice later through Cookie settings. You can also limit analytics
+            collection through your browser settings or by installing the{" "}
             <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline dark:text-blue-400">Google Analytics opt-out add-on</a>.
           </p>
 

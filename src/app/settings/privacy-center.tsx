@@ -17,6 +17,7 @@ import {
   Mail,
   Loader2,
   Eye,
+  Cookie,
 } from "lucide-react";
 
 type PrivacyRequest = {
@@ -154,6 +155,10 @@ export function PrivacyCenter() {
       const form = document.querySelector<HTMLFormElement>('form[key="privacy-form"]');
       form?.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
     }, 50);
+  }
+
+  function openCookieSettings() {
+    window.dispatchEvent(new Event("saledock:open-cookie-settings"));
   }
 
   // ── Render ────────────────────────────────────────────────────────
@@ -398,6 +403,31 @@ export function PrivacyCenter() {
             </table>
           </div>
         )}
+      </section>
+
+      {/* Cookie consent settings */}
+      <section className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-5 shadow-sm dark:border-slate-700 dark:bg-[#0f172a] sm:p-6">
+        <div className="flex items-start gap-4">
+          <div className="hidden rounded-xl bg-blue-50 p-3 text-blue-700 dark:bg-blue-950 dark:text-blue-300 sm:block">
+            <Cookie className="size-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-black text-slate-950 dark:text-slate-50">Cookie consent</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-300">
+              Choose whether SaleDock may load Google Analytics 4 and Microsoft Clarity for
+              usage analytics. You can accept or reject analytics cookies at any time.
+            </p>
+            <button
+              type="button"
+              onClick={openCookieSettings}
+              aria-label="Manage cookie consent"
+              className="mt-4 flex h-10 items-center gap-2 rounded-xl border border-blue-700 bg-[#eff6ff] px-5 text-sm font-bold text-blue-700 shadow-sm transition hover:bg-[#dbeafe] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:border-blue-300 dark:bg-[#172554] dark:text-blue-200 dark:hover:bg-[#1e3a8a]"
+            >
+              <Cookie className="size-4" />
+              Manage cookie consent
+            </button>
+          </div>
+        </div>
       </section>
 
       {/* Legal links */}
