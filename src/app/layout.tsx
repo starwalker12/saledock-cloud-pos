@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
+import AnalyticsNotice from "@/components/analytics-notice";
 import { env } from "@/lib/env";
 
 const geistSans = Geist({
@@ -106,6 +107,7 @@ export default function RootLayout({
             />
           </>
         )}
+        <AnalyticsNotice />
       </body>
     </html>
   );

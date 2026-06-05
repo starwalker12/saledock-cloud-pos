@@ -228,6 +228,22 @@ export default function PrivacyPage() {
             fardan.aatir@outlook.com
           </p>
 
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">16. Analytics</h2>
+          <p>
+            SaleDock uses Google Analytics 4 and Microsoft Clarity to understand how visitors use the
+            platform. These services may collect anonymized or masked usage data and session
+            recordings to help us improve the product.
+          </p>
+          <p>
+            No personally identifiable business data (customer names, phone numbers, transaction
+            details, or inventory records) is sent to these analytics services. Data collected is
+            limited to general page views, feature interactions, and session behavior.
+          </p>
+          <p>
+            You can limit analytics collection through your browser settings or by installing the{" "}
+            <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline dark:text-blue-400">Google Analytics opt-out add-on</a>.
+          </p>
+
           {/* Footer links */}
           <div className="border-t border-slate-200 pt-5 text-center dark:border-slate-600">
             <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400 dark:text-slate-500">

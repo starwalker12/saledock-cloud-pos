@@ -1771,14 +1771,14 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
 
             <div>
               <label htmlFor="confirm-phrase" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                To confirm restore, type <span className="text-blue-700">IMPORT DESKTOP BACKUP</span>:
+                To confirm restore, type <span className="text-blue-700">{isOnlineBackup ? "RESTORE ONLINE BACKUP" : "IMPORT DESKTOP BACKUP"}</span>:
               </label>
               <input
                 id="confirm-phrase"
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                placeholder="IMPORT DESKTOP BACKUP"
+                placeholder={isOnlineBackup ? "RESTORE ONLINE BACKUP" : "IMPORT DESKTOP BACKUP"}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-700 focus:bg-white"
               />
             </div>
@@ -1794,7 +1794,7 @@ export function BackupTab({ backupImportEnabled = true, factoryResetEnabled = tr
                 <button
                   onClick={triggerBackupImport}
                   disabled={
-                    confirmText !== "IMPORT DESKTOP BACKUP" ||
+                    confirmText !== "RESTORE ONLINE BACKUP" ||
                     !confirmCheckbox ||
                     !backupImportEnabled
                   }
