@@ -138,8 +138,10 @@ export function PosClient({ products: initialProducts, customers: initialCustome
     }, 0);
   }, [cart]);
   const grandTotal = Math.max(subtotal - (discountTotal || 0), 0);
-  const paid = Number(amountPaid || 0);
-  const balance = Math.max(grandTotal - paid, 0);
+  const tenderedValue = Number(amountPaid || 0);
+  const tendered = Number.isFinite(tenderedValue) ? Math.max(tenderedValue, 0) : 0;
+  const balance = Math.max(grandTotal - tendered, 0);
+  const changeDue = Math.max(tendered - grandTotal, 0);
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
 
   function addToCart(p: PosProduct) {
@@ -276,7 +278,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       customer_id: customerId || null,
       discount_total: discountTotal,
       payment_method: paymentMethod,
-      amount_paid: paid,
+      amount_paid: tendered,
       payment_reference: paymentRef || null,
       note: note || null,
     };
@@ -684,7 +686,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             </select>
           </div>
           <label className="block">
-            <span className="text-sm font-semibold text-slate-700">Amount paid</span>
+            <span className="text-sm font-semibold text-slate-700">Amount tendered</span>
             <div className="mt-1 grid gap-2 min-[380px]:grid-cols-[1fr_auto]">
               <input
                 type="number"
@@ -719,6 +721,12 @@ export function PosClient({ products: initialProducts, customers: initialCustome
               {formatCurrency(balance, currency)}
             </span>
           </div>
+          {changeDue > 0 && (
+            <div className="flex justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+              <span className="font-semibold">Change due</span>
+              <span className="font-black tabular-nums">{formatCurrency(changeDue, currency)}</span>
+            </div>
+          )}
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">Note (optional)</span>
             <textarea

@@ -105,7 +105,7 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     module: "pos",
     action: "pos.checkout_completed",
     details: `Checkout completed: Invoice ${row.invoice_no}`,
-    metadata: { invoice_id: row.invoice_id, invoice_no: row.invoice_no, payment_method: parsed.data.payment_method, amount_paid: parsed.data.amount_paid },
+    metadata: { invoice_id: row.invoice_id, invoice_no: row.invoice_no, payment_method: parsed.data.payment_method, amount_tendered: parsed.data.amount_paid },
   });
 
   return { ok: true, error: null, invoice_id: row.invoice_id, invoice_no: row.invoice_no };

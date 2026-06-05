@@ -105,10 +105,13 @@ export default async function InvoiceDetailPage({
     invoice.grand_total > 0 ? (grossProfit / invoice.grand_total) * 100 : 0;
   const canReturn = canProcessReturns(profile.role);
   const invoiceUrl = `${PRODUCTION_URL}/invoices/${invoice.id}`;
+  const hasChangeDue = invoice.change_due > 0;
   const whatsappMessage = [
     `${orgName} invoice ${invoice.invoice_no}`,
     `Total: ${formatCurrency(invoice.grand_total, currency)}`,
+    ...(hasChangeDue ? [`Tendered: ${formatCurrency(invoice.amount_tendered, currency)}`] : []),
     `Paid: ${formatCurrency(invoice.amount_paid, currency)}`,
+    ...(hasChangeDue ? [`Change: ${formatCurrency(invoice.change_due, currency)}`] : []),
     `Balance: ${formatCurrency(invoice.balance_due, currency)}`,
     `View invoice: ${invoiceUrl}`,
   ].join("\n");
@@ -314,6 +317,22 @@ export default async function InvoiceDetailPage({
                 {formatCurrency(invoice.amount_paid, currency)}
               </span>
             </div>
+            {hasChangeDue && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Tendered</span>
+                  <span className="tabular-nums font-semibold">
+                    {formatCurrency(invoice.amount_tendered, currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">Change</span>
+                  <span className="tabular-nums font-bold text-emerald-700 dark:text-emerald-400">
+                    {formatCurrency(invoice.change_due, currency)}
+                  </span>
+                </div>
+              </>
+            )}
             {invoice.balance_due > 0 && (
               <div className="flex justify-between">
                 <span className="text-sm font-semibold text-red-600 dark:text-red-400">Balance due</span>
@@ -588,6 +607,18 @@ export default async function InvoiceDetailPage({
             <span>Paid</span>
             <span>{formatCurrency(invoice.amount_paid, currency)}</span>
           </div>
+          {hasChangeDue && (
+            <>
+              <div className="flex justify-between">
+                <span>Tendered</span>
+                <span>{formatCurrency(invoice.amount_tendered, currency)}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>Change</span>
+                <span>{formatCurrency(invoice.change_due, currency)}</span>
+              </div>
+            </>
+          )}
           <div className="flex justify-between font-bold">
             <span>Balance</span>
             <span>{formatCurrency(invoice.balance_due, currency)}</span>

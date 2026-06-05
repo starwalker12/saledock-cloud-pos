@@ -47,6 +47,8 @@ export type InvoiceDetail = {
   discount_total: number;
   grand_total: number;
   amount_paid: number;
+  amount_tendered: number;
+  change_due: number;
   balance_due: number;
   note: string | null;
   customer: { id: string; name: string; phone: string | null; address: string | null } | null;
@@ -98,7 +100,7 @@ export async function getInvoiceDetail(
     .from("invoices")
     .select(
       `id, invoice_no, invoice_date, status, subtotal, discount_total, grand_total,
-       amount_paid, balance_due, note, branch_id, created_by,
+       amount_paid, amount_tendered, change_due, balance_due, note, branch_id, created_by,
        customers(id, name, phone, address),
        branches(id, name, phone, address)`,
     )
@@ -146,6 +148,8 @@ export async function getInvoiceDetail(
     discount_total: Number(inv.discount_total ?? 0),
     grand_total: Number(inv.grand_total ?? 0),
     amount_paid: Number(inv.amount_paid ?? 0),
+    amount_tendered: Number(inv.amount_tendered ?? inv.amount_paid ?? 0),
+    change_due: Number(inv.change_due ?? 0),
     balance_due: Number(inv.balance_due ?? 0),
     note: inv.note,
     customer:
