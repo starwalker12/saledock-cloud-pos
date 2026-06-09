@@ -3,7 +3,6 @@ import { Bell, AlertTriangle } from "lucide-react";
 import { getCurrentContext } from "@/lib/auth/session";
 import { GlobalSearch } from "@/components/search/global-search";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LanguageToggle } from "@/components/language-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MobileDrawerWrapper } from "@/components/layout/mobile-drawer-wrapper";
 import { getPublicPlatformSetting, isPlatformAdmin } from "@/lib/platform/admin";
@@ -41,7 +40,6 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[860px] lg:flex-1 lg:justify-end xl:max-w-[980px]">
           <GlobalSearch />
           <ThemeToggle />
-          <LanguageToggle />
           <button
             className="flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 px-4 text-slate-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
             aria-label="Notifications"

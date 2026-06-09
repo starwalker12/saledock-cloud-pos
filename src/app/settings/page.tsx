@@ -10,6 +10,7 @@ import { DemoTab } from "./demo-tab";
 import { BackupTab } from "./backup-tab";
 import { ConnectedAccounts } from "./connected-accounts";
 import { PrivacyCenter } from "./privacy-center";
+import { HelpCenter } from "./help-center";
 import { getLinkedProviders } from "@/lib/auth/identities";
 import { createClient } from "@/lib/supabase/server";
 import { getServerDict } from "@/lib/i18n/server";
@@ -62,6 +63,7 @@ export default async function SettingsPage({
     { id: "accounts", label: "Connected Accounts", icon: "accounts" },
     { id: "privacy", label: "Privacy Center", icon: "privacy" },
     { id: "security", label: "Security", icon: "security" },
+    { id: "help", label: "Help Center", icon: "help" },
     ...(isPrivileged ? [
       { id: "demo-data", label: "Demo Data", icon: "demo-data" },
       { id: "backup", label: "Backup & Restore", icon: "backup" },
@@ -117,6 +119,10 @@ export default async function SettingsPage({
 
         {currentTab === "security" && (
           <SettingsSecurity />
+        )}
+
+        {currentTab === "help" && (
+          <HelpCenter />
         )}
       </SettingsTabShell>
     </AppShell>

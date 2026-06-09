@@ -3,7 +3,7 @@
 import { useCallback, startTransition, useOptimistic, type ComponentType } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  Settings, UserCircle, Shield, Database, Archive, ShieldCheck,
+  Settings, UserCircle, Shield, Database, Archive, ShieldCheck, HelpCircle,
 } from "lucide-react";
 import { TabSkeleton } from "@/components/settings/tab-skeleton";
 
@@ -14,6 +14,7 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   "demo-data": Database,
   backup: Archive,
   security: ShieldCheck,
+  help: HelpCircle,
 };
 
 export type TabDef = {
