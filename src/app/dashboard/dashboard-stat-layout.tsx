@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentType, PointerEvent as ReactPointerEvent } from "react";
-import { useReorderAnim } from "@/lib/use-reorder-animation";
+import { useDragGhost, useReorderAnim } from "@/lib/use-reorder-animation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -167,7 +167,8 @@ export function DashboardStatLayout({
     .map((id) => cardMap.get(id))
     .filter((card): card is DashboardStatCard => Boolean(card));
 
-  useReorderAnim(gridRef, "dashboard-card-id", [orderedCards]);
+  const ghost = useDragGhost(gridRef, "dashboard-card-id");
+  useReorderAnim(gridRef, "dashboard-card-id", [orderedCards], draggingId);
 
   const moveCard = (sourceId: string, targetId: string, placement: "before" | "after") => {
     if (sourceId === targetId) return;
@@ -199,6 +200,7 @@ export function DashboardStatLayout({
 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+    ghost.startDrag(event, cardId);
     draggingIdRef.current = cardId;
     lastDragTargetRef.current = null;
     setDraggingId(cardId);
@@ -209,6 +211,7 @@ export function DashboardStatLayout({
     if (!editing || !sourceId) return;
 
     event.preventDefault();
+    ghost.updateDrag(event);
     const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
     const targetElement = rawTarget instanceof HTMLElement
       ? rawTarget.closest("[data-dashboard-card-id]")
@@ -229,9 +232,11 @@ export function DashboardStatLayout({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    draggingIdRef.current = null;
-    lastDragTargetRef.current = null;
-    setDraggingId(null);
+    ghost.endDrag(event, () => {
+      draggingIdRef.current = null;
+      lastDragTargetRef.current = null;
+      setDraggingId(null);
+    });
   };
 
   const resetLayout = () => {
@@ -300,7 +305,6 @@ export function DashboardStatLayout({
             key={card.id}
             card={card}
             editing={editing}
-            dragging={draggingId === card.id}
             labels={labels}
             canMoveEarlier={index > 0}
             canMoveLater={index < orderedCards.length - 1}
@@ -319,7 +323,6 @@ export function DashboardStatLayout({
 function DashboardCard({
   card,
   editing,
-  dragging,
   labels,
   canMoveEarlier,
   canMoveLater,
@@ -331,7 +334,6 @@ function DashboardCard({
 }: {
   card: DashboardStatCard;
   editing: boolean;
-  dragging: boolean;
   labels: DashboardLayoutLabels;
   canMoveEarlier: boolean;
   canMoveLater: boolean;
@@ -349,7 +351,7 @@ function DashboardCard({
       data-dashboard-card-id={card.id}
       className={`group/dashboard-card relative rounded-xl border p-3 ${toneStyles.card} ${
         editing ? "min-h-[112px] ring-1 ring-blue-200/70 dark:ring-blue-400/25" : ""
-      } ${dragging ? "opacity-70 ring-2 ring-blue-500" : ""}`}
+      }`}
     >
       {editing && (
         <div className="mb-2 flex items-center justify-between gap-2">

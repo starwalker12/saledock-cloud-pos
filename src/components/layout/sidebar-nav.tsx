@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentType, PointerEvent as ReactPointerEvent } from "react";
-import { useReorderAnim } from "@/lib/use-reorder-animation";
+import { useDragGhost, useReorderAnim } from "@/lib/use-reorder-animation";
 import {
   LayoutDashboard, ShoppingCart, Boxes, Users, ReceiptText,
   RotateCcw, Wrench, Wallet, CalendarCheck, BarChart3,
@@ -242,7 +242,8 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
   const archivedItems = orderedItems.filter((item) => archivedHrefs.has(item.href));
   const collapsed = prefs.collapsed;
 
-  useReorderAnim(navListRef, "sidebar-nav-href", [visibleItems]);
+  const ghost = useDragGhost(navListRef, "sidebar-nav-href");
+  useReorderAnim(navListRef, "sidebar-nav-href", [visibleItems], draggingHref);
 
   const storePreferences = (updater: (current: SidebarPreferences) => SidebarPreferences) => {
     const next = {
@@ -306,6 +307,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+    ghost.startDrag(event, href);
     draggingHrefRef.current = href;
     lastDragTargetRef.current = null;
     setDraggingHref(href);
@@ -316,6 +318,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
     if (!sourceHref) return;
 
     event.preventDefault();
+    ghost.updateDrag(event);
     const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
     const targetElement = rawTarget instanceof HTMLElement
       ? rawTarget.closest("[data-sidebar-nav-href]")
@@ -336,9 +339,11 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    draggingHrefRef.current = null;
-    lastDragTargetRef.current = null;
-    setDraggingHref(null);
+    ghost.endDrag(event, () => {
+      draggingHrefRef.current = null;
+      lastDragTargetRef.current = null;
+      setDraggingHref(null);
+    });
   };
 
   return (
@@ -396,7 +401,6 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
             const active = isActive(item.href);
             const label = t(item.label);
             const canArchive = !PROTECTED_HREFS.has(item.href) && !active;
-            const dragging = draggingHref === item.href;
             const isConfirmingArchive = pendingArchiveHref === item.href;
 
             return (
@@ -408,9 +412,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
                     setPendingArchiveHref((current) => (current === item.href ? null : current));
                   }
                 }}
-                className={`group/navitem relative flex min-h-12 items-center gap-1 rounded-xl ${
-                  dragging ? "opacity-70 ring-2 ring-[var(--sidebar-active-accent)]" : ""
-                }`}
+                className="group/navitem relative flex min-h-12 items-center gap-1 rounded-xl"
               >
                 <button
                   type="button"
