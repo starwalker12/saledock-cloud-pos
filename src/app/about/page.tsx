@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, MapPin, Info } from "lucide-react";
+import { PublicPageHeader } from "@/components/layout/public-page-header";
 
 export const metadata: Metadata = {
   title: "About Us — SaleDock Cloud POS",
@@ -11,6 +12,7 @@ export default function AboutPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 dark:bg-slate-900">
       <article className="w-full max-w-3xl rounded-3xl border border-slate-200 bg-[#fff] p-6 shadow-xl sm:p-10 dark:border-slate-700 dark:bg-slate-800">
+        <PublicPageHeader />
         {/* Logo */}
         <div className="mb-8 text-center">
           <Link href="/">
