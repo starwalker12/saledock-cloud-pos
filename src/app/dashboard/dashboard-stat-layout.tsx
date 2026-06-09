@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentType, PointerEvent as ReactPointerEvent } from "react";
+import { useReorderAnim } from "@/lib/use-reorder-animation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -158,12 +159,15 @@ export function DashboardStatLayout({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const draggingIdRef = useRef<string | null>(null);
   const lastDragTargetRef = useRef<string | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const cardMap = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const orderedIds = useMemo(() => normalizeOrder(cards, prefs.order), [cards, prefs.order]);
   const orderedCards = orderedIds
     .map((id) => cardMap.get(id))
     .filter((card): card is DashboardStatCard => Boolean(card));
+
+  useReorderAnim(gridRef, "dashboard-card-id", [orderedCards]);
 
   const moveCard = (sourceId: string, targetId: string, placement: "before" | "after") => {
     if (sourceId === targetId) return;
@@ -286,6 +290,7 @@ export function DashboardStatLayout({
       </div>
 
       <div
+        ref={gridRef}
         className={`grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 ${
           editing ? "rounded-2xl border border-dashed border-blue-200 bg-[#eff6ff]/60 p-2 dark:border-blue-400/30 dark:bg-blue-950/20" : ""
         }`}
