@@ -143,6 +143,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
   const balance = Math.max(grandTotal - tendered, 0);
   const changeDue = Math.max(tendered - grandTotal, 0);
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
+  const isCreditAndMissingCustomer = paymentMethod === "customer_credit" && !customerId;
 
   function addToCart(p: PosProduct) {
     if (success) setSuccess(null);
@@ -249,6 +250,10 @@ export function PosClient({ products: initialProducts, customers: initialCustome
         return;
       }
     }
+    if (paymentMethod === "customer_credit" && !customerId) {
+      setError("Select a customer to put this sale on credit.");
+      return;
+    }
     setError(null);
     setSuccess(null);
     const input: CheckoutInput = {
@@ -278,7 +283,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       customer_id: customerId || null,
       discount_total: discountTotal,
       payment_method: paymentMethod,
-      amount_paid: tendered,
+      amount_paid: paymentMethod === "customer_credit" ? 0 : tendered,
       payment_reference: paymentRef || null,
       note: note || null,
     };
@@ -675,7 +680,15 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             <label className="block text-sm font-semibold text-slate-700">Payment method</label>
             <select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              onChange={(e) => {
+                const method = e.target.value as PaymentMethod;
+                setPaymentMethod(method);
+                if (method === "customer_credit") {
+                  setAmountPaid("0");
+                } else {
+                  setAmountPaid("");
+                }
+              }}
               className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600"
             >
               {PAYMENT_METHODS.map((m) => (
@@ -692,14 +705,16 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                 type="number"
                 min={0}
                 step="0.01"
-                value={amountPaid}
+                value={paymentMethod === "customer_credit" ? "0" : amountPaid}
+                disabled={paymentMethod === "customer_credit"}
                 onChange={(e) => setAmountPaid(e.target.value)}
-                className="h-10 flex-1 rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600"
+                className="h-10 flex-1 rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
               />
               <button
                 type="button"
+                disabled={paymentMethod === "customer_credit"}
                 onClick={() => setAmountPaid(String(grandTotal))}
-                className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 Exact
               </button>
@@ -738,6 +753,11 @@ export function PosClient({ products: initialProducts, customers: initialCustome
           </label>
         </div>
 
+        {isCreditAndMissingCustomer && (
+          <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-800">
+            ⚠️ Select a customer to put this sale on credit.
+          </p>
+        )}
         {error && (
           <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>
         )}
@@ -762,7 +782,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
           <button
             type="button"
             onClick={checkout}
-            disabled={!canCheckout || pending || cart.length === 0}
+            disabled={!canCheckout || pending || cart.length === 0 || isCreditAndMissingCustomer}
             className="h-12 rounded-lg bg-blue-700 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-60"
           >
             {pending ? "Processing…" : `Checkout · ${formatCurrency(grandTotal, currency)}`}

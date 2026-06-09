@@ -97,15 +97,34 @@ export const cartItemSchema = z
   });
 export type CartItemInput = z.infer<typeof cartItemSchema>;
 
-export const checkoutSchema = z.object({
-  cart: z.array(cartItemSchema).min(1, "Cart is empty."),
-  customer_id: z.string().uuid().optional().nullable(),
-  discount_total: z.coerce.number().min(0).default(0),
-  payment_method: z.enum(PAYMENT_METHODS),
-  amount_paid: z.coerce.number().min(0).default(0),
-  payment_reference: z.string().trim().max(120).optional().nullable(),
-  note: z.string().trim().max(500).optional().nullable(),
-});
+export const checkoutSchema = z
+  .object({
+    cart: z.array(cartItemSchema).min(1, "Cart is empty."),
+    customer_id: z.string().uuid().optional().nullable(),
+    discount_total: z.coerce.number().min(0).default(0),
+    payment_method: z.enum(PAYMENT_METHODS),
+    amount_paid: z.coerce.number().min(0).default(0),
+    payment_reference: z.string().trim().max(120).optional().nullable(),
+    note: z.string().trim().max(500).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.payment_method === "customer_credit") {
+      if (!data.customer_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["customer_id"],
+          message: "Select a customer to put this sale on credit.",
+        });
+      }
+      if (data.amount_paid !== 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["amount_paid"],
+          message: "Customer credit cannot include a tendered amount.",
+        });
+      }
+    }
+  });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
 export const quickCustomerSchema = z.object({
