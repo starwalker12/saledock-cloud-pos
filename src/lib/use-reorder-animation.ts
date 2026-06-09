@@ -11,6 +11,7 @@ export function useReorderAnim(
   const prevRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const animsRef = useRef<Map<string, Animation>>(new Map());
   const reducedRef = useRef(false);
+  const prevDraggingRef = useRef<string | null | undefined>(undefined);
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -25,6 +26,10 @@ export function useReorderAnim(
     const container = containerRef.current;
     if (!container) return;
 
+    const prevDragging = prevDraggingRef.current;
+    const dragJustEnded = prevDragging != null && draggingKey == null;
+    prevDraggingRef.current = draggingKey ?? null;
+
     const selector = `[data-${dataAttr}]`;
     const items = container.querySelectorAll<HTMLElement>(selector);
     const newRects = new Map<string, DOMRect>();
@@ -32,7 +37,37 @@ export function useReorderAnim(
     items.forEach((el) => {
       const key = el.getAttribute(`data-${dataAttr}`);
       if (!key) return;
-      if (key === draggingKey) return;
+
+      if (dragJustEnded && key === prevDragging) {
+        const ghostRect = el.getBoundingClientRect();
+        clearGhostStyles(el);
+        void el.offsetHeight;
+        const naturalRect = el.getBoundingClientRect();
+        newRects.set(key, naturalRect);
+
+        const settleDx = ghostRect.left - naturalRect.left;
+        const settleDy = ghostRect.top - naturalRect.top;
+        if (settleDx !== 0 || settleDy !== 0) {
+          const anim = el.animate(
+            [
+              {
+                transform: `translate(${settleDx}px, ${settleDy}px) scale(1.03)`,
+              },
+              { transform: "none" },
+            ],
+            { duration: 175, easing: "ease-out" },
+          );
+          animsRef.current.set(key, anim);
+          anim.addEventListener("finish", () => animsRef.current.delete(key));
+        }
+        return;
+      }
+
+      if (key === draggingKey) {
+        const rect = el.getBoundingClientRect();
+        newRects.set(key, rect);
+        return;
+      }
 
       const prevAnim = animsRef.current.get(key);
       if (prevAnim) prevAnim.cancel();
@@ -70,9 +105,8 @@ export function useDragGhost(
   const reducedRef = useRef(false);
   const dragStateRef = useRef<{
     key: string;
-    offsetX: number;
-    offsetY: number;
-    anim: Animation | null;
+    startX: number;
+    startY: number;
   } | null>(null);
 
   useLayoutEffect(() => {
@@ -90,10 +124,9 @@ export function useDragGhost(
   }, [containerRef, dataAttr]);
 
   const startDrag = useCallback((event: { clientX: number; clientY: number }, key: string) => {
-    const ds = dragStateRef.current;
-    if (ds && ds.anim) {
-      ds.anim.cancel();
-      const prevEl = getElement(ds.key);
+    const prev = dragStateRef.current;
+    if (prev) {
+      const prevEl = getElement(prev.key);
       if (prevEl) clearGhostStyles(prevEl);
     }
 
@@ -102,20 +135,13 @@ export function useDragGhost(
     const el = getElement(key);
     if (!el) return;
 
-    const rect = el.getBoundingClientRect();
-    dragStateRef.current = {
-      key,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-      anim: null,
-    };
+    dragStateRef.current = { key, startX: event.clientX, startY: event.clientY };
 
-    el.style.zIndex = "50";
-    el.style.position = "relative";
+    el.style.zIndex = "1000";
     el.style.pointerEvents = "none";
-    el.style.transform = "scale(1.03)";
+    el.style.transform = "translate(0px, 0px) scale(1.03)";
     el.style.boxShadow = "0 8px 25px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)";
-    el.style.opacity = "0.9";
+    el.style.opacity = "0.92";
     el.style.willChange = "transform";
   }, [getElement]);
 
@@ -126,72 +152,15 @@ export function useDragGhost(
     const el = getElement(ds.key);
     if (!el) return;
 
-    if (ds.anim) {
-      ds.anim.cancel();
-      ds.anim = null;
-    }
-
-    const rect = el.getBoundingClientRect();
-    const targetX = event.clientX - ds.offsetX;
-    const targetY = event.clientY - ds.offsetY;
-    const dx = targetX - rect.left;
-    const dy = targetY - rect.top;
+    const dx = event.clientX - ds.startX;
+    const dy = event.clientY - ds.startY;
 
     el.style.transform = `translate(${dx}px, ${dy}px) scale(1.03)`;
   }, [getElement]);
 
-  const endDrag = useCallback((
-    event: { clientX: number; clientY: number },
-    onSettled?: () => void,
-  ) => {
-    const ds = dragStateRef.current;
-    if (!ds) {
-      onSettled?.();
-      return;
-    }
-
-    const el = getElement(ds.key);
-    if (!el) {
-      dragStateRef.current = null;
-      onSettled?.();
-      return;
-    }
-
-    if (reducedRef.current) {
-      clearGhostStyles(el);
-      dragStateRef.current = null;
-      onSettled?.();
-      return;
-    }
-
-    const rect = el.getBoundingClientRect();
-    const targetX = event.clientX - ds.offsetX;
-    const targetY = event.clientY - ds.offsetY;
-    const dx = targetX - rect.left;
-    const dy = targetY - rect.top;
-
-    if (dx === 0 && dy === 0) {
-      clearGhostStyles(el);
-      dragStateRef.current = null;
-      onSettled?.();
-      return;
-    }
-
-    el.style.transform = `translate(${dx}px, ${dy}px) scale(1.03)`;
-    const anim = el.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px) scale(1.03)` },
-        { transform: "translate(0, 0) scale(1)" },
-      ],
-      { duration: 175, easing: "ease-out" },
-    );
-    anim.addEventListener("finish", () => {
-      clearGhostStyles(el);
-      dragStateRef.current = null;
-      onSettled?.();
-    });
-    ds.anim = anim;
-  }, [getElement]);
+  const endDrag = useCallback(() => {
+    dragStateRef.current = null;
+  }, []);
 
   return { startDrag, updateDrag, endDrag };
 }
@@ -202,6 +171,5 @@ function clearGhostStyles(el: HTMLElement) {
   el.style.opacity = "";
   el.style.zIndex = "";
   el.style.pointerEvents = "";
-  el.style.position = "";
   el.style.willChange = "";
 }
