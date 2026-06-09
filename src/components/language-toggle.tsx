@@ -118,7 +118,7 @@ export function LanguageToggleMinimal() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900">
+        <div className="absolute right-0 top-full lg:right-full lg:top-0 lg:mr-2 lg:mt-0 z-50 mt-1 w-44 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-[#fff] shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900">
           <div className="p-1.5">
             {langOptions.map((option) => {
               const isActive = option.value === lang;

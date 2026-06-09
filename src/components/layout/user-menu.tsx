@@ -100,8 +100,8 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900">
-            <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+          <div className="absolute right-0 top-full z-50 mt-2 w-60 rounded-2xl border border-slate-200 bg-[#fff] shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900">
+            <div className="rounded-t-2xl border-b border-slate-100 px-4 py-3 dark:border-slate-800">
               <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
                 {name}
               </p>
@@ -124,7 +124,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
               <LanguageToggleMinimal />
             </div>
 
-            <div className="border-t border-slate-100 p-1.5 dark:border-slate-800">
+            <div className="rounded-b-2xl border-t border-slate-100 p-1.5 dark:border-slate-800">
               <SignOutMenuItem t={t} />
             </div>
           </div>
