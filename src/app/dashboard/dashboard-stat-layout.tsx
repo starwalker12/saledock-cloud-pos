@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentType, PointerEvent as ReactPointerEvent } from "react";
-import { useDragGhost, useReorderAnim } from "@/lib/use-reorder-animation";
+import { useReorderAnim } from "@/lib/use-reorder-animation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -160,6 +160,31 @@ export function DashboardStatLayout({
   const draggingIdRef = useRef<string | null>(null);
   const lastDragTargetRef = useRef<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const justDraggedRef = useRef<string | null>(null);
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const getDraggedElement = (id: string) => {
+    return gridRef.current?.querySelector<HTMLElement>(`[data-dashboard-card-id="${id}"]`) ?? null;
+  };
+
+  const cleanupStyles = () => {
+    if (!gridRef.current) return;
+    const items = gridRef.current.querySelectorAll<HTMLElement>("[data-dashboard-card-id]");
+    items.forEach((item) => {
+      item.style.transform = "";
+      item.style.boxShadow = "";
+      item.style.opacity = "";
+      item.style.zIndex = "";
+      item.style.pointerEvents = "";
+      item.style.willChange = "";
+    });
+  };
+
+  useEffect(() => {
+    if (!draggingId) {
+      cleanupStyles();
+    }
+  }, [draggingId]);
 
   const cardMap = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const orderedIds = useMemo(() => normalizeOrder(cards, prefs.order), [cards, prefs.order]);
@@ -167,8 +192,7 @@ export function DashboardStatLayout({
     .map((id) => cardMap.get(id))
     .filter((card): card is DashboardStatCard => Boolean(card));
 
-  const ghost = useDragGhost(gridRef, "dashboard-card-id");
-  useReorderAnim(gridRef, "dashboard-card-id", [orderedCards, draggingId], draggingId);
+  useReorderAnim(gridRef, "dashboard-card-id", [orderedCards], justDraggedRef);
 
   const moveCard = (sourceId: string, targetId: string, placement: "before" | "after") => {
     if (sourceId === targetId) return;
@@ -200,17 +224,40 @@ export function DashboardStatLayout({
 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    ghost.startDrag(event, cardId);
     draggingIdRef.current = cardId;
     lastDragTargetRef.current = null;
     setDraggingId(cardId);
+
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    dragStartPosRef.current = { x: event.clientX, y: event.clientY };
+    const el = getDraggedElement(cardId);
+    if (el) {
+      el.style.transform = "translate(0px, 0px) scale(1.03)";
+      el.style.boxShadow = "0 8px 25px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)";
+      el.style.opacity = "0.92";
+      el.style.zIndex = "1000";
+      el.style.pointerEvents = "none";
+      el.style.willChange = "transform";
+    }
   };
 
   const updateDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const sourceId = draggingIdRef.current;
     if (!editing || !sourceId) return;
+
     event.preventDefault();
-    ghost.updateDrag(event);
+
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!prefersReduced && dragStartPosRef.current) {
+      const el = getDraggedElement(sourceId);
+      if (el) {
+        const dx = event.clientX - dragStartPosRef.current.x;
+        const dy = event.clientY - dragStartPosRef.current.y;
+        el.style.transform = `translate(${dx}px, ${dy}px) scale(1.03)`;
+      }
+    }
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -221,26 +268,26 @@ export function DashboardStatLayout({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
-    ghost.endDrag();
+    const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
+    const targetElement = rawTarget instanceof HTMLElement
+      ? rawTarget.closest("[data-dashboard-card-id]")
+      : null;
+    const targetId = targetElement instanceof HTMLElement ? targetElement.dataset.dashboardCardId : null;
 
-    if (event.type === "pointerup") {
-      const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
-      const targetElement = rawTarget instanceof HTMLElement
-        ? rawTarget.closest("[data-dashboard-card-id]")
-        : null;
-      const targetId = targetElement instanceof HTMLElement ? targetElement.dataset.dashboardCardId : null;
-      if (targetId && targetId !== sourceId) {
-        const sourceIndex = orderedCards.findIndex((card) => card.id === sourceId);
-        const targetIndex = orderedCards.findIndex((card) => card.id === targetId);
-        if (sourceIndex !== -1 && targetIndex !== -1) {
-          moveCard(sourceId, targetId, targetIndex > sourceIndex ? "after" : "before");
-        }
+    if (targetId && targetId !== sourceId) {
+      const sourceIndex = orderedCards.findIndex((card) => card.id === sourceId);
+      const targetIndex = orderedCards.findIndex((card) => card.id === targetId);
+      if (sourceIndex !== -1 && targetIndex !== -1) {
+        justDraggedRef.current = sourceId;
+        moveCard(sourceId, targetId, targetIndex > sourceIndex ? "after" : "before");
       }
     }
 
     draggingIdRef.current = null;
     lastDragTargetRef.current = null;
+    dragStartPosRef.current = null;
     setDraggingId(null);
+    cleanupStyles();
   };
 
   const resetLayout = () => {
@@ -309,6 +356,7 @@ export function DashboardStatLayout({
             key={card.id}
             card={card}
             editing={editing}
+            dragging={draggingId === card.id}
             labels={labels}
             canMoveEarlier={index > 0}
             canMoveLater={index < orderedCards.length - 1}
@@ -327,6 +375,7 @@ export function DashboardStatLayout({
 function DashboardCard({
   card,
   editing,
+  dragging,
   labels,
   canMoveEarlier,
   canMoveLater,
@@ -338,6 +387,7 @@ function DashboardCard({
 }: {
   card: DashboardStatCard;
   editing: boolean;
+  dragging: boolean;
   labels: DashboardLayoutLabels;
   canMoveEarlier: boolean;
   canMoveLater: boolean;
@@ -355,7 +405,7 @@ function DashboardCard({
       data-dashboard-card-id={card.id}
       className={`group/dashboard-card relative rounded-xl border p-3 ${toneStyles.card} ${
         editing ? "min-h-[112px] ring-1 ring-blue-200/70 dark:ring-blue-400/25" : ""
-      }`}
+      } ${dragging ? "opacity-70 ring-2 ring-blue-500" : ""}`}
     >
       {editing && (
         <div className="mb-2 flex items-center justify-between gap-2">
