@@ -1,67 +1,86 @@
 # SaleDock Cloud POS
 
-SaleDock is a multi-tenant cloud POS platform. It is inspired by the existing
-desktop Gadget Zone POS, but is a separate codebase and repository.
+SaleDock Cloud POS is a multi-tenant web point-of-sale system for retail and repair shops. It manages sales, stock, invoices, returns, repairs, customers, suppliers, expenses, daily closing, and reporting from a browser-based dashboard.
 
-This project does not modify the desktop POS app, the Vercel download website, or any released portable app folders.
+The app is built for shops that operate with organizations, branches, staff profiles, role-based permissions, PKR currency defaults, and the Asia/Karachi timezone.
 
-## Current Status
+## Key Features
 
-SaleDock is a working cloud POS with the following modules live:
-
-- **Next.js 16** App Router app with TypeScript (uses `proxy.ts`, the renamed `middleware.ts`)
-- **Tailwind CSS** UI with sidebar/topbar app shell, dark/light/system theme modes
-- **Supabase** client (browser), server, and admin (service-role) helpers
-- **Authentication**: email/password signup + Google OAuth via Supabase Auth. Self-service signup is currently **closed** — the first owner exists and invites staff via the Users page.
-- **Onboarding**: multi-step shop setup at `/onboarding` — creates organization, branch, owner profile, and app settings
-- **Dashboard**: 8-stat-card overview with today profit, gross sales, returns, expenses, low-stock count, pending repairs, supplier dues, customer dues, plus weekly/monthly sales charts, top-selling products table, and recent activity feed
-- **POS Checkout**: server-validated atomic checkout via `pos_checkout` Postgres function — browser cart values are hints only; totals are recomputed server-side inside a single transaction that also decrements stock
-- **FIFO Stock Tracking**: inventory tracked by stock lots with FIFO lot allocation on sale, weighted-average cost calculation per line item
-- **Products & Categories**: full CRUD with reactive filtering, pagination, stock adjustment logs, service product configuration (provider/account/reference flags, commission amounts)
-- **Customers & Supplier Purchases**: customer ledger and credit tracking, supplier purchases with payment tracking and ledger entries
-- **Returns & Refunds**: tracked return receipts with inventory restock policies, partial returns and refunds (cancellation, exchanges, and return receipts remain future milestones)
-- **Repairs Management**: full status progression board with payment tracking, problem description, and tracking numbers
-- **Expenses**: daily expense tracking with category breakdowns
-- **Daily Closing & Cash Shifts**: end-of-day reconciliation with expected vs counted cash difference logging; intra-day shift system (open/close) for cashier handovers
-- **Reports**: sales by day, profit summary (service commission only — never the principal), by-supplier purchases, service transaction breakdown by provider/direction, loss prevention section tracking below-cost override sales
-- **Audit Log**: scoped, searchable actor log tracking checkout, inventory adjustments, and seeding
-- **Global Quick Search**: permission-aware unified search across all entities
-- **Loss Prevention**: below-cost sale blocking enforced at checkout (both line-item and whole-bill discounts), product-save guard, owner/admin-only override with required reason, logged to `loss_prevention_events` table via trigger
-- **Service Transactions**: service principal (pass-through) vs commission (shop income) split captured per line; commission is the only profit contribution, principal is never counted as profit
-- **Demo Seeder**: owner/admin seeder inside Settings with double-confirmation typing
-- **Database Backups & Factory Reset**: ZIP backup download/upload with manifest, JSON/CSV exports; full cascading RLS-scoped factory reset
-- **Inventory Replenishment Center**: `/purchases/replenishment` — scans low-stock products, groups suggestions by supplier with estimated costs (using purchase price, not sale price), links to create purchase orders; permission-gated to owner/admin/manager
-- **Print & Share**: invoices, repairs, returns, and daily closing support A4 browser print, 80mm receipt view, and WhatsApp Web share links (direct ESC/POS hardware printing is a future milestone)
-- **Settings**: business profile, branch profile, invoice/receipt branding, print notes, currency, timezone, security checklist, theme customization (primary/accent color, default theme)
-- **User Management**: staff invites, role assignment (owner/admin/manager/cashier/technician), activation controls, last-owner/admin safety checks
-- **Platform Admin**: `/platform` developer console for tenant monitoring and platform-wide settings
-- **Privacy**: privacy center, data deletion requests, connected accounts management
-- **CI**: GitHub Actions workflow runs lint, typecheck, and build on every push to `main` and on pull requests
-
-**Still planned / deferred:**
-- Direct ESC/POS hardware printing
-- Desktop SQLite data import (backup ZIP preview is live, imports remain disabled)
-- File upload for logos/avatars (URL fields used currently)
-- Cancellation, exchanges, and dedicated return receipts
+- Dashboard with sales, profit, returns, expenses, low-stock, repair, supplier-dues, and customer-dues summaries.
+- POS checkout at `/pos` with cart management, customer selection, discounts, payment method capture, and invoice creation.
+- Server-side checkout RPC that recomputes totals, handles FIFO stock allocation, records payments, and keeps stock changes atomic.
+- Product catalog with categories, suppliers, barcode scanning support, inventory adjustments, low-stock thresholds, and service products.
+- Customer management with customer detail pages, ledger-oriented settlement/write-off flows, and outstanding balance tracking.
+- Invoice list and printable invoice detail pages.
+- Invoice-linked returns/refunds with return detail and print views.
+- Repair job tracking with status updates, notes, payment tracking, and printable repair detail pages.
+- Expenses, daily closing, and cash-shift workflows.
+- Reports for sales, profit, supplier purchases, service transactions, losses/overrides, inventory value, and related operational summaries.
+- Supplier purchase, supplier dues, supplier ledger/statement, and replenishment workflows.
+- Staff user management with roles: owner, admin, manager, cashier, and technician.
+- Staff permission controls for operational capabilities such as selling, discounts, returns, reports, stock, and settings.
+- Audit log for sensitive operational events.
+- Settings area for shop profile, branch/profile details, invoice/receipt branding, theme appearance, connected accounts, privacy center, security, demo data, backup/restore, and factory reset tools.
+- Platform admin console for authorized platform administrators.
+- Public privacy, terms, and data-deletion pages.
+- English, Urdu, and Roman-Urdu UI language support.
+- Light/dark/system appearance mode plus separate sidebar/accent color themes.
+- Consent-gated Google Analytics 4 and Microsoft Clarity scripts.
 
 ## Tech Stack
 
-- Next.js 16
+- Next.js 16 App Router
+- React 19
 - TypeScript
-- Tailwind CSS
-- Supabase Auth and Postgres
-- Vercel
+- Tailwind CSS 4
+- Supabase Auth, Postgres, Storage, RLS, and server/admin clients
+- Zod validation
+- date-fns
+- JSZip and sql.js for backup/import tooling
+- ZXing browser libraries for barcode scanning
+- next-themes for light/dark/system mode
+- Vercel hosting
 - npm
 
-## Local Setup
+## Architecture Notes
 
-Install dependencies:
+- Multi-tenancy is based on `organizations`, `branches`, and `profiles`.
+- Business data is scoped by `organization_id`; branch-aware data also uses `branch_id`.
+- Supabase Row Level Security protects organization-scoped tables. App code also applies organization filters where needed.
+- Auth uses Supabase email/password and Google OAuth flows.
+- Staff invites are sent through Supabase Auth admin invite APIs.
+- reCAPTCHA v2 protects public auth forms when configured.
+- The server-only Supabase service-role client is guarded by `server-only` and must never be imported into client components.
+- Next.js 16 uses `src/proxy.ts` instead of the older `middleware.ts` convention. This proxy calls `src/lib/supabase/session-update.ts` to refresh Supabase sessions and redirect unauthenticated users away from protected routes.
+- The core checkout RPC is defined in Supabase migrations and is intentionally server-side so browser cart values are treated as hints, not trusted totals.
+- Static public assets receive long-lived cache headers in `next.config.ts`; dynamic app pages and business data are not cached this way.
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20 is recommended. The GitHub Actions CI workflow uses Node 20.
+- npm.
+- A Supabase project with the migrations in `supabase/migrations` applied.
+- Supabase Auth providers configured as needed in the Supabase Dashboard.
+
+### Install
 
 ```bash
 npm install
 ```
 
-Run the development server:
+### Environment Setup
+
+Create `.env.local` for local development. `.env.example` contains the core Supabase variable names; add optional variables as needed.
+
+Never commit real `.env.local`, Vercel environment values, keys, tokens, service-role keys, or Supabase project refs.
+
+```bash
+cp .env.example .env.local
+```
+
+Fill `.env.local` with your own project values, then start the app:
 
 ```bash
 npm run dev
@@ -73,104 +92,82 @@ Open:
 http://localhost:3000
 ```
 
-## Environment Variables
-
-Copy `.env.example` to `.env.local` when Supabase credentials are available.
-
-Required values:
-
-```text
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_APP_NAME=Gadget Zone Online POS
-```
-
-Important:
-
-- `.env.local` must never be committed.
-- `SUPABASE_SERVICE_ROLE_KEY` must only be used on the server.
-- Browser code must only use `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-- `PLATFORM_ADMIN_EMAILS` — comma-separated list of emails that can access `/platform` (fallback if `platform_admins` table empty).
-
-## Production
-
-- **Canonical site:** https://saledock.site (also reachable at https://saledock-cloud-pos.vercel.app)
-- **Supabase auth callback:** `https://saledock-cloud-pos.vercel.app/auth/callback`
-- **Smoke-test URL:** `https://gadget-zone-online-pos.vercel.app` (used by `scripts/qa-smoke.mjs`, not the main site)
-- First owner exists. Public registration is now **closed** — see `docs/auth-onboarding.md`.
-
-## Offline → Online parity
-
-The online app is being built module-by-module against the offline desktop spec (`GadgetZonePOS_Full_Project_Documentation.md`). The current status of every module is tracked in [`docs/offline-feature-parity.md`](docs/offline-feature-parity.md). Almost every module is now **Fully Aligned** — see the parity doc for the detailed matrix.
-
-Two rules that must never regress as parity grows:
-- **Service profit = commission only.** Never subtract the principal. Enforced by forcing `purchase_price = 0` on every service product.
-- **POS totals are recomputed server-side.** The browser cart is hints only; the `pos_checkout` Postgres function re-fetches and re-totals.
-
-## Authentication and First-Owner Setup
-
-See `docs/auth-onboarding.md` for the full flow. Short version:
-
-1. Visit the app — unauthenticated visitors land on `/login`.
-2. On `/login`, switch to the **Sign up** tab to create the first account.
-3. After sign-up you are sent to `/setup`. Confirm your full name, organization name (default *Gadget Zone*), and first branch (default *Main Branch*).
-4. You become the **owner** and are redirected to `/dashboard`.
-5. While at least one organization exists, the `/setup` page is locked — additional staff must be invited via the Users page.
-
-The first-owner setup uses the **service role** key on the server only, in `src/app/setup/actions.ts`. It is never exposed to the browser.
-
-## Supabase Project Setup
-
-The Supabase CLI is used to link this repo to a real project and to push migrations.
+### Build
 
 ```bash
-# One-time, browser login (you must do this)
-supabase login
-
-# Link this folder to the project (asks for project-ref and DB password)
-supabase link --project-ref <project-ref>
-
-# Push the schema migration
-supabase db push
+npm run build
 ```
 
-After linking, copy the **Project URL**, **anon key**, and **service role key** from the Supabase dashboard (Project Settings → API) into `.env.local`.
+Optional local checks:
 
-## Supabase Setup
+```bash
+npm run lint
+npm run typecheck
+```
 
-The schema foundation lives in:
+## Environment Variables
+
+These are the environment variable names read by the current codebase. Do not put secret values in the README, issues, commits, or logs.
+
+| Name | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Public Supabase project URL used by browser and server Supabase clients. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public Supabase anon key used by browser and server Supabase clients. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase service-role key for trusted admin/bootstrap workflows. |
+| `NEXT_PUBLIC_APP_NAME` | Public app name used by environment parsing; defaults to SaleDock Cloud POS in code. |
+| `PLATFORM_ADMIN_EMAILS` | Optional comma-separated fallback list for platform admin access. |
+| `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` | Optional Google site verification meta value. |
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Public Google reCAPTCHA v2 site key for auth pages. |
+| `RECAPTCHA_SECRET_KEY` | Server-only Google reCAPTCHA secret used to verify auth form tokens. |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Optional Google Analytics 4 measurement ID, loaded only after analytics consent is accepted. |
+| `NEXT_PUBLIC_CLARITY_PROJECT_ID` | Optional Microsoft Clarity project ID, loaded only after analytics consent is accepted. |
+| `NODE_ENV` | Runtime mode used by Next.js and development-only safeguards; normally set by the runtime. |
+
+Google OAuth client secrets are configured in Supabase Auth provider settings, not in this repository.
+
+## Available npm Scripts
+
+| Script | Command | Description |
+| --- | --- | --- |
+| `dev` | `next dev` | Start the development server. |
+| `build` | `next build` | Build the production app. |
+| `start` | `next start` | Start a production build locally. |
+| `lint` | `eslint` | Run ESLint. |
+| `typecheck` | `tsc --noEmit` | Run TypeScript type checking. |
+| `format` | `prettier --write .` | Format files with Prettier. |
+
+## Project Structure
 
 ```text
-supabase/migrations/0001_initial_schema.sql
-supabase/seed.sql
-supabase/config.toml
+src/app/                         Next.js App Router routes and server actions
+src/app/pos/                     POS checkout UI and checkout actions
+src/app/dashboard/               Dashboard page and draggable stat-card layout
+src/app/settings/                Settings, backup/restore, privacy, security, demo data
+src/components/layout/           App shell, sidebar, topbar, mobile drawer
+src/components/ui/               Reusable UI components such as stat cards
+src/components/auth/             reCAPTCHA client component
+src/lib/auth/                    Session, identity, captcha-pass, rate-limit helpers
+src/lib/data/                    Server-side data access modules
+src/lib/supabase/                Browser, server, admin, and session-update Supabase clients
+src/lib/validation/              Zod schemas for business workflows
+src/lib/i18n/                    English, Urdu, and Roman-Urdu dictionaries/providers
+supabase/migrations/             Postgres schema, RLS, RPCs, and business-rule migrations
+supabase/seed.sql                Seed data
+public/                          Static assets served by the app
+docs/                            Project notes and feature/security documentation
+.github/workflows/ci.yml         Lint, typecheck, and build CI workflow
 ```
 
-All 28 migrations (0001–0028) build on each other. The first migration creates:
+## Deployment
 
-- organizations
-- branches
-- profiles
-- product categories
-- products and services
-- customers
-- suppliers
-- invoices and invoice items
-- payments
-- repairs and repair status history
-- expenses
-- daily closings
-- app settings
-- audit logs
+The production app is hosted on Vercel. The default branch is `main`, and pushes to `main` auto-deploy to production.
 
-It also enables Row Level Security and adds organization-scoped policies for authenticated users. Every table added in later migrations follows the same org-scoped RLS pattern.
+Production URLs:
 
-## Vercel Deployment
+- `https://saledock.site`
+- `https://saledock-cloud-pos.vercel.app`
 
-This app is intended for Vercel. Configure the same environment variables in Vercel before production deployment.
-
-The CI workflow runs:
+The GitHub Actions workflow runs on pull requests and pushes to `main`:
 
 ```bash
 npm ci
@@ -179,28 +176,26 @@ npm run typecheck
 npm run build
 ```
 
-## Development Phases
+Configure the same environment variable names in Vercel. Store real secret values only in the Vercel dashboard, local `.env.local`, or the appropriate provider dashboard.
 
-1. Foundation and audit: complete.
-2. Supabase project connection and authentication.
-3. Organization onboarding and staff roles.
-4. Product, category, supplier, and inventory CRUD.
-5. POS checkout with invoices, payments, discounts, and customer credit.
-6. Repairs workflow.
-7. Expenses, daily closing, and reports.
-8. Settings, branding, and print profile management.
-9. PDF/receipt generation and print workflows.
+## Database and Migrations
 
-Most phases are now live. Remaining work is tracked in [`docs/offline-feature-parity.md`](docs/offline-feature-parity.md).
+Database schema changes live in `supabase/migrations`. The migrations define the tenant model, business tables, RLS policies, checkout RPCs, stock/FIFO behavior, customer/supplier ledgers, returns/refunds, repairs, privacy requests, shifts, staff permissions, login rate limiting, and reporting RPCs.
 
-## Audit Docs
+Apply migrations through your normal Supabase workflow. Do not run migrations against production without review.
 
-See:
+## Important Business Rules
 
-- `docs/desktop-audit.md`
-- `docs/feature-map.md`
-- `docs/settings-branding.md`
-- `docs/user-management.md`
-- `docs/business-rules.md`
-- `docs/mvp-scope.md`
-- `docs/architecture.md`
+- POS totals are recomputed server-side.
+- Stock changes are transactional and use FIFO stock lots for product cost allocation.
+- Service principal is pass-through money; service commission is the profit.
+- Supplier payments are money movement, not an additional product cost.
+- Customer balances are tracked through ledger-style entries and explicit direction/type semantics.
+- Historical invoices and reports should remain stable after later catalog or cost changes.
+- Tenant isolation by `organization_id` must not regress.
+
+## Notes
+
+- This repository is public, but `package.json` is marked private to prevent accidental npm publishing.
+- No license file is currently included in the repository.
+- Keep secrets out of source control. Environment variable names are safe to document; values are not.
