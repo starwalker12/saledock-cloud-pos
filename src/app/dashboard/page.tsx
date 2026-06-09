@@ -298,6 +298,11 @@ export default async function DashboardPage() {
     dragToReorder: t.dragToReorder || "Drag to reorder",
     moveEarlier: t.moveEarlier || "Move earlier",
     moveLater: t.moveLater || "Move later",
+    cardSize: t.cardSize || "Card size",
+    setCardSize: t.setCardSize || "Set card size",
+    small: t.small || "Small",
+    medium: t.medium || "Medium",
+    large: t.large || "Large",
   };
 
   const maxBar = Math.max(...weekSales.map((w) => w.total), 1);

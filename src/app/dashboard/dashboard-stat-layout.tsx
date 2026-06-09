@@ -23,6 +23,8 @@ import { STAT_CARD_TONE_STYLES, type StatCardTone } from "@/components/ui/stat-c
 
 const STORAGE_KEY = "saledock-dashboard-layout-v1";
 const STORAGE_EVENT = "saledock-dashboard-layout-changed";
+const DEFAULT_CARD_SIZE = "S";
+const CARD_SIZE_VALUES = ["S", "M", "L"] as const;
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   briefcase: Briefcase,
@@ -52,19 +54,31 @@ export type DashboardLayoutLabels = {
   dragToReorder: string;
   moveEarlier: string;
   moveLater: string;
+  cardSize: string;
+  setCardSize: string;
+  small: string;
+  medium: string;
+  large: string;
 };
+
+type DashboardCardSize = (typeof CARD_SIZE_VALUES)[number];
 
 type DashboardLayoutPreferences = {
   version: 1;
   order: string[];
+  sizes: Record<string, DashboardCardSize>;
   updatedAt: string;
 };
 
-type MeasuredDashboardCard = {
-  el: HTMLElement;
-  id: string;
-  index: number;
-  rect: DOMRect;
+type DashboardLayoutInput = {
+  order: string[];
+  sizes?: Record<string, DashboardCardSize>;
+};
+
+const CARD_SIZE_CLASSES: Record<DashboardCardSize, string> = {
+  S: "col-span-1",
+  M: "col-span-2",
+  L: "col-span-2 lg:col-span-4",
 };
 
 function uniqueStrings(values: unknown): string[] {
@@ -72,17 +86,37 @@ function uniqueStrings(values: unknown): string[] {
   return [...new Set(values.filter((value): value is string => typeof value === "string"))];
 }
 
+function isCardSize(value: unknown): value is DashboardCardSize {
+  return CARD_SIZE_VALUES.includes(value as DashboardCardSize);
+}
+
+function parseStoredSizes(values: unknown): Record<string, DashboardCardSize> {
+  if (!values || typeof values !== "object" || Array.isArray(values)) return {};
+
+  return Object.fromEntries(
+    Object.entries(values).filter((entry): entry is [string, DashboardCardSize] => {
+      const [id, size] = entry;
+      return typeof id === "string" && isCardSize(size);
+    }),
+  );
+}
+
 function parseStoredLayout(raw: string | null): DashboardLayoutPreferences {
   try {
-    if (!raw) return { version: 1, order: [], updatedAt: "" };
+    if (!raw) return { version: 1, order: [], sizes: {}, updatedAt: "" };
     const parsed = JSON.parse(raw) as Partial<DashboardLayoutPreferences>;
+    if (Array.isArray(parsed)) {
+      return { version: 1, order: uniqueStrings(parsed), sizes: {}, updatedAt: "" };
+    }
+
     return {
       version: 1,
       order: uniqueStrings(parsed.order),
+      sizes: parseStoredSizes(parsed.sizes),
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
     };
   } catch {
-    return { version: 1, order: [], updatedAt: "" };
+    return { version: 1, order: [], sizes: {}, updatedAt: "" };
   }
 }
 
@@ -115,11 +149,12 @@ function subscribeToLayout(onStoreChange: () => void): () => void {
   };
 }
 
-function writeStoredLayout(order: string[]) {
+function writeStoredLayout(input: DashboardLayoutInput) {
   if (typeof window === "undefined") return;
   const next: DashboardLayoutPreferences = {
     version: 1,
-    order,
+    order: input.order,
+    sizes: input.sizes ?? {},
     updatedAt: new Date().toISOString(),
   };
   try {
@@ -143,68 +178,20 @@ function normalizeOrder(cards: DashboardStatCard[], storedOrder: string[]): stri
   return [...saved, ...missing];
 }
 
-function getReducedMotionPreference() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function normalizeSizes(
+  cards: DashboardStatCard[],
+  storedSizes: Record<string, DashboardCardSize>,
+): Record<string, DashboardCardSize> {
+  const knownIds = new Set(cards.map((card) => card.id));
+  return Object.fromEntries(
+    Object.entries(storedSizes).filter(([id, size]) => {
+      return knownIds.has(id) && size !== DEFAULT_CARD_SIZE;
+    }),
+  );
 }
 
-function getDashboardTargetIndex(
-  cards: MeasuredDashboardCard[],
-  sourceId: string,
-  clientX: number,
-  clientY: number,
-) {
-  const siblings = cards
-    .filter((card) => card.id !== sourceId)
-    .sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left);
-
-  if (siblings.length === 0) {
-    return cards.find((card) => card.id === sourceId)?.index ?? 0;
-  }
-
-  const rows: Array<{
-    top: number;
-    bottom: number;
-    items: MeasuredDashboardCard[];
-  }> = [];
-
-  siblings.forEach((card) => {
-    const lastRow = rows[rows.length - 1];
-    if (!lastRow || card.rect.top > lastRow.bottom - 4) {
-      rows.push({
-        top: card.rect.top,
-        bottom: card.rect.bottom,
-        items: [card],
-      });
-      return;
-    }
-
-    lastRow.top = Math.min(lastRow.top, card.rect.top);
-    lastRow.bottom = Math.max(lastRow.bottom, card.rect.bottom);
-    lastRow.items.push(card);
-  });
-
-  let targetIndex = 0;
-
-  for (const row of rows) {
-    if (clientY < row.top) {
-      return targetIndex;
-    }
-
-    if (clientY <= row.bottom) {
-      const rowItems = [...row.items].sort((a, b) => a.rect.left - b.rect.left);
-      rowItems.forEach((card) => {
-        const midpointX = card.rect.left + card.rect.width / 2;
-        if (clientX > midpointX) {
-          targetIndex += 1;
-        }
-      });
-      return targetIndex;
-    }
-
-    targetIndex += row.items.length;
-  }
-
-  return targetIndex;
+function getReducedMotionPreference() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export function DashboardStatLayout({
@@ -229,12 +216,9 @@ export function DashboardStatLayout({
   const [editing, setEditing] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const draggingIdRef = useRef<string | null>(null);
-  const lastDragTargetRef = useRef<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const justDraggedRef = useRef<string | null>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const currentTargetIndexRef = useRef<number | null>(null);
-  const cardRectsRef = useRef<MeasuredDashboardCard[]>([]);
 
   const getDraggedElement = (id: string) => {
     return gridRef.current?.querySelector<HTMLElement>(`[data-dashboard-card-id="${id}"]`) ?? null;
@@ -266,6 +250,7 @@ export function DashboardStatLayout({
 
   const cardMap = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const orderedIds = useMemo(() => normalizeOrder(cards, prefs.order), [cards, prefs.order]);
+  const layoutSizes = useMemo(() => normalizeSizes(cards, prefs.sizes), [cards, prefs.sizes]);
   const orderedCards = orderedIds
     .map((id) => cardMap.get(id))
     .filter((card): card is DashboardStatCard => Boolean(card));
@@ -274,10 +259,7 @@ export function DashboardStatLayout({
 
   const resetDragState = useCallback(() => {
     draggingIdRef.current = null;
-    lastDragTargetRef.current = null;
     dragStartPosRef.current = null;
-    currentTargetIndexRef.current = null;
-    cardRectsRef.current = [];
     setDraggingId(null);
     cleanupStyles();
   }, [cleanupStyles]);
@@ -298,56 +280,21 @@ export function DashboardStatLayout({
     };
   }, [draggingId, resetDragState]);
 
-  const applyDashboardGap = (sourceId: string, targetIndex: number) => {
-    if (getReducedMotionPreference()) return;
-
-    const measuredCards = cardRectsRef.current;
-    const sourceCard = measuredCards.find((card) => card.id === sourceId);
-    if (!sourceCard) return;
-
-    const rectByIndex = new Map(measuredCards.map((card) => [card.index, card.rect]));
-
-    measuredCards.forEach((card) => {
-      if (card.id === sourceId) return;
-
-      let destinationIndex = card.index;
-      if (targetIndex < sourceCard.index) {
-        if (card.index >= targetIndex && card.index < sourceCard.index) {
-          destinationIndex = card.index + 1;
-        }
-      } else if (targetIndex > sourceCard.index) {
-        if (card.index > sourceCard.index && card.index <= targetIndex) {
-          destinationIndex = card.index - 1;
-        }
-      }
-
-      const destinationRect = rectByIndex.get(destinationIndex);
-      if (!destinationRect || destinationIndex === card.index) {
-        card.el.style.transform = "none";
-        return;
-      }
-
-      const dx = destinationRect.left - card.rect.left;
-      const dy = destinationRect.top - card.rect.top;
-      card.el.style.transform = `translate(${dx}px, ${dy}px)`;
-    });
-  };
-
   const moveCard = (sourceId: string, targetId: string, placement: "before" | "after") => {
     if (sourceId === targetId) return;
 
-    const nextOrder = normalizeOrder(cards, parseStoredLayout(getLayoutSnapshot()).order).filter(
-      (id) => id !== sourceId,
-    );
+    const current = parseStoredLayout(getLayoutSnapshot());
+    const nextOrder = normalizeOrder(cards, current.order).filter((id) => id !== sourceId);
     const targetIndex = nextOrder.indexOf(targetId);
     if (targetIndex === -1) return;
 
     nextOrder.splice(placement === "after" ? targetIndex + 1 : targetIndex, 0, sourceId);
-    writeStoredLayout(nextOrder);
+    writeStoredLayout({ order: nextOrder, sizes: normalizeSizes(cards, current.sizes) });
   };
 
   const moveCardByStep = (cardId: string, direction: -1 | 1) => {
-    const currentOrder = normalizeOrder(cards, parseStoredLayout(getLayoutSnapshot()).order);
+    const current = parseStoredLayout(getLayoutSnapshot());
+    const currentOrder = normalizeOrder(cards, current.order);
     const sourceIndex = currentOrder.indexOf(cardId);
     const targetIndex = sourceIndex + direction;
     if (sourceIndex === -1 || targetIndex < 0 || targetIndex >= currentOrder.length) return;
@@ -355,7 +302,23 @@ export function DashboardStatLayout({
     const nextOrder = [...currentOrder];
     const [source] = nextOrder.splice(sourceIndex, 1);
     nextOrder.splice(targetIndex, 0, source);
-    writeStoredLayout(nextOrder);
+    writeStoredLayout({ order: nextOrder, sizes: normalizeSizes(cards, current.sizes) });
+  };
+
+  const updateCardSize = (cardId: string, size: DashboardCardSize) => {
+    const current = parseStoredLayout(getLayoutSnapshot());
+    const nextSizes = normalizeSizes(cards, current.sizes);
+
+    if (size === DEFAULT_CARD_SIZE) {
+      delete nextSizes[cardId];
+    } else {
+      nextSizes[cardId] = size;
+    }
+
+    writeStoredLayout({
+      order: normalizeOrder(cards, current.order),
+      sizes: nextSizes,
+    });
   };
 
   const beginDrag = (event: ReactPointerEvent<HTMLButtonElement>, cardId: string) => {
@@ -364,40 +327,22 @@ export function DashboardStatLayout({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     draggingIdRef.current = cardId;
-    lastDragTargetRef.current = null;
     setDraggingId(cardId);
 
-    const measuredCards = Array.from(
-      gridRef.current?.querySelectorAll<HTMLElement>("[data-dashboard-card-id]") ?? [],
-    ).map((item, index) => ({
-      el: item,
-      id: item.dataset.dashboardCardId ?? "",
-      index,
-      rect: item.getBoundingClientRect(),
-    })).filter((item) => Boolean(item.id));
+    const el = getDraggedElement(cardId);
+    if (!el) return;
 
-    cardRectsRef.current = measuredCards;
-    currentTargetIndexRef.current = measuredCards.find((card) => card.id === cardId)?.index ?? null;
+    el.style.pointerEvents = "none";
 
     const prefersReduced = getReducedMotionPreference();
     if (prefersReduced) return;
 
-    measuredCards.forEach((card) => {
-      if (card.id !== cardId) {
-        card.el.style.transition = "transform 150ms ease";
-      }
-    });
-
-    const el = getDraggedElement(cardId);
-    if (el) {
-      dragStartPosRef.current = { x: event.clientX, y: event.clientY };
-      el.style.transform = "translate(0px, 0px) scale(1.03)";
-      el.style.boxShadow = "0 8px 25px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)";
-      el.style.opacity = "0.92";
-      el.style.zIndex = "1000";
-      el.style.pointerEvents = "none";
-      el.style.willChange = "transform";
-    }
+    dragStartPosRef.current = { x: event.clientX, y: event.clientY };
+    el.style.transform = "translate(0px, 0px) scale(1.03)";
+    el.style.boxShadow = "0 8px 25px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)";
+    el.style.opacity = "0.92";
+    el.style.zIndex = "1000";
+    el.style.willChange = "transform";
   };
 
   const updateDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -415,18 +360,6 @@ export function DashboardStatLayout({
         el.style.transform = `translate(${dx}px, ${dy}px) scale(1.03)`;
       }
     }
-
-    const targetIndex = getDashboardTargetIndex(
-      cardRectsRef.current,
-      sourceId,
-      event.clientX,
-      event.clientY,
-    );
-
-    if (targetIndex !== currentTargetIndexRef.current) {
-      currentTargetIndexRef.current = targetIndex;
-      applyDashboardGap(sourceId, targetIndex);
-    }
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -437,15 +370,16 @@ export function DashboardStatLayout({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
-    const targetIndex = currentTargetIndexRef.current;
+    const targetElement = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-dashboard-card-id]");
+    const targetId = targetElement?.dataset.dashboardCardId ?? null;
     const sourceIndex = orderedCards.findIndex((card) => card.id === sourceId);
+    const targetIndex = targetId ? orderedCards.findIndex((card) => card.id === targetId) : -1;
 
-    if (targetIndex !== null && targetIndex !== sourceIndex && targetIndex >= 0) {
-      const targetCard = orderedCards[targetIndex];
-      if (targetCard) {
-        justDraggedRef.current = sourceId;
-        moveCard(sourceId, targetCard.id, targetIndex > sourceIndex ? "after" : "before");
-      }
+    if (targetId && targetId !== sourceId && targetIndex !== sourceIndex && targetIndex >= 0) {
+      justDraggedRef.current = sourceId;
+      moveCard(sourceId, targetId, targetIndex > sourceIndex ? "after" : "before");
     }
 
     resetDragState();
@@ -517,6 +451,7 @@ export function DashboardStatLayout({
             editing={editing}
             dragging={draggingId === card.id}
             labels={labels}
+            size={layoutSizes[card.id] ?? DEFAULT_CARD_SIZE}
             canMoveEarlier={index > 0}
             canMoveLater={index < orderedCards.length - 1}
             onBeginDrag={beginDrag}
@@ -524,6 +459,7 @@ export function DashboardStatLayout({
             onEndDrag={endDrag}
             onMoveEarlier={() => moveCardByStep(card.id, -1)}
             onMoveLater={() => moveCardByStep(card.id, 1)}
+            onSizeChange={(size) => updateCardSize(card.id, size)}
           />
         ))}
       </div>
@@ -536,6 +472,7 @@ function DashboardCard({
   editing,
   dragging,
   labels,
+  size,
   canMoveEarlier,
   canMoveLater,
   onBeginDrag,
@@ -543,11 +480,13 @@ function DashboardCard({
   onEndDrag,
   onMoveEarlier,
   onMoveLater,
+  onSizeChange,
 }: {
   card: DashboardStatCard;
   editing: boolean;
   dragging: boolean;
   labels: DashboardLayoutLabels;
+  size: DashboardCardSize;
   canMoveEarlier: boolean;
   canMoveLater: boolean;
   onBeginDrag: (event: ReactPointerEvent<HTMLButtonElement>, cardId: string) => void;
@@ -555,55 +494,94 @@ function DashboardCard({
   onEndDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onMoveEarlier: () => void;
   onMoveLater: () => void;
+  onSizeChange: (size: DashboardCardSize) => void;
 }) {
   const Icon = iconMap[card.icon];
   const toneStyles = STAT_CARD_TONE_STYLES[card.tone];
+  const sizeLabels: Record<DashboardCardSize, string> = {
+    S: labels.small,
+    M: labels.medium,
+    L: labels.large,
+  };
 
-  const content = (
-    <div
-      data-dashboard-card-id={card.id}
-      className={`group/dashboard-card relative rounded-xl border p-3 ${toneStyles.card} ${
-        editing ? "min-h-[112px] ring-1 ring-blue-200/70 dark:ring-blue-400/25" : ""
-      } ${dragging ? "opacity-70 ring-2 ring-blue-500" : ""}`}
-    >
+  const cardClassName = `group/dashboard-card relative rounded-xl border p-3 ${CARD_SIZE_CLASSES[size]} ${toneStyles.card} ${
+    editing ? "min-h-[112px] ring-1 ring-blue-200/70 dark:ring-blue-400/25" : ""
+  } ${dragging ? "opacity-70 ring-2 ring-blue-500" : ""}`;
+
+  const body = (
+    <>
       {editing && (
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onPointerDown={(event) => onBeginDrag(event, card.id)}
-            onPointerMove={onUpdateDrag}
-            onPointerUp={onEndDrag}
-            onPointerCancel={onEndDrag}
-            className="flex h-7 min-w-0 flex-1 touch-none items-center gap-1.5 rounded-lg border border-blue-200 bg-[#dbeafe] px-2 text-[10px] font-bold text-blue-700 transition hover:bg-[#bfdbfe] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-200 dark:hover:bg-blue-400/20"
-            aria-label={`${labels.dragToReorder}: ${card.label}`}
-            title={`${labels.dragToReorder}: ${card.label}`}
-          >
-            <GripVertical className="size-3.5 shrink-0" aria-hidden="true" />
-            <span className="truncate">{labels.dragToReorder}</span>
-          </button>
-          <div className="flex shrink-0 items-center gap-1">
+        <>
+          <div className="mb-2 flex items-center justify-between gap-2">
             <button
               type="button"
-              onClick={onMoveEarlier}
-              disabled={!canMoveEarlier}
-              className="flex size-7 items-center justify-center rounded-lg border border-blue-200 bg-[#eff6ff] text-blue-700 transition hover:bg-[#dbeafe] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-200 dark:hover:bg-blue-400/20"
-              aria-label={`${labels.moveEarlier}: ${card.label}`}
-              title={`${labels.moveEarlier}: ${card.label}`}
+              onPointerDown={(event) => onBeginDrag(event, card.id)}
+              onPointerMove={onUpdateDrag}
+              onPointerUp={onEndDrag}
+              onPointerCancel={onEndDrag}
+              className="flex h-7 min-w-0 flex-1 touch-none items-center gap-1.5 rounded-lg border border-blue-200 bg-[#dbeafe] px-2 text-[10px] font-bold text-blue-700 transition hover:bg-[#bfdbfe] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-200 dark:hover:bg-blue-400/20"
+              aria-label={`${labels.dragToReorder}: ${card.label}`}
+              title={`${labels.dragToReorder}: ${card.label}`}
             >
-              <ArrowLeft className="size-3.5" aria-hidden="true" />
+              <GripVertical className="size-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{labels.dragToReorder}</span>
             </button>
-            <button
-              type="button"
-              onClick={onMoveLater}
-              disabled={!canMoveLater}
-              className="flex size-7 items-center justify-center rounded-lg border border-blue-200 bg-[#eff6ff] text-blue-700 transition hover:bg-[#dbeafe] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-200 dark:hover:bg-blue-400/20"
-              aria-label={`${labels.moveLater}: ${card.label}`}
-              title={`${labels.moveLater}: ${card.label}`}
-            >
-              <ArrowRight className="size-3.5" aria-hidden="true" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={onMoveEarlier}
+                disabled={!canMoveEarlier}
+                className="flex size-7 items-center justify-center rounded-lg border border-blue-200 bg-[#eff6ff] text-blue-700 transition hover:bg-[#dbeafe] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-200 dark:hover:bg-blue-400/20"
+                aria-label={`${labels.moveEarlier}: ${card.label}`}
+                title={`${labels.moveEarlier}: ${card.label}`}
+              >
+                <ArrowLeft className="size-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={onMoveLater}
+                disabled={!canMoveLater}
+                className="flex size-7 items-center justify-center rounded-lg border border-blue-200 bg-[#eff6ff] text-blue-700 transition hover:bg-[#dbeafe] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-200 dark:hover:bg-blue-400/20"
+                aria-label={`${labels.moveLater}: ${card.label}`}
+                title={`${labels.moveLater}: ${card.label}`}
+              >
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </button>
+            </div>
           </div>
-        </div>
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-[#eff6ff] px-2 py-1.5 dark:border-blue-400/30 dark:bg-blue-400/10">
+            <span className="text-[10px] font-bold text-blue-700 dark:text-blue-200">
+              {labels.cardSize}
+            </span>
+            <div
+              className="flex shrink-0 rounded-md border border-blue-200 bg-[#dbeafe] p-0.5 dark:border-blue-400/30 dark:bg-blue-400/10"
+              role="group"
+              aria-label={`${labels.cardSize}: ${card.label}`}
+            >
+              {CARD_SIZE_VALUES.map((option) => {
+                const selected = option === size;
+                const label = sizeLabels[option];
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => onSizeChange(option)}
+                    aria-pressed={selected}
+                    aria-label={`${labels.setCardSize}: ${card.label} - ${label}`}
+                    title={`${labels.setCardSize}: ${card.label} - ${label}`}
+                    className={`flex h-6 min-w-6 items-center justify-center rounded px-1.5 text-[10px] font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      selected
+                        ? "bg-[#1d4ed8] text-white shadow-sm dark:bg-blue-300 dark:text-blue-950"
+                        : "text-blue-700 hover:bg-[#bfdbfe] dark:text-blue-200 dark:hover:bg-blue-400/20"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
       <div className="flex items-center justify-between">
         <span className={`text-[10px] font-semibold tracking-wider ${toneStyles.label}`}>
@@ -619,16 +597,24 @@ function DashboardCard({
       <p className={`mt-0.5 text-[10px] font-medium ${toneStyles.detail}`}>
         {card.change}
       </p>
-    </div>
+    </>
   );
 
   if (editing || !card.href) {
-    return content;
+    return (
+      <div data-dashboard-card-id={card.id} className={cardClassName}>
+        {body}
+      </div>
+    );
   }
 
   return (
-    <Link href={card.href} className="transition hover:opacity-80">
-      {content}
+    <Link
+      href={card.href}
+      data-dashboard-card-id={card.id}
+      className={`${cardClassName} block transition hover:opacity-80`}
+    >
+      {body}
     </Link>
   );
 }
