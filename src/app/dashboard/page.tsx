@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  ShoppingCart, Wrench, BarChart3,
+  Wrench, BarChart3,
   TrendingUp, Users, Wallet, CalendarCheck,
   Bell, PackageSearch, CreditCard,
-  Boxes, Clock, RotateCcw, Briefcase,
+  Boxes, Clock,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
@@ -17,7 +17,7 @@ import { getDashboardSummary } from "@/lib/data/dashboard";
 import { getPotentialProfitInStock } from "@/lib/data/reports";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { getServerDict } from "@/lib/i18n/server";
-import { STAT_CARD_TONE_STYLES, type StatCardTone } from "@/components/ui/stat-card";
+import { DashboardStatLayout, type DashboardLayoutLabels, type DashboardStatCard } from "./dashboard-stat-layout";
 
 async function stockValueStats(organizationId: string) {
   const supabase = await createClient();
@@ -223,74 +223,82 @@ export default async function DashboardPage() {
 
   const isProfitPositive = dashSummary.todayProfit >= 0;
 
-  type DashboardStatCard = {
-    label: string;
-    value: string;
-    change: string;
-    tone: StatCardTone;
-    icon: React.ComponentType<{ className?: string }>;
-    href?: string;
-  };
-
   const statCards: DashboardStatCard[] = [
     {
+      id: "today-profit",
       label: t.todayProfit,
       value: formatCurrency(dashSummary.todayProfit, currency),
       change: isProfitPositive ? `${t.fromSales} ${t.today}` : `${t.estimatedProfit}`,
       tone: isProfitPositive ? "success" : "danger",
-      icon: TrendingUp,
+      icon: "trendingUp",
     },
     {
+      id: "gross-sales",
       label: t.grossSales,
       value: formatCurrency(dashSummary.grossSales, currency),
       change: dashSummary.grossSales > 0 ? `${formatNumber(dashSummary.returnsCount + 1)} ${t.invoices}` : t.noSalesYet,
       tone: "success",
-      icon: ShoppingCart,
+      icon: "shoppingCart",
     },
     {
+      id: "returns",
       label: t.returns,
       value: formatCurrency(dashSummary.returnsTotal, currency),
       change: dashSummary.returnsCount > 0 ? `${formatNumber(dashSummary.returnsCount)} return${dashSummary.returnsCount === 1 ? "" : "s"}` : "0 returns",
       tone: "danger",
-      icon: RotateCcw,
+      icon: "rotateCcw",
     },
     {
+      id: "expenses",
       label: t.expenses,
       value: formatCurrency(dashSummary.expensesTotal, currency),
       change: dashSummary.expensesTotal > 0 ? `${t.today}` : "0 expenses",
       tone: "danger",
-      icon: Wallet,
+      icon: "wallet",
     },
     {
+      id: "low-stock",
       label: t.lowStock,
       value: dashSummary.lowStockCount > 0 ? `${formatNumber(dashSummary.lowStockCount)} item${dashSummary.lowStockCount === 1 ? "" : "s"}` : "0 items",
       change: dashSummary.lowStockCount > 0 ? "Below minimum stock" : "All stocked",
       tone: "warning",
-      icon: PackageSearch,
+      icon: "packageSearch",
       href: "/purchases/replenishment",
     },
     {
+      id: "pending-repairs",
       label: t.pendingRepairs,
       value: `${formatNumber(dashSummary.pendingRepairsCount)} job${dashSummary.pendingRepairsCount === 1 ? "" : "s"}`,
       change: dashSummary.pendingRepairsCount > 0 ? "In progress" : "No pending jobs",
       tone: "warning",
-      icon: Wrench,
+      icon: "wrench",
     },
     {
+      id: "supplier-dues",
       label: t.supplierDues,
       value: formatCurrency(dashSummary.supplierDuesTotal, currency),
       change: dashSummary.supplierDuesTotal > 0 ? t.suppliersPayable : "All settled",
       tone: "warning",
-      icon: Briefcase,
+      icon: "briefcase",
     },
     {
+      id: "customer-dues",
       label: t.customerDues,
       value: formatCurrency(dashSummary.customerDuesTotal, currency),
       change: dashSummary.customerDuesTotal > 0 ? t.customersOwe : "All settled",
       tone: "warning",
-      icon: Users,
+      icon: "users",
     },
   ];
+
+  const dashboardLayoutLabels: DashboardLayoutLabels = {
+    editLayout: t.editLayout || "Edit layout",
+    done: t.done || "Done",
+    resetLayout: t.resetLayout || "Reset to default",
+    dragToReorder: t.dragToReorder || "Drag to reorder",
+    moveEarlier: t.moveEarlier || "Move earlier",
+    moveLater: t.moveLater || "Move later",
+  };
 
   const maxBar = Math.max(...weekSales.map((w) => w.total), 1);
   const maxMonthlyBar = Math.max(...monthSales.map((m) => m.total), 1);
@@ -329,64 +337,13 @@ export default async function DashboardPage() {
 
           {/* Main content area */}
           <div className="p-3.5 sm:p-5">
-            {/* Welcome header */}
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h1 className="text-lg font-black text-slate-950 dark:text-white">
-                  Welcome, {profile.full_name?.split(" ")[0] ?? "User"}
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase dark:bg-white/[0.08] dark:text-slate-300">
-                    {profile.role}
-                  </span>
-                  {" · "}{organization?.name ?? "No shop"}
-                </p>
-              </div>
-              <div className="hidden items-center gap-2 sm:flex">
-                <Link
-                  href="/pos"
-                  className="flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-4 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
-                >
-                  <ShoppingCart className="size-3.5" />
-                  New sale
-                </Link>
-              </div>
-            </div>
-
-            {/* Stat cards row */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-              {statCards.map((k) => {
-                const Icon = k.icon;
-                const toneStyles = STAT_CARD_TONE_STYLES[k.tone];
-                const card = (
-                  <div
-                    className={`rounded-xl border p-3 ${toneStyles.card}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-semibold tracking-wider ${toneStyles.label}`}>
-                        {k.label}
-                      </span>
-                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${toneStyles.icon}`}>
-                        <Icon className="size-3.5" />
-                      </span>
-                    </div>
-                    <p className={`mt-1.5 text-sm font-bold sm:text-base ${toneStyles.value}`}>
-                      {k.value}
-                    </p>
-                    <p className={`mt-0.5 text-[10px] font-medium ${toneStyles.detail}`}>
-                      {k.change}
-                    </p>
-                  </div>
-                );
-                return "href" in k ? (
-                  <Link key={k.label} href={k.href!} className="transition hover:opacity-80">
-                    {card}
-                  </Link>
-                ) : (
-                  <div key={k.label}>{card}</div>
-                );
-              })}
-            </div>
+            <DashboardStatLayout
+              cards={statCards}
+              firstName={profile.full_name?.split(" ")[0] ?? "User"}
+              role={profile.role}
+              organizationName={organization?.name ?? "No shop"}
+              labels={dashboardLayoutLabels}
+            />
 
             {/* Top-selling products */}
             {dashSummary.topSellingProducts.length > 0 && (
