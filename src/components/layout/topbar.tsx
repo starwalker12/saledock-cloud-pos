@@ -38,7 +38,7 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
           <MobileDrawerWrapper />
           <h1 className="truncate text-xl font-black text-slate-950 dark:text-slate-50 sm:text-2xl">{title}</h1>
         </div>
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[680px]">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[860px] lg:flex-1 lg:justify-end xl:max-w-[980px]">
           <GlobalSearch />
           <ThemeToggle />
           <LanguageToggle />
