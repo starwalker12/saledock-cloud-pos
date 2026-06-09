@@ -1268,6 +1268,8 @@ export async function importTableChunkAction(
         const payErr = assertNonNeg(paymentAmount, "amount", row.Id);
         if (payErr) { failed++; warnings.push(payErr); continue; }
 
+        const paymentDate = row.CreatedAt ? String(row.CreatedAt).trim() : null;
+
         const { error } = await supabase
           .from("payments")
           .insert({
@@ -1279,6 +1281,7 @@ export async function importTableChunkAction(
             amount: paymentAmount,
             reference_no: row.ReferenceNo?.toString() || "",
             received_by: profile.id,
+            ...(paymentDate ? { paid_at: paymentDate } : {}),
             created_at: row.CreatedAt || new Date().toISOString()
           });
 
@@ -1501,7 +1504,7 @@ export async function importTableChunkAction(
             payment_method: row.PaymentMethod || "cash",
             vendor_name: row.VendorName?.toString() || "",
             notes: row.Notes?.toString() || "",
-            date: row.Date || new Date().toISOString(),
+            spent_at: row.Date || new Date().toISOString(),
             status: row.Status || "active",
             created_by: profile.id,
             created_at: row.Date || new Date().toISOString()
@@ -1547,14 +1550,14 @@ export async function importTableChunkAction(
             device_type: row.DeviceType?.toString() || "Other",
             device_model: row.DeviceModel?.toString() || "",
             serial_imei: row.SerialImei?.toString() || "",
-            problem: row.Problem?.toString() || "",
-            accessories: row.Accessories?.toString() || "",
+            problem_description: row.Problem?.toString() || "",
+            accessories_received: row.Accessories?.toString() || "",
             estimated_cost: estCost,
             advance_paid: advPaid,
             payment_method: normalizePaymentMethod(row.PaymentMethod),
             status: normalizeRepairStatus(row.Status),
             notes: row.Notes?.toString() || "",
-            expected_delivery: row.ExpectedDelivery || null,
+            expected_delivery_at: row.ExpectedDelivery || null,
             delivered_at: row.DeliveredAt || null,
             created_at: row.CreatedAt || new Date().toISOString()
           })
@@ -1594,12 +1597,9 @@ export async function importTableChunkAction(
             branch_id: branchId,
             closing_date: closingDate,
             notes: row.Notes?.toString() || "Imported daily closing",
-            opening_cash: 0,
-            sales_cash: 0,
-            expenses_cash: 0,
-            expected_cash: cashExpected,
-            actual_cash: cashCounted,
-            difference: Number(row.CashDifference || 0),
+            expected_closing_cash: cashExpected,
+            actual_closing_cash: cashCounted,
+            cash_difference: Number(row.CashDifference || 0),
             status: "closed",
             finalized_by: profile.id,
             finalized_at: row.FinalizedAt || new Date().toISOString(),
