@@ -20,7 +20,7 @@ export default function DataDeletionPage() {
             <img
               src="/saledock-logo-full.png"
               alt="SaleDock Cloud POS"
-              className="mx-auto mb-2 h-10 w-auto max-w-[180px] object-contain"
+              className="mx-auto mb-2 h-10 w-auto max-w-[180px] object-contain dark:brightness-0 dark:invert"
             />
           </Link>
         </div>
