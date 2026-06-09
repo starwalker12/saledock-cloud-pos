@@ -12,6 +12,7 @@ import {
 } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { createPortal } from "react-dom";
 
 type ConfirmDialogVariant = "default" | "destructive";
 
@@ -57,6 +58,14 @@ export function ConfirmDialogProvider({
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
   const { dict } = useLanguage();
   const shellDict = dict.shell as Record<string, string> | undefined;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMounted(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const mergedLabels = useMemo(
     () => ({
@@ -169,8 +178,8 @@ export function ConfirmDialogProvider({
     <ConfirmDialogContext.Provider value={contextValue}>
       {children}
 
-      {pendingConfirm && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#020617]/75 p-4 backdrop-blur-sm">
+      {pendingConfirm && mounted && createPortal(
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#020617]/75 p-4 backdrop-blur-sm animate-fade-in">
           <div
             role="dialog"
             aria-modal="true"
@@ -231,7 +240,8 @@ export function ConfirmDialogProvider({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </ConfirmDialogContext.Provider>
   );

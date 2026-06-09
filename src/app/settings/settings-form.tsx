@@ -487,7 +487,6 @@ export function SettingsForm({
   settings,
   canEdit,
   organizationId,
-  branchId,
   userId,
   profilePictureUrl,
 }: {
@@ -793,30 +792,6 @@ export function SettingsForm({
           <BlockSaveButton pending={regPending} canEdit={canEdit} label="Save regional settings" />
           <BlockMessage state={regState} />
         </form>
-      </Section>
-
-      {/* System Info / Safe Notes */}
-      <Section
-        title="System Info / Safe Notes"
-        description="Reference details for support. IDs are shown for troubleshooting only."
-      >
-        <dl className="grid gap-3 text-sm md:grid-cols-2">
-          <div className="rounded-xl bg-slate-50 p-3">
-            <dt className={labelTextClass}>Production URL</dt>
-            <dd className="mt-1 break-words font-semibold text-slate-800">https://saledock-cloud-pos.vercel.app</dd>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-3">
-            <dt className={labelTextClass}>Uploads/storage</dt>
-            <dd className="mt-1 font-semibold text-slate-800">Enabled via Supabase Storage (profile-pictures, public-branding buckets).</dd>
-          </div>
-          <details className="rounded-xl bg-slate-50 p-3 md:col-span-2">
-            <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">Technical IDs</summary>
-            <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-              <p className="break-all">Organization: {organizationId}</p>
-              <p className="break-all">Branch: {branchId ?? "None"}</p>
-            </div>
-          </details>
-        </dl>
       </Section>
     </div>
   );

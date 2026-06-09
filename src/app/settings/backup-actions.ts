@@ -121,7 +121,7 @@ export async function startImportJobAction(
     await logAudit({
       module: "settings",
       action: "backup.import_started",
-      details: `Owner initiated desktop backup import from ${sourceApp} (Version: ${backupVersion}). Job ID: ${data.id}.`
+      details: `Owner initiated desktop backup import from ${sourceApp} (Version: ${backupVersion}).`
     });
 
     return { success: true, jobId: data.id, counts: countsObj };
@@ -164,8 +164,8 @@ export async function updateImportJobStatusAction(
       module: "settings",
       action: status === "completed" ? "backup.import_completed" : "backup.import_failed",
       details: status === "completed"
-        ? `Owner completed desktop backup import successfully. Job ID: ${jobId}.`
-        : `Owner's desktop backup import failed or was cancelled. Job ID: ${jobId}. Error: ${errorMessage || "None"}`
+        ? "Owner completed desktop backup import successfully."
+        : `Owner's desktop backup import failed or was cancelled. Error: ${errorMessage || "None"}`
     });
 
     revalidatePath("/settings");
