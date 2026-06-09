@@ -220,6 +220,40 @@ async function resolveTargetIdsBatch(
   return result;
 }
 
+// Helper: Batch resolve mappings for parent foreign keys across all jobs (ignoring jobId)
+async function resolveTargetIdsAcrossAllJobsBatch(
+  supabase: unknown,
+  orgId: string,
+  sourceTable: string,
+  sourceIds: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const uniqueIds = Array.from(new Set(sourceIds.map(String).filter(Boolean)));
+  if (uniqueIds.length === 0) return result;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const client = supabase as any;
+
+  // Chunk large source ID parameters to avoid PostgreSQL param limits
+  const size = 100;
+  for (let i = 0; i < uniqueIds.length; i += size) {
+    const chunkIds = uniqueIds.slice(i, i + size);
+    const { data, error } = await client
+      .from("import_row_mappings")
+      .select("source_id, target_id")
+      .eq("organization_id", orgId)
+      .eq("source_table", sourceTable)
+      .in("source_id", chunkIds);
+
+    if (!error && data) {
+      for (const row of data) {
+        result.set(row.source_id.toString(), row.target_id);
+      }
+    }
+  }
+  return result;
+}
+
 // Helper: Insert mappings in chunks
 async function saveRowMappingsBatch(
   supabase: unknown,
@@ -246,7 +280,10 @@ async function saveRowMappingsBatch(
   for (let i = 0; i < insertPayload.length; i += size) {
     await client
       .from("import_row_mappings")
-      .insert(insertPayload.slice(i, i + size));
+      .upsert(insertPayload.slice(i, i + size), {
+        onConflict: "organization_id,import_job_id,source_table,source_id",
+        ignoreDuplicates: true
+      });
   }
 }
 
@@ -976,6 +1013,8 @@ export async function importTableChunkAction(
       const lotIds = typedRows.map(r => r.StockLotId?.toString() || r.BatchNumber?.toString()).filter(Boolean);
       const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
       const lotMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ProductStockLots", lotIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "StockMovements", sourceIds);
 
       const normalizeStockMovementType = (mType: string, cType?: string) => {
         const mt = (mType || cType || "").toLowerCase().trim();
@@ -993,6 +1032,14 @@ export async function importTableChunkAction(
       };
 
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
         if (!prodId) {
           failed++;
@@ -1010,7 +1057,7 @@ export async function importTableChunkAction(
         const smErr = assertNonNeg(cost, "unit_cost", row.Id);
         if (smErr) { failed++; warnings.push(smErr); continue; }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("stock_movements")
           .insert({
             organization_id: orgId,
@@ -1025,39 +1072,41 @@ export async function importTableChunkAction(
             notes: row.Reason?.toString() || "Imported from desktop stock movements",
             created_by: profile.id,
             created_at: row.CreatedAt || row.DateTime || row.Date || new Date().toISOString()
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           failed++;
           warnings.push(`Stock movement insert error: ${error.message} (ID: ${row.Id}).`);
         } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
       }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "StockMovements", "stock_movements", mappingsToSave);
 
     } else if (tableName === "Bills") {
       const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
       const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
-
-      // Fetch existing invoice numbers to avoid unique key conflicts
-      const { data: existingInvs } = await supabase
-        .from("invoices")
-        .select("invoice_no")
-        .eq("organization_id", orgId);
-      const invNoSet = new Set(existingInvs?.map(i => i.invoice_no.toLowerCase()) ?? []);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "Bills", sourceIds);
 
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
-        let invoiceNo = row.BillNo?.toString().trim();
+        const invoiceNo = row.BillNo?.toString().trim();
         if (!invoiceNo) {
           failed++;
           warnings.push(`Skipped bill with empty BillNo (ID: ${row.Id}).`);
           continue;
-        }
-
-        // Avoid unique constraint conflicts
-        if (invNoSet.has(invoiceNo.toLowerCase())) {
-          invoiceNo = `${invoiceNo}-imported-${jobId.slice(0, 4)}`;
         }
 
         const grandTotal = pickNumber(row, ["GrandTotal", "grand_total"]);
@@ -1107,7 +1156,6 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(`Bill insert error: ${error.message} (BillNo: ${invoiceNo}).`);
         } else {
-          invNoSet.add(invoiceNo.toLowerCase());
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
@@ -1119,8 +1167,18 @@ export async function importTableChunkAction(
       const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
       const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
       const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "BillItems", sourceIds);
 
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
         if (!billId) {
           failed++;
@@ -1198,6 +1256,8 @@ export async function importTableChunkAction(
       const lotIds = typedRows.map(r => r.StockLotId?.toString()).filter(Boolean);
       const itemMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "BillItems", billItemIds);
       const lotMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ProductStockLots", lotIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "BillItemBatchAllocations", sourceIds);
 
       // We also need the invoice_id and product_id which we can resolve by querying invoice_items
       const mappedItemIds = Array.from(new Set(Array.from(itemMappings.values())));
@@ -1209,6 +1269,14 @@ export async function importTableChunkAction(
       const itemProductMap = new Map(itemsData?.map(it => [it.id, it.product_id]) ?? []);
 
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const itemId = row.BillItemId ? itemMappings.get(row.BillItemId.toString()) : null;
         const lotId = row.StockLotId ? lotMappings.get(row.StockLotId.toString()) : null;
 
@@ -1234,7 +1302,7 @@ export async function importTableChunkAction(
           assertNonNeg(allocUnitCost, "unit_cost", row.Id);
         if (allocErr) { failed++; warnings.push(allocErr); continue; }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("invoice_item_stock_allocations")
           .insert({
             organization_id: orgId,
@@ -1244,23 +1312,37 @@ export async function importTableChunkAction(
             stock_lot_id: lotId,
             quantity: allocQty,
             unit_cost: allocUnitCost,
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           failed++;
           warnings.push(`Allocation insert error: ${error.message} (ID: ${row.Id}).`);
         } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
       }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "BillItemBatchAllocations", "invoice_item_stock_allocations", mappingsToSave);
 
     } else if (tableName === "Payments") {
       const billIds = typedRows.map(r => r.BillId?.toString()).filter(Boolean);
       const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
       const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
       const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "Payments", sourceIds);
 
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
         const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
 
@@ -1270,7 +1352,7 @@ export async function importTableChunkAction(
 
         const paymentDate = row.CreatedAt ? String(row.CreatedAt).trim() : null;
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("payments")
           .insert({
             organization_id: orgId,
@@ -1283,23 +1365,37 @@ export async function importTableChunkAction(
             received_by: profile.id,
             ...(paymentDate ? { paid_at: paymentDate } : {}),
             created_at: row.CreatedAt || new Date().toISOString()
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           failed++;
           warnings.push(`Payment insert error: ${error.message} (ID: ${row.Id}).`);
         } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
       }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "Payments", "payments", mappingsToSave);
 
     } else if (tableName === "CustomerLedgerEntries") {
       const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
       const billIds = typedRows.map(r => r.BillId?.toString()).filter(Boolean);
       const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
       const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "CustomerLedgerEntries", sourceIds);
 
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
         if (!custId) {
           failed++;
@@ -1313,7 +1409,7 @@ export async function importTableChunkAction(
         const ledErr = assertNonNeg(ledAmount, "amount", row.Id);
         if (ledErr) { failed++; warnings.push(ledErr); continue; }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("customer_ledger_entries")
           .insert({
             organization_id: orgId,
@@ -1327,15 +1423,19 @@ export async function importTableChunkAction(
             description: row.Description?.toString() || "",
             created_by: profile.id,
             created_at: row.Date || new Date().toISOString()
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           failed++;
           warnings.push(`Ledger insert error: ${error.message} (ID: ${row.Id}).`);
         } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
       }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "CustomerLedgerEntries", "customer_ledger_entries", mappingsToSave);
 
     } else if (tableName === "ReturnRefunds") {
       const billIds = typedRows.map(r => r.BillId?.toString()).filter(Boolean);
@@ -1417,6 +1517,8 @@ export async function importTableChunkAction(
       const retMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ReturnRefunds", returnIds);
       const itemMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "BillItems", billItemIds);
       const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "ReturnItems", sourceIds);
 
       // Fetch invoice contexts to find invoice_id and product metadata
       const mappedItemIds = Array.from(new Set(Array.from(itemMappings.values())));
@@ -1430,6 +1532,14 @@ export async function importTableChunkAction(
       const itemPriceMap = new Map(itemsData?.map(it => [it.id, Number(it.unit_price)]) ?? []);
 
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const retId = row.ReturnId ? retMappings.get(row.ReturnId.toString()) : null;
         const itemId = row.BillItemId ? itemMappings.get(row.BillItemId.toString()) : null;
 
@@ -1457,7 +1567,7 @@ export async function importTableChunkAction(
           assertNonNeg(riLineTotal, "line_total", row.Id);
         if (riErr) { failed++; warnings.push(riErr); continue; }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("return_items")
           .insert({
             organization_id: orgId,
@@ -1471,18 +1581,33 @@ export async function importTableChunkAction(
             unit_price: riUnitPrice,
             line_total: riLineTotal,
             restock: pickBool(row, ["Restocked", "Restock"]),
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           failed++;
           warnings.push(`Return item insert error: ${error.message} (ReturnItem ID: ${row.Id}).`);
         } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
       }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "ReturnItems", "return_items", mappingsToSave);
 
     } else if (tableName === "Expenses") {
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "Expenses", sourceIds);
+
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const category = row.Category?.toString().trim();
         if (!category) {
           failed++;
@@ -1494,7 +1619,7 @@ export async function importTableChunkAction(
         const expErr = assertNonNeg(expenseAmount, "amount", row.Id);
         if (expErr) { failed++; warnings.push(expErr); continue; }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("expenses")
           .insert({
             organization_id: orgId,
@@ -1508,15 +1633,19 @@ export async function importTableChunkAction(
             status: row.Status || "active",
             created_by: profile.id,
             created_at: row.Date || new Date().toISOString()
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           failed++;
           warnings.push(`Expense insert error: ${error.message} (ID: ${row.Id}).`);
         } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
       }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "Expenses", "expenses", mappingsToSave);
 
     } else if (tableName === "RepairJobs") {
       const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
@@ -1615,7 +1744,18 @@ export async function importTableChunkAction(
       }
 
     } else if (tableName === "ActivityLog") {
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "ActivityLog", sourceIds);
+
       for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
         const details = row.Details?.toString() || "";
         // Basic passwords / recovery codes masking to guarantee database security
         if (
@@ -1627,7 +1767,7 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("audit_logs")
           .insert({
             organization_id: orgId,
@@ -1644,15 +1784,19 @@ export async function importTableChunkAction(
               source_id: row.Id?.toString() || null
             },
             created_at: row.Date || new Date().toISOString()
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           failed++;
           warnings.push(`Audit log insert error: ${error.message} (ID: ${row.Id}).`);
         } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
         }
       }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "ActivityLog", "audit_logs", mappingsToSave);
     } else {
       return { success: false, inserted: 0, skipped: 0, skippedOrphan, failed: 0, warnings, error: `Unsupported table: ${tableName}` };
     }
