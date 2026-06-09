@@ -147,6 +147,8 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
   const navListRef = useRef<HTMLUListElement>(null);
   const justDraggedRef = useRef<string | null>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const currentTargetIndexRef = useRef<number | null>(null);
+  const siblingRectsRef = useRef<Array<{ el: HTMLElement; href: string; index: number; rect: DOMRect }>>([]);
 
   const getDraggedElement = (href: string) => {
     return navListRef.current?.querySelector<HTMLElement>(`[data-sidebar-nav-href="${href}"]`) ?? null;
@@ -157,6 +159,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
     const items = navListRef.current.querySelectorAll<HTMLElement>("[data-sidebar-nav-href]");
     items.forEach((item) => {
       item.style.transform = "";
+      item.style.transition = "";
       item.style.boxShadow = "";
       item.style.opacity = "";
       item.style.zIndex = "";
@@ -336,18 +339,37 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
     setDraggingHref(href);
 
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) return;
 
-    dragStartPosRef.current = { x: event.clientX, y: event.clientY };
-    const el = getDraggedElement(href);
-    if (el) {
-      el.style.transform = "translate(0px, 0px) scale(1.03)";
-      el.style.boxShadow = "0 8px 25px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)";
-      el.style.opacity = "0.92";
-      el.style.zIndex = "1000";
-      el.style.pointerEvents = "none";
-      el.style.willChange = "transform";
+    if (!prefersReduced) {
+      dragStartPosRef.current = { x: event.clientX, y: event.clientY };
+      const el = getDraggedElement(href);
+      if (el) {
+        el.style.transform = "translate(0px, 0px) scale(1.03)";
+        el.style.boxShadow = "0 8px 25px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)";
+        el.style.opacity = "0.92";
+        el.style.zIndex = "1000";
+        el.style.pointerEvents = "none";
+        el.style.willChange = "transform";
+      }
     }
+
+    // Measure sibling elements' initial rects and heights once at drag start
+    const sourceIndex = visibleItems.findIndex((item) => item.href === href);
+    currentTargetIndexRef.current = sourceIndex;
+
+    const listItems = Array.from(navListRef.current?.querySelectorAll<HTMLElement>("[data-sidebar-nav-href]") ?? []);
+    siblingRectsRef.current = listItems.map((item, index) => {
+      const itemHref = item.getAttribute("data-sidebar-nav-href")!;
+      if (!prefersReduced && itemHref !== href) {
+        item.style.transition = "transform 150ms ease";
+      }
+      return {
+        el: item,
+        href: itemHref,
+        index,
+        rect: item.getBoundingClientRect(),
+      };
+    });
   };
 
   const updateDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -357,12 +379,53 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
     event.preventDefault();
 
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     if (!prefersReduced && dragStartPosRef.current) {
       const el = getDraggedElement(sourceHref);
       if (el) {
         const dx = event.clientX - dragStartPosRef.current.x;
         const dy = event.clientY - dragStartPosRef.current.y;
         el.style.transform = `translate(${dx}px, ${dy}px) scale(1.03)`;
+      }
+    }
+
+    // Find the height of the dragged item from siblingRectsRef
+    const draggedInfo = siblingRectsRef.current.find((s) => s.href === sourceHref);
+    if (!draggedInfo) return;
+
+    const sourceIndex = draggedInfo.index;
+    const draggedHeight = draggedInfo.rect.height;
+
+    // Calculate targetIndex based on other items' midpoints compared to event.clientY
+    let targetIndex = 0;
+    const siblings = siblingRectsRef.current.filter((s) => s.href !== sourceHref);
+    siblings.forEach((s) => {
+      const midpoint = s.rect.top + s.rect.height / 2;
+      if (event.clientY > midpoint) {
+        targetIndex++;
+      }
+    });
+
+    if (targetIndex !== currentTargetIndexRef.current) {
+      currentTargetIndexRef.current = targetIndex;
+
+      // Apply index-based transforms to all other items to open a gap ONLY IF NOT prefersReduced
+      if (!prefersReduced) {
+        siblingRectsRef.current.forEach((s) => {
+          if (s.href === sourceHref) return;
+
+          let transformVal = "none";
+          if (targetIndex < sourceIndex) {
+            if (s.index >= targetIndex && s.index < sourceIndex) {
+              transformVal = `translateY(${draggedHeight}px)`;
+            }
+          } else if (targetIndex > sourceIndex) {
+            if (s.index > sourceIndex && s.index <= targetIndex) {
+              transformVal = `translateY(${-draggedHeight}px)`;
+            }
+          }
+          s.el.style.transform = transformVal;
+        });
       }
     }
   };
@@ -375,24 +438,22 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
-    const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
-    const targetElement = rawTarget instanceof HTMLElement
-      ? rawTarget.closest("[data-sidebar-nav-href]")
-      : null;
-    const targetHref = targetElement instanceof HTMLElement ? targetElement.dataset.sidebarNavHref : null;
+    const targetIndex = currentTargetIndexRef.current;
+    const sourceIndex = visibleItems.findIndex((item) => item.href === sourceHref);
 
-    if (targetHref && targetHref !== sourceHref) {
-      const sourceIndex = visibleItems.findIndex((item) => item.href === sourceHref);
-      const targetIndex = visibleItems.findIndex((item) => item.href === targetHref);
-      if (sourceIndex !== -1 && targetIndex !== -1) {
+    if (targetIndex !== null && targetIndex !== sourceIndex && targetIndex >= 0) {
+      const targetItem = visibleItems[targetIndex];
+      if (targetItem) {
         justDraggedRef.current = sourceHref;
-        moveHref(sourceHref, targetHref, targetIndex > sourceIndex ? "after" : "before");
+        moveHref(sourceHref, targetItem.href, targetIndex > sourceIndex ? "after" : "before");
       }
     }
 
     draggingHrefRef.current = null;
     lastDragTargetRef.current = null;
     dragStartPosRef.current = null;
+    currentTargetIndexRef.current = null;
+    siblingRectsRef.current = [];
     setDraggingHref(null);
     cleanupStyles();
   };
