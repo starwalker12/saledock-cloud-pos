@@ -168,7 +168,7 @@ export function DashboardStatLayout({
     .filter((card): card is DashboardStatCard => Boolean(card));
 
   const ghost = useDragGhost(gridRef, "dashboard-card-id");
-  useReorderAnim(gridRef, "dashboard-card-id", [orderedCards], draggingId);
+  useReorderAnim(gridRef, "dashboard-card-id", [orderedCards, draggingId], draggingId);
 
   const moveCard = (sourceId: string, targetId: string, placement: "before" | "after") => {
     if (sourceId === targetId) return;
@@ -209,34 +209,38 @@ export function DashboardStatLayout({
   const updateDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const sourceId = draggingIdRef.current;
     if (!editing || !sourceId) return;
-
     event.preventDefault();
     ghost.updateDrag(event);
-    const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
-    const targetElement = rawTarget instanceof HTMLElement
-      ? rawTarget.closest("[data-dashboard-card-id]")
-      : null;
-    const targetId = targetElement instanceof HTMLElement ? targetElement.dataset.dashboardCardId : null;
-    if (!targetId || targetId === sourceId || targetId === lastDragTargetRef.current) return;
-
-    const sourceIndex = orderedCards.findIndex((card) => card.id === sourceId);
-    const targetIndex = orderedCards.findIndex((card) => card.id === targetId);
-    if (sourceIndex === -1 || targetIndex === -1) return;
-
-    moveCard(sourceId, targetId, targetIndex > sourceIndex ? "after" : "before");
-    lastDragTargetRef.current = targetId;
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!draggingIdRef.current) return;
+    const sourceId = draggingIdRef.current;
+    if (!sourceId) return;
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    ghost.endDrag(event, () => {
-      draggingIdRef.current = null;
-      lastDragTargetRef.current = null;
-      setDraggingId(null);
-    });
+
+    ghost.endDrag();
+
+    if (event.type === "pointerup") {
+      const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
+      const targetElement = rawTarget instanceof HTMLElement
+        ? rawTarget.closest("[data-dashboard-card-id]")
+        : null;
+      const targetId = targetElement instanceof HTMLElement ? targetElement.dataset.dashboardCardId : null;
+      if (targetId && targetId !== sourceId) {
+        const sourceIndex = orderedCards.findIndex((card) => card.id === sourceId);
+        const targetIndex = orderedCards.findIndex((card) => card.id === targetId);
+        if (sourceIndex !== -1 && targetIndex !== -1) {
+          moveCard(sourceId, targetId, targetIndex > sourceIndex ? "after" : "before");
+        }
+      }
+    }
+
+    draggingIdRef.current = null;
+    lastDragTargetRef.current = null;
+    setDraggingId(null);
   };
 
   const resetLayout = () => {

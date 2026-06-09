@@ -243,7 +243,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
   const collapsed = prefs.collapsed;
 
   const ghost = useDragGhost(navListRef, "sidebar-nav-href");
-  useReorderAnim(navListRef, "sidebar-nav-href", [visibleItems], draggingHref);
+  useReorderAnim(navListRef, "sidebar-nav-href", [visibleItems, draggingHref], draggingHref);
 
   const storePreferences = (updater: (current: SidebarPreferences) => SidebarPreferences) => {
     const next = {
@@ -314,36 +314,39 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
   };
 
   const updateDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const sourceHref = draggingHrefRef.current;
-    if (!sourceHref) return;
-
+    if (!draggingHrefRef.current) return;
     event.preventDefault();
     ghost.updateDrag(event);
-    const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
-    const targetElement = rawTarget instanceof HTMLElement
-      ? rawTarget.closest("[data-sidebar-nav-href]")
-      : null;
-    const targetHref = targetElement instanceof HTMLElement ? targetElement.dataset.sidebarNavHref : null;
-    if (!targetHref || targetHref === sourceHref || targetHref === lastDragTargetRef.current) return;
-
-    const sourceIndex = visibleItems.findIndex((item) => item.href === sourceHref);
-    const targetIndex = visibleItems.findIndex((item) => item.href === targetHref);
-    if (sourceIndex === -1 || targetIndex === -1) return;
-
-    moveHref(sourceHref, targetHref, targetIndex > sourceIndex ? "after" : "before");
-    lastDragTargetRef.current = targetHref;
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!draggingHrefRef.current) return;
+    const sourceHref = draggingHrefRef.current;
+    if (!sourceHref) return;
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    ghost.endDrag(event, () => {
-      draggingHrefRef.current = null;
-      lastDragTargetRef.current = null;
-      setDraggingHref(null);
-    });
+
+    ghost.endDrag();
+
+    if (event.type === "pointerup") {
+      const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
+      const targetElement = rawTarget instanceof HTMLElement
+        ? rawTarget.closest("[data-sidebar-nav-href]")
+        : null;
+      const targetHref = targetElement instanceof HTMLElement ? targetElement.dataset.sidebarNavHref : null;
+      if (targetHref && targetHref !== sourceHref) {
+        const sourceIndex = visibleItems.findIndex((item) => item.href === sourceHref);
+        const targetIndex = visibleItems.findIndex((item) => item.href === targetHref);
+        if (sourceIndex !== -1 && targetIndex !== -1) {
+          moveHref(sourceHref, targetHref, targetIndex > sourceIndex ? "after" : "before");
+        }
+      }
+    }
+
+    draggingHrefRef.current = null;
+    lastDragTargetRef.current = null;
+    setDraggingHref(null);
   };
 
   return (
