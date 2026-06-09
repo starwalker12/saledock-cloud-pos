@@ -127,6 +127,7 @@ export function ReopenDayForm({
     }
 
     e.preventDefault();
+    const form = e.currentTarget;
 
     if (isConfirming || pending) return;
 
@@ -145,7 +146,7 @@ export function ReopenDayForm({
     if (!shouldReopen) return;
 
     confirmedSubmitRef.current = true;
-    e.currentTarget.requestSubmit();
+    form.requestSubmit();
   }
 
   return (

@@ -17,6 +17,7 @@ export function VoidExpenseForm({ id }: { id: string }) {
     }
 
     e.preventDefault();
+    const form = e.currentTarget;
 
     if (isConfirming || isSubmitting) return;
 
@@ -36,7 +37,7 @@ export function VoidExpenseForm({ id }: { id: string }) {
 
     confirmedSubmitRef.current = true;
     setIsSubmitting(true);
-    e.currentTarget.requestSubmit();
+    form.requestSubmit();
   }
 
   return (
