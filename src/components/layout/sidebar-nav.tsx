@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentType, PointerEvent as ReactPointerEvent } from "react";
+import { useReorderAnim } from "@/lib/use-reorder-animation";
 import {
   LayoutDashboard, ShoppingCart, Boxes, Users, ReceiptText,
   RotateCcw, Wrench, Wallet, CalendarCheck, BarChart3,
@@ -143,6 +144,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
   const draggingHrefRef = useRef<string | null>(null);
   const lastDragTargetRef = useRef<string | null>(null);
   const archivePanelRef = useRef<HTMLDivElement>(null);
+  const navListRef = useRef<HTMLUListElement>(null);
 
   const labelFallback: Record<string, string> = {
     supplierDues: "Supplier Dues",
@@ -239,6 +241,8 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
   const visibleItems = orderedItems.filter((item) => !archivedHrefs.has(item.href));
   const archivedItems = orderedItems.filter((item) => archivedHrefs.has(item.href));
   const collapsed = prefs.collapsed;
+
+  useReorderAnim(navListRef, "sidebar-nav-href", [visibleItems]);
 
   const storePreferences = (updater: (current: SidebarPreferences) => SidebarPreferences) => {
     const next = {
@@ -386,7 +390,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
       </div>
 
       <nav className={`min-h-0 flex-1 overflow-y-auto py-4 ${collapsed ? "px-2" : "px-3"}`} aria-label="Main navigation">
-        <ul className="space-y-1">
+        <ul ref={navListRef} className="space-y-1">
           {visibleItems.map((item) => {
             const Icon = iconMap[item.icon];
             const active = isActive(item.href);
