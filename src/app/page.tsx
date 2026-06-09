@@ -773,6 +773,8 @@ export default async function HomePage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500">
+            <Link href="/about"         className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">About Us</Link>
+            <Link href="/contact"       className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Contact Us</Link>
             <Link href="/privacy"       className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Privacy Policy</Link>
             <Link href="/terms"         className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Terms of Service</Link>
             <Link href="/data-deletion" className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Data Deletion</Link>
