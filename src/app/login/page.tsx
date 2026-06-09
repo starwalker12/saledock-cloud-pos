@@ -4,9 +4,8 @@ import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getPublicPlatformSetting } from "@/lib/platform/admin";
 import { signOutAction } from "@/app/(auth)/actions";
-import { ArrowLeft, ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { LanguageToggle } from "@/components/language-toggle";
+import { ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
+import { PublicPageHeader } from "@/components/layout/public-page-header";
 import { getServerDict } from "@/lib/i18n/server";
 
 function friendlyError(errorCode: string | undefined): string | null {
@@ -175,26 +174,95 @@ export default async function LoginPage({
   );
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-3 py-8">
-      {/* Top controls */}
-      <div className="mb-3 flex w-full max-w-2xl items-center justify-between sm:mb-4">
-        <Link
-          href="/"
-          className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/80 px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
-          aria-label="Back to home"
-        >
-          <ArrowLeft className="size-4 shrink-0" />
-          <span className="hidden sm:inline">{t("backToHome", "Back to home")}</span>
-        </Link>
-        <LanguageToggle />
-        <ThemeToggle />
-      </div>
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-slate-950 sm:p-6 md:p-8 lg:p-12">
+      <div className="flex w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-[#fff] shadow-2xl dark:border-slate-800 dark:bg-slate-900 flex-col lg:flex-row min-h-[600px] lg:h-[650px]">
+        {/* Left Column - Abstract Visual Banner */}
+        <div className="relative hidden w-full bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-8 text-white lg:flex lg:w-[45%] flex-col justify-between overflow-hidden border-r border-slate-200 dark:border-slate-800">
+          {/* Subtle design grid/accents in background */}
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,var(--color-blue-500),transparent_60%)] pointer-events-none" />
+          <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
 
-      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
-        <div className="mx-auto max-w-md">
-          {authCard}
+          {/* Banner content */}
+          <div className="relative z-10 flex flex-col h-full justify-between">
+            {/* Top brand accent */}
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-xl bg-blue-600 text-xs font-bold text-white shadow-md shadow-blue-500/20">SD</span>
+              <span className="text-sm font-bold uppercase tracking-wider text-slate-200">SaleDock Platform</span>
+            </div>
+
+            {/* SVG Abstract Art Illustration */}
+            <div className="my-auto py-6 flex items-center justify-center">
+              <svg className="w-full max-w-[280px] h-auto drop-shadow-2xl" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* cash register / POS machine base outline */}
+                <rect x="30" y="130" width="180" height="70" rx="16" fill="url(#posGradient)" stroke="#3b82f6" strokeWidth="2.5" className="opacity-90" />
+                {/* register screen base */}
+                <rect x="50" y="60" width="140" height="80" rx="12" fill="#020617" stroke="#3b82f6" strokeWidth="2.5" />
+                {/* screen grid pattern */}
+                <path d="M 60 70 L 180 70 M 60 90 L 180 90 M 60 110 L 180 110" stroke="#1e293b" strokeWidth="1" />
+                {/* stylized sales bar chart on screen */}
+                <rect x="70" y="110" width="16" height="20" rx="3" fill="#14b8a6" className="animate-pulse" />
+                <rect x="94" y="95" width="16" height="35" rx="3" fill="#3b82f6" />
+                <rect x="118" y="80" width="16" height="50" rx="3" fill="#06b6d4" />
+                <rect x="142" y="70" width="16" height="60" rx="3" fill="#10b981" />
+                {/* interactive check / transaction path line */}
+                <path d="M 70 110 L 94 95 L 118 80 L 142 70" stroke="url(#lineGradient)" strokeWidth="3" strokeLinecap="round" />
+                
+                {/* stylized receipt rolling out */}
+                <path d="M 150 140 C 150 140, 165 155, 160 175 C 155 195, 175 200, 175 200" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeDasharray="3 3" />
+                <path d="M 148 145 H 172 M 153 155 H 177 M 150 165 H 174" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" />
+
+                {/* stylized floating coins / PKR shapes */}
+                <circle cx="205" cy="80" r="14" fill="url(#coinGradient)" stroke="#0d9488" strokeWidth="2" />
+                <path d="M 205 73 V 87 M 201 77 H 209 M 201 83 H 209" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="215" cy="115" r="10" fill="url(#coinGradient)" stroke="#0d9488" strokeWidth="1.5" />
+
+                {/* glowing dots / network connectivity */}
+                <circle cx="45" cy="50" r="4" fill="#10b981" />
+                <circle cx="195" cy="45" r="3" fill="#3b82f6" />
+                <circle cx="25" cy="110" r="5" fill="#f59e0b" />
+
+                {/* Gradients */}
+                <defs>
+                  <linearGradient id="posGradient" x1="30" y1="130" x2="210" y2="200" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#1e293b" />
+                    <stop offset="0.5" stopColor="#0f172a" />
+                    <stop offset="1" stopColor="#020617" />
+                  </linearGradient>
+                  <linearGradient id="lineGradient" x1="70" y1="110" x2="142" y2="70" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#22d3ee" />
+                    <stop offset="1" stopColor="#34d399" />
+                  </linearGradient>
+                  <linearGradient id="coinGradient" x1="191" y1="66" x2="219" y2="94" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#0d9488" />
+                    <stop offset="1" stopColor="#14b8a6" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+
+            {/* Bottom info section */}
+            <div className="space-y-2">
+              <h4 className="text-base font-bold text-white">Streamline shop transactions</h4>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
+                Access your secure checkout, repairs tracking, ledger reconciliation, and business insights from any device.
+              </p>
+            </div>
+          </div>
         </div>
-      </section>
+
+        {/* Right Column - Login Form */}
+        <div className="flex flex-1 flex-col justify-between p-6 sm:p-8 lg:p-10 overflow-y-auto lg:h-full">
+          {/* Header controls at the top of the form */}
+          <div className="w-full">
+            <PublicPageHeader showLanguage={true} />
+          </div>
+
+          {/* Form in center */}
+          <div className="my-auto w-full max-w-md mx-auto py-4">
+            {authCard}
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

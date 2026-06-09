@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
 
-export function PublicPageHeader() {
+export function PublicPageHeader({ showLanguage = false }: { showLanguage?: boolean }) {
   const handleBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       e.preventDefault();
@@ -22,7 +23,10 @@ export function PublicPageHeader() {
         <ArrowLeft className="h-4 w-4" />
         Back to Home
       </Link>
-      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        {showLanguage && <LanguageToggle />}
+        <ThemeToggle />
+      </div>
     </div>
   );
 }
