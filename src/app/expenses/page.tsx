@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { AlertCircle, CalendarDays, Receipt, Tag, Wallet } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
-import { ConfirmForm } from "@/components/ui/confirm-form";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageExpenses } from "@/lib/permissions";
 import {
@@ -16,7 +15,8 @@ import { EXPENSE_PAYMENT_METHODS } from "@/lib/validation/expenses";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { ExpenseForm } from "./expense-form";
-import { restoreExpenseAction, voidExpenseAction } from "./actions";
+import { restoreExpenseAction } from "./actions";
+import { VoidExpenseForm } from "./void-expense-form";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Cash",
@@ -343,15 +343,7 @@ function ExpenseActions({ id, status }: { id: string; status: "active" | "archiv
         Edit
       </Link>
       {status === "active" ? (
-        <ConfirmForm action={voidExpenseAction} message="Void this expense? It will be hidden from reports.">
-          <input type="hidden" name="id" value={id} />
-          <button
-            type="submit"
-            className="min-h-9 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50"
-          >
-            Void
-          </button>
-        </ConfirmForm>
+        <VoidExpenseForm id={id} />
       ) : (
         <form action={restoreExpenseAction}>
           <input type="hidden" name="id" value={id} />

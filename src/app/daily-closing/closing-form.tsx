@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef, type FormEvent } from "react";
 import { closeDayAction, reopenDayAction, type ActionState } from "./actions";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const initial: ActionState = { error: null, success: null };
 
@@ -113,15 +114,44 @@ export function ReopenDayForm({
   canReopen: boolean;
 }) {
   const [state, action, pending] = useActionState(reopenDayAction, initial);
+  const confirm = useConfirmDialog();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const confirmedSubmitRef = useRef(false);
+
   if (!canReopen) return null;
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    if (confirmedSubmitRef.current) {
+      confirmedSubmitRef.current = false;
+      return;
+    }
+
+    e.preventDefault();
+
+    if (isConfirming || pending) return;
+
+    setIsConfirming(true);
+
+    const shouldReopen = await confirm({
+      title: "Reopen closed day?",
+      message: "This will allow editing sales and expenses for this day again.",
+      confirmLabel: "Reopen day",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+
+    setIsConfirming(false);
+
+    if (!shouldReopen) return;
+
+    confirmedSubmitRef.current = true;
+    e.currentTarget.requestSubmit();
+  }
+
   return (
     <form
       action={action}
-      onSubmit={(e) => {
-        if (!window.confirm("Reopen this closed day? This will allow editing sales and expenses again.")) {
-          e.preventDefault();
-        }
-      }}
+      onSubmit={handleSubmit}
       className="mt-3"
     >
       <input type="hidden" name="closing_date" value={closingDate} />
@@ -130,7 +160,7 @@ export function ReopenDayForm({
       )}
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || isConfirming}
         className="rounded-lg border border-red-200 px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-60"
       >
         {pending ? "Reopening…" : "Reopen this day"}
