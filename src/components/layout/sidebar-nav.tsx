@@ -508,12 +508,12 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
         </Link>
       </div>
 
-      <div className={`flex border-b border-[var(--sidebar-border)] px-3 py-2 ${collapsed ? "flex-col items-center gap-2" : "flex-row items-center justify-between"}`}>
+      <div className={`flex border-b border-[var(--sidebar-border)] px-3 py-2 ${collapsed ? "flex-row items-center justify-center gap-1.5" : "flex-row items-center justify-between"}`}>
         <button
           type="button"
           onClick={() => setRearrangeMode((prev) => !prev)}
-          className={`flex h-10 items-center justify-center rounded-xl border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
-            collapsed ? "w-10" : "px-3 gap-2 text-xs font-bold"
+          className={`flex items-center justify-center rounded-xl border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
+            collapsed ? "size-8 shrink-0" : "h-10 px-3 gap-2 text-xs font-bold"
           } ${
             rearrangeMode
               ? "border-[var(--sidebar-active-accent)] bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)]"
@@ -529,7 +529,9 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="flex size-10 items-center justify-center rounded-xl border border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] text-[var(--sidebar-inactive)] transition hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)]"
+          className={`flex items-center justify-center rounded-xl border border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] text-[var(--sidebar-inactive)] transition hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
+            collapsed ? "size-8 shrink-0" : "size-10"
+          }`}
           aria-label={collapsed ? t("expandSidebar") : t("collapseSidebar")}
           title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
         >
