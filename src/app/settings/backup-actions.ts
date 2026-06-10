@@ -42,6 +42,7 @@ export type ExportData = {
   supplierPurchaseItems: unknown[];
   supplierPayments: unknown[];
   supplierLedgerEntries: unknown[];
+  creditPayments: unknown[];
 };
 
 export type ImportJobState = {
@@ -1595,6 +1596,376 @@ export async function importTableChunkAction(
       }
       await saveRowMappingsBatch(supabase, orgId, jobId, "ReturnItems", "return_items", mappingsToSave);
 
+    } else if (tableName === "SupplierPurchases") {
+      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
+      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierPurchases", sourceIds);
+
+      for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
+        const supplierRaw = row.SupplierId?.toString();
+        const supId = supplierRaw ? (supMappings.get(supplierRaw) ?? null) : null;
+        if (!supId) {
+          failed++;
+          warnings.push(`Skipped supplier purchase with unmapped supplier (Purchase ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`);
+          continue;
+        }
+
+        const purchaseNo = row.PurchaseNo?.toString().trim();
+        if (!purchaseNo) {
+          failed++;
+          warnings.push(`Skipped supplier purchase with empty PurchaseNo (ID: ${row.Id}).`);
+          continue;
+        }
+
+        const subtotal = Number(row.Subtotal || 0);
+        const discountTotal = Number(row.DiscountTotal || 0);
+        const grandTotal = Number(row.GrandTotal || 0);
+        const amountPaid = Number(row.AmountPaid || 0);
+        const balanceDue = Number(row.BalanceDue || 0);
+
+        const spErr =
+          assertNonNeg(subtotal, "subtotal", row.Id) ??
+          assertNonNeg(discountTotal, "discount_total", row.Id) ??
+          assertNonNeg(grandTotal, "grand_total", row.Id) ??
+          assertNonNeg(amountPaid, "amount_paid", row.Id) ??
+          assertNonNeg(balanceDue, "balance_due", row.Id);
+        if (spErr) { failed++; warnings.push(spErr); continue; }
+
+        const status = (row.Status || "paid").toLowerCase();
+        const finalStatus = ["unpaid", "partial", "paid"].includes(status) ? status : "paid";
+
+        const { data, error } = await supabase
+          .from("supplier_purchases")
+          .insert({
+            organization_id: orgId,
+            branch_id: branchId,
+            supplier_id: supId,
+            purchase_no: purchaseNo,
+            status: finalStatus,
+            purchase_date: row.PurchaseDate || new Date().toISOString().split("T")[0],
+            subtotal,
+            discount_total: discountTotal,
+            grand_total: grandTotal,
+            amount_paid: amountPaid,
+            balance_due: balanceDue,
+            reference_no: row.ReferenceNo?.toString() || null,
+            notes: row.Notes?.toString() || null,
+            created_by: profile.id,
+            created_at: row.CreatedAt || new Date().toISOString()
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          failed++;
+          warnings.push(`Supplier purchase insert error: ${error.message} (PurchaseNo: ${purchaseNo}).`);
+        } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          inserted++;
+        }
+      }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierPurchases", "supplier_purchases", mappingsToSave);
+
+    } else if (tableName === "SupplierPurchaseItems") {
+      const purchaseIds = typedRows.map(r => r.PurchaseId?.toString()).filter(Boolean);
+      const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
+      const purchaseMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPurchases", purchaseIds);
+      const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierPurchaseItems", sourceIds);
+
+      const lotIds = typedRows.map(r => r.StockLotId?.toString()).filter(Boolean);
+      const lotMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ProductStockLots", lotIds);
+
+      const targetProductIds = Array.from(new Set(Array.from(prodMappings.values())));
+      const { data: lotsData } = await supabase
+        .from("product_stock_lots")
+        .select("id, product_id, lot_number")
+        .eq("organization_id", orgId)
+        .in("product_id", targetProductIds);
+
+      const lotLookupMap = new Map<string, string>();
+      lotsData?.forEach(l => {
+        lotLookupMap.set(`${l.product_id}-${l.lot_number}`, l.id);
+      });
+
+      for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
+        const purchaseId = row.PurchaseId ? purchaseMappings.get(row.PurchaseId.toString()) : null;
+        if (!purchaseId) {
+          failed++;
+          warnings.push(`Skipped supplier purchase item with unmapped purchase (Item ID: ${row.Id}, Purchase ID: ${row.PurchaseId}).`);
+          continue;
+        }
+
+        const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
+        if (!prodId) {
+          failed++;
+          warnings.push(`Skipped supplier purchase item with unmapped product (Item ID: ${row.Id}, Product ID: ${row.ProductId}).`);
+          continue;
+        }
+
+        const quantity = Number(row.Quantity || 0);
+        const unitCost = Number(row.UnitCost || 0);
+        const lineTotal = Number(row.LineTotal || 0);
+
+        const spiErr =
+          assertNonNeg(quantity, "quantity", row.Id) ??
+          assertNonNeg(unitCost, "unit_cost", row.Id) ??
+          assertNonNeg(lineTotal, "line_total", row.Id);
+        if (spiErr || quantity <= 0) {
+          failed++;
+          warnings.push(spiErr || `Quantity must be greater than 0 for item ID ${row.Id}.`);
+          continue;
+        }
+
+        let lotId: string | null = null;
+        if (row.StockLotId) {
+          lotId = lotMappings.get(row.StockLotId.toString()) || null;
+        } else if (row.BatchNumber !== undefined && row.BatchNumber !== null && row.BatchNumber !== "") {
+          lotId = lotLookupMap.get(`${prodId}-${row.BatchNumber}`) || null;
+        }
+
+        const { data, error } = await supabase
+          .from("supplier_purchase_items")
+          .insert({
+            organization_id: orgId,
+            purchase_id: purchaseId,
+            product_id: prodId,
+            product_name: row.ProductName?.toString() || "Unknown Product",
+            quantity,
+            unit_cost: unitCost,
+            line_total: lineTotal,
+            stock_lot_id: lotId,
+            notes: row.Notes?.toString() || null,
+            created_at: row.CreatedAt || new Date().toISOString()
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          failed++;
+          warnings.push(`Supplier purchase item insert error: ${error.message} (Item ID: ${row.Id}).`);
+        } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          inserted++;
+        }
+      }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierPurchaseItems", "supplier_purchase_items", mappingsToSave);
+
+    } else if (tableName === "SupplierPayments") {
+      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
+      const purchaseIds = typedRows.map(r => r.PurchaseId?.toString()).filter(Boolean);
+      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
+      const purchaseMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPurchases", purchaseIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierPayments", sourceIds);
+
+      for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
+        const supId = row.SupplierId ? supMappings.get(row.SupplierId.toString()) : null;
+        if (!supId) {
+          failed++;
+          warnings.push(`Skipped supplier payment with unmapped supplier (Payment ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`);
+          continue;
+        }
+
+        const purchaseId = row.PurchaseId ? purchaseMappings.get(row.PurchaseId.toString()) : null;
+
+        const amount = Number(row.Amount || 0);
+        const payErr = assertNonNeg(amount, "amount", row.Id);
+        if (payErr || amount <= 0) {
+          failed++;
+          warnings.push(payErr || `Payment amount must be greater than 0 (ID: ${row.Id}).`);
+          continue;
+        }
+
+        const rawMethod = normalizePaymentMethod(row.Method);
+        const allowedMethods = new Set(["cash", "card", "easypaisa", "jazzcash", "bank_transfer"]);
+        const finalMethod = allowedMethods.has(rawMethod) ? rawMethod : "cash";
+
+        const { data, error } = await supabase
+          .from("supplier_payments")
+          .insert({
+            organization_id: orgId,
+            branch_id: branchId,
+            supplier_id: supId,
+            purchase_id: purchaseId,
+            method: finalMethod,
+            amount,
+            reference_no: row.ReferenceNo?.toString() || null,
+            note: row.Note?.toString() || null,
+            paid_at: row.PaidAt || row.CreatedAt || new Date().toISOString(),
+            created_by: profile.id,
+            created_at: row.CreatedAt || new Date().toISOString()
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          failed++;
+          warnings.push(`Supplier payment insert error: ${error.message} (Payment ID: ${row.Id}).`);
+        } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          inserted++;
+        }
+      }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierPayments", "supplier_payments", mappingsToSave);
+
+    } else if (tableName === "SupplierLedgerEntries") {
+      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
+      const purchaseIds = typedRows.map(r => r.PurchaseId?.toString()).filter(Boolean);
+      const paymentIds = typedRows.map(r => r.PaymentId?.toString()).filter(Boolean);
+      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
+      const purchaseMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPurchases", purchaseIds);
+      const paymentMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPayments", paymentIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierLedgerEntries", sourceIds);
+
+      for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
+        const supId = row.SupplierId ? supMappings.get(row.SupplierId.toString()) : null;
+        if (!supId) {
+          failed++;
+          warnings.push(`Skipped supplier ledger entry with unmapped supplier (Ledger ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`);
+          continue;
+        }
+
+        const purchaseId = row.PurchaseId ? purchaseMappings.get(row.PurchaseId.toString()) : null;
+        const paymentId = row.PaymentId ? paymentMappings.get(row.PaymentId.toString()) : null;
+
+        const amount = Number(row.Amount || 0);
+        const balanceAfter = Number(row.BalanceAfter || 0);
+
+        const slErr = assertNonNeg(amount, "amount", row.Id);
+        if (slErr) { failed++; warnings.push(slErr); continue; }
+
+        const entryType = (row.EntryType || "adjustment").toLowerCase();
+        const finalEntryType = ["purchase_credit", "payment_debit", "adjustment"].includes(entryType) ? entryType : "adjustment";
+
+        const direction = (row.Direction || "credit").toLowerCase();
+        const finalDirection = ["credit", "debit"].includes(direction) ? direction : "credit";
+
+        const { data, error } = await supabase
+          .from("supplier_ledger_entries")
+          .insert({
+            organization_id: orgId,
+            branch_id: branchId,
+            supplier_id: supId,
+            purchase_id: purchaseId,
+            payment_id: paymentId,
+            entry_type: finalEntryType,
+            direction: finalDirection,
+            amount,
+            balance_after: balanceAfter,
+            description: row.Description?.toString() || "",
+            reference_number: row.ReferenceNumber?.toString() || null,
+            created_by: profile.id,
+            created_at: row.CreatedAt || new Date().toISOString()
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          failed++;
+          warnings.push(`Supplier ledger entry insert error: ${error.message} (Ledger ID: ${row.Id}).`);
+        } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          inserted++;
+        }
+      }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierLedgerEntries", "supplier_ledger_entries", mappingsToSave);
+
+    } else if (tableName === "CreditPayments") {
+      const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
+      const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
+      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "CreditPayments", sourceIds);
+
+      for (const row of typedRows) {
+        const sourceId = row.Id?.toString();
+        if (sourceId && existingMappings.has(sourceId)) {
+          const targetId = existingMappings.get(sourceId)!;
+          mappingsToSave.push({ sourceId, targetId });
+          skipped++;
+          continue;
+        }
+
+        const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
+        if (!custId) {
+          failed++;
+          warnings.push(`Skipped credit payment with unmapped customer (Payment ID: ${row.Id}, Customer ID: ${row.CustomerId}).`);
+          continue;
+        }
+
+        const amount = Number(row.Amount || 0);
+        const cpErr = assertNonNeg(amount, "amount", row.Id);
+        if (cpErr || amount <= 0) {
+          failed++;
+          warnings.push(cpErr || `Credit payment amount must be greater than 0 (ID: ${row.Id}).`);
+          continue;
+        }
+
+        const rawMethod = normalizePaymentMethod(row.PaymentMethod);
+        const allowedMethods = new Set(["cash", "card", "easypaisa", "jazzcash", "bank_transfer"]);
+        const finalMethod = allowedMethods.has(rawMethod) ? rawMethod : "cash";
+
+        const { data, error } = await supabase
+          .from("credit_payments")
+          .insert({
+            organization_id: orgId,
+            branch_id: branchId,
+            customer_id: custId,
+            amount,
+            method: finalMethod,
+            reference_number: row.ReferenceNumber?.toString() || null,
+            notes: row.Notes?.toString() || null,
+            received_by: profile.id,
+            created_at: row.CreatedAt || new Date().toISOString()
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          failed++;
+          warnings.push(`Credit payment insert error: ${error.message} (Payment ID: ${row.Id}).`);
+        } else {
+          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          inserted++;
+        }
+      }
+      await saveRowMappingsBatch(supabase, orgId, jobId, "CreditPayments", "credit_payments", mappingsToSave);
+
     } else if (tableName === "Expenses") {
       const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
       const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "Expenses", sourceIds);
@@ -1851,7 +2222,8 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supPurchases,
       supPurchaseItems,
       supPayments,
-      supLedger
+      supLedger,
+      creditPays
     ] = await Promise.all([
       supabase.from("product_categories").select("*").eq("organization_id", orgId),
       supabase.from("suppliers").select("*").eq("organization_id", orgId),
@@ -1873,7 +2245,8 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supabase.from("supplier_purchases").select("*").eq("organization_id", orgId),
       supabase.from("supplier_purchase_items").select("*").eq("organization_id", orgId),
       supabase.from("supplier_payments").select("*").eq("organization_id", orgId),
-      supabase.from("supplier_ledger_entries").select("*").eq("organization_id", orgId)
+      supabase.from("supplier_ledger_entries").select("*").eq("organization_id", orgId),
+      supabase.from("credit_payments").select("*").eq("organization_id", orgId)
     ]);
 
     // Handle any critical query errors
@@ -1885,6 +2258,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
     if (returnStockAllocations.error) {
       throw new Error("Failed to export return stock allocations: " + returnStockAllocations.error.message);
     }
+    if (creditPays.error) throw new Error("Failed to export credit payments: " + creditPays.error.message);
 
     const data: ExportData = {
       categories: cats.data ?? [],
@@ -1907,7 +2281,8 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supplierPurchases: supPurchases.data ?? [],
       supplierPurchaseItems: supPurchaseItems.data ?? [],
       supplierPayments: supPayments.data ?? [],
-      supplierLedgerEntries: supLedger.data ?? []
+      supplierLedgerEntries: supLedger.data ?? [],
+      creditPayments: creditPays.data ?? []
     };
 
     // Log the backup action

@@ -601,10 +601,15 @@ export function BackupTab({
           customers: "Customers",
           products: "Products",
           lots: "ProductStockLots",
+          supplierPurchases: "SupplierPurchases",
+          supplierPurchaseItems: "SupplierPurchaseItems",
+          supplierPayments: "SupplierPayments",
+          supplierLedgerEntries: "SupplierLedgerEntries",
           movements: "StockMovements",
           invoices: "Bills",
           invoiceItems: "BillItems",
           payments: "Payments",
+          creditPayments: "CreditPayments",
           ledgerEntries: "CustomerLedgerEntries",
           returns: "ReturnRefunds",
           returnItems: "ReturnItems",
@@ -667,11 +672,16 @@ export function BackupTab({
           "Customers",
           "Products",
           "ProductStockLots",
+          "SupplierPurchases",
+          "SupplierPurchaseItems",
+          "SupplierPayments",
+          "SupplierLedgerEntries",
           "StockMovements",
           "Bills",
           "BillItems",
           "BillItemBatchAllocations",
           "Payments",
+          "CreditPayments",
           "CustomerLedgerEntries",
           "ReturnRefunds",
           "ReturnItems",
@@ -709,6 +719,15 @@ export function BackupTab({
               failedCount: 0,
               skippedOrphanCount: 0
             });
+          }
+        }
+        // If we have SupplierPurchases in SQLite, we also have SupplierPurchaseItems (simulated from the same rows).
+        if (tableCountsRecord["SupplierPurchases"] > 0) {
+          tableCountsRecord["SupplierPurchaseItems"] = tableCountsRecord["SupplierPurchases"];
+          const itemProgress = counts.find(c => c.name === "SupplierPurchaseItems");
+          if (itemProgress) {
+            itemProgress.count = tableCountsRecord["SupplierPurchases"];
+            itemProgress.status = "pending";
           }
         }
 
@@ -1242,6 +1261,73 @@ export function BackupTab({
           Module: r.module || "system", Action: r.action || "online_restore_activity",
           Actor: r.actor_id || null, Date: r.created_at || new Date().toISOString()
         }));
+      case "SupplierPurchases":
+        return rows.map((r) => ({
+          Id: r.id,
+          SupplierId: r.supplier_id,
+          PurchaseNo: r.purchase_no,
+          Status: r.status,
+          PurchaseDate: r.purchase_date,
+          Subtotal: r.subtotal ?? 0,
+          DiscountTotal: r.discount_total ?? 0,
+          GrandTotal: r.grand_total ?? 0,
+          AmountPaid: r.amount_paid ?? 0,
+          BalanceDue: r.balance_due ?? 0,
+          ReferenceNo: r.reference_no || "",
+          Notes: r.notes || "",
+          CreatedBy: r.created_by || null,
+          CreatedAt: r.created_at || new Date().toISOString()
+        }));
+      case "SupplierPurchaseItems":
+        return rows.map((r) => ({
+          Id: r.id,
+          PurchaseId: r.purchase_id,
+          ProductId: r.product_id,
+          ProductName: r.product_name || "Unknown Product",
+          Quantity: r.quantity ?? 1,
+          UnitCost: r.unit_cost ?? 0,
+          LineTotal: r.line_total ?? 0,
+          StockLotId: r.stock_lot_id || null,
+          Notes: r.notes || ""
+        }));
+      case "SupplierPayments":
+        return rows.map((r) => ({
+          Id: r.id,
+          SupplierId: r.supplier_id,
+          PurchaseId: r.purchase_id || null,
+          Method: r.method || "cash",
+          Amount: r.amount ?? 0,
+          ReferenceNo: r.reference_no || "",
+          Note: r.note || "",
+          PaidAt: r.paid_at || r.created_at || new Date().toISOString(),
+          CreatedBy: r.created_by || null,
+          CreatedAt: r.created_at || new Date().toISOString()
+        }));
+      case "SupplierLedgerEntries":
+        return rows.map((r) => ({
+          Id: r.id,
+          SupplierId: r.supplier_id,
+          PurchaseId: r.purchase_id || null,
+          PaymentId: r.payment_id || null,
+          EntryType: r.entry_type || "adjustment",
+          Direction: r.direction || "credit",
+          Amount: r.amount ?? 0,
+          BalanceAfter: r.balance_after ?? 0,
+          Description: r.description || "",
+          ReferenceNumber: r.reference_number || "",
+          CreatedBy: r.created_by || null,
+          CreatedAt: r.created_at || new Date().toISOString()
+        }));
+      case "CreditPayments":
+        return rows.map((r) => ({
+          Id: r.id,
+          CustomerId: r.customer_id,
+          Amount: r.amount ?? 0,
+          PaymentMethod: r.method || "cash",
+          Notes: r.notes || "",
+          ReceivedByUserId: r.received_by || null,
+          CreatedAt: r.created_at || new Date().toISOString()
+        }));
       default:
         return [];
     }
@@ -1353,14 +1439,102 @@ export function BackupTab({
             invoices: "Bills", invoiceItems: "BillItems", payments: "Payments",
             ledgerEntries: "CustomerLedgerEntries", returns: "ReturnRefunds",
             returnItems: "ReturnItems", expenses: "Expenses", repairs: "RepairJobs",
-            closings: "DailyClosings", auditLogs: "ActivityLog"
+            closings: "DailyClosings", auditLogs: "ActivityLog",
+            supplierPurchases: "SupplierPurchases", supplierPurchaseItems: "SupplierPurchaseItems",
+            supplierPayments: "SupplierPayments", supplierLedgerEntries: "SupplierLedgerEntries",
+            creditPayments: "CreditPayments"
           }).find(([, v]) => v === table.name)?.[0] || "";
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rawRows = (onlineData as any)?.[tableKey];
           allRows = convertOnlineRows(table.name, Array.isArray(rawRows) ? rawRows : []);
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          allRows = getTableRows(sqliteDb, table.name) as any[];
+          if (table.name === "SupplierPurchases") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const rawPurchases = getTableRows(sqliteDb, "SupplierPurchases") as any[];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const groups = new Map<string, any[]>();
+            rawPurchases.forEach(row => {
+              const rowId = row.Id || 0;
+              const groupKey = rowId > 0
+                ? rowId.toString()
+                : (row.PdfPath ? row.PdfPath.split(/[/\\]/).pop()?.replace(/\.pdf$/i, "") : `missing-id-${row.Id}`);
+              if (!groups.has(groupKey)) {
+                groups.set(groupKey, []);
+              }
+              groups.get(groupKey)!.push(row);
+            });
+
+            allRows = Array.from(groups.entries()).map(([, rows]) => {
+              const first = rows[0];
+              const pdfName = first.PdfPath ? first.PdfPath.split(/[/\\]/).pop()?.replace(/\.pdf$/i, "") : "";
+              const purchaseNo = pdfName || `PUR-SQLite-${first.Id}`;
+              const total = rows.reduce((sum, r) => sum + Number(r.TotalPurchaseValue || 0), 0);
+              const headerId = first.Id && first.Id > 0
+                ? first.Id
+                : (first.PdfPath ? first.PdfPath.split(/[/\\]/).pop()?.replace(/\.pdf$/i, "") : `fallback-header-${first.Id}`);
+
+              return {
+                Id: headerId,
+                SupplierId: first.SupplierId,
+                PurchaseNo: purchaseNo,
+                Status: "paid",
+                PurchaseDate: first.CreatedAt ? first.CreatedAt.split(" ")[0] : new Date().toISOString().split("T")[0],
+                Subtotal: total,
+                DiscountTotal: 0,
+                GrandTotal: total,
+                AmountPaid: total,
+                BalanceDue: 0,
+                Notes: first.Notes || "Imported from desktop",
+                CreatedAt: first.CreatedAt || new Date().toISOString()
+              };
+            });
+          } else if (table.name === "SupplierPurchaseItems") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const rawPurchases = getTableRows(sqliteDb, "SupplierPurchases") as any[];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const groups = new Map<string, any[]>();
+            rawPurchases.forEach(row => {
+              const rowId = row.Id || 0;
+              const groupKey = rowId > 0
+                ? rowId.toString()
+                : (row.PdfPath ? row.PdfPath.split(/[/\\]/).pop()?.replace(/\.pdf$/i, "") : `missing-id-${row.Id}`);
+              if (!groups.has(groupKey)) {
+                groups.set(groupKey, []);
+              }
+              groups.get(groupKey)!.push(row);
+            });
+
+            allRows = [];
+            rawPurchases.forEach((row, index) => {
+              const rowId = row.Id || 0;
+              const groupKey = rowId > 0
+                ? rowId.toString()
+                : (row.PdfPath ? row.PdfPath.split(/[/\\]/).pop()?.replace(/\.pdf$/i, "") : `missing-id-${row.Id}`);
+              const parentGroup = groups.get(groupKey)!;
+              const firstParent = parentGroup[0];
+              const parentHeaderId = firstParent.Id && firstParent.Id > 0
+                ? firstParent.Id
+                : (firstParent.PdfPath ? firstParent.PdfPath.split(/[/\\]/).pop()?.replace(/\.pdf$/i, "") : `fallback-header-${firstParent.Id}`);
+              const itemId = row.Id && row.Id > 0
+                ? row.Id
+                : (row.PdfPath ? `${row.PdfPath.split(/[/\\]/).pop()?.replace(/\.pdf$/i, "")}-item-${index}` : `fallback-item-${row.Id}-${index}`);
+
+              allRows.push({
+                Id: itemId,
+                PurchaseId: parentHeaderId,
+                ProductId: row.ProductId,
+                ProductName: row.ProductName || "Unknown Product",
+                Quantity: row.Quantity || 1,
+                UnitCost: row.PurchasePrice || 0,
+                LineTotal: row.TotalPurchaseValue || 0,
+                BatchNumber: row.BatchNumber || null,
+                Notes: row.Notes || ""
+              });
+            });
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            allRows = getTableRows(sqliteDb, table.name) as any[];
+          }
         }
         // Filter orphan rows out before upload when the policy is "drop".
         // The server re-validates this with the same policy as a safety net.
