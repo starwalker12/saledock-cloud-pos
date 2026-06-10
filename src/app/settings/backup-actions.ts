@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { getLinkedProviders } from "@/lib/auth/identities";
 
 async function isPlatformSettingEnabled(key: string): Promise<boolean> {
   try {
@@ -2582,21 +2583,38 @@ export async function restoreFactoryDefaultsAction(
 
     const orgId = profile.organization_id;
 
-    // 1. Re-authenticate user password against Supabase Auth
     const supabase = await createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: user.email!,
-      password: password
-    });
-
-    if (authError) {
-      return { success: false, error: "Re-authentication failed. Incorrect password." };
+    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    if (!freshUser) {
+      return { success: false, error: "Not authenticated." };
     }
+    const { hasPassword } = getLinkedProviders(freshUser);
 
-    // 2. Validate typed organization / shop name matches
-    const orgName = organization?.name || "Gadget Zone";
-    if (shopName.trim().toLowerCase() !== orgName.trim().toLowerCase()) {
-      return { success: false, error: `Confirmed organization name does not match '${orgName}'.` };
+    if (hasPassword) {
+      // 1. Re-authenticate user password against Supabase Auth
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: freshUser.email!,
+        password: password
+      });
+
+      if (authError) {
+        return { success: false, error: "Re-authentication failed. Incorrect password." };
+      }
+
+      // 2. Validate typed organization / shop name matches
+      const orgName = organization?.name || "Gadget Zone";
+      if (shopName.trim().toLowerCase() !== orgName.trim().toLowerCase()) {
+        return { success: false, error: `Confirmed organization name does not match '${orgName}'.` };
+      }
+    } else {
+      // 1. Bypass password check, but validate typed shop name confirmation
+      const orgName = organization?.name;
+      if (!orgName) {
+        return { success: false, error: "Organization configuration is missing." };
+      }
+      if (!shopName || shopName.trim().toLowerCase() !== orgName.trim().toLowerCase()) {
+        return { success: false, error: `Confirmed organization name does not match '${orgName}'.` };
+      }
     }
 
     // 3. Log pre-reset export trace

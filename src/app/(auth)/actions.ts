@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { sanitizePlainText } from "@/lib/security/sanitize";
 import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
@@ -398,16 +399,18 @@ export async function setPasswordAction(
     return { error: "No email address on your account. Contact support." };
   }
 
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) {
-    if (error.message.toLowerCase().includes("same password")) {
+  const admin = createAdminClient();
+  const { error: adminError } = await admin.auth.admin.updateUserById(user.id, {
+    password,
+    email_confirm: true,
+  });
+
+  if (adminError) {
+    if (adminError.message.toLowerCase().includes("same password")) {
       return { error: "New password must be different from your current password." };
     }
-    if (error.message.toLowerCase().includes("reauthentication") || error.message.toLowerCase().includes("recent")) {
-      return { error: "For security, please sign out and sign back in, then try again." };
-    }
-    console.error("[security] setPassword failed:", error.message);
-    return { error: "Could not update password. Please try again." };
+    console.error("[security] setPassword failed via admin client:", adminError.message);
+    return { error: adminError.message || "Could not update password. Please try again." };
   }
 
   logAudit({
