@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import {
   linkGoogleAccountAction,
@@ -15,6 +16,15 @@ import { Link, Unlink, AlertTriangle, CheckCircle, X, Mail, Shield } from "lucid
 import { getLinkedProviders, type LinkedProviders } from "@/lib/auth/identities";
 import { GoogleIcon } from "@/components/icons/provider-icons";
 import { Skeleton } from "@/components/ui/skeleton";
+
+function ClientPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
+  return mounted ? createPortal(children, document.body) : null;
+}
 
 const linkGoogleInitialState: AuthState = { error: null };
 const passwordInitialState: AuthState = { error: null };
@@ -48,10 +58,15 @@ export function ConnectedAccounts({
   const [passwordState, passwordAction] = useActionState(setPasswordAction, passwordInitialState);
   const [emailState, emailAction] = useActionState(changeEmailAction, emailInitialState);
   const [conflictDismissed, setConflictDismissed] = useState(false);
+  const [dismissedSuccessHash, setDismissedSuccessHash] = useState<string | null>(null);
+  const showSuccessDialog = !!passwordState.success && dismissedSuccessHash !== passwordState.success;
 
   useEffect(() => {
     async function load() {
       const supabase = createClient();
+      if (passwordState.success) {
+        await supabase.auth.refreshSession();
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const providers = getLinkedProviders(user);
@@ -231,6 +246,41 @@ export function ConnectedAccounts({
           </>
         )}
       </div>
+
+      {showSuccessDialog && (
+        <ClientPortal>
+          <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#020617]/75 p-4 backdrop-blur-sm animate-fade-in">
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-5 text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:p-6 text-center space-y-4"
+            >
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <CheckCircle className="size-6" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-slate-900 dark:text-slate-50">
+                  Password Configured
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {passwordState.success}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDismissedSuccessHash(passwordState.success ?? null);
+                  dismissAll();
+                  router.refresh();
+                }}
+                className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 cursor-pointer transition"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </ClientPortal>
+      )}
     </section>
   );
 }

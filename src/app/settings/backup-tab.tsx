@@ -200,10 +200,14 @@ export function BackupTab({
   backupImportEnabled = true,
   factoryResetEnabled = true,
   backupGuardLabels,
+  hasPassword = true,
+  shopName = "SaleDock Cloud POS",
 }: {
   backupImportEnabled?: boolean;
   factoryResetEnabled?: boolean;
   backupGuardLabels?: Partial<BackupGuardLabels>;
+  hasPassword?: boolean;
+  shopName?: string;
 }) {
   const guardLabels = useMemo(
     () => ({ ...DEFAULT_BACKUP_GUARD_LABELS, ...backupGuardLabels }),
@@ -2587,31 +2591,47 @@ export function BackupTab({
                       </label>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <label htmlFor="reset-pwd" className="block font-bold text-slate-700">Enter Your Current Password:</label>
-                        <input
-                          id="reset-pwd"
-                          type="password"
-                          value={typedPassword}
-                          onChange={(e) => setTypedPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-rose-600 focus:bg-white text-slate-900"
-                        />
-                      </div>
+                    {hasPassword ? (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="reset-pwd" className="block font-bold text-slate-700">Enter Your Current Password:</label>
+                          <input
+                            id="reset-pwd"
+                            type="password"
+                            value={typedPassword}
+                            onChange={(e) => setTypedPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-rose-600 focus:bg-white text-slate-900"
+                          />
+                        </div>
 
+                        <div>
+                          <label htmlFor="reset-shop" className="block font-bold text-slate-700">Type Your Exact Organization Name:</label>
+                          <input
+                            id="reset-shop"
+                            type="text"
+                            value={typedShopName}
+                            onChange={(e) => setTypedShopName(e.target.value)}
+                            placeholder="Enter organization name"
+                            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-rose-600 focus:bg-white text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    ) : (
                       <div>
-                        <label htmlFor="reset-shop" className="block font-bold text-slate-700">Type Your Exact Organization Name:</label>
+                        <label htmlFor="reset-shop" className="block font-bold text-slate-700">
+                          Type Your Exact Organization Name to Confirm (Expected: <span className="text-rose-700 font-black">{shopName}</span>):
+                        </label>
                         <input
                           id="reset-shop"
                           type="text"
                           value={typedShopName}
                           onChange={(e) => setTypedShopName(e.target.value)}
-                          placeholder="Enter organization name"
-                          className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-rose-600 focus:bg-white text-slate-900"
+                          placeholder={shopName}
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-rose-600 focus:bg-white text-slate-900 font-semibold"
                         />
                       </div>
-                    </div>
+                    )}
 
                     <div>
                       <label htmlFor="reset-phrase" className="block font-bold text-slate-700 uppercase tracking-wider text-[10px]">
@@ -2647,7 +2667,7 @@ export function BackupTab({
                           !checkboxCannotBeUndone ||
                           !checkboxDataRemoved ||
                           typedConfirmationPhrase !== "RESTORE FACTORY DEFAULTS" ||
-                          !typedPassword ||
+                          (hasPassword && !typedPassword) ||
                           !typedShopName
                         }
                         className="rounded-xl bg-rose-600 px-6 py-2.5 font-bold text-white hover:bg-rose-700 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer shadow-sm"

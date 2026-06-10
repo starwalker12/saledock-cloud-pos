@@ -34,7 +34,7 @@ export default async function SettingsPage({
 }) {
   if (!env.isSupabaseConfigured) redirect("/login");
 
-  const { user, profile } = await getCurrentContext();
+  const { user, profile, organization } = await getCurrentContext();
   if (!user) redirect("/login");
   if (!profile?.organization_id) redirect("/setup");
 
@@ -103,6 +103,8 @@ export default async function SettingsPage({
               backupImportEnabled={backupImportEnabled}
               factoryResetEnabled={factoryResetEnabled}
               backupGuardLabels={dict.backupGuard as Record<string, string>}
+              hasPassword={linkedProviders.hasPassword}
+              shopName={organization?.name || "SaleDock Cloud POS"}
             />
           ) : (
             <AccessDeniedView />
