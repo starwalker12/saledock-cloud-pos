@@ -43,6 +43,11 @@ export type ExportData = {
   supplierPayments: unknown[];
   supplierLedgerEntries: unknown[];
   creditPayments: unknown[];
+  cashShifts: unknown[];
+  staffPermissions: unknown[];
+  lossPreventionEvents: unknown[];
+  customerWriteOffs: unknown[];
+  supplierWriteOffs: unknown[];
 };
 
 export type ImportJobState = {
@@ -2226,7 +2231,12 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supPurchaseItems,
       supPayments,
       supLedger,
-      creditPays
+      creditPays,
+      cashShiftsRes,
+      staffPermsRes,
+      lossPrevRes,
+      custWriteOffsRes,
+      supWriteOffsRes
     ] = await Promise.all([
       supabase.from("product_categories").select("*").eq("organization_id", orgId),
       supabase.from("suppliers").select("*").eq("organization_id", orgId),
@@ -2249,7 +2259,12 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supabase.from("supplier_purchase_items").select("*").eq("organization_id", orgId),
       supabase.from("supplier_payments").select("*").eq("organization_id", orgId),
       supabase.from("supplier_ledger_entries").select("*").eq("organization_id", orgId),
-      supabase.from("credit_payments").select("*").eq("organization_id", orgId)
+      supabase.from("credit_payments").select("*").eq("organization_id", orgId),
+      supabase.from("cash_shifts").select("*").eq("organization_id", orgId),
+      supabase.from("staff_permissions").select("*").eq("organization_id", orgId),
+      supabase.from("loss_prevention_events").select("*").eq("organization_id", orgId),
+      supabase.from("customer_write_offs").select("*").eq("organization_id", orgId),
+      supabase.from("supplier_write_offs").select("*").eq("organization_id", orgId)
     ]);
 
     // Handle any critical query errors
@@ -2262,6 +2277,11 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       throw new Error("Failed to export return stock allocations: " + returnStockAllocations.error.message);
     }
     if (creditPays.error) throw new Error("Failed to export credit payments: " + creditPays.error.message);
+    if (cashShiftsRes.error) throw new Error("Failed to export cash shifts: " + cashShiftsRes.error.message);
+    if (staffPermsRes.error) throw new Error("Failed to export staff permissions: " + staffPermsRes.error.message);
+    if (lossPrevRes.error) throw new Error("Failed to export loss prevention events: " + lossPrevRes.error.message);
+    if (custWriteOffsRes.error) throw new Error("Failed to export customer write-offs: " + custWriteOffsRes.error.message);
+    if (supWriteOffsRes.error) throw new Error("Failed to export supplier write-offs: " + supWriteOffsRes.error.message);
 
     const data: ExportData = {
       categories: cats.data ?? [],
@@ -2285,7 +2305,12 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supplierPurchaseItems: supPurchaseItems.data ?? [],
       supplierPayments: supPayments.data ?? [],
       supplierLedgerEntries: supLedger.data ?? [],
-      creditPayments: creditPays.data ?? []
+      creditPayments: creditPays.data ?? [],
+      cashShifts: cashShiftsRes.data ?? [],
+      staffPermissions: staffPermsRes.data ?? [],
+      lossPreventionEvents: lossPrevRes.data ?? [],
+      customerWriteOffs: custWriteOffsRes.data ?? [],
+      supplierWriteOffs: supWriteOffsRes.data ?? []
     };
 
     // Log the backup action

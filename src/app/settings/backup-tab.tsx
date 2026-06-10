@@ -453,6 +453,11 @@ export function BackupTab({
         csvFolder.file("repairs.csv", convertToCSV(db.repairs));
         csvFolder.file("daily_closings.csv", convertToCSV(db.closings));
         csvFolder.file("audit_logs.csv", convertToCSV(db.auditLogs));
+        csvFolder.file("cash_shifts.csv", convertToCSV(db.cashShifts));
+        csvFolder.file("staff_permissions.csv", convertToCSV(db.staffPermissions));
+        csvFolder.file("loss_prevention_events.csv", convertToCSV(db.lossPreventionEvents));
+        csvFolder.file("customer_write_offs.csv", convertToCSV(db.customerWriteOffs));
+        csvFolder.file("supplier_write_offs.csv", convertToCSV(db.supplierWriteOffs));
       }
 
       const content = await zip.generateAsync({ type: "blob" });
