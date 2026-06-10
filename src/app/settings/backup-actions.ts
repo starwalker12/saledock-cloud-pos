@@ -2188,6 +2188,140 @@ export async function importTableChunkAction(
   }
 }
 
+// Client-Server Chunk Importer for Online JSON Restore (Safe Merge / ID-preserving)
+export async function importOnlineTableChunkAction(
+  jobId: string,
+  tableName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[]
+): Promise<ChunkImportState> {
+  let inserted = 0;
+  let skipped = 0;
+  let failed = 0;
+  const warnings: string[] = [];
+
+  try {
+    const { user, profile } = await getCurrentContext();
+    if (!user || !profile || !profile.organization_id) {
+      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: "Not authenticated." };
+    }
+
+    if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({ module: "settings", action: "permission.denied", details: `Online import chunk denied for role ${profile.role}` });
+      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: "Only owners and admins can import data." };
+    }
+
+    const orgId = profile.organization_id;
+    const supabase = await createClient();
+
+    const tableMap: Record<string, string> = {
+      Categories: "product_categories",
+      Suppliers: "suppliers",
+      Customers: "customers",
+      Products: "products",
+      ProductStockLots: "product_stock_lots",
+      StockMovements: "stock_movements",
+      Bills: "invoices",
+      BillItems: "invoice_items",
+      Payments: "payments",
+      CustomerLedgerEntries: "customer_ledger_entries",
+      ReturnRefunds: "returns",
+      ReturnItems: "return_items",
+      ReturnStockAllocations: "return_stock_allocations",
+      Expenses: "expenses",
+      RepairJobs: "repairs",
+      DailyClosings: "daily_closings",
+      ActivityLog: "audit_logs",
+      SupplierPurchases: "supplier_purchases",
+      SupplierPurchaseItems: "supplier_purchase_items",
+      SupplierPayments: "supplier_payments",
+      SupplierLedgerEntries: "supplier_ledger_entries",
+      CreditPayments: "credit_payments",
+      CustomerWriteOffs: "customer_write_offs",
+      SupplierWriteOffs: "supplier_write_offs",
+      CashShifts: "cash_shifts",
+      StaffPermissions: "staff_permissions",
+      LossPreventionEvents: "loss_prevention_events"
+    };
+
+    const targetTable = tableMap[tableName];
+    if (!targetTable) {
+      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: `Unsupported table: ${tableName}` };
+    }
+
+    // Process each row to ensure idempotency and tenant safety
+    for (const rawRow of rows) {
+      try {
+        const rowId = rawRow.id;
+        if (!rowId) {
+          failed++;
+          warnings.push(`Row missing ID field in table ${tableName}.`);
+          continue;
+        }
+
+        // 1. Idempotency Check: check if row ID already exists in this target table
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const client = supabase as any;
+        const { data: existingRow } = await client
+          .from(targetTable)
+          .select("id")
+          .eq("id", rowId)
+          .maybeSingle();
+
+        if (existingRow) {
+          skipped++;
+          continue;
+        }
+
+        // 2. Tenant Safety: clone and force organization_id
+        const row = {
+          ...rawRow,
+          organization_id: orgId
+        };
+
+        // 3. Cash Shifts Edge Case: Check for active open shifts for this branch
+        if (tableName === "CashShifts" && row.status === "open") {
+          const { data: existingOpen } = await client
+            .from("cash_shifts")
+            .select("id")
+            .eq("organization_id", orgId)
+            .eq("branch_id", row.branch_id)
+            .eq("status", "open")
+            .maybeSingle();
+
+          if (existingOpen) {
+            skipped++;
+            warnings.push(`Skipped open cash shift (ID: ${rowId}) because an open shift already exists for this branch.`);
+            continue;
+          }
+        }
+
+        // 4. Perform ID-preserving Upsert/Insert
+        const { error: insertError } = await client
+          .from(targetTable)
+          .upsert(row, { onConflict: "id", ignoreDuplicates: true });
+
+        if (insertError) {
+          failed++;
+          warnings.push(`Insert failed for ${tableName} (ID: ${rowId}): ${insertError.message}`);
+        } else {
+          inserted++;
+        }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (rowErr: any) {
+        failed++;
+        warnings.push(`Error processing row in ${tableName}: ${rowErr.message || rowErr}`);
+      }
+    }
+
+    return { success: true, inserted, skipped, failed, warnings };
+  } catch (err: unknown) {
+    console.error(`Error importing online chunk for ${tableName}:`, err);
+    const msg = err instanceof Error ? err.message : "Unknown error.";
+    return { success: false, inserted: 0, skipped: 0, failed: failed + rows.length, warnings, error: msg };
+  }
+}
+
 // Enhance Export Database Action
 export async function fetchExportDataAction(): Promise<{ success: boolean; data?: ExportData; error?: string }> {
   try {

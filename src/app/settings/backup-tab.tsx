@@ -6,6 +6,7 @@ import {
   fetchExportDataAction,
   startImportJobAction,
   importTableChunkAction,
+  importOnlineTableChunkAction,
   updateImportJobStatusAction,
   previewFactoryResetAction,
   restoreFactoryDefaultsAction
@@ -603,24 +604,30 @@ export function BackupTab({
         const keyToTableName: Record<string, string> = {
           categories: "Categories",
           suppliers: "Suppliers",
-          customers: "Customers",
           products: "Products",
           lots: "ProductStockLots",
-          supplierPurchases: "SupplierPurchases",
-          supplierPurchaseItems: "SupplierPurchaseItems",
-          supplierPayments: "SupplierPayments",
-          supplierLedgerEntries: "SupplierLedgerEntries",
-          movements: "StockMovements",
+          customers: "Customers",
           invoices: "Bills",
           invoiceItems: "BillItems",
           payments: "Payments",
           creditPayments: "CreditPayments",
           ledgerEntries: "CustomerLedgerEntries",
+          movements: "StockMovements",
           returns: "ReturnRefunds",
           returnItems: "ReturnItems",
+          returnStockAllocations: "ReturnStockAllocations",
           expenses: "Expenses",
           repairs: "RepairJobs",
           closings: "DailyClosings",
+          supplierPurchases: "SupplierPurchases",
+          supplierPurchaseItems: "SupplierPurchaseItems",
+          supplierPayments: "SupplierPayments",
+          supplierLedgerEntries: "SupplierLedgerEntries",
+          customerWriteOffs: "CustomerWriteOffs",
+          supplierWriteOffs: "SupplierWriteOffs",
+          cashShifts: "CashShifts",
+          staffPermissions: "StaffPermissions",
+          lossPreventionEvents: "LossPreventionEvents",
           auditLogs: "ActivityLog"
         };
 
@@ -1130,7 +1137,7 @@ export function BackupTab({
   }
 
   // Convert online JSON rows to desktop-style row shapes for importTableChunkAction
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   function convertOnlineRows(tableName: string, rows: any[]): any[] {
     // Build lookup maps from categories data if available
     const cats = onlineData?.categories || [];
@@ -1446,15 +1453,18 @@ export function BackupTab({
             products: "Products", lots: "ProductStockLots", movements: "StockMovements",
             invoices: "Bills", invoiceItems: "BillItems", payments: "Payments",
             ledgerEntries: "CustomerLedgerEntries", returns: "ReturnRefunds",
-            returnItems: "ReturnItems", expenses: "Expenses", repairs: "RepairJobs",
-            closings: "DailyClosings", auditLogs: "ActivityLog",
-            supplierPurchases: "SupplierPurchases", supplierPurchaseItems: "SupplierPurchaseItems",
-            supplierPayments: "SupplierPayments", supplierLedgerEntries: "SupplierLedgerEntries",
-            creditPayments: "CreditPayments"
+            returnItems: "ReturnItems", returnStockAllocations: "ReturnStockAllocations",
+            expenses: "Expenses", repairs: "RepairJobs", closings: "DailyClosings",
+            auditLogs: "ActivityLog", supplierPurchases: "SupplierPurchases",
+            supplierPurchaseItems: "SupplierPurchaseItems", supplierPayments: "SupplierPayments",
+            supplierLedgerEntries: "SupplierLedgerEntries", creditPayments: "CreditPayments",
+            customerWriteOffs: "CustomerWriteOffs", supplierWriteOffs: "SupplierWriteOffs",
+            cashShifts: "CashShifts", staffPermissions: "StaffPermissions",
+            lossPreventionEvents: "LossPreventionEvents"
           }).find(([, v]) => v === table.name)?.[0] || "";
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rawRows = (onlineData as any)?.[tableKey];
-          allRows = convertOnlineRows(table.name, Array.isArray(rawRows) ? rawRows : []);
+          allRows = Array.isArray(rawRows) ? rawRows : [];
         } else {
           if (table.name === "SupplierPurchases") {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1572,12 +1582,14 @@ export function BackupTab({
           setCurrentChunkIndex(c + 1);
           const chunk = rows.slice(c * chunkSize, (c + 1) * chunkSize);
 
-          const chunkRes = await importTableChunkAction(
-            activeJobId,
-            table.name,
-            chunk,
-            effectiveOrphanPolicy,
-          );
+          const chunkRes = isOnlineBackup
+            ? await importOnlineTableChunkAction(activeJobId, table.name, chunk)
+            : await importTableChunkAction(
+                activeJobId,
+                table.name,
+                chunk,
+                effectiveOrphanPolicy
+              );
           if (!chunkRes.success) {
             throw new Error(chunkRes.error || `Failed executing chunk ${c+1} for table ${table.name}.`);
           }
