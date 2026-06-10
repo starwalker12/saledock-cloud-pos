@@ -445,6 +445,9 @@ export async function importTableChunkAction(
   rows: unknown[],
   orphanPolicy?: OrphanPolicy,
 ): Promise<ChunkImportState> {
+  // Note: return_stock_allocations, cash_shifts, and staff_permissions are intentionally
+  // excluded from the import actions sequence (handled as NOOP/skipped) because the desktop
+  // source lacks compatible schemas, and online JSON restores do not populate them through this action.
   let inserted = 0;
   let skipped = 0;
   let skippedOrphan = 0;

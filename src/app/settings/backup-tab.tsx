@@ -666,6 +666,9 @@ export function BackupTab({
         setSqliteDb(db);
 
         // Detect available tables & record counts
+        // Note: return_stock_allocations, cash_shifts, and staff_permissions are intentionally
+        // excluded from supportedTables and skipped for SQLite restores because the desktop database
+        // has no allocations table, lacks staff profiles links, and has an empty/unmapped permissions table.
         const supportedTables = [
           "Categories",
           "Suppliers",
