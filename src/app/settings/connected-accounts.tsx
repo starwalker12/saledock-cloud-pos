@@ -10,6 +10,7 @@ import {
   unlinkIdentityAction,
   setPasswordAction,
   changeEmailAction,
+  resendEmailChangeAction,
   type AuthState,
 } from "@/app/(auth)/actions";
 import { Link, Unlink, AlertTriangle, CheckCircle, X, Mail, Shield, Eye, EyeOff } from "lucide-react";
@@ -51,12 +52,14 @@ export function ConnectedAccounts({
   const [identities, setIdentities] = useState<IdentityProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userNewEmail, setUserNewEmail] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [serverProviders, setServerProviders] = useState<LinkedProviders>(initialLinkedProviders);
   const [linkGoogleState, linkGoogleAction] = useActionState(linkGoogleAccountAction, linkGoogleInitialState);
   const [unlinkState, unlinkAction] = useActionState(unlinkIdentityAction, linkGoogleInitialState);
   const [passwordState, passwordAction] = useActionState(setPasswordAction, passwordInitialState);
   const [emailState, emailAction] = useActionState(changeEmailAction, emailInitialState);
+  const [resendState, resendAction] = useActionState(resendEmailChangeAction, { error: null });
   const [conflictDismissed, setConflictDismissed] = useState(false);
   const [dismissedSuccessHash, setDismissedSuccessHash] = useState<string | null>(null);
   const showSuccessDialog = !!passwordState.success && dismissedSuccessHash !== passwordState.success;
@@ -69,6 +72,7 @@ export function ConnectedAccounts({
         const providers = getLinkedProviders(user);
         setServerProviders(providers);
         setUserEmail(user.email ?? null);
+        setUserNewEmail(user.new_email ?? null);
         setEmailVerified(!!user.email_confirmed_at);
         if (user.identities) {
           setIdentities(user.identities as IdentityProvider[]);
@@ -77,7 +81,7 @@ export function ConnectedAccounts({
       setLoading(false);
     }
     load();
-  }, [linkGoogleState, unlinkState, passwordState, emailState]);
+  }, [linkGoogleState, unlinkState, passwordState, emailState, resendState]);
 
   const { hasPassword, hasGoogle, identityCount } = serverProviders;
 
@@ -195,6 +199,18 @@ export function ConnectedAccounts({
           </Banner>
         )}
 
+        {resendState.success && (
+          <Banner type="success" onDismiss={dismissAll}>
+            {resendState.success}
+          </Banner>
+        )}
+
+        {resendState.error && (
+          <Banner type="error">
+            {resendState.error}
+          </Banner>
+        )}
+
         {loading && (
           <div className="space-y-3">
             <ProviderRowSkeleton />
@@ -209,9 +225,11 @@ export function ConnectedAccounts({
             <EmailPasswordRow
               hasPassword={hasPassword}
               userEmail={userEmail}
+              userNewEmail={userNewEmail}
               emailVerified={emailVerified}
               passwordAction={passwordAction}
               emailAction={emailAction}
+              resendAction={resendAction}
             />
 
             <ProviderRow
@@ -268,7 +286,7 @@ export function ConnectedAccounts({
                 onClick={() => {
                   setDismissedSuccessHash(passwordState.success ?? null);
                   dismissAll();
-                  router.refresh();
+                  window.location.reload();
                 }}
                 className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 cursor-pointer transition"
               >
@@ -285,15 +303,19 @@ export function ConnectedAccounts({
 function EmailPasswordRow({
   hasPassword,
   userEmail,
+  userNewEmail,
   emailVerified,
   passwordAction,
   emailAction,
+  resendAction,
 }: {
   hasPassword: boolean;
   userEmail: string | null;
+  userNewEmail: string | null;
   emailVerified: boolean;
   passwordAction: (payload: FormData) => void;
   emailAction: (payload: FormData) => void;
+  resendAction: (payload: FormData) => void;
 }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -331,15 +353,21 @@ function EmailPasswordRow({
               </p>
             )}
             <div className="mt-1 flex flex-wrap gap-1.5">
-              <span
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
-                  emailVerified
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                }`}
-              >
-                {emailVerified ? "Verified" : "Unverified"}
-              </span>
+              {userNewEmail ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                  Email change pending
+                </span>
+              ) : (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
+                    emailVerified
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                  }`}
+                >
+                  {emailVerified ? "Verified" : "Unverified"}
+                </span>
+              )}
               <span
                 className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
                   hasPassword
@@ -502,9 +530,24 @@ function EmailPasswordRow({
       {showEmailForm && (
         <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-700">
           <form action={emailAction} className="space-y-3">
+            <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300 space-y-1">
+              <p>
+                <span className="font-semibold">Current email:</span> {userEmail || "None"} (active for sign-in)
+              </p>
+              {userNewEmail && (
+                <div className="mt-2 space-y-2 rounded-md bg-amber-50 p-2.5 text-amber-900 dark:bg-amber-950/20 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+                  <p className="font-semibold text-xs">
+                    Email change pending: {userNewEmail}
+                  </p>
+                  <p className="text-[11px] leading-4">
+                    Please confirm the link sent to both your new email ({userNewEmail}) and old email ({userEmail}).
+                  </p>
+                </div>
+              )}
+            </div>
+
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Changing your email will keep your Google account linked.
-              You may need to confirm the change from both your current and new email addresses.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -528,13 +571,25 @@ function EmailPasswordRow({
                 />
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="submit"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 cursor-pointer"
               >
                 Change Email
               </button>
+              {userNewEmail && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fd = new FormData();
+                    resendAction(fd);
+                  }}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Resend Confirmation
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowEmailForm(false)}

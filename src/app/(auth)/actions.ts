@@ -480,7 +480,11 @@ export async function changeEmailAction(
     return { error: "New email is the same as your current email." };
   }
 
-  const { error } = await supabase.auth.updateUser({ email: newEmail });
+  const origin = await publicOrigin();
+  const { error } = await supabase.auth.updateUser(
+    { email: newEmail },
+    { emailRedirectTo: `${origin}/auth/callback?type=email_change` }
+  );
   if (error) {
     if (error.message.toLowerCase().includes("reauthentication") || error.message.toLowerCase().includes("recent")) {
       return { error: "For security, please sign out and sign back in, then try again." };
@@ -500,7 +504,38 @@ export async function changeEmailAction(
 
   return {
     error: null,
-    success: "Email change requested. Check your new email for a confirmation link.",
+    success: "Email change requested. Please confirm the link sent to both your new and current email addresses.",
+  };
+}
+
+export async function resendEmailChangeAction(): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "You must be signed in." };
+  }
+
+  const newEmail = user.new_email;
+  if (!newEmail) {
+    return { error: "No pending email change found." };
+  }
+
+  const origin = await publicOrigin();
+  const { error } = await supabase.auth.updateUser(
+    { email: newEmail },
+    { emailRedirectTo: `${origin}/auth/callback?type=email_change` }
+  );
+
+  if (error) {
+    console.error("[security] resendEmailChange failed:", error.message);
+    return { error: "Could not resend confirmation. Please try again." };
+  }
+
+  return {
+    error: null,
+    success: "Confirmation links resent to both your new and current email addresses.",
   };
 }
 
