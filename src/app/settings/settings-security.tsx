@@ -284,16 +284,16 @@ export function SettingsSecurity({
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                           {parseUserAgent(session.userAgent)}
                         </span>
                         {isCurrent && (
-                          <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                          <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                             This device
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400/80">
                         IP: {session.ip} &bull; Logged in {new Date(session.createdAt).toLocaleString()}
                       </p>
                     </div>

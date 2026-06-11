@@ -109,7 +109,7 @@ export function ConnectedAccounts({
   const linkProviderLabel = providerParam === "google" ? "Google" : "";
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-slate-200 bg-[#fff] p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
       <div>
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Connected Accounts</h2>
         <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
