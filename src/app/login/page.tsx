@@ -7,6 +7,7 @@ import { signOutAction } from "@/app/(auth)/actions";
 import { ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
 import { PublicPageHeader } from "@/components/layout/public-page-header";
 import { getServerDict } from "@/lib/i18n/server";
+import { Logo } from "@/components/logo";
 
 function friendlyError(errorCode: string | undefined): string | null {
   if (!errorCode) return null;
@@ -55,12 +56,7 @@ export default async function LoginPage({
           href={signedInUser ? (signedInUser.needsOnboarding ? "/onboarding" : "/dashboard") : "/"}
           className="inline-block"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/saledock-logo-full.png"
-            alt="SaleDock Cloud POS"
-            className="mx-auto mb-1.5 h-9 w-auto max-w-[150px] object-contain auth-logo-filter"
-          />
+          <Logo className="mx-auto mb-1.5 h-9 w-auto max-w-[150px]" />
         </Link>
       </div>
 

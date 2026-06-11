@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, MapPin, Info } from "lucide-react";
 import { PublicPageHeader } from "@/components/layout/public-page-header";
+import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = {
   title: "About Us — SaleDock Cloud POS",
@@ -16,12 +17,7 @@ export default function AboutPage() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <Link href="/">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/saledock-logo-full.png"
-              alt="SaleDock Cloud POS"
-              className="mx-auto mb-2 h-10 w-auto max-w-[180px] object-contain dark:brightness-0 dark:invert"
-            />
+            <Logo className="mx-auto mb-2 h-10 w-auto max-w-[180px]" />
           </Link>
         </div>
 
