@@ -12,7 +12,7 @@ import {
   changeEmailAction,
   type AuthState,
 } from "@/app/(auth)/actions";
-import { Link, Unlink, AlertTriangle, CheckCircle, X, Mail, Shield } from "lucide-react";
+import { Link, Unlink, AlertTriangle, CheckCircle, X, Mail, Shield, Eye, EyeOff } from "lucide-react";
 import { getLinkedProviders, type LinkedProviders } from "@/lib/auth/identities";
 import { GoogleIcon } from "@/components/icons/provider-icons";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,9 +64,6 @@ export function ConnectedAccounts({
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      if (passwordState.success) {
-        await supabase.auth.refreshSession();
-      }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const providers = getLinkedProviders(user);
@@ -301,6 +298,22 @@ function EmailPasswordRow({
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
 
+  const [passwordVal, setPasswordVal] = useState("");
+  const [confirmPasswordVal, setConfirmPasswordVal] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+
+  const passwordChecks = {
+    minChars: passwordVal.length >= 8,
+    uppercase: /[A-Z]/.test(passwordVal),
+    lowercase: /[a-z]/.test(passwordVal),
+    number: /[0-9]/.test(passwordVal),
+    special: /[^a-zA-Z0-9]/.test(passwordVal),
+  };
+  const allPasswordChecksPass = Object.values(passwordChecks).every(Boolean);
+  const passwordsMatch = confirmPasswordVal.length > 0 && passwordVal === confirmPasswordVal;
+
   return (
     <div className="rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-700">
       <div className="flex items-center justify-between">
@@ -314,7 +327,7 @@ function EmailPasswordRow({
             </p>
             {userEmail && (
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {userEmail}
+                {hasPassword ? `You can now sign in with: ${userEmail}` : userEmail}
               </p>
             )}
             <div className="mt-1 flex flex-wrap gap-1.5">
@@ -342,7 +355,17 @@ function EmailPasswordRow({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => { setShowPasswordForm(!showPasswordForm); setShowEmailForm(false); }}
+            onClick={() => {
+              const nextState = !showPasswordForm;
+              setShowPasswordForm(nextState);
+              setShowEmailForm(false);
+              if (!nextState) {
+                setPasswordVal("");
+                setConfirmPasswordVal("");
+                setShowPassword(false);
+                setShowConfirmPassword(false);
+              }
+            }}
             className="flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <Shield className="size-3" />
@@ -366,37 +389,106 @@ function EmailPasswordRow({
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs font-semibold text-slate-500 dark:text-slate-400">New password</label>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="Min 8 characters, upper + lower + digit + special"
-                  required
-                  minLength={8}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                />
+                <div className="relative mt-1">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="Min 8 characters, upper + lower + digit + special"
+                    required
+                    minLength={8}
+                    value={passwordVal}
+                    onChange={(e) => setPasswordVal(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 pr-10 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                {passwordVal.length > 0 && (
+                  <div className="mt-2 space-y-1 text-xs">
+                    <p className="font-medium text-slate-500">
+                      Password must include:
+                    </p>
+                    {[
+                      { key: "minChars", label: "At least 8 characters" },
+                      { key: "uppercase", label: "One uppercase letter" },
+                      { key: "lowercase", label: "One lowercase letter" },
+                      { key: "number", label: "One number" },
+                      { key: "special", label: "One special character" },
+                    ].map(({ key, label }) => {
+                      const passed = passwordChecks[key as keyof typeof passwordChecks];
+                      return (
+                        <p
+                          key={key}
+                          className={`flex items-center gap-1.5 ${
+                            passed ? "text-emerald-600" : "text-slate-400"
+                          }`}
+                        >
+                          <span className="shrink-0">{passed ? "\u2713" : "\u2022"}</span>
+                          <span>{label}</span>
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Confirm password</label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  placeholder="Re-enter password"
-                  required
-                  minLength={8}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                />
+                <div className="relative mt-1">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    placeholder="Re-enter password"
+                    required
+                    minLength={8}
+                    value={confirmPasswordVal}
+                    onChange={(e) => setConfirmPasswordVal(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 pr-10 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                {confirmPasswordVal.length > 0 && (
+                  <p
+                    className={`mt-1.5 text-xs font-medium ${
+                      passwordsMatch ? "text-emerald-600" : "text-red-600"
+                    }`}
+                  >
+                    {passwordsMatch ? "Passwords match." : "Passwords do not match."}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                disabled={!allPasswordChecksPass || !passwordsMatch}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
               >
                 {hasPassword ? "Update Password" : "Set Password"}
               </button>
               <button
                 type="button"
-                onClick={() => setShowPasswordForm(false)}
+                onClick={() => {
+                  setShowPasswordForm(false);
+                  setPasswordVal("");
+                  setConfirmPasswordVal("");
+                  setShowPassword(false);
+                  setShowConfirmPassword(false);
+                }}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Cancel
