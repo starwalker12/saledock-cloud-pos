@@ -2,8 +2,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function OnboardingLoading() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-3 py-8 sm:px-4 sm:py-10 dark:bg-slate-900">
-      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8 dark:border-slate-700 dark:bg-slate-800">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-3 py-8 sm:px-4 sm:py-10 dark:bg-slate-950">
+      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-[#fff] p-5 shadow-xl sm:p-8 dark:border-slate-700 dark:bg-slate-900">
         {/* Logo */}
         <div className="mb-8 text-center">
           <div className="mb-4 flex justify-center">

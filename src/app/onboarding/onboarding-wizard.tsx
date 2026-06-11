@@ -7,7 +7,7 @@ import { ImageUpload } from "@/components/shared/image-upload";
 const initialState: OnboardingState = { error: null };
 
 const inputClass =
-  "mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-600";
+  "mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500";
 const labelTextClass = "text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400";
 
 const TIMEZONES = [
@@ -176,7 +176,22 @@ export function OnboardingWizard({
   function nextStep() {
     const stepErrors = validateStep(step);
     setErrors(stepErrors);
-    if (Object.keys(stepErrors).length > 0) return;
+    if (Object.keys(stepErrors).length > 0) {
+      // Find the first error key, focus and scroll to it
+      const firstErrorKey = Object.keys(stepErrors)[0];
+      if (firstErrorKey) {
+        setTimeout(() => {
+          const element = document.getElementById(firstErrorKey) || document.querySelector(`[name="${firstErrorKey}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+              element.focus();
+            }
+          }
+        }, 100);
+      }
+      return;
+    }
     const next = STEP_ORDER[stepIndex + 1];
     if (next) setStep(next);
   }
@@ -245,13 +260,13 @@ export function OnboardingWizard({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+        <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{ width: `${progress}%`, backgroundColor: formData.accentColor || "#00b8b0" }}
           />
         </div>
-        <span className="text-xs font-semibold text-slate-500 shrink-0">
+        <span className="text-xs font-semibold text-slate-500 shrink-0 dark:text-slate-400">
           {stepIndex + 1}/{STEP_ORDER.length}
         </span>
       </div>
@@ -268,7 +283,7 @@ export function OnboardingWizard({
                 ? "text-white"
                 : i < stepIndex
                   ? "text-white cursor-pointer"
-                  : "bg-slate-100 text-slate-400 cursor-default"
+                  : "bg-slate-100 text-slate-400 cursor-default dark:bg-slate-800 dark:text-slate-500"
             }`}
             style={{
               backgroundColor: s === step || i < stepIndex ? formData.accentColor || "#00b8b0" : undefined,
@@ -280,7 +295,7 @@ export function OnboardingWizard({
       </div>
 
       {state.error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+        <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900">
           {state.error}
         </p>
       )}
@@ -292,14 +307,14 @@ export function OnboardingWizard({
             <button
               type="button"
               onClick={prevStep}
-              className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+              className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-5 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Back
             </button>
             <button
               type="submit"
               disabled={pending}
-              className="h-11 rounded-xl px-6 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
+              className="h-11 rounded-xl px-6 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60 cursor-pointer"
               style={{ backgroundColor: formData.primaryColor || "#0b2f6f" }}
             >
               {pending ? "Creating shop..." : "Create my shop"}
@@ -315,7 +330,7 @@ export function OnboardingWizard({
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                  className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-5 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 >
                   Back
                 </button>
@@ -323,7 +338,7 @@ export function OnboardingWizard({
               <button
                 type="button"
                 onClick={restartSetup}
-                className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-5 text-sm font-semibold text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
               >
                 Restart
               </button>
@@ -331,7 +346,7 @@ export function OnboardingWizard({
             <button
               type="button"
               onClick={nextStep}
-              className="h-11 rounded-xl px-6 text-sm font-bold text-white hover:opacity-90"
+              className="h-11 rounded-xl px-6 text-sm font-bold text-white hover:opacity-90 cursor-pointer"
               style={{ backgroundColor: formData.primaryColor || "#0b2f6f" }}
             >
               Continue
@@ -360,18 +375,19 @@ function ProfileStep({
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Owner Profile</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your personal details as the shop owner.</p>
       </div>
-      <p className="text-xs text-slate-400"><span className="text-red-500">*</span> Required</p>
+      <p className="text-xs text-slate-400 dark:text-slate-500"><span className="text-red-500">*</span> Required</p>
       <label className="block">
         <span className={labelTextClass}>Full name <span className="text-red-500">*</span></span>
         <input
+          id="fullName"
           required
           value={data.fullName}
           onChange={(e) => onChange("fullName", e.target.value)}
-          className={`${inputClass} ${errors.fullName ? "border-red-400 focus:border-red-600" : ""}`}
-          placeholder="Your full name"
+          className={`${inputClass} ${errors.fullName ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
+          placeholder="e.g. John Doe"
         />
         {errors.fullName && (
-          <p className="mt-1 text-xs font-medium text-red-600">{errors.fullName}</p>
+          <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.fullName}</p>
         )}
       </label>
       <label className="block">
@@ -380,10 +396,10 @@ function ProfileStep({
           value={data.username}
           onChange={(e) => onChange("username", e.target.value)}
           className={inputClass}
-          placeholder="yourusername"
+          placeholder="e.g. johndoe123"
           autoCapitalize="none"
         />
-        <p className="mt-1 text-xs text-slate-400">Must be unique across SaleDock.</p>
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Must be unique across SaleDock.</p>
       </label>
       <label className="block">
         <span className={labelTextClass}>Phone (optional)</span>
@@ -392,9 +408,9 @@ function ProfileStep({
           value={data.phone}
           onChange={(e) => onChange("phone", e.target.value)}
           className={inputClass}
-          placeholder="+92 300 1234567"
+          placeholder="e.g. +92 300 1234567"
         />
-        <p className="mt-1 text-xs text-slate-400">Include country code, e.g. +923001234567.</p>
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Include country code, e.g. +923001234567.</p>
       </label>
       <label className="block">
         <span className={labelTextClass}>Email</span>
@@ -402,13 +418,13 @@ function ProfileStep({
           type="email"
           value={data.orgEmail}
           onChange={(e) => onChange("orgEmail", e.target.value)}
-          className={inputClass}
+          className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-slate-50 text-slate-500 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-500 cursor-not-allowed"
           readOnly
           tabIndex={-1}
         />
-        <p className="mt-1 text-xs text-slate-400">Your sign-in email. Update in account settings later.</p>
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Your sign-in email. Update in account settings later.</p>
       </label>
-      <div className="rounded-xl border border-slate-200 p-4">
+      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10">
         <ImageUpload
           bucket="profile-pictures"
           folderPath={`users/${userId}/profile-picture`}
@@ -419,12 +435,12 @@ function ProfileStep({
           aspectRatio="square"
         />
         <details className="mt-2">
-          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600">Or use a URL</summary>
+          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">Or use a URL</summary>
           <input
             value={data.profilePictureUrl}
             onChange={(e) => onChange("profilePictureUrl", e.target.value)}
             className={`${inputClass} mt-2`}
-            placeholder="https://example.com/photo.jpg"
+            placeholder="e.g. https://example.com/assets/photo.jpg"
           />
         </details>
       </div>
@@ -471,20 +487,21 @@ function ShopStep({
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Shop Profile</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your business information used on invoices, receipts, and public profile.</p>
       </div>
-      <p className="text-xs text-slate-400"><span className="text-red-500">*</span> Required</p>
+      <p className="text-xs text-slate-400 dark:text-slate-500"><span className="text-red-500">*</span> Required</p>
       <label className="block">
         <span className={labelTextClass}>Shop name <span className="text-red-500">*</span></span>
         <input
+          id="organizationName"
           required
           value={data.organizationName}
           onChange={(e) => onChange("organizationName", e.target.value)}
-          className={`${inputClass} ${errors.organizationName ? "border-red-400 focus:border-red-600" : ""}`}
-          placeholder="Star Mobile Store"
+          className={`${inputClass} ${errors.organizationName ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
+          placeholder="e.g. Apex Electronics"
         />
         {errors.organizationName && (
-          <p className="mt-1 text-xs font-medium text-red-600">{errors.organizationName}</p>
+          <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.organizationName}</p>
         )}
-        <p className="mt-1 text-xs text-slate-400">Multiple shops can have the same name.</p>
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Multiple shops can have the same name.</p>
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
@@ -493,20 +510,22 @@ function ShopStep({
             value={data.ownerName}
             onChange={(e) => onChange("ownerName", e.target.value)}
             className={inputClass}
-            placeholder="Owner display name"
+            placeholder="e.g. Apex Owner"
           />
         </label>
         <label className="block">
           <span className={labelTextClass}>Phone <span className="text-red-500">*</span></span>
           <input
+            id="orgPhone"
             type="tel"
+            required
             value={data.orgPhone}
             onChange={(e) => onChange("orgPhone", e.target.value)}
-            className={`${inputClass} ${errors.orgPhone ? "border-red-400 focus:border-red-600" : ""}`}
-            placeholder="+92 300 1234567"
+            className={`${inputClass} ${errors.orgPhone ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
+            placeholder="e.g. +92 300 1234567"
           />
           {errors.orgPhone && (
-            <p className="mt-1 text-xs font-medium text-red-600">{errors.orgPhone}</p>
+            <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.orgPhone}</p>
           )}
         </label>
         <label className="block">
@@ -516,21 +535,22 @@ function ShopStep({
             value={data.orgWhatsapp}
             onChange={(e) => onChange("orgWhatsapp", e.target.value)}
             className={inputClass}
-            placeholder="+92 300 1234567"
+            placeholder="e.g. +92 300 7654321"
           />
         </label>
         <label className="block">
           <span className={labelTextClass}>Email <span className="text-red-500">*</span></span>
           <input
+            id="orgEmail"
             type="email"
             required
             value={data.orgEmail}
             onChange={(e) => onChange("orgEmail", e.target.value)}
-            className={`${inputClass} ${errors.orgEmail ? "border-red-400 focus:border-red-600" : ""}`}
-            placeholder="shop@example.com"
+            className={`${inputClass} ${errors.orgEmail ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
+            placeholder="e.g. contact@apex.com"
           />
           {errors.orgEmail && (
-            <p className="mt-1 text-xs font-medium text-red-600">{errors.orgEmail}</p>
+            <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.orgEmail}</p>
           )}
         </label>
       </div>
@@ -539,8 +559,8 @@ function ShopStep({
         <textarea
           value={data.orgAddress}
           onChange={(e) => onChange("orgAddress", e.target.value)}
-          className="mt-1 min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600"
-          placeholder="Shop street address"
+          className="mt-1 min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          placeholder="e.g. 123 Commercial Area, Phase 5, DHA"
         />
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -549,7 +569,7 @@ function ShopStep({
           <select
             value={data.currencyCode}
             onChange={(e) => onChange("currencyCode", e.target.value)}
-            className={inputClass}
+            className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-[#fff] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {CURRENCIES.map((c) => (
               <option key={c.code} value={c.code}>{c.label}</option>
@@ -561,7 +581,7 @@ function ShopStep({
           <select
             value={data.timezone}
             onChange={(e) => onChange("timezone", e.target.value)}
-            className={inputClass}
+            className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-[#fff] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {TIMEZONES.map((tz) => (
               <option key={tz} value={tz}>{tz}</option>
@@ -570,7 +590,7 @@ function ShopStep({
         </label>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4 space-y-3">
+      <div className="rounded-xl border border-slate-200 p-4 space-y-3 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10">
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Google Maps Location</h3>
         <label className="block">
           <span className={labelTextClass}>Google Maps link (optional)</span>
@@ -578,7 +598,7 @@ function ShopStep({
             value={data.googleMapsUrl}
             onChange={(e) => onChange("googleMapsUrl", e.target.value)}
             className={inputClass}
-            placeholder="https://maps.app.goo.gl/..."
+            placeholder="e.g. https://maps.app.goo.gl/xyz123"
           />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -590,7 +610,7 @@ function ShopStep({
               value={data.latitude}
               onChange={(e) => onChange("latitude", e.target.value)}
               className={inputClass}
-              placeholder="33.6844"
+              placeholder="e.g. 33.6844"
             />
           </label>
           <label className="block">
@@ -601,7 +621,7 @@ function ShopStep({
               value={data.longitude}
               onChange={(e) => onChange("longitude", e.target.value)}
               className={inputClass}
-              placeholder="73.0479"
+              placeholder="e.g. 73.0479"
             />
           </label>
         </div>
@@ -609,7 +629,7 @@ function ShopStep({
           type="button"
           onClick={handleGetLocation}
           disabled={gettingLocation}
-          className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          className="h-10 rounded-xl border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 disabled:opacity-60 cursor-pointer"
         >
           {gettingLocation ? "Getting location..." : "Use my current location"}
         </button>
@@ -617,7 +637,7 @@ function ShopStep({
           <p className="text-xs text-red-500">{locationError}</p>
         )}
         {data.latitude && data.longitude && (
-          <p className="text-xs text-emerald-600">
+          <p className="text-xs text-emerald-600 dark:text-emerald-400">
             Location set: {data.latitude}, {data.longitude}
           </p>
         )}
@@ -626,9 +646,9 @@ function ShopStep({
             type="checkbox"
             checked={data.showMap === "true"}
             onChange={(e) => onChange("showMap", e.target.checked ? "true" : "false")}
-            className="h-4 w-4 rounded border-slate-300"
+            className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800"
           />
-          <span className="text-xs font-semibold text-slate-600">Show map on receipts and profile</span>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Show map on receipts and profile</span>
         </label>
       </div>
     </div>
@@ -688,21 +708,21 @@ function BranchStep({
         </p>
       </div>
 
-      <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-slate-200 p-3">
+      <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-slate-200 bg-[#fff] p-3 dark:border-slate-700 dark:bg-slate-800/50">
         <input
           type="checkbox"
           checked={useShopDetails}
           onChange={(e) => handleUseShopDetails(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-slate-300"
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800"
         />
         <div>
           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Use same details as shop profile</span>
-          <p className="text-xs text-slate-400 mt-0.5">Branch name, phone, address, and location will be copied from your shop.</p>
+          <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">Branch name, phone, address, and location will be copied from your shop.</p>
         </div>
       </label>
 
       {useShopDetails ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
           Branch will use shop details:
           <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
             <li>Name: Main Branch</li>
@@ -720,7 +740,7 @@ function BranchStep({
               value={data.branchName}
               onChange={(e) => onChange("branchName", e.target.value)}
               className={inputClass}
-              placeholder="Main Branch"
+              placeholder="e.g. Downtown Branch"
             />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -731,7 +751,7 @@ function BranchStep({
                 value={data.branchPhone}
                 onChange={(e) => onChange("branchPhone", e.target.value)}
                 className={inputClass}
-                placeholder="+92 300 1234567"
+                placeholder="e.g. +92 300 1234567"
               />
             </label>
             <label className="block">
@@ -740,7 +760,7 @@ function BranchStep({
                 value={data.branchAddress}
                 onChange={(e) => onChange("branchAddress", e.target.value)}
                 className={inputClass}
-                placeholder="Branch address"
+                placeholder="e.g. 456 Mall Road"
               />
             </label>
           </div>
@@ -750,7 +770,7 @@ function BranchStep({
               value={data.branchGoogleMapsUrl}
               onChange={(e) => onChange("branchGoogleMapsUrl", e.target.value)}
               className={inputClass}
-              placeholder="https://maps.app.goo.gl/..."
+              placeholder="e.g. https://maps.app.goo.gl/abc789"
             />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -762,7 +782,7 @@ function BranchStep({
                 value={data.branchLatitude}
                 onChange={(e) => onChange("branchLatitude", e.target.value)}
                 className={inputClass}
-                placeholder="33.6844"
+                placeholder="e.g. 33.6844"
               />
             </label>
             <label className="block">
@@ -773,7 +793,7 @@ function BranchStep({
                 value={data.branchLongitude}
                 onChange={(e) => onChange("branchLongitude", e.target.value)}
                 className={inputClass}
-                placeholder="73.0479"
+                placeholder="e.g. 73.0479"
               />
             </label>
           </div>
@@ -781,7 +801,7 @@ function BranchStep({
             type="button"
             onClick={handleGetLocation}
             disabled={gettingLocation}
-            className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+            className="h-10 rounded-xl border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 disabled:opacity-60 cursor-pointer"
           >
             {gettingLocation ? "Getting location..." : "Use my current location"}
           </button>
@@ -789,7 +809,7 @@ function BranchStep({
             <p className="text-xs text-red-500">{locationError}</p>
           )}
           {data.branchLatitude && data.branchLongitude && (
-            <p className="text-xs text-emerald-600">
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">
               Location set: {data.branchLatitude}, {data.branchLongitude}
             </p>
           )}
@@ -844,7 +864,7 @@ function BrandingStep({
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Customize your shop appearance, colors, and social links.</p>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4">
+      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10">
         <ImageUpload
           bucket="public-branding"
           folderPath={`temp/${userId}/logo`}
@@ -856,12 +876,12 @@ function BrandingStep({
           uploadingText="Uploading logo..."
         />
         <details className="mt-2">
-          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600">Or use a URL</summary>
+          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">Or use a URL</summary>
           <input
             value={data.logoUrl}
             onChange={(e) => onChange("logoUrl", e.target.value)}
             className={`${inputClass} mt-2`}
-            placeholder="https://example.com/logo.png"
+            placeholder="e.g. https://example.com/assets/logo.png"
           />
         </details>
       </div>
@@ -874,7 +894,7 @@ function BrandingStep({
               type="color"
               value={data.primaryColor}
               onChange={(e) => onChange("primaryColor", e.target.value)}
-              className="h-11 w-14 rounded-lg border border-slate-200 p-1 cursor-pointer"
+              className="h-11 w-14 rounded-lg border border-slate-200 p-1 cursor-pointer dark:border-slate-700 dark:bg-slate-800"
             />
             <input
               value={data.primaryColor}
@@ -883,7 +903,7 @@ function BrandingStep({
                 if (val === "" || /^#[0-9a-fA-F0-9]{0,6}$/.test(val)) onChange("primaryColor", val);
               }}
               className={inputClass}
-              placeholder="#0b2f6f"
+              placeholder="e.g. #0b2f6f"
               maxLength={7}
             />
           </div>
@@ -895,7 +915,7 @@ function BrandingStep({
               type="color"
               value={data.accentColor}
               onChange={(e) => onChange("accentColor", e.target.value)}
-              className="h-11 w-14 rounded-lg border border-slate-200 p-1 cursor-pointer"
+              className="h-11 w-14 rounded-lg border border-slate-200 p-1 cursor-pointer dark:border-slate-700 dark:bg-slate-800"
             />
             <input
               value={data.accentColor}
@@ -904,7 +924,7 @@ function BrandingStep({
                 if (val === "" || /^#[0-9a-fA-F0-9]{0,6}$/.test(val)) onChange("accentColor", val);
               }}
               className={inputClass}
-              placeholder="#00b8b0"
+              placeholder="e.g. #00b8b0"
               maxLength={7}
             />
           </div>
@@ -914,7 +934,7 @@ function BrandingStep({
           <select
             value={data.defaultTheme}
             onChange={(e) => onChange("defaultTheme", e.target.value)}
-            className={inputClass}
+            className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-[#fff] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             <option value="system">System</option>
             <option value="light">Light</option>
@@ -923,26 +943,26 @@ function BrandingStep({
         </label>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4 space-y-2">
+      <div className="rounded-xl border border-slate-200 p-4 space-y-2 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Social Links</h3>
           <button
             type="button"
             onClick={addSocialLink}
-            className="h-8 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            className="h-8 rounded-lg border border-slate-200 bg-[#fff] px-3 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 cursor-pointer"
           >
             + Add link
           </button>
         </div>
         {socialLinks.length === 0 && (
-          <p className="text-xs text-slate-400">No social links added yet.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">No social links added yet.</p>
         )}
         {socialLinks.map((link, i) => (
           <div key={i} className="flex items-start gap-2">
             <select
               value={link.platform}
               onChange={(e) => updateSocialLink(i, "platform", e.target.value)}
-              className="h-10 rounded-lg border border-slate-200 px-2 text-xs outline-none"
+              className="h-10 rounded-lg border border-slate-200 bg-[#fff] px-2 text-xs outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               {SOCIAL_PLATFORMS.map((p) => (
                 <option key={p} value={p}>{p}</option>
@@ -951,13 +971,13 @@ function BrandingStep({
             <input
               value={link.url}
               onChange={(e) => updateSocialLink(i, "url", e.target.value)}
-              className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-blue-600"
-              placeholder="https://instagram.com/yourshop"
+              className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              placeholder="e.g. https://instagram.com/apexshop"
             />
             <button
               type="button"
               onClick={() => removeSocialLink(i)}
-              className="h-10 w-10 rounded-lg border border-red-200 text-xs font-bold text-red-500 hover:bg-red-50"
+              className="h-10 w-10 rounded-lg border border-red-200 text-xs font-bold text-red-500 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/20 cursor-pointer"
               title="Remove"
             >
               ✕
@@ -966,26 +986,26 @@ function BrandingStep({
         ))}
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4">
+      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Live Preview</h3>
         <div
-          className="rounded-lg p-4 space-y-2"
+          className="rounded-lg p-4 space-y-2 shadow-inner"
           style={{
             backgroundColor: data.primaryColor || "#0b2f6f",
             color: "#ffffff",
           }}
         >
           <p className="text-xs font-bold uppercase tracking-wider">Shop Preview</p>
-          <p className="text-sm">Your shop name here</p>
+          <p className="text-sm">{data.organizationName || "Your shop name here"}</p>
           <div className="flex gap-2">
             <span
-              className="rounded px-3 py-1 text-xs font-bold"
+              className="rounded px-3 py-1 text-xs font-bold shadow-sm"
               style={{ backgroundColor: data.accentColor || "#00b8b0", color: "#ffffff" }}
             >
               Button
             </span>
             <span
-              className="rounded px-3 py-1 text-xs font-bold"
+              className="rounded px-3 py-1 text-xs font-bold shadow-sm"
               style={{ backgroundColor: data.accentColor || "#00b8b0", color: "#ffffff" }}
             >
               Active
@@ -1016,7 +1036,7 @@ function ConfirmStep({
         <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Ready to create your shop</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review your details before finishing setup.</p>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-sm">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-sm dark:border-slate-700 dark:bg-slate-800/30">
         <Section summary="Owner Profile">
           <Row label="Name" value={data.fullName} />
           <Row label="Username" value={data.username || "—"} />
@@ -1063,8 +1083,8 @@ function ConfirmStep({
 
 function Section({ summary, children }: { summary: string; children: React.ReactNode }) {
   return (
-    <details className="rounded-lg border border-slate-200 bg-white p-3">
-      <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-700">
+    <details className="rounded-lg border border-slate-200 bg-[#fff] p-3 dark:border-slate-700 dark:bg-slate-800/50">
+      <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
         {summary}
       </summary>
       <div className="mt-2 space-y-1">{children}</div>
@@ -1075,8 +1095,8 @@ function Section({ summary, children }: { summary: string; children: React.React
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <p className="flex justify-between text-sm">
-      <span className="font-semibold text-slate-600">{label}</span>
-      <span className="text-slate-900">{value}</span>
+      <span className="font-semibold text-slate-600 dark:text-slate-400">{label}</span>
+      <span className="text-slate-900 dark:text-slate-100">{value}</span>
     </p>
   );
 }

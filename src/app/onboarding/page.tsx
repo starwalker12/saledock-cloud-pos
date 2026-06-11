@@ -4,6 +4,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { signOutAction } from "@/app/(auth)/actions";
 import { OnboardingWizard } from "./onboarding-wizard";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function OnboardingPage() {
   if (!env.isSupabaseConfigured) redirect("/login");
@@ -17,8 +18,11 @@ export default async function OnboardingPage() {
   const defaultFullName = profile?.full_name ?? ((user.user_metadata as { full_name?: string } | null)?.full_name ?? "");
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-3 py-8 sm:px-4 sm:py-10 dark:bg-slate-900">
-      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8 dark:border-slate-700 dark:bg-slate-800">
+    <main className="relative flex min-h-screen items-center justify-center bg-slate-50 px-3 py-8 sm:px-4 sm:py-10 dark:bg-slate-950">
+      <div className="absolute right-4 top-4 sm:right-6 sm:top-6 z-50">
+        <ThemeToggle />
+      </div>
+      <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-[#fff] p-5 shadow-xl sm:p-8 dark:border-slate-700 dark:bg-slate-900">
         <div className="mb-8 text-center">
           <Link href="/onboarding" className="inline-block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -42,7 +46,7 @@ export default async function OnboardingPage() {
           <form action={signOutAction} className="w-full">
             <button
               type="submit"
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-[#fff] text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
             >
               Sign out and use another account
             </button>
