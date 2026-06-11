@@ -415,8 +415,9 @@ export async function setPasswordAction(
   });
 
   if (adminError) {
-    if (adminError.message.toLowerCase().includes("same password")) {
-      return { error: "New password must be different from your current password." };
+    const msg = adminError.message.toLowerCase();
+    if (msg.includes("same password") || msg.includes("different") || adminError.code === "same_password") {
+      return { error: "Your new password must be different from your current password." };
     }
     console.error("[security] setPassword failed via admin client:", adminError.message);
     return { error: adminError.message || "Could not update password. Please try again." };
@@ -504,7 +505,7 @@ export async function changeEmailAction(
 
   return {
     error: null,
-    success: "Email change requested. Please confirm the link sent to both your new and current email addresses.",
+    success: "Email change requested. Please confirm the link sent to your new email address.",
   };
 }
 
@@ -535,7 +536,7 @@ export async function resendEmailChangeAction(): Promise<AuthState> {
 
   return {
     error: null,
-    success: "Confirmation links resent to both your new and current email addresses.",
+    success: "Confirmation link resent to your new email address.",
   };
 }
 
