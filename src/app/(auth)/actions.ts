@@ -255,7 +255,7 @@ export async function resetPasswordAction(_prev: AuthState, formData: FormData):
   const origin = await publicOrigin();
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${origin}/auth/callback?next=%2Fonboarding`,
+    redirectTo: `${origin}/auth/confirm?type=recovery`,
   });
 
   // Each reset submission consumes one captcha-pass attempt
@@ -608,4 +608,45 @@ export async function verifyOtpAction(
     return { success: false, error: error.message };
   }
   return { success: true, error: null };
+}
+
+export async function resetPasswordConfirmAction(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const password = formData.get("password") as string | null;
+  const confirm = formData.get("confirmPassword") as string | null;
+
+  if (!password || password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  const passwordParsed = passwordSchema.safeParse(password);
+  if (!passwordParsed.success) {
+    return { error: passwordParsed.error.issues[0]?.message ?? "Password does not meet requirements." };
+  }
+  if (password !== confirm) {
+    return { error: "Passwords do not match." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.updateUser({
+    password,
+  });
+
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("same password") || msg.includes("different") || error.code === "same_password") {
+      return { error: "Your new password must be different from your current password." };
+    }
+    console.error("[security] resetPasswordConfirmAction failed:", error.message);
+    return { error: error.message || "Could not reset password. Please try again." };
+  }
+
+  return {
+    error: null,
+    success: "Password reset successful.",
+  };
 }

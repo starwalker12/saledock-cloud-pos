@@ -31,8 +31,7 @@ function ConfirmContent() {
         if (!active) return;
         if (result.success) {
           if (type === "recovery") {
-            // For password recovery, redirect to onboarding/settings to update password
-            router.push(next || "/onboarding");
+            router.push("/auth/reset-password");
           } else {
             setStatus("success");
           }
