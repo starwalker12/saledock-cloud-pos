@@ -57,7 +57,7 @@ function ConfirmContent() {
 
   if (status === "loading") {
     return (
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400">
           <Loader2 className="size-6 animate-spin" />
         </div>
@@ -73,7 +73,7 @@ function ConfirmContent() {
 
   if (status === "error") {
     return (
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300">
           <AlertTriangle className="size-6" />
         </div>
@@ -95,7 +95,7 @@ function ConfirmContent() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
         <CheckCircle className="size-6" />
       </div>
@@ -118,7 +118,7 @@ function ConfirmContent() {
 
 function ConfirmLoadingView() {
   return (
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-6 text-center space-y-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400">
         <Loader2 className="size-6 animate-spin" />
       </div>
