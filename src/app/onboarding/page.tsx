@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { signOutAction } from "@/app/(auth)/actions";
 import { OnboardingWizard } from "./onboarding-wizard";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Logo } from "@/components/logo";
 
 export default async function OnboardingPage() {
   if (!env.isSupabaseConfigured) redirect("/login");
@@ -25,12 +26,7 @@ export default async function OnboardingPage() {
       <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-[#fff] p-5 shadow-xl sm:p-8 dark:border-slate-700 dark:bg-slate-900">
         <div className="mb-8 text-center">
           <Link href="/onboarding" className="inline-block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/saledock-logo-full.png"
-              alt="SaleDock Cloud POS"
-              className="mx-auto mb-4 h-14 w-auto max-w-[220px] object-contain"
-            />
+            <Logo className="mx-auto mb-4 h-14 w-auto max-w-[220px]" />
           </Link>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">Set up your shop</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
