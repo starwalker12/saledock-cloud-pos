@@ -401,8 +401,12 @@ export async function setPasswordAction(
 
   const admin = createAdminClient();
   const { error: adminError } = await admin.auth.admin.updateUserById(user.id, {
+    email: user.email,
     password,
     email_confirm: true,
+    app_metadata: {
+      providers: ["google", "email"]
+    }
   });
 
   if (adminError) {
@@ -413,6 +417,17 @@ export async function setPasswordAction(
     return { error: adminError.message || "Could not update password. Please try again." };
   }
 
+  // GoTrue invalidates active sessions on password change. Re-establish session:
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password,
+  });
+
+  if (signInError) {
+    console.error("[security] re-authentication after setPassword failed:", signInError.message);
+    return { error: "Password was set, but we could not re-authenticate you automatically. Please sign in manually." };
+  }
+
   logAudit({
     module: "auth",
     action: "auth.password_set",
@@ -421,7 +436,7 @@ export async function setPasswordAction(
 
   return {
     error: null,
-    success: "Password added. You can now sign in with email and password.",
+    success: `Password added. You can now sign in with: ${user.email}`,
   };
 }
 
