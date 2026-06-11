@@ -112,7 +112,12 @@ export default async function SettingsPage({
         )}
 
         {currentTab === "accounts" && (
-          <ConnectedAccounts linkParam={linkParam} providerParam={params.provider} linkedProviders={linkedProviders} />
+          <ConnectedAccounts
+            linkParam={linkParam}
+            providerParam={params.provider}
+            linkedProviders={linkedProviders}
+            userEmail={freshUser?.email ?? null}
+          />
         )}
 
         {currentTab === "privacy" && (

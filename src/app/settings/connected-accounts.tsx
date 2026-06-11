@@ -43,15 +43,17 @@ export function ConnectedAccounts({
   linkParam,
   providerParam,
   linkedProviders: initialLinkedProviders,
+  userEmail: serverUserEmail = null,
 }: {
   linkParam?: string | null;
   providerParam?: string | null;
   linkedProviders: LinkedProviders;
+  userEmail?: string | null;
 }) {
   const router = useRouter();
   const [identities, setIdentities] = useState<IdentityProvider[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(serverUserEmail);
   const [userNewEmail, setUserNewEmail] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [serverProviders, setServerProviders] = useState<LinkedProviders>(initialLinkedProviders);
@@ -71,17 +73,19 @@ export function ConnectedAccounts({
       if (user) {
         const providers = getLinkedProviders(user);
         setServerProviders(providers);
-        setUserEmail(user.email ?? null);
+        setUserEmail(user.email ?? serverUserEmail ?? null);
         setUserNewEmail(user.new_email ?? null);
-        setEmailVerified(!!user.email_confirmed_at);
+        setEmailVerified(!!user.email_confirmed_at || providers.hasGoogle);
         if (user.identities) {
           setIdentities(user.identities as IdentityProvider[]);
         }
+      } else if (serverUserEmail) {
+        setUserEmail(serverUserEmail);
       }
       setLoading(false);
     }
     load();
-  }, [linkGoogleState, unlinkState, passwordState, emailState, resendState]);
+  }, [linkGoogleState, unlinkState, passwordState, emailState, resendState, serverUserEmail]);
 
   const { hasPassword, hasGoogle, identityCount } = serverProviders;
 
@@ -230,6 +234,9 @@ export function ConnectedAccounts({
               passwordAction={passwordAction}
               emailAction={emailAction}
               resendAction={resendAction}
+              emailState={emailState}
+              hasGoogle={hasGoogle}
+              googleEmail={googleIdentity?.identity_data?.email as string ?? undefined}
             />
 
             <ProviderRow
@@ -308,6 +315,9 @@ function EmailPasswordRow({
   passwordAction,
   emailAction,
   resendAction,
+  emailState,
+  hasGoogle,
+  googleEmail,
 }: {
   hasPassword: boolean;
   userEmail: string | null;
@@ -316,6 +326,9 @@ function EmailPasswordRow({
   passwordAction: (payload: FormData) => void;
   emailAction: (payload: FormData) => void;
   resendAction: (payload: FormData) => void;
+  emailState: AuthState;
+  hasGoogle: boolean;
+  googleEmail?: string;
 }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -325,6 +338,13 @@ function EmailPasswordRow({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const emailSuccess = emailState.success;
+  useEffect(() => {
+    if (emailSuccess) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowEmailForm(false);
+    }
+  }, [emailSuccess]);
 
   const passwordChecks = {
     minChars: passwordVal.length >= 8,
@@ -335,6 +355,9 @@ function EmailPasswordRow({
   };
   const allPasswordChecksPass = Object.values(passwordChecks).every(Boolean);
   const passwordsMatch = confirmPasswordVal.length > 0 && passwordVal === confirmPasswordVal;
+
+  const isEmailVerified = emailVerified || hasGoogle;
+  const activeEmail = userEmail || googleEmail;
 
   return (
     <div className="rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-700">
@@ -347,9 +370,9 @@ function EmailPasswordRow({
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               Email &amp; Password
             </p>
-            {userEmail && (
+            {activeEmail && (
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {hasPassword ? `You can now sign in with: ${userEmail}` : userEmail}
+                {hasPassword ? `You can now sign in with: ${activeEmail}` : activeEmail}
               </p>
             )}
             <div className="mt-1 flex flex-wrap gap-1.5">
@@ -360,12 +383,12 @@ function EmailPasswordRow({
               ) : (
                 <span
                   className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
-                    emailVerified
+                    isEmailVerified
                       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                       : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                   }`}
                 >
-                  {emailVerified ? "Verified" : "Unverified"}
+                  {isEmailVerified ? "Verified" : "Unverified"}
                 </span>
               )}
               <span
@@ -532,7 +555,7 @@ function EmailPasswordRow({
           <form action={emailAction} className="space-y-3">
             <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300 space-y-1">
               <p>
-                <span className="font-semibold">Current email:</span> {userEmail || "None"} (active for sign-in)
+                <span className="font-semibold">Current email:</span> {activeEmail || "None"} (active for sign-in)
               </p>
               {userNewEmail && (
                 <div className="mt-2 space-y-2 rounded-md bg-amber-50 p-2.5 text-amber-900 dark:bg-amber-950/20 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
@@ -540,7 +563,7 @@ function EmailPasswordRow({
                     Email change pending: {userNewEmail}
                   </p>
                   <p className="text-[11px] leading-4">
-                    Please confirm the link sent to both your new email ({userNewEmail}) and old email ({userEmail}).
+                    Please confirm the link sent to your new email address ({userNewEmail}).
                   </p>
                 </div>
               )}
