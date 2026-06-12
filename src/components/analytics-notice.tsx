@@ -21,6 +21,7 @@ type StoredConsent = {
 type AnalyticsNoticeProps = {
   gaMeasurementId?: string;
   clarityProjectId?: string;
+  nonce?: string;
 };
 
 export function openCookieSettings() {
@@ -136,6 +137,7 @@ function clearAnalyticsCookies() {
 function AnalyticsScripts({
   gaMeasurementId,
   clarityProjectId,
+  nonce,
 }: AnalyticsNoticeProps) {
   return (
     <>
@@ -143,6 +145,7 @@ function AnalyticsScripts({
         <Script
           id="microsoft-clarity"
           strategy="afterInteractive"
+          nonce={nonce}
           data-project-id={clarityProjectId}
           dangerouslySetInnerHTML={{
             __html: `
@@ -162,6 +165,7 @@ function AnalyticsScripts({
           <Script
             id="google-analytics-src"
             strategy="afterInteractive"
+            nonce={nonce}
             src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(
               gaMeasurementId,
             )}`}
@@ -169,6 +173,7 @@ function AnalyticsScripts({
           <Script
             id="google-analytics-init"
             strategy="afterInteractive"
+            nonce={nonce}
             data-measurement-id={gaMeasurementId}
             dangerouslySetInnerHTML={{
               __html: `
@@ -189,6 +194,7 @@ function AnalyticsScripts({
 export default function AnalyticsNotice({
   gaMeasurementId,
   clarityProjectId,
+  nonce,
 }: AnalyticsNoticeProps) {
   const hasAnalytics = Boolean(gaMeasurementId || clarityProjectId);
   const consent = useSyncExternalStore(
@@ -235,6 +241,7 @@ export default function AnalyticsNotice({
         <AnalyticsScripts
           gaMeasurementId={gaMeasurementId}
           clarityProjectId={clarityProjectId}
+          nonce={nonce}
         />
       )}
 
