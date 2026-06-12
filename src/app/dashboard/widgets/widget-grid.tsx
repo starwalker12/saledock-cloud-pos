@@ -298,7 +298,7 @@ export function WidgetGrid({
         layouts={{ lg: layout, md: layout, sm: layout, xs: layout, xxs: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 4, md: 4, sm: 2, xs: 1, xxs: 1 }}
-        rowHeight={100}
+        rowHeight={136}
         margin={[16, 16]}
         isDraggable={editing}
         isResizable={editing}
@@ -348,7 +348,7 @@ export function WidgetGrid({
               </div>
 
               {/* Main Content Area */}
-              <div className="widget-card-content relative min-h-0 flex-1 overflow-hidden">
+              <div className="widget-card-content relative min-h-0 flex-1 overflow-visible">
                 {hasLink && !editing ? (
                   <Link href={href} className="block h-full hover:opacity-85 transition">
                     {renderWidgetContent(widget.type, renderSize, state)}
