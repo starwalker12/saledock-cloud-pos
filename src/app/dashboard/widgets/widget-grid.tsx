@@ -6,8 +6,11 @@ import { Trash2, GripHorizontal, Check } from "lucide-react";
 import {
   WIDGET_COLORS,
   WIDGET_CATALOG,
+  BoardFillStyle,
   WidgetColor,
+  WidgetFillStyle,
   WidgetSize,
+  getWidgetColorMeta,
   renderWidgetContent,
 } from "./widget-registry";
 
@@ -44,6 +47,7 @@ type WidgetInstance = {
   type: string;
   size: WidgetSize;
   color: WidgetColor;
+  fillStyle?: WidgetFillStyle;
   x: number;
   y: number;
   w: number;
@@ -55,15 +59,45 @@ type WidgetGridProps = {
   onChangeWidgets: (widgets: WidgetInstance[]) => void;
   editing: boolean;
   state: any;
+  boardFillStyle: BoardFillStyle;
+  highlightWidgetId: string | null;
+  onHighlightComplete: () => void;
 };
 
-export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetGridProps) {
+export function WidgetGrid({
+  widgets,
+  onChangeWidgets,
+  editing,
+  state,
+  boardFillStyle,
+  highlightWidgetId,
+  onHighlightComplete,
+}: WidgetGridProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 0);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!highlightWidgetId || typeof window === "undefined") return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const scrollTimer = window.setTimeout(() => {
+      const widgetElement = document.querySelector(`[data-widget-id="${highlightWidgetId}"]`);
+      widgetElement?.scrollIntoView({
+        block: "center",
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+    }, 80);
+    const clearTimer = window.setTimeout(onHighlightComplete, 1600);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [highlightWidgetId, onHighlightComplete]);
 
   if (!mounted) {
     return (
@@ -89,6 +123,8 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
   }));
 
   const handleLayoutChange = (currentLayout: readonly any[]) => {
+    if (!editing) return;
+
     const updated = widgets.map((widget) => {
       const item = currentLayout.find((l) => l.i === widget.id);
       if (item) {
@@ -123,6 +159,8 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
   };
 
   const handleResize = (currentLayout: readonly any[], oldItem: any, newItem: any) => {
+    if (!editing) return;
+
     const size = getWidgetSizeFromDims(newItem.w, newItem.h);
     const updated = widgets.map((w) => {
       if (w.id === newItem.i) {
@@ -170,11 +208,30 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
     );
   };
 
+  const handleUpdateWidgetFillStyle = (id: string, fillStyle: WidgetFillStyle) => {
+    onChangeWidgets(
+      widgets.map((w) => {
+        if (w.id === id) {
+          return { ...w, fillStyle };
+        }
+        return w;
+      })
+    );
+  };
+
   return (
-    <div className={`relative ${editing ? "edit-mode-active" : ""}`}>
+    <div className={`dashboard-widget-grid relative ${editing ? "edit-mode-active" : ""}`}>
       {editing && (
         <style dangerouslySetInnerHTML={{
           __html: `
+            .dashboard-widget-grid .react-grid-item {
+              transition: transform 220ms ease, width 220ms ease, height 220ms ease;
+            }
+            .dashboard-widget-grid .react-grid-item.react-draggable-dragging,
+            .dashboard-widget-grid .react-grid-item.react-resizable-resizing {
+              z-index: 40;
+              transition: none;
+            }
             .react-resizable-handle {
               bottom: 6px !important;
               right: 6px !important;
@@ -195,7 +252,7 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
       )}
       <ResponsiveGridLayout
         className="layout"
-        layouts={{ lg: layout, md: layout, sm: layout, xs: layout }}
+        layouts={{ lg: layout, md: layout, sm: layout, xs: layout, xxs: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 4, md: 4, sm: 2, xs: 1, xxs: 1 }}
         rowHeight={100}
@@ -207,14 +264,19 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
         onResize={handleResize}
       >
         {widgets.map((widget) => {
-          const colorMeta = WIDGET_COLORS.find((c) => c.value === widget.color) || WIDGET_COLORS[0];
+          const colorMeta = getWidgetColorMeta(widget.color);
+          const renderSize = getWidgetSizeFromDims(widget.w, widget.h);
+          const effectiveFillStyle = widget.fillStyle && widget.fillStyle !== "inherit" ? widget.fillStyle : boardFillStyle;
+          const fillClass = effectiveFillStyle === "gradient" ? colorMeta.gradientBg : colorMeta.bg;
+          const isHighlighted = highlightWidgetId === widget.id;
           const hasLink = widget.type === "low-stock" || widget.type === "pending-repairs";
           const href = widget.type === "low-stock" ? "/purchases/replenishment" : "/repairs";
 
           return (
             <div
               key={widget.id}
-              className={`rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm p-4 flex flex-col justify-between transition-colors duration-200 group/widget relative ${colorMeta.bg}`}
+              data-widget-id={widget.id}
+              className={`rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between transition-colors duration-200 group/widget relative min-w-0 dark:border-slate-800/80 ${fillClass} ${isHighlighted ? "animate-dashboard-widget-highlight" : ""}`}
             >
               {/* Header Title (Clean, same in Edit and View modes) */}
               <div className="flex items-center justify-between gap-2 border-b border-slate-200/40 dark:border-slate-800/40 pb-1.5 mb-1.5 shrink-0">
@@ -227,26 +289,30 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
               <div className="flex-1 min-h-0 relative">
                 {hasLink && !editing ? (
                   <Link href={href} className="block h-full hover:opacity-85 transition">
-                    {renderWidgetContent(widget.type, widget.size, state)}
+                    {renderWidgetContent(widget.type, renderSize, state)}
                   </Link>
                 ) : (
-                  renderWidgetContent(widget.type, widget.size, state)
+                  renderWidgetContent(widget.type, renderSize, state)
                 )}
               </div>
 
               {/* Floating Edit Toolbar - sits on top-right corner of card */}
               {editing && (
                 <div 
-                  className="absolute -top-3.5 right-2.5 z-30 flex items-center bg-[#fff] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1.5 py-0.5 shadow-md select-none"
+                  className="absolute -top-4 right-2 z-30 flex max-w-[calc(100%-1rem)] items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-[#fff] px-1.5 py-0.5 shadow-md select-none dark:border-slate-800 dark:bg-slate-900"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Drag Handle */}
-                  <div className="cursor-grab active:cursor-grabbing widget-drag-handle p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Drag to reorder">
+                  <div
+                    className="cursor-grab active:cursor-grabbing widget-drag-handle p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    title="Drag to reorder"
+                    aria-label="Drag to reorder widget"
+                  >
                     <GripHorizontal className="size-3.5" />
                   </div>
 
                   {/* Size Pill */}
-                  <div className="flex bg-slate-100 dark:bg-slate-850 rounded-lg p-0.5 ml-1">
+                  <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 ml-1">
                     {(["S", "M", "L", "XL"] as WidgetSize[]).map((sz) => (
                       <button
                         key={sz}
@@ -255,8 +321,9 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
                           e.stopPropagation();
                           handleUpdateWidgetSize(widget.id, sz);
                         }}
+                        aria-label={`Set widget size to ${sz}`}
                         className={`text-[9px] font-black w-4.5 h-4.5 rounded flex items-center justify-center transition ${
-                          widget.size === sz
+                          renderSize === sz
                             ? "bg-blue-600 text-white dark:bg-blue-500"
                             : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
                         }`}
@@ -279,14 +346,39 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
                             handleUpdateWidgetColor(widget.id, c.value);
                           }}
                           className={`size-3 rounded-full border border-slate-300 dark:border-slate-700 transition flex items-center justify-center relative ${
-                            c.value === "neutral" ? "bg-slate-400" :
-                            c.value === "info" ? "bg-blue-400" :
-                            c.value === "success" ? "bg-green-400" :
-                            c.value === "warning" ? "bg-amber-400" : "bg-red-400"
+                            c.chip
                           }`}
                           title={c.label}
+                          aria-label={`Set widget color to ${c.label}`}
                         >
                           {isSelected && <Check className="size-2 text-white shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Fill Style Selector */}
+                  <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1.5 ml-1 dark:border-slate-800">
+                    {(["inherit", "solid", "gradient"] as WidgetFillStyle[]).map((fill) => {
+                      const isSelected = (widget.fillStyle ?? "inherit") === fill;
+                      const label = fill === "inherit" ? "Inherit board fill" : fill === "solid" ? "Solid fill" : "Gradient fill";
+                      return (
+                        <button
+                          key={fill}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateWidgetFillStyle(widget.id, fill);
+                          }}
+                          className={`flex h-4.5 min-w-4.5 items-center justify-center rounded px-1 text-[9px] font-black transition ${
+                            isSelected
+                              ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-950"
+                              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                          }`}
+                          title={label}
+                          aria-label={label}
+                        >
+                          {fill === "inherit" ? "I" : fill === "solid" ? "S" : "G"}
                         </button>
                       );
                     })}
@@ -301,6 +393,7 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
                     }}
                     className="p-1 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition border-l border-slate-200 dark:border-slate-800 pl-1.5 ml-1"
                     title="Remove widget"
+                    aria-label="Remove widget"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

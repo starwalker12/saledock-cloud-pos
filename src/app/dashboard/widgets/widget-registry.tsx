@@ -20,14 +20,62 @@ import { formatCurrency, formatNumber } from "@/lib/formatters";
 
 // Approved widget colors that are readable in both light and dark modes
 export type WidgetColor = "neutral" | "info" | "success" | "warning" | "danger";
+export type BoardFillStyle = "solid" | "gradient";
+export type WidgetFillStyle = "inherit" | BoardFillStyle;
 
-export const WIDGET_COLORS: { value: WidgetColor; label: string; bg: string; text: string }[] = [
-  { value: "neutral", label: "Slate", bg: "bg-[#f1f5f9] dark:bg-[#1e293b]", text: "text-slate-800 dark:text-slate-200" },
-  { value: "info", label: "Blue", bg: "bg-[#eff6ff] dark:bg-[#1e3a8a]/40", text: "text-blue-800 dark:text-blue-200" },
-  { value: "success", label: "Green", bg: "bg-[#f0fdf4] dark:bg-[#064e3b]/40", text: "text-green-800 dark:text-green-200" },
-  { value: "warning", label: "Amber", bg: "bg-[#fffbeb] dark:bg-[#78350f]/40", text: "text-amber-800 dark:text-amber-200" },
-  { value: "danger", label: "Rose", bg: "bg-[#fef2f2] dark:bg-[#7f1d1d]/40", text: "text-red-800 dark:text-red-200" },
+export const WIDGET_COLORS: {
+  value: WidgetColor;
+  label: string;
+  bg: string;
+  gradientBg: string;
+  text: string;
+  chip: string;
+}[] = [
+  {
+    value: "neutral",
+    label: "Slate",
+    bg: "bg-[#f1f5f9] dark:bg-[#1e293b]",
+    gradientBg: "bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] dark:from-[#1e293b] dark:via-[#162033] dark:to-[#0f172a]",
+    text: "text-slate-800 dark:text-slate-200",
+    chip: "bg-slate-400",
+  },
+  {
+    value: "info",
+    label: "Blue",
+    bg: "bg-[#eff6ff] dark:bg-[#1e3a8a]/40",
+    gradientBg: "bg-gradient-to-br from-[#eff6ff] via-[#dbeafe] to-[#bfdbfe] dark:from-[#1e3a8a]/50 dark:via-[#1e40af]/35 dark:to-[#0f172a]",
+    text: "text-blue-800 dark:text-blue-200",
+    chip: "bg-blue-400",
+  },
+  {
+    value: "success",
+    label: "Green",
+    bg: "bg-[#f0fdf4] dark:bg-[#064e3b]/40",
+    gradientBg: "bg-gradient-to-br from-[#f0fdf4] via-[#dcfce7] to-[#bbf7d0] dark:from-[#064e3b]/55 dark:via-[#065f46]/35 dark:to-[#052e2b]",
+    text: "text-green-800 dark:text-green-200",
+    chip: "bg-green-400",
+  },
+  {
+    value: "warning",
+    label: "Amber",
+    bg: "bg-[#fffbeb] dark:bg-[#78350f]/40",
+    gradientBg: "bg-gradient-to-br from-[#fffbeb] via-[#fef3c7] to-[#fde68a] dark:from-[#78350f]/55 dark:via-[#92400e]/35 dark:to-[#451a03]",
+    text: "text-amber-800 dark:text-amber-200",
+    chip: "bg-amber-400",
+  },
+  {
+    value: "danger",
+    label: "Rose",
+    bg: "bg-[#fef2f2] dark:bg-[#7f1d1d]/40",
+    gradientBg: "bg-gradient-to-br from-[#fef2f2] via-[#fee2e2] to-[#fecaca] dark:from-[#7f1d1d]/55 dark:via-[#991b1b]/35 dark:to-[#450a0a]",
+    text: "text-red-800 dark:text-red-200",
+    chip: "bg-red-400",
+  },
 ];
+
+export function getWidgetColorMeta(color: WidgetColor) {
+  return WIDGET_COLORS.find((c) => c.value === color) ?? WIDGET_COLORS[0];
+}
 
 export type WidgetSize = "S" | "M" | "L" | "XL";
 
@@ -63,6 +111,50 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: "potential-profit-in-stock", type: "potential-profit-in-stock", category: "inventory", title: "Potential Profit", description: "Unearned profit potential in current active stock", defaultSize: "M", defaultColor: "warning", icon: Percent },
 ];
 
+const subtitleClass = "text-xs font-semibold leading-snug text-slate-600 dark:text-slate-300";
+const tinyMutedClass = "text-[11px] leading-snug text-slate-500 dark:text-slate-400";
+
+function TrendBarChart({
+  bars,
+  maxValue,
+  heightClass,
+  barClassName,
+  label,
+}: {
+  bars: { key: string | number; label: string; value: number; title: string }[];
+  maxValue: number;
+  heightClass: string;
+  barClassName: string;
+  label: string;
+}) {
+  const safeMax = Math.max(maxValue, 1);
+
+  return (
+    <div className={`flex items-end gap-1 ${heightClass}`} role="img" aria-label={label}>
+      {bars.map((bar) => {
+        const value = Number(bar.value ?? 0);
+        const pct = (value / safeMax) * 100;
+        const height = value > 0 ? Math.max(pct, 8) : 2;
+
+        return (
+          <div key={bar.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
+            <div className="flex h-full w-full items-end">
+              <div
+                className={`w-full rounded-t-sm transition-colors ${barClassName}`}
+                style={{ height: `${height}%` }}
+                title={bar.title}
+              />
+            </div>
+            <span className="text-xs font-bold leading-none text-slate-500 dark:text-slate-400">
+              {bar.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function renderWidgetContent(
   type: string,
   size: WidgetSize,
@@ -95,12 +187,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               {isPositive ? "Sales net profit" : "Negative net profit"}
             </p>
           )}
           {size === "M" && (
-            <div className={`text-[10px] font-bold rounded-lg px-2 py-1 inline-block mt-2 ${isPositive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}>
+            <div className={`text-xs font-bold rounded-lg px-2 py-1 inline-block mt-2 ${isPositive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}>
               {isPositive ? "▲ Estimated Net Profit" : "▼ Operating Under Margin"}
             </div>
           )}
@@ -139,12 +231,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Today&apos;s sales volume
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Rung up on {formatNumber(state.dashSummary.returnsCount + 1)} invoices today.
             </p>
           )}
@@ -161,7 +253,7 @@ export function renderWidgetContent(
                 </span>
               </div>
               {size === "XL" && (
-                <div className="mt-1 pt-1 border-t border-dashed border-slate-200/50 text-[10px] text-slate-400">
+                <div className="mt-1 pt-1 border-t border-dashed border-slate-200/50 text-xs text-slate-400">
                   Includes cash, digital receipts, and ledger customer credit entries.
                 </div>
               )}
@@ -180,12 +272,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Returned products
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               From {formatNumber(state.dashSummary.returnsCount)} returned transactions.
             </p>
           )}
@@ -200,7 +292,7 @@ export function renderWidgetContent(
                 <span className="font-bold text-rose-600">-{formatCurrency(state.dashSummary.returnsTotal, currency)}</span>
               </div>
               {size === "XL" && (
-                <div className="mt-1 pt-1 border-t border-dashed border-slate-200/50 text-[10px] text-slate-400">
+                <div className="mt-1 pt-1 border-t border-dashed border-slate-200/50 text-xs text-slate-400">
                   Requires manager authentication to approve returns and issue drawer cash refunds.
                 </div>
               )}
@@ -219,12 +311,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Operating expenditures
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Total of {formatNumber(state.expenses.todayCount)} expenses logged today.
             </p>
           )}
@@ -241,7 +333,7 @@ export function renderWidgetContent(
                 </span>
               </div>
               {size === "XL" && (
-                <div className="mt-1 pt-1 border-t border-dashed border-slate-200/50 text-[10px] text-slate-400">
+                <div className="mt-1 pt-1 border-t border-dashed border-slate-200/50 text-xs text-slate-400">
                   Tracks salaries, utilities, transport, and general maintenance operations.
                 </div>
               )}
@@ -260,27 +352,27 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Below reorder thresholds
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Stock replenishment is recommended.
             </p>
           )}
           {(size === "L" || size === "XL") && (
             <div className="mt-2 space-y-1 text-xs border-t border-slate-200/50 pt-2 dark:border-slate-700/50">
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Status Summary</p>
+              <p className="text-xs font-bold text-slate-400 uppercase">Status Summary</p>
               <div className="flex justify-between text-slate-600 dark:text-slate-300">
                 <span>Total catalog lines:</span>
                 <span>Active</span>
               </div>
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1">
                 {state.dashSummary.lowStockCount > 0 ? "Items require immediate reorder" : "All products sufficiently stocked"}
               </p>
               {size === "XL" && (
-                <Link href="/purchases/replenishment" className="mt-2 text-center block text-[10px] font-bold text-blue-700 dark:text-blue-400 hover:underline">
+                <Link href="/purchases/replenishment" className="mt-2 text-center block text-xs font-bold text-blue-700 dark:text-blue-400 hover:underline">
                   Open Replenishment Center →
                 </Link>
               )}
@@ -299,12 +391,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Awaiting parts / In Progress
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Assigned technician queues.
             </p>
           )}
@@ -314,11 +406,11 @@ export function renderWidgetContent(
                 <span className="text-slate-500">Uncollected jobs:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{state.dashSummary.pendingRepairsCount} active</span>
               </div>
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1">
                 Technicians currently working on client repairs.
               </p>
               {size === "XL" && (
-                <Link href="/repairs" className="mt-2 text-center block text-[10px] font-bold text-blue-700 dark:text-blue-400 hover:underline">
+                <Link href="/repairs" className="mt-2 text-center block text-xs font-bold text-blue-700 dark:text-blue-400 hover:underline">
                   Manage Repairs Panel →
                 </Link>
               )}
@@ -337,12 +429,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Outstanding bills payable
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Credit owed to suppliers.
             </p>
           )}
@@ -352,9 +444,14 @@ export function renderWidgetContent(
                 <span className="text-slate-500">Balance:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(state.dashSummary.supplierDuesTotal, currency)}</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-1">
                 Outstanding dues automatically accumulate from unpaid FIFO purchase lots.
               </p>
+              {size === "XL" && (
+                <Link href="/suppliers/dues" className="mt-2 block text-center text-xs font-bold text-blue-700 hover:underline dark:text-blue-400">
+                  Open Supplier Dues
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -370,12 +467,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Ledger credit receivable
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Outstanding credit balance.
             </p>
           )}
@@ -385,9 +482,14 @@ export function renderWidgetContent(
                 <span className="text-slate-500">Debts Owed:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(state.dashSummary.customerDuesTotal, currency)}</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-1">
                 Customers with ledger balances. Collect settlements to clear.
               </p>
+              {size === "XL" && (
+                <Link href="/customers" className="mt-2 block text-center text-xs font-bold text-blue-700 hover:underline dark:text-blue-400">
+                  Review Customer Accounts
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -396,6 +498,14 @@ export function renderWidgetContent(
 
     case "weekly-sales": {
       const maxVal = Math.max(...state.weekSales.map((w) => w.total), 1);
+      const weeklyTotal = state.weekSales.reduce((acc, w) => acc + w.total, 0);
+      const highDay = state.weekSales.reduce((best, current) => current.total > (best?.total ?? -1) ? current : best, null as any);
+      const chartBars = state.weekSales.map((bar, idx) => ({
+        key: `${bar.date}-${idx}`,
+        label: bar.label,
+        value: Number(bar.total ?? 0),
+        title: `${bar.date}: ${formatCurrency(bar.total, currency)}`,
+      }));
       return (
         <div className="flex flex-col h-full justify-between">
           <div>
@@ -404,32 +514,32 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">
-              {formatCurrency(state.weekSales.reduce((acc, w) => acc + w.total, 0), currency)}
-            </p>
-          )}
-          {size !== "S" && state.weekSales.length > 0 && (
-            <div className="flex items-end gap-1 my-2" style={{ height: "40px" }}>
-              {state.weekSales.map((bar, idx) => {
-                const pct = (bar.total / maxVal) * 100;
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center">
-                    <div
-                      className="w-full bg-blue-500/30 rounded-t-sm hover:bg-blue-600 transition-colors"
-                      style={{ height: `${Math.max(pct, 4)}%` }}
-                      title={`${bar.date}: ${formatCurrency(bar.total, currency)}`}
-                    />
-                    <span className="text-[8px] text-slate-400 mt-1">{bar.label}</span>
-                  </div>
-                );
-              })}
+            <div>
+              <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                {formatCurrency(weeklyTotal, currency)}
+              </p>
+              <p className={subtitleClass}>7-day total</p>
             </div>
           )}
+          {size !== "S" && state.weekSales.length > 0 && (
+            <TrendBarChart
+              bars={chartBars}
+              maxValue={maxVal}
+              heightClass={size === "M" ? "h-12 my-2" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
+              barClassName="bg-blue-600/60 hover:bg-blue-700 dark:bg-blue-400/70 dark:hover:bg-blue-300"
+              label="Weekly sales bar chart"
+            />
+          )}
           {(size === "L" || size === "XL") && (
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
+            <div className="text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
               Total weekly revenue: <strong className="text-slate-900 dark:text-white">
-                {formatCurrency(state.weekSales.reduce((acc, w) => acc + w.total, 0), currency)}
+                {formatCurrency(weeklyTotal, currency)}
               </strong>
+              {size === "XL" && highDay && (
+                <p className="mt-1 font-semibold text-slate-600 dark:text-slate-300">
+                  Best day: {highDay.label} at {formatCurrency(highDay.total, currency)}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -439,6 +549,13 @@ export function renderWidgetContent(
     case "monthly-sales": {
       const maxVal = Math.max(...state.monthSales.map((m) => m.total), 1);
       const totalMonth = state.monthSales.reduce((acc, m) => acc + m.total, 0);
+      const bestDay = state.monthSales.reduce((best, current) => current.total > (best?.total ?? -1) ? current : best, null as any);
+      const chartBars = state.monthSales.map((bar) => ({
+        key: bar.day,
+        label: size === "XL" || bar.day % 5 === 1 ? String(bar.day) : "",
+        value: Number(bar.total ?? 0),
+        title: `Day ${bar.day}: ${formatCurrency(bar.total, currency)}`,
+      }));
       return (
         <div className="flex flex-col h-full justify-between">
           <div>
@@ -447,29 +564,30 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">
-              {formatCurrency(totalMonth, currency)}
-            </p>
-          )}
-          {size !== "S" && state.monthSales.length > 0 && (
-            <div className="flex items-end gap-px my-2" style={{ height: "40px" }}>
-              {state.monthSales.map((bar, idx) => {
-                const pct = (bar.total / maxVal) * 100;
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center">
-                    <div
-                      className="w-full bg-cyan-500/25 rounded-t-sm hover:bg-cyan-500 transition-colors"
-                      style={{ height: `${Math.max(pct, 3)}%` }}
-                      title={`Day ${bar.day}: ${formatCurrency(bar.total, currency)}`}
-                    />
-                  </div>
-                );
-              })}
+            <div>
+              <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                {formatCurrency(totalMonth, currency)}
+              </p>
+              <p className={subtitleClass}>Month to date</p>
             </div>
           )}
+          {size !== "S" && state.monthSales.length > 0 && (
+            <TrendBarChart
+              bars={chartBars}
+              maxValue={maxVal}
+              heightClass={size === "M" ? "h-12 my-2" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
+              barClassName="bg-cyan-600/55 hover:bg-cyan-700 dark:bg-cyan-400/70 dark:hover:bg-cyan-300"
+              label="Monthly sales bar chart"
+            />
+          )}
           {(size === "L" || size === "XL") && (
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
+            <div className="text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
               Total month-to-date: <strong className="text-slate-900 dark:text-white">{formatCurrency(totalMonth, currency)}</strong>
+              {size === "XL" && bestDay && (
+                <p className="mt-1 font-semibold text-slate-600 dark:text-slate-300">
+                  Best day: {bestDay.day} at {formatCurrency(bestDay.total, currency)}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -553,7 +671,7 @@ export function renderWidgetContent(
                 </p>
               )}
               {size === "M" && (
-                <div className="space-y-1 text-[10px]">
+                <div className="space-y-1 text-xs">
                   {logs.slice(0, 3).map((l: any) => (
                     <div key={l.id} className="flex justify-between text-slate-700 dark:text-slate-300 truncate">
                       <span className="truncate max-w-[150px]">{l.left}</span>
@@ -568,7 +686,7 @@ export function renderWidgetContent(
                     <div key={l.id} className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 py-1 last:border-0 truncate">
                       <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: l.color }} />
                       <span className="text-slate-700 dark:text-slate-300 truncate flex-1">{l.left}</span>
-                      <span className="font-bold text-[10px] text-slate-400 shrink-0">
+                      <span className="font-bold text-xs text-slate-400 shrink-0">
                         {new Date(l.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -591,12 +709,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Customer ledger collections
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Settlements received from active ledger accounts.
             </p>
           )}
@@ -610,6 +728,11 @@ export function renderWidgetContent(
                 <span className="text-slate-500">Digital collection:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(state.todayActivity?.creditCollectionDigital ?? 0, currency)}</span>
               </div>
+              {size === "XL" && (
+                <p className={tinyMutedClass}>
+                  Total settlements: {formatCurrency(collections, currency)}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -626,12 +749,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Operational net cash flow
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Calculated as today&apos;s invoices minus expenses.
             </p>
           )}
@@ -645,6 +768,11 @@ export function renderWidgetContent(
                 <span className="text-slate-500">Expenses Outflow:</span>
                 <span className="font-bold text-rose-600">-{formatCurrency(state.expenses.todayTotal, currency)}</span>
               </div>
+              {size === "XL" && (
+                <p className={tinyMutedClass}>
+                  Net result: {net >= 0 ? "positive operational flow" : "expense-heavy day"}.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -661,12 +789,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Drawer status today
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               {isClosed ? "Finalized by manager." : "Expected drawer cash accumulating."}
             </p>
           )}
@@ -684,6 +812,11 @@ export function renderWidgetContent(
                   </span>
                 </div>
               )}
+              {size === "XL" && (
+                <p className={tinyMutedClass}>
+                  {isClosed ? "The drawer was finalized for this branch." : "The drawer is still open for today."}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -699,12 +832,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Expense vouchers today
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Totaling {formatCurrency(state.expenses.todayTotal, currency)}.
             </p>
           )}
@@ -714,9 +847,15 @@ export function renderWidgetContent(
                 <span className="text-slate-500">Total Outflow:</span>
                 <span className="font-bold text-rose-600">-{formatCurrency(state.expenses.todayTotal, currency)}</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-1">
                 Vouchers require name, category, payment mode, and supporting bill details.
               </p>
+              {size === "XL" && state.expenses.topCategoryThisMonth && (
+                <div className="flex justify-between border-t border-dashed border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
+                  <span className="text-slate-500">Top month category:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{state.expenses.topCategoryThisMonth.name}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -732,20 +871,25 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Cost value of stock lots
             </p>
           )}
           {size === "M" && (
-            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
               Calculated using FIFO batch pricing logs.
             </p>
           )}
           {(size === "L" || size === "XL") && (
             <div className="mt-2 space-y-1 text-xs border-t border-slate-200/50 pt-2 dark:border-slate-700/50">
-              <p className="text-[10px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 Asset valuation shows absolute cost spent to procure all active store products.
               </p>
+              {size === "XL" && (
+                <p className={tinyMutedClass}>
+                  Uses active stock lots with quantity remaining above zero.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -761,7 +905,7 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Unearned profit estimate
             </p>
           )}
@@ -788,10 +932,15 @@ export function renderWidgetContent(
                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(state.potentialProfit.totalInventoryCostValue, currency)}</span>
               </div>
               {state.potentialProfit.marginPercent !== null && (
-                <div className="flex justify-between border-t border-dashed border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
+                <div className={`flex justify-between ${size === "XL" ? "border-t border-dashed border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50" : ""}`}>
                   <span className="text-slate-500">Average Margin:</span>
                   <span className="font-black text-emerald-600 dark:text-emerald-400">{state.potentialProfit.marginPercent}%</span>
                 </div>
+              )}
+              {size === "XL" && (
+                <p className={tinyMutedClass}>
+                  Sale value minus FIFO stock cost for currently active inventory.
+                </p>
               )}
             </div>
           )}

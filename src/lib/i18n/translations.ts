@@ -260,6 +260,9 @@ const en: Dict = {
     small: "Small",
     medium: "Medium",
     large: "Large",
+    fillStyle: "Fill",
+    solid: "Solid",
+    gradient: "Gradient",
   },
   footer: {
     privacyPolicy: "Privacy Policy",
@@ -526,6 +529,9 @@ const ur: Dict = {
     small: "\u0686\u06BE\u0648\u0679\u0627",
     medium: "\u062F\u0631\u0645\u06CC\u0627\u0646\u06C1",
     large: "\u0628\u0691\u0627",
+    fillStyle: "\u0641\u0644",
+    solid: "\u0633\u0627\u062F\u06C1",
+    gradient: "\u06AF\u0631\u06CC\u0688\u06CC\u0646\u0679",
   },
   footer: {
     privacyPolicy: "\u0631\u0627\u0632\u062F\u0627\u0631\u06CC \u06A9\u06CC \u067E\u0627\u0644\u06CC\u0633\u06CC",
@@ -792,6 +798,9 @@ const urRoman: Dict = {
     small: "Small",
     medium: "Medium",
     large: "Large",
+    fillStyle: "Fill",
+    solid: "Solid",
+    gradient: "Gradient",
   },
   footer: {
     privacyPolicy: "Privacy Policy",

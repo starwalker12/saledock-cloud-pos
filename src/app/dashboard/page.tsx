@@ -170,7 +170,7 @@ export default async function DashboardPage() {
     return (
       <AppShell pageTitle="Dashboard">
         <div className="flex items-center justify-center py-20">
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-[#fff] p-8 text-center shadow-sm">
             <h2 className="text-lg font-black text-slate-950">Supabase not configured</h2>
             <p className="mt-2 text-sm text-slate-500">
               Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY to .env.local, then restart the dev server.
@@ -220,18 +220,21 @@ export default async function DashboardPage() {
     small: t.small || "Small",
     medium: t.medium || "Medium",
     large: t.large || "Large",
+    fillStyle: t.fillStyle || "Fill",
+    solid: t.solid || "Solid",
+    gradient: t.gradient || "Gradient",
   };
 
   return (
     <AppShell pageTitle="Dashboard">
       {/* Main dashboard card */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
         {/* Browser-style chrome bar */}
         <div className="flex items-center gap-1.5 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.03]">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
-          <span className="ml-2 truncate rounded-md border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-400">
+          <span className="ml-2 truncate rounded-md border border-slate-200 bg-[#fff] px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-400">
             {organization?.name ?? "SaleDock"} / dashboard
           </span>
         </div>

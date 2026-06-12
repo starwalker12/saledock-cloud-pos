@@ -1,12 +1,13 @@
 "use client";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useMemo, useSyncExternalStore } from "react";
+import React, { useState, useMemo, useSyncExternalStore, useCallback } from "react";
 import Link from "next/link";
 import { LayoutGrid, Check, RotateCcw, Plus, ShoppingCart } from "lucide-react";
-import { WidgetGrid, getWidgetDimsFromSize } from "./widgets/widget-grid";
+import { WidgetGrid, getWidgetDimsFromSize, getWidgetSizeFromDims } from "./widgets/widget-grid";
 import { WidgetGallery } from "./widgets/widget-gallery";
-import { WIDGET_CATALOG, WidgetColor, WidgetSize } from "./widgets/widget-registry";
+import { BoardFillStyle, WIDGET_CATALOG, WidgetColor, WidgetFillStyle, WidgetSize } from "./widgets/widget-registry";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DASHBOARD_KEY,
   DASHBOARD_EVENT,
@@ -26,6 +27,9 @@ export type DashboardLayoutLabels = {
   small: string;
   medium: string;
   large: string;
+  fillStyle: string;
+  solid: string;
+  gradient: string;
 };
 
 type WidgetInstance = {
@@ -33,11 +37,19 @@ type WidgetInstance = {
   type: string;
   size: WidgetSize;
   color: WidgetColor;
+  fillStyle?: WidgetFillStyle;
   x: number;
   y: number;
   w: number;
   h: number;
 };
+
+type DashboardPreferences = {
+  widgets: WidgetInstance[];
+  fillStyle: BoardFillStyle;
+};
+
+const DEFAULT_FILL_STYLE: BoardFillStyle = "solid";
 
 // Default layout matching the current dashboard cards and sections
 const DEFAULT_WIDGETS: WidgetInstance[] = [
@@ -60,6 +72,98 @@ const DEFAULT_WIDGETS: WidgetInstance[] = [
   { id: "widget-stock-valuation", type: "stock-valuation", size: "S", color: "neutral", x: 0, y: 8, w: 1, h: 1 },
   { id: "widget-potential-profit-in-stock", type: "potential-profit-in-stock", size: "M", color: "warning", x: 1, y: 8, w: 3, h: 1 },
 ];
+
+const widgetSizes = new Set<WidgetSize>(["S", "M", "L", "XL"]);
+const widgetColors = new Set<WidgetColor>(["neutral", "info", "success", "warning", "danger"]);
+const widgetFillStyles = new Set<WidgetFillStyle>(["inherit", "solid", "gradient"]);
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function normalizeWidgets(value: unknown): WidgetInstance[] {
+  if (!Array.isArray(value)) return DEFAULT_WIDGETS;
+
+  const seenIds = new Set<string>();
+  const normalized = value
+    .map((raw, index) => {
+      if (!raw || typeof raw !== "object") return null;
+      const item = raw as Partial<WidgetInstance>;
+      const catalog = WIDGET_CATALOG.find((widget) => widget.type === item.type);
+      if (!catalog || typeof item.id !== "string") return null;
+
+      const fallbackDims = getWidgetDimsFromSize(catalog.defaultSize);
+      const w = isFiniteNumber(item.w) && item.w > 0 ? Math.min(Math.max(Math.round(item.w), 1), 4) : fallbackDims.w;
+      const h = isFiniteNumber(item.h) && item.h > 0 ? Math.min(Math.max(Math.round(item.h), 1), 4) : fallbackDims.h;
+      const size = widgetSizes.has(item.size as WidgetSize) ? (item.size as WidgetSize) : catalog.defaultSize;
+      const derivedSize = getWidgetDimsFromSize(size);
+      const normalizedW = item.w === undefined ? derivedSize.w : w;
+      const normalizedH = item.h === undefined ? derivedSize.h : h;
+      const fillStyle = widgetFillStyles.has(item.fillStyle as WidgetFillStyle)
+        ? (item.fillStyle as WidgetFillStyle)
+        : undefined;
+
+      const id = seenIds.has(item.id) ? `${item.id}-${index}` : item.id;
+      seenIds.add(id);
+
+      const normalizedWidget: WidgetInstance = {
+        id,
+        type: catalog.type,
+        size: getWidgetSizeFromDims(normalizedW, normalizedH),
+        color: widgetColors.has(item.color as WidgetColor) ? (item.color as WidgetColor) : catalog.defaultColor,
+        x: isFiniteNumber(item.x) ? Math.max(Math.round(item.x), 0) : index % 4,
+        y: isFiniteNumber(item.y) ? Math.max(Math.round(item.y), 0) : Math.floor(index / 4),
+        w: normalizedW,
+        h: normalizedH,
+      };
+
+      if (fillStyle) {
+        normalizedWidget.fillStyle = fillStyle;
+      }
+
+      return normalizedWidget;
+    })
+    .filter((item): item is WidgetInstance => item !== null);
+
+  return normalized.length > 0 ? normalized : DEFAULT_WIDGETS;
+}
+
+function normalizeDashboardPreferences(layoutSnapshot: string): DashboardPreferences {
+  if (!layoutSnapshot) {
+    return { widgets: DEFAULT_WIDGETS, fillStyle: DEFAULT_FILL_STYLE };
+  }
+
+  try {
+    const parsed = JSON.parse(layoutSnapshot);
+    if (Array.isArray(parsed)) {
+      return { widgets: normalizeWidgets(parsed), fillStyle: DEFAULT_FILL_STYLE };
+    }
+    if (parsed && typeof parsed === "object") {
+      const prefs = parsed as { widgets?: unknown; fillStyle?: unknown; order?: unknown };
+      if (Array.isArray(prefs.widgets)) {
+        return {
+          widgets: normalizeWidgets(prefs.widgets),
+          fillStyle: prefs.fillStyle === "gradient" ? "gradient" : DEFAULT_FILL_STYLE,
+        };
+      }
+      if (Array.isArray(prefs.order)) {
+        return { widgets: DEFAULT_WIDGETS, fillStyle: DEFAULT_FILL_STYLE };
+      }
+    }
+  } catch {
+    return { widgets: DEFAULT_WIDGETS, fillStyle: DEFAULT_FILL_STYLE };
+  }
+
+  return { widgets: DEFAULT_WIDGETS, fillStyle: DEFAULT_FILL_STYLE };
+}
+
+function createWidgetId(type: string) {
+  const unique =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `widget-${type}-${unique}`;
+}
 
 function getLayoutSnapshot(): string {
   if (typeof window === "undefined") return "";
@@ -106,6 +210,7 @@ export function DashboardStatLayout({
 }) {
   // Sync preferences with database on mount (fail-open)
   useUIPreferencesSync();
+  const confirm = useConfirmDialog();
 
   const layoutSnapshot = useSyncExternalStore(
     subscribeToLayout,
@@ -113,55 +218,81 @@ export function DashboardStatLayout({
     getServerLayoutSnapshot
   );
 
-  const widgets = useMemo(() => {
-    try {
-      if (!layoutSnapshot) return DEFAULT_WIDGETS;
-      const parsed = JSON.parse(layoutSnapshot);
-      if (Array.isArray(parsed)) return parsed as WidgetInstance[];
-      if (parsed && typeof parsed === "object" && Array.isArray(parsed.order)) {
-        // Fallback for legacy layout object structure if found
-        return DEFAULT_WIDGETS;
-      }
-      return DEFAULT_WIDGETS;
-    } catch {
-      return DEFAULT_WIDGETS;
-    }
-  }, [layoutSnapshot]);
+  const dashboardPreferences = useMemo(
+    () => normalizeDashboardPreferences(layoutSnapshot),
+    [layoutSnapshot],
+  );
+  const widgets = dashboardPreferences.widgets;
+  const fillStyle = dashboardPreferences.fillStyle;
 
   const [editing, setEditing] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [highlightWidgetId, setHighlightWidgetId] = useState<string | null>(null);
 
-  const handleUpdateWidgets = (updated: WidgetInstance[]) => {
-    saveDashboardLayout(updated);
-  };
+  const persistDashboardPreferences = useCallback((nextWidgets: WidgetInstance[], nextFillStyle = fillStyle) => {
+    saveDashboardLayout({
+      widgets: nextWidgets,
+      fillStyle: nextFillStyle,
+    });
+  }, [fillStyle]);
+
+  const handleUpdateWidgets = useCallback((updated: WidgetInstance[]) => {
+    persistDashboardPreferences(updated);
+  }, [persistDashboardPreferences]);
 
   const handleAddWidget = (type: string) => {
     const catalogItem = WIDGET_CATALOG.find((w) => w.type === type);
     if (!catalogItem) return;
+    if (widgets.some((widget) => widget.type === type)) return;
 
-    // Find next available coordinate (append to bottom)
-    const maxY = widgets.reduce((max, w) => Math.max(max, w.y + w.h), 0);
     const dims = getWidgetDimsFromSize(catalogItem.defaultSize);
 
     const newWidget: WidgetInstance = {
-      id: `widget-${type}-${Date.now()}`,
+      id: createWidgetId(type),
       type,
       size: catalogItem.defaultSize,
       color: catalogItem.defaultColor,
+      fillStyle: "inherit",
       x: 0,
-      y: maxY,
+      y: 0,
       w: dims.w,
       h: dims.h,
     };
 
-    handleUpdateWidgets([...widgets, newWidget]);
+    const shiftedWidgets = widgets.map((widget) => ({
+      ...widget,
+      y: widget.y + dims.h,
+    }));
+    persistDashboardPreferences([newWidget, ...shiftedWidgets]);
+    setHighlightWidgetId(newWidget.id);
+    setGalleryOpen(false);
   };
 
-  const handleResetLayout = () => {
-    saveDashboardLayout(DEFAULT_WIDGETS);
-    setResetModalOpen(false);
+  const handleResetLayout = async () => {
+    const shouldReset = await confirm({
+      title: "Restore default dashboard?",
+      message: "This will restore the default widgets, sizes, colors, and fill style for your dashboard.",
+      confirmLabel: "Reset dashboard",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+
+    if (!shouldReset) return;
+
+    setHighlightWidgetId(null);
+    saveDashboardLayout({
+      widgets: DEFAULT_WIDGETS,
+      fillStyle: DEFAULT_FILL_STYLE,
+    });
   };
+
+  const handleFillStyleChange = (nextFillStyle: BoardFillStyle) => {
+    persistDashboardPreferences(widgets, nextFillStyle);
+  };
+
+  const clearHighlight = useCallback(() => {
+    setHighlightWidgetId(null);
+  }, []);
 
   const addedWidgetTypes = useMemo(() => {
     return new Set(widgets.map((w) => w.type));
@@ -191,17 +322,35 @@ export function DashboardStatLayout({
         <div className="flex flex-wrap items-center gap-2">
           {editing && (
             <>
+              <div className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 bg-[#f8fafc] px-1.5 text-xs font-bold text-slate-600 shadow-sm dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-300">
+                <span className="hidden px-1 sm:inline">{labels.fillStyle}</span>
+                {(["solid", "gradient"] as BoardFillStyle[]).map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => handleFillStyleChange(style)}
+                    aria-pressed={fillStyle === style}
+                    className={`h-6 rounded-lg px-2 text-[11px] font-black transition ${
+                      fillStyle === style
+                        ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)]"
+                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    {style === "solid" ? labels.solid : labels.gradient}
+                  </button>
+                ))}
+              </div>
               <button
                 type="button"
                 onClick={() => setGalleryOpen(true)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 text-xs font-bold transition shadow-sm focus:outline-none"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[var(--primary-accent-bg)] px-3 text-xs font-bold text-[var(--primary-accent-text)] shadow-sm transition hover:bg-[var(--primary-accent-hover)] focus:outline-none"
               >
                 <Plus className="size-3.5" aria-hidden="true" />
                 Add Widget
               </button>
               <button
                 type="button"
-                onClick={() => setResetModalOpen(true)}
+                onClick={handleResetLayout}
                 className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-[#f8fafc] px-3 text-xs font-bold text-slate-600 transition hover:bg-[#eef2f7] focus:outline-none dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]"
               >
                 <RotateCcw className="size-3.5" aria-hidden="true" />
@@ -239,6 +388,9 @@ export function DashboardStatLayout({
           onChangeWidgets={handleUpdateWidgets}
           editing={editing}
           state={stateForWidgets}
+          boardFillStyle={fillStyle}
+          highlightWidgetId={highlightWidgetId}
+          onHighlightComplete={clearHighlight}
         />
       </div>
 
@@ -246,40 +398,9 @@ export function DashboardStatLayout({
       <WidgetGallery
         isOpen={galleryOpen}
         onClose={() => setGalleryOpen(false)}
-        onAddWidget={(type) => {
-          handleAddWidget(type);
-          setGalleryOpen(false);
-        }}
+        onAddWidget={handleAddWidget}
         addedWidgetTypes={addedWidgetTypes}
       />
-
-      {/* Themed Reset Confirm Modal */}
-      {resetModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-[#0b1220] p-5 shadow-xl text-center animate-fade-in mx-4">
-            <h3 className="text-base font-black text-slate-950 dark:text-white">Restore Default Layout?</h3>
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Are you sure you want to reset your dashboard layout? This will revert all widgets, sizes, and colors back to defaults.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setResetModalOpen(false)}
-                className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleResetLayout}
-                className="flex-1 h-9 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-sm"
-              >
-                Confirm Reset
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

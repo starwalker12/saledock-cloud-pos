@@ -19,7 +19,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   activity: "System Activity",
 };
 
-export function WidgetGallery({ isOpen, onClose, onAddWidget }: WidgetGalleryProps) {
+export function WidgetGallery({ isOpen, onClose, onAddWidget, addedWidgetTypes }: WidgetGalleryProps) {
   if (!isOpen) return null;
 
   // Group widgets by category
@@ -64,6 +64,7 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget }: WidgetGalleryPro
               <div className="space-y-2">
                 {widgets.map((widget) => {
                   const Icon = widget.icon;
+                  const isAlreadyAdded = addedWidgetTypes.has(widget.type);
                   return (
                     <div
                       key={widget.id}
@@ -91,8 +92,14 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget }: WidgetGalleryPro
                       <button
                         type="button"
                         onClick={() => onAddWidget(widget.type)}
-                        className="p-1.5 rounded-lg border shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#fff] hover:bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-200"
-                        title="Add to layout"
+                        disabled={isAlreadyAdded}
+                        className={`rounded-lg border p-1.5 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isAlreadyAdded
+                            ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-600"
+                            : "border-slate-200 bg-[#fff] text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                        }`}
+                        title={isAlreadyAdded ? "Already on board" : "Add to layout"}
+                        aria-label={isAlreadyAdded ? `${widget.title} already on board` : `Add ${widget.title}`}
                       >
                         <Plus className="size-4" />
                       </button>
