@@ -25,12 +25,21 @@ export async function updateSession(
   request: NextRequest,
   csp?: { name: string; value: string; nonce: string; reportingEndpoints?: string }
 ) {
-  const requestHeaders = new Headers(request.headers);
+  let requestHeaders = new Headers(request.headers);
+  let hasCsp = false;
+
   if (csp) {
-    requestHeaders.set("x-nonce", csp.nonce);
-    requestHeaders.set(csp.name, csp.value);
-    if (csp.reportingEndpoints) {
-      requestHeaders.set("Reporting-Endpoints", csp.reportingEndpoints);
+    try {
+      requestHeaders.set("x-nonce", csp.nonce);
+      requestHeaders.set(csp.name, csp.value);
+      if (csp.reportingEndpoints) {
+        requestHeaders.set("Reporting-Endpoints", csp.reportingEndpoints);
+      }
+      hasCsp = true;
+    } catch (err) {
+      console.error("CSP updateSession request headers setup failed (failing open):", err);
+      requestHeaders = new Headers(request.headers);
+      hasCsp = false;
     }
   }
 
@@ -41,10 +50,20 @@ export async function updateSession(
   });
 
   if (!env.isSupabaseConfigured) {
-    if (csp) {
-      response.headers.set(csp.name, csp.value);
-      if (csp.reportingEndpoints) {
-        response.headers.set("Reporting-Endpoints", csp.reportingEndpoints);
+    if (hasCsp && csp) {
+      try {
+        response.headers.set(csp.name, csp.value);
+        if (csp.reportingEndpoints) {
+          response.headers.set("Reporting-Endpoints", csp.reportingEndpoints);
+        }
+      } catch (err) {
+        console.error("CSP updateSession response headers setup failed (failing open):", err);
+        try {
+          response.headers.delete(csp.name);
+          if (csp.reportingEndpoints) {
+            response.headers.delete("Reporting-Endpoints");
+          }
+        } catch {}
       }
     }
     return response;
@@ -85,19 +104,33 @@ export async function updateSession(
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
     const redirectResponse = NextResponse.redirect(url);
-    if (csp) {
-      redirectResponse.headers.set(csp.name, csp.value);
-      if (csp.reportingEndpoints) {
-        redirectResponse.headers.set("Reporting-Endpoints", csp.reportingEndpoints);
+    if (hasCsp && csp) {
+      try {
+        redirectResponse.headers.set(csp.name, csp.value);
+        if (csp.reportingEndpoints) {
+          redirectResponse.headers.set("Reporting-Endpoints", csp.reportingEndpoints);
+        }
+      } catch (err) {
+        console.error("CSP updateSession redirect headers setup failed (failing open):", err);
       }
     }
     return redirectResponse;
   }
 
-  if (csp) {
-    response.headers.set(csp.name, csp.value);
-    if (csp.reportingEndpoints) {
-      response.headers.set("Reporting-Endpoints", csp.reportingEndpoints);
+  if (hasCsp && csp) {
+    try {
+      response.headers.set(csp.name, csp.value);
+      if (csp.reportingEndpoints) {
+        response.headers.set("Reporting-Endpoints", csp.reportingEndpoints);
+      }
+    } catch (err) {
+      console.error("CSP updateSession response headers setup failed (failing open):", err);
+      try {
+        response.headers.delete(csp.name);
+        if (csp.reportingEndpoints) {
+          response.headers.delete("Reporting-Endpoints");
+        }
+      } catch {}
     }
   }
 
