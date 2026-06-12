@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Plus, Check } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { WIDGET_CATALOG, WidgetDef } from "./widget-registry";
 
 type WidgetGalleryProps = {
@@ -19,7 +19,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   activity: "System Activity",
 };
 
-export function WidgetGallery({ isOpen, onClose, onAddWidget, addedWidgetTypes }: WidgetGalleryProps) {
+export function WidgetGallery({ isOpen, onClose, onAddWidget }: WidgetGalleryProps) {
   if (!isOpen) return null;
 
   // Group widgets by category
@@ -63,7 +63,6 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, addedWidgetTypes }
               </h3>
               <div className="space-y-2">
                 {widgets.map((widget) => {
-                  const isAdded = addedWidgetTypes.has(widget.type);
                   const Icon = widget.icon;
                   return (
                     <div
@@ -88,19 +87,14 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, addedWidgetTypes }
                         </span>
                       </div>
 
-                      {/* Button */}
+                      {/* Add Button */}
                       <button
                         type="button"
-                        onClick={() => !isAdded && onAddWidget(widget.type)}
-                        disabled={isAdded}
-                        className={`p-1.5 rounded-lg border shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isAdded
-                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30"
-                            : "bg-[#fff] hover:bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-200"
-                        }`}
-                        title={isAdded ? "Already added" : "Add to layout"}
+                        onClick={() => onAddWidget(widget.type)}
+                        className="p-1.5 rounded-lg border shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#fff] hover:bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-200"
+                        title="Add to layout"
                       >
-                        {isAdded ? <Check className="size-4" /> : <Plus className="size-4" />}
+                        <Plus className="size-4" />
                       </button>
                     </div>
                   );

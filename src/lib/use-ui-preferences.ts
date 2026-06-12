@@ -97,6 +97,9 @@ export function useUIPreferencesSync() {
   return synced;
 }
 
+let saveDashboardTimeout: NodeJS.Timeout | null = null;
+let saveSidebarTimeout: NodeJS.Timeout | null = null;
+
 export async function saveDashboardLayout(layout: any) {
   if (typeof window === "undefined") return;
 
@@ -104,25 +107,31 @@ export async function saveDashboardLayout(layout: any) {
   localStorage.setItem(DASHBOARD_KEY, JSON.stringify(layout));
   window.dispatchEvent(new Event(DASHBOARD_EVENT));
 
-  // 2. Save asynchronously to database (fail-open)
-  try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from("user_ui_preferences")
-      .upsert(
-        {
-          user_id: user.id,
-          dashboard_layout: layout,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
-  } catch (err) {
-    console.error("Failed to save dashboard layout preferences to database (failing open):", err);
+  // 2. Save asynchronously to database (fail-open) with a debounce
+  if (saveDashboardTimeout) {
+    clearTimeout(saveDashboardTimeout);
   }
+
+  saveDashboardTimeout = setTimeout(async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase
+        .from("user_ui_preferences")
+        .upsert(
+          {
+            user_id: user.id,
+            dashboard_layout: layout,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+    } catch (err) {
+      console.error("Failed to save dashboard layout preferences to database (failing open):", err);
+    }
+  }, 1000);
 }
 
 export async function saveSidebarPreferences(prefs: any) {
@@ -132,23 +141,29 @@ export async function saveSidebarPreferences(prefs: any) {
   localStorage.setItem(SIDEBAR_KEY, JSON.stringify(prefs));
   window.dispatchEvent(new Event(SIDEBAR_EVENT));
 
-  // 2. Save asynchronously to database (fail-open)
-  try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from("user_ui_preferences")
-      .upsert(
-        {
-          user_id: user.id,
-          sidebar_preferences: prefs,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
-  } catch (err) {
-    console.error("Failed to save sidebar preferences to database (failing open):", err);
+  // 2. Save asynchronously to database (fail-open) with a debounce
+  if (saveSidebarTimeout) {
+    clearTimeout(saveSidebarTimeout);
   }
+
+  saveSidebarTimeout = setTimeout(async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase
+        .from("user_ui_preferences")
+        .upsert(
+          {
+            user_id: user.id,
+            sidebar_preferences: prefs,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+    } catch (err) {
+      console.error("Failed to save sidebar preferences to database (failing open):", err);
+    }
+  }, 1000);
 }

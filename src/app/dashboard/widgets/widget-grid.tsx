@@ -66,7 +66,6 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
   }, []);
 
   if (!mounted) {
-    // SSR loading placeholder to prevent hydration warnings
     return (
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 min-h-[300px]">
         {widgets.slice(0, 4).map((w) => (
@@ -90,7 +89,6 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
   }));
 
   const handleLayoutChange = (currentLayout: readonly any[]) => {
-    // Map RGL layout changes back to our widget instances
     const updated = widgets.map((widget) => {
       const item = currentLayout.find((l) => l.i === widget.id);
       if (item) {
@@ -101,25 +99,43 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
           y: item.y,
           w: item.w,
           h: item.h,
-          size, // keep size in sync with drag resizing
+          size,
         };
       }
       return widget;
     });
 
-    // Check if anything actually changed to avoid infinite loops
-    const hasChanged = updated.some(
-      (w, idx) =>
-        w.x !== widgets[idx].x ||
-        w.y !== widgets[idx].y ||
-        w.w !== widgets[idx].w ||
-        w.h !== widgets[idx].h ||
-        w.size !== widgets[idx].size
-    );
+    const hasChanged = updated.some((w) => {
+      const original = widgets.find((orig) => orig.id === w.id);
+      if (!original) return true;
+      return (
+        w.x !== original.x ||
+        w.y !== original.y ||
+        w.w !== original.w ||
+        w.h !== original.h ||
+        w.size !== original.size
+      );
+    });
 
     if (hasChanged) {
       onChangeWidgets(updated);
     }
+  };
+
+  const handleResize = (currentLayout: readonly any[], oldItem: any, newItem: any) => {
+    const size = getWidgetSizeFromDims(newItem.w, newItem.h);
+    const updated = widgets.map((w) => {
+      if (w.id === newItem.i) {
+        return {
+          ...w,
+          w: newItem.w,
+          h: newItem.h,
+          size,
+        };
+      }
+      return w;
+    });
+    onChangeWidgets(updated);
   };
 
   const handleRemoveWidget = (id: string) => {
@@ -188,6 +204,7 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
         isResizable={editing}
         draggableHandle=".widget-drag-handle"
         onLayoutChange={handleLayoutChange}
+        onResize={handleResize}
       >
         {widgets.map((widget) => {
           const colorMeta = WIDGET_COLORS.find((c) => c.value === widget.color) || WIDGET_COLORS[0];
@@ -199,32 +216,11 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
               key={widget.id}
               className={`rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm p-4 flex flex-col justify-between transition-colors duration-200 group/widget relative ${colorMeta.bg}`}
             >
-              {/* Header: Drag/Delete in Edit Mode, Title in View Mode */}
+              {/* Header Title (Clean, same in Edit and View modes) */}
               <div className="flex items-center justify-between gap-2 border-b border-slate-200/40 dark:border-slate-800/40 pb-1.5 mb-1.5 shrink-0">
-                {editing ? (
-                  <div className="flex-1 flex items-center gap-1.5 cursor-grab active:cursor-grabbing widget-drag-handle text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                    <GripHorizontal className="size-4 shrink-0" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider select-none truncate max-w-[140px]">
-                      {WIDGET_CATALOG.find((cat) => cat.type === widget.type)?.title || widget.type}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
-                    {WIDGET_CATALOG.find((cat) => cat.type === widget.type)?.title || widget.type}
-                  </span>
-                )}
-
-                {/* Edit options / Delete button */}
-                {editing && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveWidget(widget.id)}
-                    className="p-1 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition"
-                    title="Remove widget"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
+                  {WIDGET_CATALOG.find((cat) => cat.type === widget.type)?.title || widget.type}
+                </span>
               </div>
 
               {/* Main Content Area */}
@@ -238,37 +234,51 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
                 )}
               </div>
 
-              {/* Edit Mode Customization Controls Bar */}
+              {/* Floating Edit Toolbar - sits on top-right corner of card */}
               {editing && (
-                <div className="mt-2.5 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 flex flex-wrap items-center justify-between gap-2 shrink-0 select-none">
-                  {/* Size selector */}
-                  <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-sm">
-                    {(["S", "M", "L", "XL"] as WidgetSize[]).map((size) => (
+                <div 
+                  className="absolute -top-3.5 right-2.5 z-30 flex items-center bg-[#fff] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1.5 py-0.5 shadow-md select-none"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Drag Handle */}
+                  <div className="cursor-grab active:cursor-grabbing widget-drag-handle p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Drag to reorder">
+                    <GripHorizontal className="size-3.5" />
+                  </div>
+
+                  {/* Size Pill */}
+                  <div className="flex bg-slate-100 dark:bg-slate-850 rounded-lg p-0.5 ml-1">
+                    {(["S", "M", "L", "XL"] as WidgetSize[]).map((sz) => (
                       <button
-                        key={size}
+                        key={sz}
                         type="button"
-                        onClick={() => handleUpdateWidgetSize(widget.id, size)}
-                        className={`text-[9px] font-black w-6 h-5 rounded flex items-center justify-center transition ${
-                          widget.size === size
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUpdateWidgetSize(widget.id, sz);
+                        }}
+                        className={`text-[9px] font-black w-4.5 h-4.5 rounded flex items-center justify-center transition ${
+                          widget.size === sz
                             ? "bg-blue-600 text-white dark:bg-blue-500"
-                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
                         }`}
                       >
-                        {size}
+                        {sz}
                       </button>
                     ))}
                   </div>
 
-                  {/* Colors selector */}
-                  <div className="flex items-center gap-1">
+                  {/* Colors Selector */}
+                  <div className="flex items-center gap-0.5 border-l border-slate-200 dark:border-slate-800 pl-1.5 ml-1">
                     {WIDGET_COLORS.map((c) => {
                       const isSelected = widget.color === c.value;
                       return (
                         <button
                           key={c.value}
                           type="button"
-                          onClick={() => handleUpdateWidgetColor(widget.id, c.value)}
-                          className={`size-3.5 rounded-full border border-slate-300 dark:border-slate-700 transition flex items-center justify-center relative ${
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateWidgetColor(widget.id, c.value);
+                          }}
+                          className={`size-3 rounded-full border border-slate-300 dark:border-slate-700 transition flex items-center justify-center relative ${
                             c.value === "neutral" ? "bg-slate-400" :
                             c.value === "info" ? "bg-blue-400" :
                             c.value === "success" ? "bg-green-400" :
@@ -281,6 +291,19 @@ export function WidgetGrid({ widgets, onChangeWidgets, editing, state }: WidgetG
                       );
                     })}
                   </div>
+
+                  {/* Delete Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveWidget(widget.id);
+                    }}
+                    className="p-1 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition border-l border-slate-200 dark:border-slate-800 pl-1.5 ml-1"
+                    title="Remove widget"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
                 </div>
               )}
             </div>
