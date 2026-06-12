@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Syne, Noto_Nastaliq_Urdu } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
@@ -148,11 +149,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") || undefined;
+
   return (
     <html
       lang="en"
@@ -161,7 +164,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: colorThemeInitScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: colorThemeInitScript }} />
       </head>
       <body className="flex min-h-full flex-col bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50 transition-colors duration-200">
         <ThemeProvider
@@ -175,6 +178,7 @@ export default function RootLayout({
           </LanguageProvider>
         </ThemeProvider>
         <AnalyticsNotice
+          nonce={nonce}
           gaMeasurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
           clarityProjectId={process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID}
         />
