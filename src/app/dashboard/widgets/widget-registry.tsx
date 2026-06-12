@@ -197,7 +197,7 @@ export function renderWidgetContent(
     case "today-profit": {
       const isPositive = state.dashSummary.todayProfit >= 0;
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.dashSummary.todayProfit, currency)}
@@ -241,7 +241,7 @@ export function renderWidgetContent(
 
     case "gross-sales": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.dashSummary.grossSales, currency)}
@@ -282,7 +282,7 @@ export function renderWidgetContent(
 
     case "returns": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.dashSummary.returnsTotal, currency)}
@@ -321,7 +321,7 @@ export function renderWidgetContent(
 
     case "expenses": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.dashSummary.expensesTotal, currency)}
@@ -362,7 +362,7 @@ export function renderWidgetContent(
 
     case "low-stock": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {state.dashSummary.lowStockCount} items
@@ -401,7 +401,7 @@ export function renderWidgetContent(
 
     case "pending-repairs": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {state.dashSummary.pendingRepairsCount} jobs
@@ -439,7 +439,7 @@ export function renderWidgetContent(
 
     case "supplier-dues": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.dashSummary.supplierDuesTotal, currency)}
@@ -477,7 +477,7 @@ export function renderWidgetContent(
 
     case "customer-dues": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.dashSummary.customerDuesTotal, currency)}
@@ -524,7 +524,7 @@ export function renderWidgetContent(
         title: `${bar.date}: ${formatCurrency(bar.total, currency)}`,
       }));
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
               Last 7 Days Sales
@@ -542,7 +542,7 @@ export function renderWidgetContent(
             <TrendBarChart
               bars={chartBars}
               maxValue={maxVal}
-              heightClass={size === "M" ? "h-12 my-2" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
+              heightClass={size === "M" ? "h-10 my-1.5" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
               label="Weekly sales bar chart"
             />
           )}
@@ -573,7 +573,7 @@ export function renderWidgetContent(
         title: `Day ${bar.day}: ${formatCurrency(bar.total, currency)}`,
       }));
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
               Monthly Sales Trend
@@ -591,7 +591,7 @@ export function renderWidgetContent(
             <TrendBarChart
               bars={chartBars}
               maxValue={maxVal}
-              heightClass={size === "M" ? "h-12 my-2" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
+              heightClass={size === "M" ? "h-10 my-1.5" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
               label="Monthly sales bar chart"
             />
           )}
@@ -612,7 +612,7 @@ export function renderWidgetContent(
     case "top-selling-products": {
       const products = state.dashSummary.topSellingProducts || [];
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
               Top Selling Products
@@ -670,7 +670,7 @@ export function renderWidgetContent(
     case "recent-activity": {
       const logs = state.activity || [];
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
               Recent Activity Logs
@@ -717,7 +717,7 @@ export function renderWidgetContent(
     case "credit-collected-today": {
       const collections = (state.todayActivity?.creditCollectionCash ?? 0) + (state.todayActivity?.creditCollectionDigital ?? 0);
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(collections, currency)}
@@ -757,7 +757,7 @@ export function renderWidgetContent(
     case "today-net": {
       const net = state.invoices.todaySalesTotal - state.expenses.todayTotal;
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(net, currency)}
@@ -797,7 +797,7 @@ export function renderWidgetContent(
     case "today-closing": {
       const isClosed = Boolean(state.todayClosing?.finalized_by);
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {isClosed ? "Closed" : "Open"}
@@ -840,7 +840,7 @@ export function renderWidgetContent(
 
     case "today-expenses": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {state.expenses.todayCount} entries
@@ -879,7 +879,7 @@ export function renderWidgetContent(
 
     case "stock-valuation": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.stockValue, currency)}
@@ -913,7 +913,7 @@ export function renderWidgetContent(
 
     case "potential-profit-in-stock": {
       return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
             <p className="truncate text-xl font-black leading-tight text-slate-900 dark:text-white">
               {formatCurrency(state.potentialProfit.potentialProfitInStock, currency)}
