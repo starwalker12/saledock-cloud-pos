@@ -222,10 +222,19 @@ export function GlobalSearch() {
 
   return (
     <>
-      {/* Clickable search placeholder input in the Topbar */}
+      {/* Mobile compact search icon button (< md) */}
       <button
         onClick={handleOpen}
-        className="flex min-h-11 min-w-0 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-400 transition duration-150 hover:border-slate-300 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 sm:w-72 md:w-80 lg:w-96 xl:w-[30rem] cursor-pointer"
+        className="flex md:hidden h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+        aria-label="Open command search"
+      >
+        <Search className="size-4 shrink-0" />
+      </button>
+
+      {/* Desktop/Tablet search placeholder input (>= md) */}
+      <button
+        onClick={handleOpen}
+        className="hidden md:flex min-h-11 min-w-0 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-400 transition duration-150 hover:border-slate-300 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 sm:w-72 md:w-80 lg:w-96 xl:w-[30rem] cursor-pointer"
         aria-label="Open command search"
       >
         <Search className="size-4 shrink-0 text-slate-400" />

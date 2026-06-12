@@ -143,9 +143,16 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
           <button
             type="submit"
             disabled={pending}
-          className="h-[42px] w-full rounded-xl bg-blue-700 text-sm font-bold text-white transition hover:bg-blue-800 active:bg-blue-900 active:scale-[0.98] disabled:opacity-60"
+            className="inline-flex h-[42px] w-full items-center justify-center gap-1.5 rounded-xl bg-blue-700 text-sm font-bold text-white transition hover:bg-blue-800 active:bg-blue-900 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
           >
-            {pending ? t("sending", "Sending\u2026") : t("sendResetLink", "Send reset link")}
+            {pending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {t("sending", "Sending\u2026")}
+              </>
+            ) : (
+              t("sendResetLink", "Send reset link")
+            )}
           </button>
         </form>
       </div>

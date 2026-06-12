@@ -32,7 +32,41 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
           {shellDict?.maintenanceBanner || "Maintenance mode is active. Some features may be limited."}
         </div>
       )}
-      <div className="flex min-h-20 min-w-0 flex-col gap-3 px-3 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+      {/* Mobile top bar (< md) */}
+      <div className="flex h-14 items-center justify-between px-3 md:hidden">
+        <div className="flex items-center gap-2 min-w-0">
+          <MobileDrawerWrapper />
+          <h1 className="truncate text-lg font-black text-slate-950 dark:text-slate-50">{title}</h1>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <GlobalSearch />
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+            aria-label="Notifications"
+          >
+            <Bell className="size-4" aria-hidden="true" />
+          </button>
+          {user ? (
+            <UserMenu
+              name={profile?.full_name ?? user.email ?? "User"}
+              email={user.email ?? ""}
+              role={profile?.role ?? null}
+              profilePictureUrl={profilePictureUrl}
+              isPlatformAdmin={platformAdmin}
+            />
+          ) : (
+            <Link
+              href="/login"
+              className="flex h-9 items-center justify-center rounded-xl bg-blue-700 px-3 text-xs font-bold text-white shadow-sm transition hover:bg-blue-800"
+            >
+              {shellDict?.signIn || "Sign in"}
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop/Tablet top bar (>= md) */}
+      <div className="hidden md:flex min-h-20 min-w-0 flex-col gap-3 px-3 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           <MobileDrawerWrapper />
           <h1 className="truncate text-xl font-black text-slate-950 dark:text-slate-50 sm:text-2xl">{title}</h1>

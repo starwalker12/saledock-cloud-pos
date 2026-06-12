@@ -72,7 +72,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="flex items-center gap-1.5 rounded-full md:rounded-2xl border border-slate-200 bg-white/80 p-1 md:px-3 md:py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           aria-haspopup="true"
           aria-expanded={open}
         >
@@ -88,7 +88,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
               {initials}
             </span>
           )}
-          <span className="hidden min-w-0 flex-col text-left sm:flex">
+          <span className="hidden min-w-0 flex-col text-left md:flex">
             <span className="max-w-32 truncate text-sm font-bold text-slate-900 dark:text-slate-100 lg:max-w-48">
               {name}
             </span>
@@ -96,7 +96,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
               {role ?? t("noProfile", "no profile")}
             </span>
           </span>
-          <ChevronDown className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          <ChevronDown className={`hidden md:block size-3.5 shrink-0 text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
         </button>
 
         {open && (
@@ -174,16 +174,24 @@ function SignOutMenuItem({
   }
 
   return (
-    <form action={signOutAction} onSubmit={handleSubmit}>
-      <button
-        type="submit"
-        disabled={isConfirming || isSubmitting}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-70 dark:text-red-400 dark:hover:bg-red-950/30"
-      >
-        <LogOut className="size-4" />
-        {t("signOut", "Sign out")}
-      </button>
-    </form>
+    <>
+      <form action={signOutAction} onSubmit={handleSubmit}>
+        <button
+          type="submit"
+          disabled={isConfirming || isSubmitting}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-70 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
+        >
+          <LogOut className="size-4" />
+          {t("signOut", "Sign out")}
+        </button>
+      </form>
+      {isSubmitting && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-slate-950/80 text-white backdrop-blur-sm">
+          <div className="size-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
+          <span className="font-bold text-lg">{t("signingOut", "Signing out...")}</span>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -10,7 +10,7 @@ const themeOptions = [
   { value: "system", label: "System", icon: Monitor },
 ] as const;
 
-export function ThemeToggle() {
+export function ThemeToggle({ showLabelOnMobile }: { showLabelOnMobile?: boolean }) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -57,13 +57,13 @@ export function ThemeToggle() {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800"
+        className="flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="Theme"
       >
         <ActiveIcon className="size-4 shrink-0 text-blue-700 dark:text-slate-100" aria-hidden="true" />
-        <span className="hidden min-w-0 sm:inline">
+        <span className={showLabelOnMobile ? "min-w-0" : "hidden min-w-0 sm:inline"}>
           {mounted ? activeLabel : "Theme"}
         </span>
         <ChevronDown

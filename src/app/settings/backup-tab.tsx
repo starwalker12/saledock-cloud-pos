@@ -2224,12 +2224,17 @@ export function BackupTab({
                   disabled={
                     confirmText !== "RESTORE ONLINE BACKUP" ||
                     !confirmCheckbox ||
-                    !backupImportEnabled
+                    !backupImportEnabled ||
+                    activeBackupOperation === "import"
                   }
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
                 >
-                  <Upload className="size-4" />
-                  Begin Online Restore
+                  {activeBackupOperation === "import" ? (
+                    <RefreshCw className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  {activeBackupOperation === "import" ? "Starting Restore..." : "Begin Online Restore"}
                 </button>
               )
             ) : (
@@ -2252,12 +2257,17 @@ export function BackupTab({
                     confirmText !== "IMPORT DESKTOP BACKUP" ||
                     !confirmCheckbox ||
                     dryRunBlockers.length > 0 ||
-                    (orphanFindings.length > 0 && orphanPolicy !== "drop")
+                    (orphanFindings.length > 0 && orphanPolicy !== "drop") ||
+                    activeBackupOperation === "import"
                   }
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
                 >
-                  <Upload className="size-4" />
-                  Begin Desktop Restore
+                  {activeBackupOperation === "import" ? (
+                    <RefreshCw className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  {activeBackupOperation === "import" ? "Starting Import..." : "Begin Desktop Restore"}
                 </button>
               )
             )}

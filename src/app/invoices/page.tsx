@@ -42,15 +42,15 @@ export default async function InvoicesPage() {
 
   return (
     <AppShell pageTitle="Invoices">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/[0.07]">
           <div>
-            <h2 className="text-base font-black text-slate-950">All invoices</h2>
-            <p className="text-xs text-slate-500">Most recent first.</p>
+            <h2 className="text-base font-black text-slate-950 dark:text-slate-50">All invoices</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Most recent first.</p>
           </div>
           <Link
             href="/pos"
-            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 cursor-pointer"
           >
             New sale
           </Link>
@@ -58,16 +58,16 @@ export default async function InvoicesPage() {
 
         {invoices.length === 0 ? (
           <div className="p-10 text-center">
-            <p className="text-sm font-semibold text-slate-600">No invoices yet.</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Start a sale from the <Link href="/pos" className="text-blue-700 underline">POS</Link>.
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No invoices yet.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+              Start a sale from the <Link href="/pos" className="text-blue-700 underline dark:text-blue-400">POS</Link>.
             </p>
           </div>
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/[0.07] dark:bg-white/[0.02] dark:text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Invoice</th>
                     <th className="px-4 py-3">Date</th>
@@ -81,14 +81,14 @@ export default async function InvoicesPage() {
                 </thead>
                 <tbody>
                   {invoices.map((inv) => (
-                    <tr key={inv.id} className="border-b border-slate-100">
-                      <td className="px-4 py-3 font-bold text-slate-900">{inv.invoice_no}</td>
-                      <td className="px-4 py-3 text-slate-600">{fmtDate(inv.invoice_date)}</td>
-                      <td className="px-4 py-3 text-slate-700">{inv.customer_name ?? "Walk-in"}</td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-900">{formatCurrency(inv.grand_total, currency)}</td>
-                      <td className="px-4 py-3 text-right text-slate-700">{formatCurrency(inv.amount_paid, currency)}</td>
+                    <tr key={inv.id} className="border-b border-slate-100 dark:border-white/[0.05]">
+                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{inv.invoice_no}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{fmtDate(inv.invoice_date)}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{inv.customer_name ?? "Walk-in"}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-slate-100">{formatCurrency(inv.grand_total, currency)}</td>
+                      <td className="px-4 py-3 text-right text-slate-700 dark:text-slate-300">{formatCurrency(inv.amount_paid, currency)}</td>
                       <td className="px-4 py-3 text-right">
-                        <span className={inv.balance_due > 0 ? "font-bold text-red-700" : "text-slate-500"}>
+                        <span className={inv.balance_due > 0 ? "font-bold text-red-700 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}>
                           {formatCurrency(inv.balance_due, currency)}
                         </span>
                       </td>
@@ -96,7 +96,7 @@ export default async function InvoicesPage() {
                       <td className="px-4 py-3 text-right">
                         <Link
                           href={`/invoices/${inv.id}`}
-                          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
                         >
                           View
                         </Link>
@@ -106,31 +106,31 @@ export default async function InvoicesPage() {
                 </tbody>
               </table>
             </div>
-            <ul className="divide-y divide-slate-100 md:hidden">
+            <ul className="divide-y divide-slate-100 dark:divide-white/[0.05] md:hidden">
               {invoices.map((inv) => (
                 <li key={inv.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-bold text-slate-900">{inv.invoice_no}</p>
-                      <p className="text-xs text-slate-500">{fmtDate(inv.invoice_date)}</p>
-                      <p className="mt-1 text-sm text-slate-700">{inv.customer_name ?? "Walk-in"}</p>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{inv.invoice_no}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{fmtDate(inv.invoice_date)}</p>
+                      <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{inv.customer_name ?? "Walk-in"}</p>
                     </div>
                     <StatusPill status={inv.status} />
                   </div>
                   <div className="mt-3 flex items-center justify-between text-sm">
                     <div>
-                      <p className="text-xs text-slate-500">Total</p>
-                      <p className="font-bold text-slate-900">{formatCurrency(inv.grand_total, currency)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(inv.grand_total, currency)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500">Due</p>
-                      <p className={inv.balance_due > 0 ? "font-bold text-red-700" : "font-semibold text-slate-500"}>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Due</p>
+                      <p className={inv.balance_due > 0 ? "font-bold text-red-700 dark:text-red-400" : "font-semibold text-slate-500 dark:text-slate-400"}>
                         {formatCurrency(inv.balance_due, currency)}
                       </p>
                     </div>
                     <Link
                       href={`/invoices/${inv.id}`}
-                      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700"
+                      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-300 cursor-pointer"
                     >
                       View
                     </Link>

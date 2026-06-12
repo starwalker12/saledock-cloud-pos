@@ -5,7 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import type { BrandingSettings } from "@/lib/data/settings";
 import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState, type SettingsIntent } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
-import { Check, ImageIcon, RotateCcw } from "lucide-react";
+import { Check, ImageIcon, RotateCcw, Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import {
   COLOR_THEME_OPTIONS,
@@ -66,9 +66,16 @@ function BlockSaveButton({
     <button
       type="submit"
       disabled={!canEdit || pending}
-      className="mt-4 h-10 rounded-lg bg-[var(--primary-accent-bg)] px-5 text-sm font-bold text-[var(--primary-accent-text)] transition hover:bg-[var(--primary-accent-hover)] disabled:opacity-60"
+      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary-accent-bg)] px-5 text-sm font-bold text-[var(--primary-accent-text)] transition hover:bg-[var(--primary-accent-hover)] disabled:opacity-60 cursor-pointer"
     >
-      {pending ? "Saving..." : label}
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" />
+          Saving...
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }

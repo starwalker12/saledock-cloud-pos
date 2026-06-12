@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useSyncExternalStore, useCallback } from "react";
 import Link from "next/link";
-import { LayoutGrid, Check, RotateCcw, Plus, ShoppingCart } from "lucide-react";
+import { LayoutGrid, Check, RotateCcw, Plus, ShoppingCart, Loader2 } from "lucide-react";
 import { WidgetGrid, getWidgetDimsFromSize, getWidgetSizeFromDims } from "./widgets/widget-grid";
 import { WidgetGallery } from "./widgets/widget-gallery";
 import { BoardFillStyle, WIDGET_CATALOG, WidgetColor, WidgetFillStyle, WidgetSize, WidgetTextColor } from "./widgets/widget-registry";
@@ -240,6 +240,7 @@ export function DashboardStatLayout({
   const [editing, setEditing] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [highlightWidgetId, setHighlightWidgetId] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   const persistDashboardPreferences = useCallback((nextWidgets: WidgetInstance[], nextFillStyle = fillStyle) => {
     saveDashboardLayout({
@@ -290,11 +291,18 @@ export function DashboardStatLayout({
 
     if (!shouldReset) return;
 
+    setResetting(true);
     setHighlightWidgetId(null);
-    saveDashboardLayout({
-      widgets: DEFAULT_WIDGETS,
-      fillStyle: DEFAULT_FILL_STYLE,
-    });
+    try {
+      await saveDashboardLayout({
+        widgets: DEFAULT_WIDGETS,
+        fillStyle: DEFAULT_FILL_STYLE,
+      });
+      // Small timeout to show resetting feedback
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      setResetting(false);
+    }
   };
 
   const handleFillStyleChange = (nextFillStyle: BoardFillStyle) => {
@@ -387,10 +395,15 @@ export function DashboardStatLayout({
             <button
               type="button"
               onClick={handleResetLayout}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-[#f8fafc] px-3 text-xs font-bold text-slate-600 transition hover:bg-[#eef2f7] active:scale-95 focus:outline-none dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]"
+              disabled={resetting}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-[#f8fafc] px-3 text-xs font-bold text-slate-600 transition hover:bg-[#eef2f7] active:scale-95 disabled:opacity-60 focus:outline-none dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] cursor-pointer"
             >
-              <RotateCcw className="size-3.5" aria-hidden="true" />
-              {labels.resetLayout}
+              {resetting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+              )}
+              {resetting ? "Resetting..." : labels.resetLayout}
             </button>
             <button
               type="button"
