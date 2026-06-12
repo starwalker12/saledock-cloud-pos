@@ -99,7 +99,7 @@ function normalizeWidgets(value: unknown): WidgetInstance[] {
       if (!catalog || typeof item.id !== "string") return null;
 
       const fallbackDims = getWidgetDimsFromSize(catalog.defaultSize);
-      const w = isFiniteNumber(item.w) && item.w > 0 ? Math.min(Math.max(Math.round(item.w), 1), 4) : fallbackDims.w;
+      const w = isFiniteNumber(item.w) && item.w > 0 ? Math.min(Math.max(Math.round(item.w), 1), 12) : fallbackDims.w;
       const h = isFiniteNumber(item.h) && item.h > 0 ? Math.min(Math.max(Math.round(item.h), 1), 4) : fallbackDims.h;
       const size = widgetSizes.has(item.size as WidgetSize) ? (item.size as WidgetSize) : catalog.defaultSize;
       const derivedSize = getWidgetDimsFromSize(size);

@@ -230,7 +230,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <AppShell pageTitle="Dashboard">
+    <AppShell pageTitle="Dashboard" contentClassName="max-w-[3600px]">
       {/* Main dashboard card */}
       <div className="overflow-visible rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
         {/* Browser-style chrome bar */}

@@ -299,6 +299,16 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+@keyframes dashboard-sheet {
+  from {
+    opacity: 0.7;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 /* Logo glow/shimmer */
 @keyframes logo-shimmer {
@@ -336,6 +346,9 @@ body {
 }
 .animate-dashboard-popover {
   animation: dashboard-popover 0.16s ease-out both;
+}
+.animate-dashboard-sheet {
+  animation: dashboard-sheet 0.2s ease-out both;
 }
 .animate-logo-shimmer {
   animation: logo-shimmer 4s ease-in-out infinite;
@@ -445,6 +458,7 @@ body {
   .animate-bar-grow,
   .animate-dashboard-widget-highlight,
   .animate-dashboard-popover,
+  .animate-dashboard-sheet,
   .animate-logo-shimmer,
   .animate-logo-glow-pulse {
     animation: none !important;
