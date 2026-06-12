@@ -223,6 +223,7 @@ export default async function DashboardPage() {
     fillStyle: t.fillStyle || "Fill",
     solid: t.solid || "Solid",
     gradient: t.gradient || "Gradient",
+    auto: t.auto || "Auto",
   };
 
   return (

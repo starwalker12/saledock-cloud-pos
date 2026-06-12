@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Responsive, WidthProvider } from "react-grid-layout/legacy";
-import { Trash2, GripHorizontal, Check } from "lucide-react";
+import { Trash2, GripHorizontal, Check, Settings2 } from "lucide-react";
 import {
   WIDGET_COLORS,
   WIDGET_CATALOG,
@@ -74,6 +74,7 @@ export function WidgetGrid({
   onHighlightComplete,
 }: WidgetGridProps) {
   const [mounted, setMounted] = useState(false);
+  const [openSettingsId, setOpenSettingsId] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 0);
@@ -98,6 +99,32 @@ export function WidgetGrid({
       window.clearTimeout(clearTimer);
     };
   }, [highlightWidgetId, onHighlightComplete]);
+
+  useEffect(() => {
+    if (!openSettingsId || typeof window === "undefined") return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const settingsRoot = target.closest("[data-widget-settings-root]");
+      if (settingsRoot?.getAttribute("data-widget-settings-root") === openSettingsId) return;
+      setOpenSettingsId(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenSettingsId(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openSettingsId]);
 
   if (!mounted) {
     return (
@@ -224,6 +251,9 @@ export function WidgetGrid({
       {editing && (
         <style dangerouslySetInnerHTML={{
           __html: `
+            .dashboard-widget-grid .react-grid-item:has(.dashboard-widget-menu-open) {
+              z-index: 80 !important;
+            }
             .dashboard-widget-grid .react-grid-item {
               transition: transform 220ms ease, width 220ms ease, height 220ms ease;
             }
@@ -267,8 +297,17 @@ export function WidgetGrid({
           const colorMeta = getWidgetColorMeta(widget.color);
           const renderSize = getWidgetSizeFromDims(widget.w, widget.h);
           const effectiveFillStyle = widget.fillStyle && widget.fillStyle !== "inherit" ? widget.fillStyle : boardFillStyle;
-          const fillClass = effectiveFillStyle === "gradient" ? colorMeta.gradientBg : colorMeta.bg;
+          const isSolidFill = effectiveFillStyle === "solid";
+          const fillClass = isSolidFill ? colorMeta.solidBg : colorMeta.gradientBg;
+          const borderClass = isSolidFill ? colorMeta.solidBorder : "border-slate-200 dark:border-slate-800/80";
+          const cardStyle = isSolidFill
+            ? ({
+                "--widget-solid-text": colorMeta.solidText,
+                "--widget-solid-muted": colorMeta.solidMuted,
+              } as React.CSSProperties)
+            : undefined;
           const isHighlighted = highlightWidgetId === widget.id;
+          const isSettingsOpen = openSettingsId === widget.id;
           const hasLink = widget.type === "low-stock" || widget.type === "pending-repairs";
           const href = widget.type === "low-stock" ? "/purchases/replenishment" : "/repairs";
 
@@ -276,17 +315,19 @@ export function WidgetGrid({
             <div
               key={widget.id}
               data-widget-id={widget.id}
-              className={`rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between transition-colors duration-200 group/widget relative min-w-0 dark:border-slate-800/80 ${fillClass} ${isHighlighted ? "animate-dashboard-widget-highlight" : ""}`}
+              data-widget-fill={effectiveFillStyle}
+              style={cardStyle}
+              className={`dashboard-widget-card rounded-2xl border p-4 shadow-sm flex flex-col justify-between transition-all duration-200 group/widget relative min-w-0 ${borderClass} ${fillClass} ${isHighlighted ? "animate-dashboard-widget-highlight" : ""}`}
             >
               {/* Header Title (Clean, same in Edit and View modes) */}
               <div className="flex items-center justify-between gap-2 border-b border-slate-200/40 dark:border-slate-800/40 pb-1.5 mb-1.5 shrink-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
+                <span className="widget-card-title text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate max-w-[180px] pr-14">
                   {WIDGET_CATALOG.find((cat) => cat.type === widget.type)?.title || widget.type}
                 </span>
               </div>
 
               {/* Main Content Area */}
-              <div className="flex-1 min-h-0 relative">
+              <div className="widget-card-content flex-1 min-h-0 relative">
                 {hasLink && !editing ? (
                   <Link href={href} className="block h-full hover:opacity-85 transition">
                     {renderWidgetContent(widget.type, renderSize, state)}
@@ -296,107 +337,145 @@ export function WidgetGrid({
                 )}
               </div>
 
-              {/* Floating Edit Toolbar - sits on top-right corner of card */}
+              {/* Edit controls */}
               {editing && (
-                <div 
-                  className="absolute -top-4 right-2 z-30 flex max-w-[calc(100%-1rem)] items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-[#fff] px-1.5 py-0.5 shadow-md select-none dark:border-slate-800 dark:bg-slate-900"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Drag Handle */}
+                <div data-widget-settings-root={widget.id}>
                   <div
-                    className="cursor-grab active:cursor-grabbing widget-drag-handle p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="widget-drag-handle absolute left-2 top-2 z-30 cursor-grab rounded-lg border border-slate-200/70 bg-[#fff]/90 p-1 text-slate-500 shadow-sm backdrop-blur transition hover:bg-slate-50 hover:text-slate-800 active:cursor-grabbing active:scale-95 dark:border-white/[0.12] dark:bg-slate-950/80 dark:text-slate-300 dark:hover:bg-slate-900"
                     title="Drag to reorder"
                     aria-label="Drag to reorder widget"
                   >
                     <GripHorizontal className="size-3.5" />
                   </div>
 
-                  {/* Size Pill */}
-                  <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 ml-1">
-                    {(["S", "M", "L", "XL"] as WidgetSize[]).map((sz) => (
-                      <button
-                        key={sz}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUpdateWidgetSize(widget.id, sz);
-                        }}
-                        aria-label={`Set widget size to ${sz}`}
-                        className={`text-[9px] font-black w-4.5 h-4.5 rounded flex items-center justify-center transition ${
-                          renderSize === sz
-                            ? "bg-blue-600 text-white dark:bg-blue-500"
-                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                        }`}
-                      >
-                        {sz}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Colors Selector */}
-                  <div className="flex items-center gap-0.5 border-l border-slate-200 dark:border-slate-800 pl-1.5 ml-1">
-                    {WIDGET_COLORS.map((c) => {
-                      const isSelected = widget.color === c.value;
-                      return (
-                        <button
-                          key={c.value}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateWidgetColor(widget.id, c.value);
-                          }}
-                          className={`size-3 rounded-full border border-slate-300 dark:border-slate-700 transition flex items-center justify-center relative ${
-                            c.chip
-                          }`}
-                          title={c.label}
-                          aria-label={`Set widget color to ${c.label}`}
-                        >
-                          {isSelected && <Check className="size-2 text-white shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Fill Style Selector */}
-                  <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1.5 ml-1 dark:border-slate-800">
-                    {(["inherit", "solid", "gradient"] as WidgetFillStyle[]).map((fill) => {
-                      const isSelected = (widget.fillStyle ?? "inherit") === fill;
-                      const label = fill === "inherit" ? "Inherit board fill" : fill === "solid" ? "Solid fill" : "Gradient fill";
-                      return (
-                        <button
-                          key={fill}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateWidgetFillStyle(widget.id, fill);
-                          }}
-                          className={`flex h-4.5 min-w-4.5 items-center justify-center rounded px-1 text-[9px] font-black transition ${
-                            isSelected
-                              ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-950"
-                              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                          }`}
-                          title={label}
-                          aria-label={label}
-                        >
-                          {fill === "inherit" ? "I" : fill === "solid" ? "S" : "G"}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Delete Button */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRemoveWidget(widget.id);
+                      setOpenSettingsId((current) => current === widget.id ? null : widget.id);
                     }}
-                    className="p-1 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition border-l border-slate-200 dark:border-slate-800 pl-1.5 ml-1"
-                    title="Remove widget"
-                    aria-label="Remove widget"
+                    className={`absolute right-2 top-2 z-30 rounded-lg border p-1 shadow-sm backdrop-blur transition active:scale-95 ${
+                      isSettingsOpen
+                        ? "border-[var(--primary-accent-bg)] bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)]"
+                        : "border-slate-200/70 bg-[#fff]/90 text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:border-white/[0.12] dark:bg-slate-950/80 dark:text-slate-300 dark:hover:bg-slate-900"
+                    }`}
+                    aria-expanded={isSettingsOpen}
+                    aria-label="Open widget settings"
                   >
-                    <Trash2 className="size-3.5" />
+                    <Settings2 className="size-3.5" />
                   </button>
+
+                  {isSettingsOpen && (
+                    <div className="dashboard-widget-menu-open animate-dashboard-popover absolute right-2 top-10 z-[90] w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-[#fff] p-3 text-slate-900 shadow-2xl shadow-slate-900/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                      <div className="space-y-3">
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Size
+                          </p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {(["S", "M", "L", "XL"] as WidgetSize[]).map((sz) => (
+                              <button
+                                key={sz}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUpdateWidgetSize(widget.id, sz);
+                                }}
+                                aria-pressed={renderSize === sz}
+                                aria-label={`Set widget size to ${sz}`}
+                                className={`h-8 rounded-lg text-xs font-black transition active:scale-95 ${
+                                  renderSize === sz
+                                    ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] shadow-sm"
+                                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                                }`}
+                              >
+                                {sz}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Color
+                          </p>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {WIDGET_COLORS.map((c) => {
+                              const isSelected = widget.color === c.value;
+                              return (
+                                <button
+                                  key={c.value}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateWidgetColor(widget.id, c.value);
+                                  }}
+                                  className={`flex h-8 items-center justify-center rounded-lg border transition active:scale-95 ${
+                                    isSelected
+                                      ? "border-slate-900 bg-slate-900/10 dark:border-white dark:bg-white/10"
+                                      : "border-slate-200 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800"
+                                  }`}
+                                  title={c.label}
+                                  aria-pressed={isSelected}
+                                  aria-label={`Set widget color to ${c.label}`}
+                                >
+                                  <span className={`flex size-4 items-center justify-center rounded-full ${c.chip}`}>
+                                    {isSelected && <Check className="size-2.5 shrink-0 text-white" />}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Fill
+                          </p>
+                          <div className="grid grid-cols-3 gap-1">
+                            {(["inherit", "solid", "gradient"] as WidgetFillStyle[]).map((fill) => {
+                              const isSelected = (widget.fillStyle ?? "inherit") === fill;
+                              const label = fill === "inherit" ? (state.labels?.auto ?? "Auto") : fill === "solid" ? (state.labels?.solid ?? "Solid") : (state.labels?.gradient ?? "Gradient");
+                              return (
+                                <button
+                                  key={fill}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateWidgetFillStyle(widget.id, fill);
+                                  }}
+                                  className={`h-8 rounded-lg px-2 text-[11px] font-black transition active:scale-95 ${
+                                    isSelected
+                                      ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] shadow-sm ring-2 ring-[var(--primary-accent-soft)]"
+                                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                                  }`}
+                                  title={`${label} fill`}
+                                  aria-pressed={isSelected}
+                                  aria-label={`${label} fill`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenSettingsId(null);
+                            handleRemoveWidget(widget.id);
+                          }}
+                          className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-xs font-black text-red-700 transition hover:bg-red-100 active:scale-95 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/70"
+                          aria-label="Delete widget"
+                        >
+                          <Trash2 className="size-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

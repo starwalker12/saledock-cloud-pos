@@ -26,7 +26,10 @@ export type WidgetFillStyle = "inherit" | BoardFillStyle;
 export const WIDGET_COLORS: {
   value: WidgetColor;
   label: string;
-  bg: string;
+  solidBg: string;
+  solidBorder: string;
+  solidText: string;
+  solidMuted: string;
   gradientBg: string;
   text: string;
   chip: string;
@@ -34,7 +37,10 @@ export const WIDGET_COLORS: {
   {
     value: "neutral",
     label: "Slate",
-    bg: "bg-[#f1f5f9] dark:bg-[#1e293b]",
+    solidBg: "bg-[#475569]",
+    solidBorder: "border-[#64748b]",
+    solidText: "#ffffff",
+    solidMuted: "rgba(255,255,255,0.78)",
     gradientBg: "bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] dark:from-[#1e293b] dark:via-[#162033] dark:to-[#0f172a]",
     text: "text-slate-800 dark:text-slate-200",
     chip: "bg-slate-400",
@@ -42,7 +48,10 @@ export const WIDGET_COLORS: {
   {
     value: "info",
     label: "Blue",
-    bg: "bg-[#eff6ff] dark:bg-[#1e3a8a]/40",
+    solidBg: "bg-[#2563eb]",
+    solidBorder: "border-[#1d4ed8]",
+    solidText: "#ffffff",
+    solidMuted: "rgba(255,255,255,0.80)",
     gradientBg: "bg-gradient-to-br from-[#eff6ff] via-[#dbeafe] to-[#bfdbfe] dark:from-[#1e3a8a]/50 dark:via-[#1e40af]/35 dark:to-[#0f172a]",
     text: "text-blue-800 dark:text-blue-200",
     chip: "bg-blue-400",
@@ -50,7 +59,10 @@ export const WIDGET_COLORS: {
   {
     value: "success",
     label: "Green",
-    bg: "bg-[#f0fdf4] dark:bg-[#064e3b]/40",
+    solidBg: "bg-[#22c55e]",
+    solidBorder: "border-[#16a34a]",
+    solidText: "#052e16",
+    solidMuted: "rgba(5,46,22,0.74)",
     gradientBg: "bg-gradient-to-br from-[#f0fdf4] via-[#dcfce7] to-[#bbf7d0] dark:from-[#064e3b]/55 dark:via-[#065f46]/35 dark:to-[#052e2b]",
     text: "text-green-800 dark:text-green-200",
     chip: "bg-green-400",
@@ -58,7 +70,10 @@ export const WIDGET_COLORS: {
   {
     value: "warning",
     label: "Amber",
-    bg: "bg-[#fffbeb] dark:bg-[#78350f]/40",
+    solidBg: "bg-[#ffce1b]",
+    solidBorder: "border-[#d97706]",
+    solidText: "#422006",
+    solidMuted: "rgba(66,32,6,0.74)",
     gradientBg: "bg-gradient-to-br from-[#fffbeb] via-[#fef3c7] to-[#fde68a] dark:from-[#78350f]/55 dark:via-[#92400e]/35 dark:to-[#451a03]",
     text: "text-amber-800 dark:text-amber-200",
     chip: "bg-amber-400",
@@ -66,7 +81,10 @@ export const WIDGET_COLORS: {
   {
     value: "danger",
     label: "Rose",
-    bg: "bg-[#fef2f2] dark:bg-[#7f1d1d]/40",
+    solidBg: "bg-[#dc2626]",
+    solidBorder: "border-[#b91c1c]",
+    solidText: "#ffffff",
+    solidMuted: "rgba(255,255,255,0.80)",
     gradientBg: "bg-gradient-to-br from-[#fef2f2] via-[#fee2e2] to-[#fecaca] dark:from-[#7f1d1d]/55 dark:via-[#991b1b]/35 dark:to-[#450a0a]",
     text: "text-red-800 dark:text-red-200",
     chip: "bg-red-400",
@@ -111,7 +129,7 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: "potential-profit-in-stock", type: "potential-profit-in-stock", category: "inventory", title: "Potential Profit", description: "Unearned profit potential in current active stock", defaultSize: "M", defaultColor: "warning", icon: Percent },
 ];
 
-const subtitleClass = "text-xs font-semibold leading-snug text-slate-600 dark:text-slate-300";
+const subtitleClass = "text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300";
 const tinyMutedClass = "text-[11px] leading-snug text-slate-500 dark:text-slate-400";
 
 function TrendBarChart({
@@ -187,7 +205,7 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               {isPositive ? "Sales net profit" : "Negative net profit"}
             </p>
           )}
@@ -231,12 +249,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Today&apos;s sales volume
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Rung up on {formatNumber(state.dashSummary.returnsCount + 1)} invoices today.
             </p>
           )}
@@ -272,12 +290,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Returned products
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               From {formatNumber(state.dashSummary.returnsCount)} returned transactions.
             </p>
           )}
@@ -311,12 +329,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Operating expenditures
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Total of {formatNumber(state.expenses.todayCount)} expenses logged today.
             </p>
           )}
@@ -352,12 +370,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Below reorder thresholds
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Stock replenishment is recommended.
             </p>
           )}
@@ -391,12 +409,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Awaiting parts / In Progress
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Assigned technician queues.
             </p>
           )}
@@ -429,12 +447,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Outstanding bills payable
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Credit owed to suppliers.
             </p>
           )}
@@ -467,12 +485,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Ledger credit receivable
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Outstanding credit balance.
             </p>
           )}
@@ -666,7 +684,7 @@ export function renderWidgetContent(
           ) : (
             <div className="space-y-1.5 mt-1 flex-1 overflow-hidden">
               {size === "S" && (
-                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                <p className="truncate text-sm font-semibold leading-snug text-slate-800 dark:text-slate-200">
                   Latest: {logs[0]?.left}
                 </p>
               )}
@@ -709,12 +727,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Customer ledger collections
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Settlements received from active ledger accounts.
             </p>
           )}
@@ -749,12 +767,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Operational net cash flow
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Calculated as today&apos;s invoices minus expenses.
             </p>
           )}
@@ -789,12 +807,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Drawer status today
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               {isClosed ? "Finalized by manager." : "Expected drawer cash accumulating."}
             </p>
           )}
@@ -832,12 +850,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Expense vouchers today
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Totaling {formatCurrency(state.expenses.todayTotal, currency)}.
             </p>
           )}
@@ -871,12 +889,12 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Cost value of stock lots
             </p>
           )}
           {size === "M" && (
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 mt-2">
               Calculated using FIFO batch pricing logs.
             </p>
           )}
@@ -905,7 +923,7 @@ export function renderWidgetContent(
             </p>
           </div>
           {size === "S" && (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300">
               Unearned profit estimate
             </p>
           )}

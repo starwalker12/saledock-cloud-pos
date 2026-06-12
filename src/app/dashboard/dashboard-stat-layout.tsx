@@ -30,6 +30,7 @@ export type DashboardLayoutLabels = {
   fillStyle: string;
   solid: string;
   gradient: string;
+  auto: string;
 };
 
 type WidgetInstance = {
@@ -243,7 +244,6 @@ export function DashboardStatLayout({
   const handleAddWidget = (type: string) => {
     const catalogItem = WIDGET_CATALOG.find((w) => w.type === type);
     if (!catalogItem) return;
-    if (widgets.some((widget) => widget.type === type)) return;
 
     const dims = getWidgetDimsFromSize(catalogItem.defaultSize);
 
@@ -265,7 +265,6 @@ export function DashboardStatLayout({
     }));
     persistDashboardPreferences([newWidget, ...shiftedWidgets]);
     setHighlightWidgetId(newWidget.id);
-    setGalleryOpen(false);
   };
 
   const handleResetLayout = async () => {
@@ -294,8 +293,11 @@ export function DashboardStatLayout({
     setHighlightWidgetId(null);
   }, []);
 
-  const addedWidgetTypes = useMemo(() => {
-    return new Set(widgets.map((w) => w.type));
+  const widgetCounts = useMemo(() => {
+    return widgets.reduce<Record<string, number>>((counts, widget) => {
+      counts[widget.type] = (counts[widget.type] ?? 0) + 1;
+      return counts;
+    }, {});
   }, [widgets]);
 
   const stateForWidgets = {
@@ -306,7 +308,7 @@ export function DashboardStatLayout({
   return (
     <>
       {/* Dashboard Welcome Header */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-lg font-black text-slate-950 dark:text-white">
             Welcome, {firstName}
@@ -319,7 +321,11 @@ export function DashboardStatLayout({
             {organizationName}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex flex-wrap items-center gap-2 transition ${
+          editing
+            ? "sticky top-2 z-40 rounded-2xl border border-slate-200 bg-[#fff]/95 p-2 shadow-xl shadow-slate-200/60 backdrop-blur dark:border-white/[0.10] dark:bg-[#0f172a]/95 dark:shadow-black/30"
+            : ""
+        }`}>
           {editing && (
             <>
               <div className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 bg-[#f8fafc] px-1.5 text-xs font-bold text-slate-600 shadow-sm dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-300">
@@ -399,7 +405,7 @@ export function DashboardStatLayout({
         isOpen={galleryOpen}
         onClose={() => setGalleryOpen(false)}
         onAddWidget={handleAddWidget}
-        addedWidgetTypes={addedWidgetTypes}
+        widgetCounts={widgetCounts}
       />
     </>
   );

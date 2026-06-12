@@ -289,6 +289,16 @@ body {
     transform: scale(1);
   }
 }
+@keyframes dashboard-popover {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 
 /* Logo glow/shimmer */
 @keyframes logo-shimmer {
@@ -324,11 +334,37 @@ body {
 .animate-dashboard-widget-highlight {
   animation: dashboard-widget-highlight 1.45s ease-out both;
 }
+.animate-dashboard-popover {
+  animation: dashboard-popover 0.16s ease-out both;
+}
 .animate-logo-shimmer {
   animation: logo-shimmer 4s ease-in-out infinite;
 }
 .animate-logo-glow-pulse {
   animation: logo-glow-pulse 4s ease-in-out infinite;
+}
+
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-title,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content p,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content span,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content strong,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content td,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content th,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content a {
+  color: var(--widget-solid-text) !important;
+}
+
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-title,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content .text-slate-500,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content .text-slate-400 {
+  color: var(--widget-solid-muted) !important;
+}
+
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content table,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content tr,
+.dashboard-widget-card[data-widget-fill="solid"] .widget-card-content div {
+  border-color: rgba(255, 255, 255, 0.28) !important;
 }
 
 /* Urdu font: Noto Nastaliq Urdu for Nastaliq-style Urdu script */
@@ -367,6 +403,7 @@ body {
   .animate-glow-pulse,
   .animate-bar-grow,
   .animate-dashboard-widget-highlight,
+  .animate-dashboard-popover,
   .animate-logo-shimmer,
   .animate-logo-glow-pulse {
     animation: none !important;
