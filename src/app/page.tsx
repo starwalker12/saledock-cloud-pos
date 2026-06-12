@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
 import { FaqSection } from "@/components/faq-section";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { ParallaxLayer } from "@/components/parallax-layer";
 import { getServerDict } from "@/lib/i18n/server";
 import {
   ShoppingCart,
@@ -300,7 +301,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white dark:bg-[#050c1a]">
+    <div className="flex min-h-screen flex-col bg-[#fff] dark:bg-[#050c1a]">
 
       {/* ── STICKY NAV ── */}
       <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
@@ -333,25 +334,31 @@ export default async function HomePage() {
       <section className="relative overflow-hidden">
 
         {/* Animated gradient shift — light mode only */}
-        <div
+        <ParallaxLayer
           aria-hidden
-          className="pointer-events-none absolute inset-0 animate-gradient-shift opacity-20 dark:hidden"
-          style={{
-            background: "linear-gradient(-45deg,#0b2f6f,#0d9488,#1e40af,#0d9488)",
-            backgroundSize: "300% 300%",
-          }}
-        />
+          speed={0.05}
+          className="pointer-events-none absolute -inset-y-16 inset-x-0 dark:hidden"
+        >
+          <div
+            className="absolute inset-0 animate-gradient-shift opacity-20"
+            style={{
+              background: "linear-gradient(-45deg,#0b2f6f,#0d9488,#1e40af,#0d9488)",
+              backgroundSize: "300% 300%",
+            }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse 65% 55% at 90% 25%,rgba(0,184,176,0.08) 0%,transparent 55%)," +
+                "radial-gradient(ellipse 50% 55% at 5% 75%,rgba(11,47,111,0.05) 0%,transparent 55%)," +
+                "linear-gradient(165deg,#f8fafc 0%,#ffffff 50%,#f0f9ff 100%)",
+            }}
+          />
+        </ParallaxLayer>
 
-        {/* Light mode: gradient mesh + grid */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 dark:hidden"
-          style={{
-            background:
-              "radial-gradient(ellipse 65% 55% at 90% 25%,rgba(0,184,176,0.08) 0%,transparent 55%)," +
-              "radial-gradient(ellipse 50% 55% at 5% 75%,rgba(11,47,111,0.05) 0%,transparent 55%)," +
-              "linear-gradient(165deg,#f8fafc 0%,#ffffff 50%,#f0f9ff 100%)",
-          }}
-        />
-        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.28] dark:hidden"
+        {/* Light mode: moving grid layer */}
+        <ParallaxLayer aria-hidden speed={0.12} className="pointer-events-none absolute -inset-y-20 inset-x-0 opacity-[0.28] dark:hidden"
           style={{
             backgroundImage:
               "linear-gradient(#e2e8f0 1px,transparent 1px)," +
@@ -364,7 +371,7 @@ export default async function HomePage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 hidden dark:block"
           style={{ background: "linear-gradient(135deg,#020817 0%,#050c1a 55%,#061220 100%)" }}
         />
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden overflow-hidden dark:block">
+        <ParallaxLayer aria-hidden speed={0.08} className="pointer-events-none absolute -inset-y-24 inset-x-0 hidden overflow-hidden dark:block">
           {[380, 600, 840, 1080].map((size, i) => (
             <div key={size}
               className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[35%] rounded-full animate-glow-pulse"
@@ -376,11 +383,11 @@ export default async function HomePage() {
               }}
             />
           ))}
-        </div>
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden dark:block"
+        </ParallaxLayer>
+        <ParallaxLayer aria-hidden speed={0.04} className="pointer-events-none absolute -inset-y-16 inset-x-0 hidden dark:block"
           style={{ background: "radial-gradient(ellipse 55% 65% at 78% 50%,rgba(0,184,176,0.07) 0%,transparent 65%)" }}
         />
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden dark:block"
+        <ParallaxLayer aria-hidden speed={0.11} className="pointer-events-none absolute -inset-y-20 inset-x-0 hidden dark:block"
           style={{
             backgroundImage: "radial-gradient(circle,rgba(148,163,184,0.1) 1px,transparent 1px)",
             backgroundSize: "32px 32px",
@@ -441,7 +448,7 @@ export default async function HomePage() {
                 <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
               <Link href="/login"
-                className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-7 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
+                className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-[#fff] px-7 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
                 {d.cta?.signIn || "Sign in"}
               </Link>
             </div>
@@ -494,7 +501,9 @@ export default async function HomePage() {
           FEATURES — bento grid (first wide, last full-width)
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="relative border-t border-slate-200/60 bg-slate-50 px-4 py-16 sm:py-24 dark:border-white/[0.05] dark:bg-[#070b16]">
-        <div className="pointer-events-none absolute left-0 top-0 h-px w-1/3 bg-gradient-to-r from-transparent via-[#00b8b0]/30 to-transparent" />
+        <ParallaxLayer aria-hidden speed={0.07} className="pointer-events-none absolute -inset-y-8 inset-x-0">
+          <div className="absolute left-0 top-8 h-px w-1/3 bg-gradient-to-r from-transparent via-[#00b8b0]/30 to-transparent" />
+        </ParallaxLayer>
 
         <div className="mx-auto max-w-6xl">
           <ScrollReveal>
@@ -520,7 +529,7 @@ export default async function HomePage() {
               return (
                 <ScrollReveal key={f.title} delay={i * 65}
                   className={[isWide ? "lg:col-span-2" : "", isFull ? "sm:col-span-2 lg:col-span-3" : ""].join(" ")}>
-                  <div className="group relative h-full cursor-default rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 dark:border-slate-700/50 dark:bg-slate-900">
+                  <div className="group relative h-full cursor-default rounded-2xl border border-slate-200 bg-[#fff] shadow-sm transition-all duration-300 hover:-translate-y-1 dark:border-slate-700/50 dark:bg-slate-900">
                     {/* Glow */}
                     <div className="absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                       style={{ boxShadow: `0 16px 48px ${f.glow}` }} />
@@ -582,8 +591,10 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════════════════════════════
           SECURITY
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative border-t border-slate-200/60 bg-white px-4 py-16 sm:py-24 dark:border-white/[0.05] dark:bg-[#050c1a]">
-        <div className="pointer-events-none absolute right-0 top-0 h-px w-1/3 bg-gradient-to-l from-transparent via-[#00b8b0]/30 to-transparent" />
+      <section className="relative border-t border-slate-200/60 bg-[#fff] px-4 py-16 sm:py-24 dark:border-white/[0.05] dark:bg-[#050c1a]">
+        <ParallaxLayer aria-hidden speed={0.06} className="pointer-events-none absolute -inset-y-8 inset-x-0">
+          <div className="absolute right-0 top-8 h-px w-1/3 bg-gradient-to-l from-transparent via-[#00b8b0]/30 to-transparent" />
+        </ParallaxLayer>
 
         <div className="mx-auto max-w-4xl">
           <ScrollReveal>
@@ -627,7 +638,9 @@ export default async function HomePage() {
           SHOP DAY WORKFLOW
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="relative border-t border-slate-200/60 bg-slate-50 px-4 py-16 sm:py-24 dark:border-white/[0.05] dark:bg-[#070b16]">
-        <div className="pointer-events-none absolute left-1/4 right-1/4 top-0 h-px bg-gradient-to-r from-transparent via-[#00b8b0]/25 to-transparent" />
+        <ParallaxLayer aria-hidden speed={0.08} className="pointer-events-none absolute -inset-y-8 inset-x-0">
+          <div className="absolute left-1/4 right-1/4 top-8 h-px bg-gradient-to-r from-transparent via-[#00b8b0]/25 to-transparent" />
+        </ParallaxLayer>
 
         <div className="mx-auto max-w-5xl">
           <ScrollReveal>
@@ -653,7 +666,7 @@ export default async function HomePage() {
                 return (
                   <ScrollReveal key={step.title} delay={i * 100}>
                     <div className="group flex flex-col items-center text-center">
-                      <div className="mb-3 inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                      <div className="mb-3 inline-flex items-center rounded-full border border-slate-200 bg-[#fff] px-2.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                         {step.time}
                       </div>
                       <div className="relative z-10 flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-md transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-lg group-hover:shadow-blue-900/25"
@@ -674,8 +687,10 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════════════════════════════
           HOW IT WORKS
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative border-t border-slate-200/60 bg-white px-4 py-16 sm:py-24 dark:border-white/[0.05] dark:bg-[#050c1a]">
-        <div className="pointer-events-none absolute left-1/3 right-1/3 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/25 to-transparent" />
+      <section className="relative border-t border-slate-200/60 bg-[#fff] px-4 py-16 sm:py-24 dark:border-white/[0.05] dark:bg-[#050c1a]">
+        <ParallaxLayer aria-hidden speed={0.07} className="pointer-events-none absolute -inset-y-8 inset-x-0">
+          <div className="absolute left-1/3 right-1/3 top-8 h-px bg-gradient-to-r from-transparent via-violet-400/25 to-transparent" />
+        </ParallaxLayer>
 
         <div className="mx-auto max-w-4xl">
           <ScrollReveal>
@@ -719,13 +734,13 @@ export default async function HomePage() {
           <div aria-hidden className="pointer-events-none absolute inset-0"
             style={{ background: "linear-gradient(135deg,#020817 0%,#0a1e40 45%,#071e35 100%)" }}
           />
-          <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.055]"
+          <ParallaxLayer aria-hidden speed={0.09} className="pointer-events-none absolute -inset-y-16 inset-x-0 opacity-[0.055]"
             style={{
               backgroundImage: "radial-gradient(circle,#94a3b8 1px,transparent 1px)",
               backgroundSize: "24px 24px",
             }}
           />
-          <div aria-hidden className="pointer-events-none absolute inset-0"
+          <ParallaxLayer aria-hidden speed={0.04} className="pointer-events-none absolute -inset-y-12 inset-x-0"
             style={{ background: "radial-gradient(ellipse 65% 55% at 50% 100%,rgba(0,184,176,0.14) 0%,transparent 65%)" }}
           />
 
