@@ -16,6 +16,7 @@ import {
 } from "@/lib/validation/pos";
 import type { PosCustomer, PosProduct } from "@/lib/data/pos";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { useToast } from "@/components/ui/toast";
 
 type Props = {
   products: PosProduct[];
@@ -77,6 +78,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 
 export function PosClient({ products: initialProducts, customers: initialCustomers, categories, currency, canCheckout, canWriteCatalog }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const [products, setProducts] = useState(initialProducts);
   const [customers, setCustomers] = useState(initialCustomers);
 
@@ -148,20 +150,31 @@ export function PosClient({ products: initialProducts, customers: initialCustome
   function addToCart(p: PosProduct) {
     if (success) setSuccess(null);
     setError(null);
+
+    const existing = cart.find((l) => l.product.id === p.id);
+    if (p.type === "product" && existing && existing.quantity + 1 > p.stock_quantity) {
+      setError(`Only ${p.stock_quantity} ${p.name} in stock.`);
+      return;
+    }
+    if (p.type === "product" && p.stock_quantity <= 0) {
+      setError(`${p.name} is out of stock.`);
+      return;
+    }
+
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      toast.show({
+        message: `Added to cart — ${p.name}`,
+        duration: 2000,
+        onClick: () => setMobileTab("cart"),
+      });
+    }
+
     setCart((prev) => {
       const existing = prev.find((l) => l.product.id === p.id);
       if (existing) {
-        if (p.type === "product" && existing.quantity + 1 > p.stock_quantity) {
-          setError(`Only ${p.stock_quantity} ${p.name} in stock.`);
-          return prev;
-        }
         return prev.map((l) =>
           l.product.id === p.id ? { ...l, quantity: l.quantity + 1 } : l,
         );
-      }
-      if (p.type === "product" && p.stock_quantity <= 0) {
-        setError(`${p.name} is out of stock.`);
-        return prev;
       }
       return [
         ...prev,

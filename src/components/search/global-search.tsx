@@ -84,6 +84,7 @@ export function GlobalSearch() {
   const [highlightIndex, setHighlightIndex] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -111,7 +112,13 @@ export function GlobalSearch() {
   // Autofocus the input field when the modal opens
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => {
+        if (window.innerWidth < 768) {
+          mobileInputRef.current?.focus();
+        } else {
+          inputRef.current?.focus();
+        }
+      }, 50);
     }
   }, [open]);
 
@@ -145,7 +152,7 @@ export function GlobalSearch() {
     return () => clearTimeout(delayDebounce);
   }, [query]);
 
-  // Scroll active item into view if navigating with arrow keys
+  // Scroll active item into view if navigating with arrow keys (desktop only)
   useEffect(() => {
     if (results.length > 0 && resultsContainerRef.current) {
       const activeEl = resultsContainerRef.current.querySelector(
@@ -220,15 +227,146 @@ export function GlobalSearch() {
     );
   }, [results]);
 
+  const listContent = (
+    <div className="min-w-0 flex-1 overflow-y-auto p-3 overscroll-contain">
+      {/* Query is empty */}
+      {!query.trim() && (
+        <div className="py-6 px-4 text-center">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Quick Navigation
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {QUICK_PAGES.map((page) => {
+              const Icon = getIcon(page.icon);
+              return (
+                <button
+                  key={page.href}
+                  onClick={() => handleNavigate(page.href)}
+                  className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 text-left text-xs font-bold text-slate-655 transition hover:border-slate-205 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 cursor-pointer min-h-[44px]"
+                >
+                  <Icon className="size-4 shrink-0 text-slate-500" />
+                  <span className="truncate">{page.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No records found */}
+      {query.trim() && results.length === 0 && !loading && (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <Search className="size-8 text-slate-300 dark:text-slate-600" />
+          <h3 className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+            No results found
+          </h3>
+          <p className="mt-1 max-w-xs text-xs text-slate-500">
+            No matching pages, products, customers, bills, or repair jobs found for &quot;
+            {query}&quot;.
+          </p>
+        </div>
+      )}
+
+      {/* Loader placeholder */}
+      {loading && results.length === 0 && (
+        <div className="space-y-3 py-6 px-3">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 animate-pulse">
+              <div className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 shrink-0" />
+              <div className="flex-1 space-y-1.5 min-w-0">
+                <div className="h-3 w-1/3 rounded bg-slate-100 dark:bg-slate-800" />
+                <div className="h-2 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Render matches list */}
+      {results.length > 0 && (
+        <div className="space-y-4">
+          {Object.entries(groupedResults).map(([groupTitle, entries]) => (
+            <div key={groupTitle} className="space-y-1">
+              <h4 className="px-3 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                {groupTitle}
+              </h4>
+              <div className="space-y-0.5">
+                {entries.map(({ item, index }) => {
+                  const Icon = getIcon(item.iconKey);
+                  const isHighlighted = highlightIndex === index;
+                  return (
+                    <div
+                      key={item.id}
+                      data-active-index={index}
+                      onClick={() => handleNavigate(item.href)}
+                      className={`flex items-center justify-between rounded-xl p-3 cursor-pointer transition select-none min-h-[48px] ${
+                        isHighlighted
+                          ? "bg-blue-50/80 text-blue-800 border-l-4 border-blue-600 pl-2 shadow-xs dark:bg-blue-950/50 dark:text-blue-100"
+                          : "hover:bg-slate-50 text-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+                      }`}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
+                            isHighlighted
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                              : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"
+                          }`}
+                        >
+                          <Icon className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1 text-left">
+                          <p className="truncate text-xs font-bold leading-tight">
+                            {item.title}
+                          </p>
+                          {item.subtitle && (
+                            <p
+                              className={`truncate text-[10px] leading-tight mt-0.5 ${
+                                isHighlighted
+                                  ? "text-blue-500 font-medium"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {item.subtitle}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2 pl-2">
+                        {item.badge && (
+                          <span
+                            className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                              item.badgeClass ?? "bg-slate-100 text-slate-656"
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                        {isHighlighted && (
+                          <CornerDownLeft className="size-3 text-blue-505 animate-pulse hidden sm:block shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       {/* Mobile compact search icon button (< md) */}
       <button
         onClick={handleOpen}
-        className="flex md:hidden h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+        className="flex md:hidden h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer shrink-0"
         aria-label="Open command search"
       >
-        <Search className="size-4 shrink-0" />
+        <Search className="size-5 shrink-0" />
       </button>
 
       {/* Desktop/Tablet search placeholder input (>= md) */}
@@ -244,28 +382,19 @@ export function GlobalSearch() {
         </kbd>
       </button>
 
-      {/* Command Palette Overlay Dialog */}
+      {/* Overlay modal dialogs */}
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-0 backdrop-blur-xs sm:p-4 md:p-12"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) handleClose();
-          }}
-        >
-          {/* Main search panel: Modal on desktop, fullscreen sheet on mobile */}
-          <div
-            ref={containerRef}
-            className="flex h-full w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl transition-all dark:border-slate-800 dark:bg-slate-950 sm:h-[460px] sm:max-w-2xl sm:rounded-2xl"
-            onKeyDown={handleKeyDown}
-          >
-            {/* Search inputs bar */}
-            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
+        <>
+          {/* Mobile Fullscreen Search Sheet (< md) */}
+          <div className="fixed inset-0 z-50 flex flex-col bg-[#fff] dark:bg-slate-950 md:hidden animate-fade-in-up motion-reduce:transition-none">
+            {/* Header input bar */}
+            <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-4 dark:border-slate-800">
               <Search className="size-5 shrink-0 text-slate-400" />
               <input
-                ref={inputRef}
+                ref={mobileInputRef}
                 type="text"
                 className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-                placeholder="Search pages, SKU, barcode, device IMEI, customers..."
+                placeholder="Search..."
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 autoComplete="off"
@@ -277,181 +406,98 @@ export function GlobalSearch() {
                 <button
                   onClick={() => {
                     handleQueryChange("");
-                    inputRef.current?.focus();
+                    mobileInputRef.current?.focus();
                   }}
-                  className="rounded-md p-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="rounded-md p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                  aria-label="Clear search query"
                 >
                   <X className="size-4 text-slate-500" />
                 </button>
-              ) : (
-                <kbd className="pointer-events-none hidden select-none items-center rounded border border-slate-200 bg-slate-50 px-1.5 font-mono text-[10px] font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-900 sm:inline-flex shrink-0">
-                  ESC
-                </kbd>
-              )}
-              {/* Close trigger on mobile */}
+              ) : null}
               <button
                 onClick={handleClose}
-                className="block rounded-md p-1 transition hover:bg-slate-100 dark:hover:bg-slate-800 sm:hidden"
+                className="min-h-[44px] px-2 text-sm font-bold text-blue-700 dark:text-blue-400 cursor-pointer"
               >
-                <X className="size-5 text-slate-700 dark:text-slate-200" />
+                Cancel
               </button>
             </div>
 
-            {/* Results display panel */}
+            {/* Results display panel for mobile */}
+            {listContent}
+          </div>
+
+          {/* Desktop Overlay Dialog (md+) */}
+          <div
+            className="hidden md:flex fixed inset-0 z-50 items-start justify-center bg-slate-900/50 p-4 md:p-12 backdrop-blur-xs"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) handleClose();
+            }}
+          >
             <div
-              ref={resultsContainerRef}
-              className="min-w-0 flex-1 overflow-y-auto p-3"
+              ref={containerRef}
+              className="flex h-[460px] w-full max-w-2xl flex-col overflow-hidden border border-slate-200 bg-[#fff] shadow-2xl transition-all dark:border-slate-800 dark:bg-slate-950 sm:rounded-2xl"
+              onKeyDown={handleKeyDown}
             >
-              {/* Query is empty */}
-              {!query.trim() && (
-                <div className="py-6 px-4 text-center">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Quick Navigation
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {QUICK_PAGES.map((page) => {
-                      const Icon = getIcon(page.icon);
-                      return (
-                        <button
-                          key={page.href}
-                          onClick={() => handleNavigate(page.href)}
-                          className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 text-left text-xs font-bold text-slate-600 transition hover:border-slate-200 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 cursor-pointer"
-                        >
-                          <Icon className="size-4 shrink-0 text-slate-500" />
-                          <span className="truncate">{page.title}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* No records found */}
-              {query.trim() && results.length === 0 && !loading && (
-                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                  <Search className="size-8 text-slate-300 dark:text-slate-600" />
-                  <h3 className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">
-                    No results found
-                  </h3>
-                  <p className="mt-1 max-w-xs text-xs text-slate-500">
-                    No matching pages, products, customers, bills, or repair jobs found for &quot;
-                    {query}&quot;.
-                  </p>
-                </div>
-              )}
-
-              {/* Loader placeholder */}
-              {loading && results.length === 0 && (
-                <div className="space-y-3 py-6 px-3">
-                  {[1, 2, 3].map((n) => (
-                    <div key={n} className="flex items-center gap-3 animate-pulse">
-                        <div className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 shrink-0" />
-                      <div className="flex-1 space-y-1.5 min-w-0">
-                        <div className="h-3 w-1/3 rounded bg-slate-100 dark:bg-slate-800" />
-                        <div className="h-2 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Render matches list */}
-              {results.length > 0 && (
-                <div className="space-y-4">
-                  {Object.entries(groupedResults).map(([groupTitle, entries]) => (
-                    <div key={groupTitle} className="space-y-1">
-                      <h4 className="px-3 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
-                        {groupTitle}
-                      </h4>
-                      <div className="space-y-0.5">
-                        {entries.map(({ item, index }) => {
-                          const Icon = getIcon(item.iconKey);
-                          const isHighlighted = highlightIndex === index;
-                          return (
-                            <div
-                              key={item.id}
-                              data-active-index={index}
-                              onClick={() => handleNavigate(item.href)}
-                              className={`flex items-center justify-between rounded-xl p-3 cursor-pointer transition select-none ${
-                                isHighlighted
-                                  ? "bg-blue-50/80 text-blue-800 border-l-4 border-blue-600 pl-2 shadow-xs dark:bg-blue-950/50 dark:text-blue-100"
-                                  : "hover:bg-slate-50 text-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
-                              }`}
-                            >
-                              <div className="flex min-w-0 items-center gap-3">
-                                <div
-                                  className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
-                                    isHighlighted
-                                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-                                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"
-                                  }`}
-                                >
-                                  <Icon className="size-4" />
-                                </div>
-                                <div className="min-w-0 flex-1 text-left">
-                                  <p className="truncate text-xs font-bold leading-tight">
-                                    {item.title}
-                                  </p>
-                                  {item.subtitle && (
-                                    <p
-                                      className={`truncate text-[10px] leading-tight mt-0.5 ${
-                                        isHighlighted
-                                          ? "text-blue-500 font-medium"
-                                          : "text-slate-400"
-                                      }`}
-                                    >
-                                      {item.subtitle}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex shrink-0 items-center gap-2 pl-2">
-                                {item.badge && (
-                                  <span
-                                    className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                                      item.badgeClass ?? "bg-slate-100 text-slate-600"
-                                    }`}
-                                  >
-                                    {item.badge}
-                                  </span>
-                                )}
-                                {isHighlighted && (
-                                  <CornerDownLeft className="size-3 text-blue-500 animate-pulse hidden sm:block shrink-0" />
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Footer containing navigation instructions */}
-            <div className="hidden items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold text-slate-400 dark:border-slate-800 dark:bg-slate-900/70 sm:flex shrink-0">
-              <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">↑↓</kbd>
-                  to navigate
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">Enter</kbd>
-                  to select
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">ESC</kbd>
-                  to close
-                </span>
+              {/* Search inputs bar */}
+              <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 shrink-0">
+                <Search className="size-5 shrink-0 text-slate-400" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
+                  placeholder="Search pages, SKU, barcode, device IMEI, customers..."
+                  value={query}
+                  onChange={(e) => handleQueryChange(e.target.value)}
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+                {loading ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin text-slate-400" />
+                ) : query ? (
+                  <button
+                    onClick={() => {
+                      handleQueryChange("");
+                      inputRef.current?.focus();
+                    }}
+                    className="rounded-md p-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <X className="size-4 text-slate-500" />
+                  </button>
+                ) : (
+                  <kbd className="pointer-events-none hidden select-none items-center rounded border border-slate-200 bg-slate-50 px-1.5 font-mono text-[10px] font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-900 sm:inline-flex shrink-0">
+                    ESC
+                  </kbd>
+                )}
               </div>
-              <div>
-                <span>SaleDock Command Palette</span>
+
+              {/* Results display panel for desktop */}
+              <div ref={resultsContainerRef} className="flex flex-col flex-1 min-h-0">
+                {listContent}
+              </div>
+
+              {/* Footer containing navigation instructions */}
+              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold text-slate-400 dark:border-slate-800 dark:bg-slate-900/70 shrink-0">
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">↑↓</kbd>
+                    to navigate
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">Enter</kbd>
+                    to select
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">ESC</kbd>
+                    to close
+                  </span>
+                </div>
+                <div>
+                  <span>SaleDock Command Palette</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

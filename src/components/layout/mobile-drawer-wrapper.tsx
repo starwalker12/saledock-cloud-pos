@@ -1,4 +1,4 @@
-import { getCurrentContext } from "@/lib/auth/session";
+import { getCurrentContext, signProfilePictureUrl } from "@/lib/auth/session";
 import { canManageUsers, canViewAuditLog, canManageSupplierPurchases, canViewReplenishment } from "@/lib/permissions";
 import { isPlatformAdmin } from "@/lib/platform/admin";
 import { MobileDrawer } from "./mobile-drawer";
@@ -23,8 +23,9 @@ const baseItems: NavItem[] = [
 ];
 
 export async function MobileDrawerWrapper() {
-  const { profile } = await getCurrentContext();
+  const { profile, user } = await getCurrentContext();
   const platformAdmin = await isPlatformAdmin();
+  const profilePictureUrl = await signProfilePictureUrl(profile?.profile_picture_url ?? profile?.avatar_url ?? null);
 
   const visibleItems: NavItem[] = [
     ...baseItems,
@@ -47,5 +48,15 @@ export async function MobileDrawerWrapper() {
     ...(platformAdmin ? [{ href: "/platform", label: "platform", icon: "platform" }] : []),
   ];
 
-  return <MobileDrawer items={visibleItems} />;
+  return (
+    <MobileDrawer
+      items={visibleItems}
+      user={user ? {
+        name: profile?.full_name ?? user.email ?? "User",
+        email: user.email ?? "",
+        role: profile?.role ?? null,
+        profilePictureUrl: profilePictureUrl,
+      } : null}
+    />
+  );
 }

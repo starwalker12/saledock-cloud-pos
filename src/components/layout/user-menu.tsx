@@ -18,6 +18,7 @@ import {
   ConfirmDialogProvider,
   useConfirmDialog,
 } from "@/components/ui/confirm-dialog";
+import { Logo } from "@/components/logo";
 
 type UserMenuProps = {
   name: string;
@@ -72,7 +73,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center gap-1.5 rounded-full md:rounded-2xl border border-slate-200 bg-white/80 p-1 md:px-3 md:py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full md:rounded-2xl border border-slate-200 bg-white/80 p-1 md:px-3 md:py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           aria-haspopup="true"
           aria-expanded={open}
         >
@@ -187,6 +188,7 @@ function SignOutMenuItem({
       </form>
       {isSubmitting && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-slate-950/80 text-white backdrop-blur-sm">
+          <Logo className="h-12 w-auto object-contain mb-2 dark:brightness-0 dark:invert" />
           <div className="size-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
           <span className="font-bold text-lg">{t("signingOut", "Signing out...")}</span>
         </div>

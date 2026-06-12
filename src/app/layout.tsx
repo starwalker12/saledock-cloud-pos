@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
+import { ToastProvider } from "@/components/ui/toast";
 import AnalyticsNotice from "@/components/analytics-notice";
 import { env } from "@/lib/env";
 import {
@@ -174,7 +175,9 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
-            {children}
+            <ToastProvider>
+              {children}
+            </ToastProvider>
           </LanguageProvider>
         </ThemeProvider>
         <AnalyticsNotice
