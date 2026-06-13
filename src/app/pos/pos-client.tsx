@@ -343,12 +343,12 @@ export function PosClient({ products: initialProducts, customers: initialCustome
 
   return (
     <div className="pb-24 xl:pb-0">
-      <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm xl:hidden">
+      <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-[#fff] dark:bg-slate-900 p-1 shadow-sm xl:hidden">
         <button
           type="button"
           onClick={() => setMobileTab("products")}
           className={`min-h-11 rounded-lg px-3 text-sm font-black ${
-            mobileTab === "products" ? "bg-blue-700 text-white" : "text-slate-600"
+            mobileTab === "products" ? "bg-blue-700 text-white" : "text-slate-600 dark:text-slate-400"
           }`}
         >
           Products
@@ -357,7 +357,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
           type="button"
           onClick={() => setMobileTab("cart")}
           className={`min-h-11 rounded-lg px-3 text-sm font-black ${
-            mobileTab === "cart" ? "bg-blue-700 text-white" : "text-slate-600"
+            mobileTab === "cart" ? "bg-blue-700 text-white" : "text-slate-600 dark:text-slate-400"
           }`}
         >
           Cart · {cartCount} · {formatCurrency(grandTotal, currency)}
@@ -366,7 +366,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
 
       <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
       {/* Products column */}
-      <section className={`${mobileTab === "products" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 xl:block`}>
+      <section className={`${mobileTab === "products" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-[#fff] dark:bg-slate-900 p-3 shadow-sm sm:p-5 xl:block`}>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
           <label className="min-w-0">
             <span className="sr-only">Search</span>
@@ -490,7 +490,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       </section>
 
       {/* Cart column */}
-      <section className={`${mobileTab === "cart" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 xl:block xl:sticky xl:top-0 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto`}>
+      <section className={`${mobileTab === "cart" ? "block" : "hidden"} rounded-2xl border border-slate-200 bg-[#fff] dark:bg-slate-900 p-3 shadow-sm sm:p-5 xl:block xl:sticky xl:top-0 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto`}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-black text-slate-950">Cart</h2>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
@@ -556,7 +556,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                       step="0.01"
                       value={l.unit_price}
                       onChange={(e) => setLinePrice(l.product.id, e.target.value)}
-                      className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2 outline-none focus:border-blue-600"
+                      className="mt-1 h-9 w-full min-w-0 rounded-md border border-slate-200 bg-[#fff] dark:bg-slate-900 px-2 outline-none focus:border-blue-600"
                     />
                   </label>
                   <label className="text-xs">
@@ -567,7 +567,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                       step="0.01"
                       value={l.discount}
                       onChange={(e) => setLineDiscount(l.product.id, e.target.value)}
-                      className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2 outline-none focus:border-blue-600"
+                      className="mt-1 h-9 w-full min-w-0 rounded-md border border-slate-200 bg-[#fff] dark:bg-slate-900 px-2 outline-none focus:border-blue-600"
                     />
                   </label>
                 </div>
@@ -617,11 +617,11 @@ export function PosClient({ products: initialProducts, customers: initialCustome
         {/* Customer */}
         <div className="mt-5">
           <label className="block text-sm font-semibold text-slate-700">Customer</label>
-          <div className="mt-1 grid gap-2 min-[380px]:grid-cols-[1fr_auto]">
+          <div className="mt-1 flex flex-col gap-2 min-[360px]:flex-row">
             <select
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
-              className="h-10 flex-1 rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600"
+              className="h-10 w-full min-w-0 flex-1 rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 px-3 outline-none focus:border-blue-600"
             >
               <option value="">Walk-in</option>
               {customers.map((c) => (
@@ -633,7 +633,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             </select>
             <button
               onClick={() => setShowCustomerForm((v) => !v)}
-              className="flex h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              className="flex h-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
               type="button"
             >
               <UserPlus2 className="size-4" /> New
@@ -671,7 +671,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             <span>Subtotal</span>
             <span className="font-semibold">{formatCurrency(subtotal, currency)}</span>
           </div>
-          <label className="grid gap-1 text-sm min-[380px]:grid-cols-[1fr_auto] min-[380px]:items-center">
+          <div className="flex items-center justify-between gap-2 text-sm">
             <span>Cart discount</span>
             <input
               type="number"
@@ -679,9 +679,9 @@ export function PosClient({ products: initialProducts, customers: initialCustome
               step="0.01"
               value={discountTotal}
               onChange={(e) => setDiscountTotal(Math.max(Number(e.target.value) || 0, 0))}
-              className="h-9 w-full rounded-md border border-slate-200 px-2 text-right outline-none focus:border-blue-600 min-[380px]:w-32"
+              className="h-9 w-24 min-w-0 rounded-md border border-slate-200 bg-[#fff] dark:bg-slate-900 px-2 text-right outline-none focus:border-blue-600 sm:w-32"
             />
-          </label>
+          </div>
           <div className="flex justify-between text-base">
             <span className="font-bold">Grand total</span>
             <span className="text-lg font-black text-slate-950">
@@ -713,7 +713,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
           </div>
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">Amount tendered</span>
-            <div className="mt-1 grid gap-2 min-[380px]:grid-cols-[1fr_auto]">
+            <div className="mt-1 flex flex-col gap-2 min-[360px]:flex-row">
               <input
                 type="number"
                 min={0}
@@ -721,13 +721,13 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                 value={paymentMethod === "customer_credit" ? "0" : amountPaid}
                 disabled={paymentMethod === "customer_credit"}
                 onChange={(e) => setAmountPaid(e.target.value)}
-                className="h-10 flex-1 rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
+                className="h-10 w-full min-w-0 flex-1 rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 px-3 outline-none focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800"
               />
               <button
                 type="button"
                 disabled={paymentMethod === "customer_credit"}
                 onClick={() => setAmountPaid(String(grandTotal))}
-                className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:hover:bg-transparent"
+                className="h-10 shrink-0 rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 px-3 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 Exact
               </button>
@@ -788,7 +788,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             type="button"
             onClick={resetCart}
             disabled={cart.length === 0 || pending}
-            className="h-12 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 disabled:opacity-50"
+            className="h-12 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-slate-800 dark:text-slate-300"
           >
             Clear
           </button>
@@ -801,6 +801,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
             {pending ? "Processing…" : `Checkout · ${formatCurrency(grandTotal, currency)}`}
           </button>
         </div>
+        <div className="h-20 xl:hidden" />
       </section>
       </div>
 

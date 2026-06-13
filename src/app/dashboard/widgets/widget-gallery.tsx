@@ -71,7 +71,7 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
   }, {} as Record<string, WidgetDef[]>);
 
   return (
-    <div className={`fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200 motion-reduce:transition-none ${
+    <div className={`fixed inset-0 z-[80] flex justify-end bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200 motion-reduce:transition-none ${
       visible ? "opacity-100" : "opacity-0"
     }`}>
       {/* Backdrop click closer */}
@@ -103,7 +103,7 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
         </div>
 
         {/* Scrollable list */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-6">
           {Object.entries(groupedWidgets).map(([category, widgets]) => (
             <div key={category} className="space-y-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">

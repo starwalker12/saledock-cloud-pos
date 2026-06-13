@@ -20,7 +20,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   customer_credit: "Customer credit",
 };
 
-const PRODUCTION_URL = "https://saledock-cloud-pos.vercel.app";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-PK", {
@@ -40,11 +39,6 @@ function fmtDateShort(iso: string) {
   });
 }
 
-function whatsappLink(phone: string | null | undefined, message: string) {
-  const digits = phone?.replace(/\D/g, "") ?? "";
-  const target = digits ? `https://wa.me/${digits}` : "https://wa.me/";
-  return `${target}?text=${encodeURIComponent(message)}`;
-}
 
 function hasServiceSplit(item: { service_transaction_amount: number; service_commission: number; service_total_charged: number }) {
   return item.service_transaction_amount > 0 || item.service_commission > 0 || item.service_total_charged > 0;
@@ -104,19 +98,7 @@ export default async function InvoiceDetailPage({
   const grossMargin =
     invoice.grand_total > 0 ? (grossProfit / invoice.grand_total) * 100 : 0;
   const canReturn = canProcessReturns(profile.role);
-  const invoiceUrl = `${PRODUCTION_URL}/invoices/${invoice.id}`;
   const hasChangeDue = invoice.change_due > 0;
-  const whatsappMessage = [
-    `${orgName} invoice ${invoice.invoice_no}`,
-    `Total: ${formatCurrency(invoice.grand_total, currency)}`,
-    ...(hasChangeDue ? [`Tendered: ${formatCurrency(invoice.amount_tendered, currency)}`] : []),
-    `Paid: ${formatCurrency(invoice.amount_paid, currency)}`,
-    ...(hasChangeDue ? [`Change: ${formatCurrency(invoice.change_due, currency)}`] : []),
-    `Balance: ${formatCurrency(invoice.balance_due, currency)}`,
-    `View invoice: ${invoiceUrl}`,
-  ].join("\n");
-  const whatsappHref = whatsappLink(invoice.customer?.phone, whatsappMessage);
-
   const showLogo = hasShoLogo(branding.logoUrl);
 
   return (
@@ -129,7 +111,7 @@ export default async function InvoiceDetailPage({
         >
           &larr; Back to invoices
         </Link>
-        <PrintButton whatsappHref={whatsappHref} />
+        <PrintButton invoiceNo={invoice.invoice_no} customerPhone={invoice.customer?.phone} />
       </div>
 
       {/* ── Invoice document card ── */}

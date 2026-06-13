@@ -1,5 +1,11 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
+
+export const metadata: Metadata = {
+  title: "Sign In — SaleDock Cloud POS",
+  description: "Sign in to your SaleDock Cloud POS account to manage sales, check out, track inventory, coordinate repairs, and view reports.",
+};
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getPublicPlatformSetting } from "@/lib/platform/admin";

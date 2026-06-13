@@ -1,6 +1,37 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
+  description: "SaleDock is a cloud POS platform for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports. Modern, fast, and secure.",
+  alternates: {
+    canonical: "https://saledock.site",
+  },
+  openGraph: {
+    title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
+    description: "SaleDock is a cloud POS platform for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports. Modern, fast, and secure.",
+    url: "https://saledock.site",
+    siteName: "SaleDock Cloud POS",
+    images: [
+      {
+        url: "https://saledock.site/saledock-logo-full.png",
+        width: 488,
+        height: 178,
+        alt: "SaleDock Logo",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
+    description: "SaleDock is a cloud POS platform for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports. Modern, fast, and secure.",
+    images: ["https://saledock.site/saledock-logo-full.png"],
+  },
+};
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -302,6 +333,47 @@ export default async function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#fff] dark:bg-[#050c1a]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "WebSite",
+                "@id": "https://saledock.site/#website",
+                "url": "https://saledock.site",
+                "name": "SaleDock Cloud POS",
+                "description": "SaleDock is a cloud POS platform for shops to manage sales, inventory, repairs, invoices, expenses, and reports.",
+                "potentialAction": [
+                  {
+                    "@type": "SearchAction",
+                    "target": {
+                      "@type": "EntryPoint",
+                      "urlTemplate": "https://saledock.site/search?q={search_term_string}"
+                    },
+                    "query-input": "required name=search_term_string"
+                  }
+                ]
+              },
+              {
+                "@type": "SoftwareApplication",
+                "@id": "https://saledock.site/#software",
+                "name": "SaleDock Cloud POS",
+                "url": "https://saledock.site",
+                "applicationCategory": "BusinessApplication",
+                "operatingSystem": "All",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "PKR"
+                },
+                "description": "Cloud point of sale and inventory management software for retail and repair shops."
+              }
+            ]
+          }),
+        }}
+      />
 
       {/* ── STICKY NAV ── */}
       <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
