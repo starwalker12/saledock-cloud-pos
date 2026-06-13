@@ -88,6 +88,8 @@ const en: Dict = {
     noProfile: "no profile",
     theme: "Theme",
     language: "Language",
+    notifications: "Notifications",
+    noNewNotifications: "No new notifications",
     invalidPhone: "Please enter a valid phone number (e.g. +92 300 1234567).",
   },
   sidebar: {
@@ -362,6 +364,8 @@ const ur: Dict = {
     noProfile: "\u06A9\u0648\u0626\u06CC \u067E\u0631\u0648\u0641\u0627\u0626\u0644 \u0646\u06C1\u06CC\u06BA",
     theme: "\u062B\u06CC\u0645",
     language: "\u0632\u0628\u0627\u0646",
+    notifications: "\u0627\u0637\u0644\u0627\u0639\u0627\u062A",
+    noNewNotifications: "\u06A9\u0648\u0626\u06CC \u0646\u0626\u06CC \u0627\u0637\u0644\u0627\u0639 \u0646\u06C1\u06CC\u06BA",
     invalidPhone: "براہ کرم ایک درست فون نمبر درج کریں (مثلاً +92 300 1234567)۔",
   },
   sidebar: {
@@ -636,6 +640,8 @@ const urRoman: Dict = {
     noProfile: "koi profile nahi",
     theme: "Theme",
     language: "Zaban",
+    notifications: "Notifications",
+    noNewNotifications: "Koi nayi notification nahi",
     invalidPhone: "Baraye meharbani aik durust phone number darj karein (e.g. +92 300 1234567).",
   },
   sidebar: {

@@ -179,6 +179,27 @@ export function GlobalSearch() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setQuery("");
+        setResults([]);
+        setLoading(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   const handleNavigate = (href: string) => {
     setOpen(false);
     setQuery("");
@@ -377,7 +398,7 @@ export function GlobalSearch() {
       >
         <Search className="size-4 shrink-0 text-slate-400" />
         <span className="flex-1 truncate">Search...</span>
-        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 font-mono text-[10px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-950 sm:inline-flex shrink-0">
+        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border border-slate-200 bg-[#fff] px-1.5 font-mono text-[10px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-950 sm:inline-flex shrink-0">
           <span className="text-[10px]">⌘</span>K
         </kbd>
       </button>
@@ -386,9 +407,12 @@ export function GlobalSearch() {
       {open && (
         <>
           {/* Mobile Fullscreen Search Sheet (< md) */}
-          <div className="fixed inset-0 z-50 flex flex-col bg-[#fff] dark:bg-slate-950 md:hidden animate-fade-in-up motion-reduce:transition-none">
+          <div
+            className="fixed inset-0 z-[130] flex h-dvh min-h-dvh flex-col bg-[#fff] dark:bg-slate-950 md:hidden animate-fade-in-up motion-reduce:transition-none"
+            onKeyDown={handleKeyDown}
+          >
             {/* Header input bar */}
-            <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-4 dark:border-slate-800">
+            <div className="flex min-h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-4 pt-[env(safe-area-inset-top)] dark:border-slate-800">
               <Search className="size-5 shrink-0 text-slate-400" />
               <input
                 ref={mobileInputRef}
@@ -417,6 +441,7 @@ export function GlobalSearch() {
               <button
                 onClick={handleClose}
                 className="min-h-[44px] px-2 text-sm font-bold text-blue-700 dark:text-blue-400 cursor-pointer"
+                aria-label="Close search"
               >
                 Cancel
               </button>
@@ -479,15 +504,15 @@ export function GlobalSearch() {
               <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold text-slate-400 dark:border-slate-800 dark:bg-slate-900/70 shrink-0">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1">
-                    <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">↑↓</kbd>
+                    <kbd className="rounded border border-slate-200 bg-[#fff] px-1 font-mono dark:border-slate-700 dark:bg-slate-950">↑↓</kbd>
                     to navigate
                   </span>
                   <span className="flex items-center gap-1">
-                    <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">Enter</kbd>
+                    <kbd className="rounded border border-slate-200 bg-[#fff] px-1 font-mono dark:border-slate-700 dark:bg-slate-950">Enter</kbd>
                     to select
                   </span>
                   <span className="flex items-center gap-1">
-                    <kbd className="rounded border border-slate-200 bg-white px-1 font-mono dark:border-slate-700 dark:bg-slate-950">ESC</kbd>
+                    <kbd className="rounded border border-slate-200 bg-[#fff] px-1 font-mono dark:border-slate-700 dark:bg-slate-950">ESC</kbd>
                     to close
                   </span>
                 </div>

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Bell, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { getCurrentContext, signProfilePictureUrl } from "@/lib/auth/session";
 import { GlobalSearch } from "@/components/search/global-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MobileDrawerWrapper } from "@/components/layout/mobile-drawer-wrapper";
+import { NotificationPopover } from "@/components/layout/notification-popover";
 import { getPublicPlatformSetting, isPlatformAdmin } from "@/lib/platform/admin";
 import { getServerDict } from "@/lib/i18n/server";
 
@@ -25,7 +26,7 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
     // continues to hide the topbar during print. The AppShell now keeps this
     // topbar pinned at the top of the content column without needing sticky
     // behavior — it sits as a shrink-0 sibling above the scrolling <main>.
-    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-[#fff]/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
       {maintenanceMode && (
         <div className="flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-center text-xs font-bold text-white">
           <AlertTriangle className="size-3.5" />
@@ -40,12 +41,7 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <GlobalSearch />
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
-            aria-label="Notifications"
-          >
-            <Bell className="size-4" aria-hidden="true" />
-          </button>
+          <NotificationPopover compact />
           {user ? (
             <UserMenu
               name={profile?.full_name ?? user.email ?? "User"}
@@ -74,12 +70,7 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[860px] lg:flex-1 lg:justify-end xl:max-w-[980px]">
           <GlobalSearch />
           <ThemeToggle />
-          <button
-            className="flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 px-4 text-slate-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
-            aria-label="Notifications"
-          >
-            <Bell className="size-4" aria-hidden="true" />
-          </button>
+          <NotificationPopover />
           {user ? (
             <UserMenu
               name={profile?.full_name ?? user.email ?? "User"}

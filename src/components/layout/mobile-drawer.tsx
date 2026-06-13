@@ -110,7 +110,7 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
 
       {/* Drawer Overlay always rendered for transitions */}
       <div
-        className={`fixed inset-0 z-50 lg:hidden transition-all duration-300 ease-in-out ${
+        className={`fixed inset-0 z-[110] h-dvh min-h-dvh lg:hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
           open ? "visible pointer-events-auto" : "invisible pointer-events-none"
         }`}
       >
@@ -126,7 +126,7 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
         {/* Slide-out Panel */}
         <div
           ref={drawerRef}
-          className={`absolute left-0 top-0 flex h-full w-[85vw] max-w-[360px] flex-col bg-[#fff] shadow-xl dark:bg-slate-900 transform transition-transform duration-300 ease-in-out motion-reduce:transition-none ${
+          className={`absolute inset-0 flex h-dvh min-h-dvh w-full flex-col bg-[#fff] shadow-xl md:inset-y-0 md:left-0 md:right-auto md:w-[85vw] md:max-w-[360px] dark:bg-slate-900 transform transition-transform duration-300 ease-in-out motion-reduce:transition-none ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
           role="dialog"
@@ -134,7 +134,7 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
           aria-label="Navigation menu"
         >
           {/* User Header */}
-          <div className="relative flex h-24 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50/50 px-4 dark:border-slate-800 dark:bg-slate-950/20">
+          <div className="relative flex min-h-24 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 pt-[env(safe-area-inset-top)] dark:border-slate-800 dark:bg-slate-950">
             <div className="flex items-center gap-3 pr-10 min-w-0">
               {user?.profilePictureUrl ? (
                 <span className="size-11 shrink-0 overflow-hidden rounded-full border border-slate-200 dark:border-slate-700">
@@ -170,7 +170,7 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
           </div>
 
           {/* Scrollable navigation area */}
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 overscroll-contain space-y-4">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overscroll-contain space-y-4">
             <nav className="space-y-1">
               {items.filter(item => item.href !== "/settings").map((item) => {
                 const Icon = iconMap[item.icon];

@@ -19,9 +19,10 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
-const GRID_COLS = { ultra: 12, wide: 8, lg: 4, md: 4, sm: 2, xs: 1, xxs: 1 } as const;
+const GRID_COLS = { ultra: 12, wide: 8, lg: 4, md: 4, sm: 2, xs: 2, xxs: 2 } as const;
 const GRID_BREAKPOINTS = { ultra: 2600, wide: 1800, lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 } as const;
 type GridBreakpoint = keyof typeof GRID_COLS;
+const MOBILE_BREAKPOINTS = new Set<GridBreakpoint>(["sm", "xs", "xxs"]);
 
 export function getWidgetDimsFromSize(size: WidgetSize): { w: number; h: number } {
   switch (size) {
@@ -55,29 +56,47 @@ export function getWidgetSizeFromDims(w: number, h: number): WidgetSize {
   return "S";
 }
 
-function getSingleColumnHeight(size: WidgetSize) {
+function isMobileBreakpoint(breakpoint: GridBreakpoint) {
+  return MOBILE_BREAKPOINTS.has(breakpoint);
+}
+
+function getMobileWidgetDims(size: WidgetSize): { w: number; h: number } {
   switch (size) {
     case "S":
-      return 1;
+      return { w: 1, h: 1 };
     case "M":
-      return 2;
+      return { w: 2, h: 2 };
     case "L":
-      return 3;
+      return { w: 2, h: 3 };
     case "XL":
-      return 4;
+      return { w: 2, h: 4 };
   }
 }
 
-function packWidgetsForColumns(widgets: WidgetInstance[], cols: number) {
+function getLayoutDims(widget: WidgetInstance, cols: number, breakpoint: GridBreakpoint) {
+  const size = getWidgetSizeFromDims(widget.w, widget.h);
+  if (isMobileBreakpoint(breakpoint)) {
+    const mobileDims = getMobileWidgetDims(size);
+    return {
+      w: Math.min(Math.max(mobileDims.w, 1), cols),
+      h: mobileDims.h,
+    };
+  }
+
+  return {
+    w: Math.min(Math.max(widget.w, 1), cols),
+    h: Math.max(widget.h, 1),
+  };
+}
+
+function packWidgetsForColumns(widgets: WidgetInstance[], cols: number, breakpoint: GridBreakpoint) {
   const sorted = [...widgets].sort((a, b) => (a.y - b.y) || (a.x - b.x));
   let cursorX = 0;
   let cursorY = 0;
   let rowHeight = 1;
 
   return sorted.map((widget) => {
-    const size = getWidgetSizeFromDims(widget.w, widget.h);
-    const w = cols === 1 ? 1 : Math.min(Math.max(widget.w, 1), cols);
-    const h = cols === 1 ? getSingleColumnHeight(size) : Math.max(widget.h, 1);
+    const { w, h } = getLayoutDims(widget, cols, breakpoint);
 
     if (cursorX > 0 && cursorX + w > cols) {
       cursorX = 0;
@@ -104,13 +123,15 @@ function packWidgetsForColumns(widgets: WidgetInstance[], cols: number) {
   });
 }
 
-function makeLayoutForColumns(widgets: WidgetInstance[], cols: number) {
+function makeLayoutForBreakpoint(widgets: WidgetInstance[], breakpoint: GridBreakpoint) {
+  const cols = GRID_COLS[breakpoint];
   const needsRepack =
+    isMobileBreakpoint(breakpoint) ||
     cols < 4 ||
     (cols > 4 && widgets.every((widget) => widget.x + widget.w <= 4));
 
   if (needsRepack) {
-    return packWidgetsForColumns(widgets, cols);
+    return packWidgetsForColumns(widgets, cols, breakpoint);
   }
 
   return widgets.map((widget) => {
@@ -428,22 +449,22 @@ export function WidgetGrid({
     );
   }
 
-  const activeColumns = GRID_COLS[activeBreakpoint] ?? GRID_COLS.lg;
-  const isPhoneLayout = activeColumns === 1;
+  const isMobileLayout = isMobileBreakpoint(activeBreakpoint);
+  const openSettingsWidget = widgets.find((widget) => widget.id === openSettingsId) ?? null;
   const layouts = {
-    ultra: makeLayoutForColumns(widgets, GRID_COLS.ultra),
-    wide: makeLayoutForColumns(widgets, GRID_COLS.wide),
-    lg: makeLayoutForColumns(widgets, GRID_COLS.lg),
-    md: makeLayoutForColumns(widgets, GRID_COLS.md),
-    sm: makeLayoutForColumns(widgets, GRID_COLS.sm),
-    xs: makeLayoutForColumns(widgets, GRID_COLS.xs),
-    xxs: makeLayoutForColumns(widgets, GRID_COLS.xxs),
+    ultra: makeLayoutForBreakpoint(widgets, "ultra"),
+    wide: makeLayoutForBreakpoint(widgets, "wide"),
+    lg: makeLayoutForBreakpoint(widgets, "lg"),
+    md: makeLayoutForBreakpoint(widgets, "md"),
+    sm: makeLayoutForBreakpoint(widgets, "sm"),
+    xs: makeLayoutForBreakpoint(widgets, "xs"),
+    xxs: makeLayoutForBreakpoint(widgets, "xxs"),
   };
 
   const handleLayoutChange = (currentLayout: readonly any[]) => {
     if (!editing) return;
 
-    if (isPhoneLayout) {
+    if (isMobileLayout) {
       const order = new Map(
         [...currentLayout]
           .sort((a, b) => (a.y - b.y) || (a.x - b.x))
@@ -612,11 +633,11 @@ export function WidgetGrid({
         layouts={layouts}
         breakpoints={GRID_BREAKPOINTS}
         cols={GRID_COLS}
-        rowHeight={136}
-        margin={[16, 16]}
         isDraggable={editing}
-        isResizable={editing && !isPhoneLayout}
+        isResizable={editing && !isMobileLayout}
         draggableHandle=".widget-drag-handle"
+        rowHeight={isMobileLayout ? 118 : 136}
+        margin={isMobileLayout ? [10, 10] : [16, 16]}
         onBreakpointChange={(breakpoint) => setActiveBreakpoint(breakpoint as GridBreakpoint)}
         onLayoutChange={handleLayoutChange}
         onResize={handleResize}
@@ -653,7 +674,7 @@ export function WidgetGrid({
               data-widget-fill={effectiveFillStyle}
               data-widget-text={textColor}
               style={cardStyle}
-              className={`dashboard-widget-card relative flex h-full min-w-0 flex-col overflow-visible rounded-2xl border p-3 shadow-sm transition-all duration-200 group/widget ${borderClass} ${fillClass} ${isHighlighted ? "animate-dashboard-widget-highlight" : ""}`}
+              className={`dashboard-widget-card relative flex h-full min-w-0 flex-col overflow-visible rounded-xl border p-2.5 shadow-sm transition-all duration-200 group/widget md:rounded-2xl md:p-3 ${borderClass} ${fillClass} ${isHighlighted ? "animate-dashboard-widget-highlight" : ""}`}
             >
               {/* Header Title (Clean, same in Edit and View modes) */}
               <div className="mb-1.5 flex min-h-5 shrink-0 items-center justify-center border-b border-slate-200/40 pb-1.5 dark:border-slate-800/40">
@@ -701,7 +722,7 @@ export function WidgetGrid({
                     <Settings2 className="size-3.5" />
                   </button>
 
-                  {isSettingsOpen && !isPhoneLayout && (
+                  {isSettingsOpen && !isMobileLayout && (
                     <div className="dashboard-widget-menu-open animate-dashboard-popover absolute right-2 top-10 z-[90] w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-[#fff] p-2.5 text-slate-900 shadow-2xl shadow-slate-900/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
                       <WidgetSettingsControls
                         widget={widget}
@@ -720,59 +741,60 @@ export function WidgetGrid({
                     </div>
                   )}
 
-                  {isSettingsOpen && isPhoneLayout && (
-                    <div
-                      className="fixed inset-0 z-[95] flex items-end bg-slate-950/60 px-0 pt-10 backdrop-blur-sm md:hidden"
-                      role="dialog"
-                      aria-modal="true"
-                      aria-labelledby={`widget-settings-title-${widget.id}`}
-                    >
-                      <button
-                        type="button"
-                        className="absolute inset-0 cursor-default"
-                        onClick={() => setOpenSettingsId(null)}
-                        aria-label="Close widget settings"
-                      />
-                      <div className="animate-dashboard-sheet relative w-full rounded-t-3xl border border-slate-200 bg-[#fff] p-4 text-slate-900 shadow-2xl shadow-slate-950/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-                        <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-300 dark:bg-slate-700" />
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <h2
-                            id={`widget-settings-title-${widget.id}`}
-                            className="min-w-0 truncate text-sm font-black text-slate-950 dark:text-white"
-                          >
-                            {title}
-                          </h2>
-                          <button
-                            type="button"
-                            onClick={() => setOpenSettingsId(null)}
-                            className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition active:scale-95 dark:bg-slate-800 dark:text-slate-200"
-                          >
-                            {state.labels?.done ?? "Done"}
-                          </button>
-                        </div>
-                        <WidgetSettingsControls
-                          widget={widget}
-                          renderSize={renderSize}
-                          textColor={textColor}
-                          labels={state.labels}
-                          onUpdateSize={handleUpdateWidgetSize}
-                          onUpdateColor={handleUpdateWidgetColor}
-                          onUpdateFillStyle={handleUpdateWidgetFillStyle}
-                          onUpdateTextColor={handleUpdateWidgetTextColor}
-                          onRemove={(id) => {
-                            setOpenSettingsId(null);
-                            handleRemoveWidget(id);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           );
         })}
       </ResponsiveGridLayout>
+      {editing && isMobileLayout && openSettingsWidget && (
+        <div
+          className="fixed inset-0 z-[120] flex items-end bg-slate-950/60 px-0 pt-[calc(2.5rem+env(safe-area-inset-top))] backdrop-blur-sm md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`widget-settings-title-${openSettingsWidget.id}`}
+          data-widget-settings-root={openSettingsWidget.id}
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setOpenSettingsId(null)}
+            aria-label="Close widget settings"
+          />
+          <div className="animate-dashboard-sheet relative w-full max-h-[82dvh] overflow-y-auto rounded-t-3xl border border-slate-200 bg-[#fff] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-slate-900 shadow-2xl shadow-slate-950/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+            <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-300 dark:bg-slate-700" />
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2
+                id={`widget-settings-title-${openSettingsWidget.id}`}
+                className="min-w-0 truncate text-sm font-black text-slate-950 dark:text-white"
+              >
+                {WIDGET_CATALOG.find((cat) => cat.type === openSettingsWidget.type)?.title || openSettingsWidget.type}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setOpenSettingsId(null)}
+                className="min-h-[44px] rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition active:scale-95 dark:bg-slate-800 dark:text-slate-200"
+              >
+                {state.labels?.done ?? "Done"}
+              </button>
+            </div>
+            <WidgetSettingsControls
+              widget={openSettingsWidget}
+              renderSize={getWidgetSizeFromDims(openSettingsWidget.w, openSettingsWidget.h)}
+              textColor={openSettingsWidget.textColor ?? "auto"}
+              labels={state.labels}
+              onUpdateSize={handleUpdateWidgetSize}
+              onUpdateColor={handleUpdateWidgetColor}
+              onUpdateFillStyle={handleUpdateWidgetFillStyle}
+              onUpdateTextColor={handleUpdateWidgetTextColor}
+              onRemove={(id) => {
+                setOpenSettingsId(null);
+                handleRemoveWidget(id);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,7 +25,7 @@ export function MobileTabBar() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-[#fff]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden">
       <div className="flex h-16 items-center justify-around px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;

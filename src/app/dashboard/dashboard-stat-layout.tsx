@@ -364,7 +364,7 @@ export function DashboardStatLayout({
       </div>
 
       {editing && (
-        <div className="sticky top-0 z-50 mb-4 rounded-2xl border border-slate-200 bg-[#fff]/95 p-2 shadow-xl shadow-slate-200/60 backdrop-blur dark:border-white/[0.10] dark:bg-[#0f172a]/95 dark:shadow-black/30">
+        <div className="sticky top-2 z-[60] mb-4 rounded-2xl border border-slate-200 bg-[#fff]/95 p-2 shadow-xl shadow-slate-200/60 backdrop-blur md:top-0 dark:border-white/[0.10] dark:bg-[#0f172a]/95 dark:shadow-black/30">
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 bg-[#f8fafc] px-1.5 text-xs font-bold text-slate-600 shadow-sm dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-300">
               <span className="hidden px-1 sm:inline">{labels.fillStyle}</span>
@@ -427,7 +427,7 @@ export function DashboardStatLayout({
       )}
 
       {/* Responsive Widget Grid */}
-      <div className={editing ? "rounded-2xl border border-dashed border-blue-200 bg-[#eff6ff]/40 p-2 dark:border-blue-400/20 dark:bg-blue-950/10" : ""}>
+      <div className={editing ? "rounded-2xl border border-dashed border-blue-200 bg-[#eff6ff]/40 p-2 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-2 dark:border-blue-400/20 dark:bg-blue-950/10" : ""}>
         <WidgetGrid
           widgets={widgets}
           onChangeWidgets={handleUpdateWidgets}

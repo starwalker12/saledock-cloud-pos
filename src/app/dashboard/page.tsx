@@ -232,9 +232,9 @@ export default async function DashboardPage() {
   return (
     <AppShell pageTitle="Dashboard" contentClassName="max-w-[3600px]">
       {/* Main dashboard card */}
-      <div className="overflow-visible rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
+      <div className="overflow-visible md:rounded-2xl md:border md:border-slate-200 md:bg-[#fff] md:shadow-sm md:dark:border-white/[0.07] md:dark:bg-[#060f20]">
         {/* Browser-style chrome bar */}
-        <div className="flex items-center gap-1.5 rounded-t-2xl border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <div className="hidden items-center gap-1.5 rounded-t-2xl border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.03] md:flex">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
@@ -244,7 +244,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Main content area */}
-        <div className="p-3.5 sm:p-5">
+        <div className="p-0 md:p-5">
           <DashboardStatLayout
             firstName={profile.full_name?.split(" ")[0] ?? "User"}
             role={profile.role}
