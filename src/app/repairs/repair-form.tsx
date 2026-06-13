@@ -139,7 +139,7 @@ export function RepairForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Customer Name *
+                  Customer Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   required
@@ -213,7 +213,7 @@ export function RepairForm({
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Device Type *
+                Device Type <span className="text-red-500">*</span>
               </label>
               <input
                 required
@@ -256,7 +256,7 @@ export function RepairForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Problem Description *
+                Problem Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 required

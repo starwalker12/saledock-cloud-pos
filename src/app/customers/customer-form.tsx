@@ -34,7 +34,7 @@ export function CustomerForm({
       {initialValues?.id && <input type="hidden" name="id" value={initialValues.id} />}
 
       <label className="block md:col-span-2">
-        <span className="text-sm font-semibold text-slate-700">Full Name</span>
+        <span className="text-sm font-semibold text-slate-700">Full Name <span className="text-red-500">*</span></span>
         <input
           required
           name="name"

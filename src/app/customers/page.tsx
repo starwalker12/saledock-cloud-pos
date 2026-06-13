@@ -4,6 +4,7 @@ import { Users, AlertCircle, ShieldAlert, BadgeCent } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentContext } from "@/lib/auth/session";
 import { listCustomers, type CustomerRow } from "@/lib/data/customers";
 import { canWriteCatalog } from "@/lib/permissions";
@@ -160,12 +161,17 @@ export default async function CustomersPage({
 
           {/* Grid Table */}
           {filteredCustomers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-              <p className="text-sm font-semibold text-slate-600">No customers match these filters.</p>
-              {canWrite && (
-                <p className="mt-1 text-xs text-slate-500">Create your first profile using the form above.</p>
-              )}
-            </div>
+            <EmptyState
+              title="No customers found"
+              description={
+                (params.q || params.inactive)
+                  ? "No customers matched your search query or filters. Try adjusting your search query."
+                  : "Get started by adding your first customer using the form above."
+              }
+              searchQuery={params.q}
+              resetHref={(params.q || params.inactive) ? "/customers" : undefined}
+              type={(params.q || params.inactive) ? "search" : "empty"}
+            />
           ) : (
             <>
               {/* Desktop Table View */}

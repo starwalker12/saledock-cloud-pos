@@ -53,7 +53,7 @@ export function ExpenseForm({
       {initialValues?.id && <input type="hidden" name="id" value={initialValues.id} />}
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Category</span>
+        <span className="text-sm font-semibold text-slate-700">Category <span className="text-red-500">*</span></span>
         <input
           required
           name="category"
@@ -71,7 +71,7 @@ export function ExpenseForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Amount (PKR)</span>
+        <span className="text-sm font-semibold text-slate-700">Amount (PKR) <span className="text-red-500">*</span></span>
         <input
           required
           type="number"

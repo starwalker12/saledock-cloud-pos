@@ -4,6 +4,7 @@ import { AlertTriangle, Boxes, Tag, Truck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentContext } from "@/lib/auth/session";
 import {
   catalogCounts,
@@ -316,12 +317,17 @@ async function ProductsTab({
       </form>
 
       {products.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-          <p className="text-sm font-semibold text-slate-600">No products match these filters.</p>
-          {canWrite && (
-            <p className="mt-1 text-xs text-slate-500">Add your first product using the form above.</p>
-          )}
-        </div>
+        <EmptyState
+          title="No products found"
+          description={
+            hasProductFilters
+              ? "No products matched your search or filters. Try adjusting your query or resetting filters."
+              : "Get started by adding your first product using the form above."
+          }
+          searchQuery={params.q}
+          resetHref={hasProductFilters ? "/products?tab=products" : undefined}
+          type={hasProductFilters ? "search" : "empty"}
+        />
       ) : (
         <>
           <div className="hidden overflow-x-auto md:block">
@@ -581,9 +587,11 @@ function CategoriesTab({
       )}
 
       {categories.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-          <p className="text-sm font-semibold text-slate-600">No categories yet.</p>
-        </div>
+        <EmptyState
+          title="No categories yet"
+          description="Categories help group your products (e.g. Phones, Accessories). Use the form above to add one."
+          type="empty"
+        />
       ) : (
         <>
         <div className="hidden overflow-x-auto md:block">
@@ -744,9 +752,11 @@ function SuppliersTab({
       )}
 
       {suppliers.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-          <p className="text-sm font-semibold text-slate-600">No suppliers yet.</p>
-        </div>
+        <EmptyState
+          title="No suppliers yet"
+          description="Suppliers are contacts you purchase inventory from. Use the form above to add your first supplier."
+          type="empty"
+        />
       ) : (
         <>
         <div className="hidden overflow-x-auto md:block">
