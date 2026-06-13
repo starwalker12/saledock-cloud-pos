@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Wrench, Layers, AlertCircle, CalendarCheck, Coins, Plus, Eye } from "lucide-react";
+import { Wrench, Layers, CalendarCheck, Coins, Plus, Eye } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canCreateRepairs } from "@/lib/permissions";
 import { listRepairs, getRepairsStats } from "@/lib/data/repairs";
@@ -193,10 +194,20 @@ export default async function RepairsPage({
 
         {/* Repairs list rendering */}
         {repairs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-            <AlertCircle className="size-10 text-slate-300" />
-            <h3 className="mt-2 text-sm font-bold text-slate-800">No repairs found</h3>
-            <p className="mt-1 text-xs text-slate-500">Try adjusting your filters or record a new intake.</p>
+          <div className="p-6">
+            <EmptyState
+              title="No repairs found"
+              description={
+                (params.q || params.status || params.from || params.to)
+                  ? "No repairs matched your search query or filters. Try adjusting filters."
+                  : "Track device repairs by recording a new intake ticket."
+              }
+              searchQuery={params.q}
+              resetHref={(params.q || params.status || params.from || params.to) ? "/repairs" : undefined}
+              actionHref={canWrite && !(params.q || params.status || params.from || params.to) ? "/repairs?add=1" : undefined}
+              actionLabel={canWrite && !(params.q || params.status || params.from || params.to) ? "Intake Repair" : undefined}
+              type={(params.q || params.status || params.from || params.to) ? "search" : "empty"}
+            />
           </div>
         ) : (
           <div>

@@ -30,7 +30,7 @@ export function SupplierForm({
     <form ref={formRef} action={action} className="grid gap-3 sm:grid-cols-2">
       {initialValues?.id && <input type="hidden" name="id" value={initialValues.id} />}
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Name</span>
+        <span className="text-sm font-semibold text-slate-700">Name <span className="text-red-500">*</span></span>
         <input required name="name" defaultValue={initialValues?.name ?? ""} disabled={!canWrite} className={input} />
       </label>
       <label className="block">

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentContext } from "@/lib/auth/session";
 import { listInvoices } from "@/lib/data/invoices";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/formatters";
-import { Logo } from "@/components/logo";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-PK", {
@@ -58,12 +58,14 @@ export default async function InvoicesPage() {
         </div>
 
         {invoices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <Logo className="mb-4 h-12 w-auto object-contain" />
-            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">No invoices yet</p>
-            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-              Start a sale from the <Link href="/pos" className="text-blue-700 underline dark:text-blue-400">POS</Link> to generate your first invoice.
-            </p>
+          <div className="p-6">
+            <EmptyState
+              title="No invoices yet"
+              description="Start a sale from the POS to generate your first invoice."
+              actionHref="/pos"
+              actionLabel="Go to POS"
+              type="empty"
+            />
           </div>
         ) : (
           <>

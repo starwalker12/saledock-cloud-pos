@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertCircle, CalendarDays, Receipt, Tag, Wallet } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageExpenses } from "@/lib/permissions";
 import {
@@ -262,12 +263,25 @@ export default async function ExpensesPage({
           </form>
 
           {expenses.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-              <p className="text-sm font-semibold text-slate-600">No expenses match these filters.</p>
-              {canWrite && (
-                <p className="mt-1 text-xs text-slate-500">Add your first expense using the form above.</p>
-              )}
-            </div>
+            <EmptyState
+              title="No expenses found"
+              description={
+                (params.q || params.category || params.payment_method || params.from || params.to || params.archived)
+                  ? "No expenses matched your search criteria or filters. Try adjusting filters."
+                  : "Get started by adding your first expense using the form above."
+              }
+              searchQuery={params.q}
+              resetHref={
+                (params.q || params.category || params.payment_method || params.from || params.to || params.archived)
+                  ? "/expenses"
+                  : undefined
+              }
+              type={
+                (params.q || params.category || params.payment_method || params.from || params.to || params.archived)
+                  ? "search"
+                  : "empty"
+              }
+            />
           ) : (
             <>
               <div className="hidden overflow-x-auto md:block">

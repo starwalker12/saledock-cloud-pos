@@ -46,7 +46,7 @@ export function ProductForm({
       {initialValues?.id && <input type="hidden" name="id" value={initialValues.id} />}
 
       <label className="block md:col-span-2">
-        <span className="text-sm font-semibold text-slate-700">Name</span>
+        <span className="text-sm font-semibold text-slate-700">Name <span className="text-red-500">*</span></span>
         <input required name="name" defaultValue={initialValues?.name ?? ""} disabled={!canWrite} className={input} />
       </label>
 
@@ -222,7 +222,7 @@ export function ProductForm({
 
           {allowSellAtLoss && (
             <label className="block mt-2">
-              <span className="text-xs font-bold text-slate-700">Loss Sale Override Reason</span>
+              <span className="text-xs font-bold text-slate-700">Loss Sale Override Reason <span className="text-red-500">*</span></span>
               <input
                 required={allowSellAtLoss}
                 name="sell_at_loss_reason"
