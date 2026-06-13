@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import Script from "next/script";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+import { saveSidebarPreferences } from "@/lib/use-ui-preferences";
 
 const STORAGE_KEY = "analytics-consent";
 const LEGACY_NOTICE_STORAGE_KEY = "analytics-notice-dismissed";
@@ -54,16 +57,6 @@ function parseStoredConsent(raw: string | null): StoredConsent | null {
   }
 }
 
-function readStoredConsentSnapshot(): string {
-  if (typeof window === "undefined") return "";
-
-  try {
-    return window.localStorage.getItem(STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
 function writeStoredConsent(value: ConsentValue): StoredConsent {
   const nextConsent = {
     value,
@@ -80,18 +73,6 @@ function writeStoredConsent(value: ConsentValue): StoredConsent {
 
   window.dispatchEvent(new Event(COOKIE_CONSENT_CHANGED_EVENT));
   return nextConsent;
-}
-
-function subscribeToConsentChanges(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {};
-
-  window.addEventListener("storage", onStoreChange);
-  window.addEventListener(COOKIE_CONSENT_CHANGED_EVENT, onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener(COOKIE_CONSENT_CHANGED_EVENT, onStoreChange);
-  };
 }
 
 function clearAnalyticsCookies() {
@@ -197,14 +178,28 @@ export default function AnalyticsNotice({
   nonce,
 }: AnalyticsNoticeProps) {
   const hasAnalytics = Boolean(gaMeasurementId || clarityProjectId);
-  const consent = useSyncExternalStore(
-    subscribeToConsentChanges,
-    readStoredConsentSnapshot,
-    () => "",
-  );
-  const parsedConsent = parseStoredConsent(consent);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dbChecked, setDbChecked] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
+  const [consentTrigger, setConsentTrigger] = useState(0);
 
+  // Listen to storage changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setConsentTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("saledock-sidebar-preferences-changed", handleStorageChange);
+    window.addEventListener(COOKIE_CONSENT_CHANGED_EVENT, handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("saledock-sidebar-preferences-changed", handleStorageChange);
+      window.removeEventListener(COOKIE_CONSENT_CHANGED_EVENT, handleStorageChange);
+    };
+  }, []);
+
+  // Listen to open settings trigger
   useEffect(() => {
     function handleOpenCookieSettings() {
       setBannerOpen(true);
@@ -212,16 +207,147 @@ export default function AnalyticsNotice({
 
     window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenCookieSettings);
     return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenCookieSettings);
-  }, [hasAnalytics]);
+  }, []);
+
+  // Fetch initial auth user and subscribe to changes
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+
+    supabase.auth.getUser().then(({ data: { user: u } }) => {
+      if (!active) return;
+      setUser(u);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Sync/check db preferences for logged-in user to avoid transient banner flash
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      const timer = setTimeout(() => setDbChecked(true), 0);
+      return () => clearTimeout(timer);
+    }
+
+    const supabase = createClient();
+    let active = true;
+
+    supabase
+      .from("user_ui_preferences")
+      .select("sidebar_preferences")
+      .eq("user_id", user.id)
+      .single()
+      .then(
+        ({ data }) => {
+          if (!active) return;
+          if (data?.sidebar_preferences) {
+            const parsed = data.sidebar_preferences as Record<string, unknown>;
+            if (parsed?.analyticsConsent === "accepted" || parsed?.analyticsConsent === "rejected") {
+              try {
+                const rawLocal = localStorage.getItem("saledock-sidebar-preferences-v1");
+                const localParsed = rawLocal ? JSON.parse(rawLocal) : {};
+                const nextPrefs = {
+                  ...localParsed,
+                  analyticsConsent: parsed.analyticsConsent,
+                  updatedAt: new Date().toISOString(),
+                };
+                localStorage.setItem("saledock-sidebar-preferences-v1", JSON.stringify(nextPrefs));
+                window.dispatchEvent(new Event("saledock-sidebar-preferences-changed"));
+              } catch {}
+            }
+          }
+          setDbChecked(true);
+        },
+        () => {
+          if (active) setDbChecked(true);
+        }
+      );
+
+    return () => {
+      active = false;
+    };
+  }, [user, authLoading]);
+
+  // Read current consent settings
+  const getConsentValues = () => {
+    if (typeof window === "undefined") return { local: null, account: null };
+
+    // Trigger re-read on state updates
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    consentTrigger;
+
+    const rawLocal = localStorage.getItem(STORAGE_KEY);
+    const local = parseStoredConsent(rawLocal);
+
+    let account: ConsentValue | null = null;
+    const rawSidebar = localStorage.getItem("saledock-sidebar-preferences-v1");
+    if (rawSidebar) {
+      try {
+        const parsed = JSON.parse(rawSidebar);
+        if (parsed.analyticsConsent === "accepted" || parsed.analyticsConsent === "rejected") {
+          account = parsed.analyticsConsent;
+        }
+      } catch {}
+    }
+
+    return { local, account };
+  };
+
+  const { local: parsedConsent, account: accountConsent } = getConsentValues();
+
+  const saveAccountConsent = (value: ConsentValue) => {
+    if (typeof window === "undefined") return;
+
+    let existing: Record<string, unknown> = {};
+    const rawSidebar = localStorage.getItem("saledock-sidebar-preferences-v1");
+    if (rawSidebar) {
+      try {
+        existing = JSON.parse(rawSidebar);
+      } catch {}
+    }
+
+    const nextPrefs = {
+      ...existing,
+      analyticsConsent: value,
+      updatedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem("saledock-sidebar-preferences-v1", JSON.stringify(nextPrefs));
+    window.dispatchEvent(new Event("saledock-sidebar-preferences-changed"));
+    saveSidebarPreferences(nextPrefs);
+  };
 
   function handleAccept() {
-    writeStoredConsent("accepted");
+    if (user) {
+      saveAccountConsent("accepted");
+    } else {
+      writeStoredConsent("accepted");
+    }
     setBannerOpen(false);
   }
 
   function handleReject() {
-    const wasAccepted = parsedConsent?.value === "accepted";
-    writeStoredConsent("rejected");
+    const wasAccepted = user
+      ? accountConsent === "accepted"
+      : parsedConsent?.value === "accepted";
+
+    if (user) {
+      saveAccountConsent("rejected");
+    } else {
+      writeStoredConsent("rejected");
+    }
+
     clearAnalyticsCookies();
     setBannerOpen(false);
 
@@ -231,9 +357,15 @@ export default function AnalyticsNotice({
   }
 
   if (!hasAnalytics) return null;
+  if (authLoading || (user && !dbChecked)) return null;
 
-  const analyticsAccepted = parsedConsent?.value === "accepted";
-  const shouldShowBanner = bannerOpen || parsedConsent === null;
+  const analyticsAccepted = user
+    ? accountConsent === "accepted"
+    : parsedConsent?.value === "accepted";
+
+  const shouldShowBanner = user
+    ? bannerOpen || accountConsent === null
+    : bannerOpen || parsedConsent === null;
 
   return (
     <>

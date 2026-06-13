@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -14,6 +15,15 @@ import { useDrawer } from "@/components/layout/drawer-context";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { saveSidebarPreferences } from "@/lib/use-ui-preferences";
+
+function ClientPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
+  return mounted ? createPortal(children, document.body) : null;
+}
 
 type NavItem = {
   href: string;
@@ -150,12 +160,13 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
         <Menu className="size-6" />
       </button>
 
-      {/* Drawer Overlay always rendered for transitions */}
-      <div
-        className={`fixed inset-0 z-[110] h-dvh min-h-dvh lg:hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
-          open ? "visible pointer-events-auto" : "invisible pointer-events-none"
-        }`}
-      >
+      <ClientPortal>
+        {/* Drawer Overlay always rendered for transitions */}
+        <div
+          className={`fixed inset-0 z-[110] h-dvh min-h-dvh lg:hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
+            open ? "visible pointer-events-auto" : "invisible pointer-events-none"
+          }`}
+        >
         {/* Backdrop overlay */}
         <div
           className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
@@ -500,6 +511,7 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
           )}
         </div>
       </div>
+      </ClientPortal>
     </>
   );
 }

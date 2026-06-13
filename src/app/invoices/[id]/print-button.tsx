@@ -22,7 +22,7 @@ function printWithMode(mode: "a4" | "thermal", invoiceNo: string) {
   window.setTimeout(cleanup, 1200);
 }
 
-export function PrintButton({ invoiceNo, customerPhone }: PrintButtonProps) {
+export function PrintButton({ invoiceNo }: PrintButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -37,9 +37,6 @@ export function PrintButton({ invoiceNo, customerPhone }: PrintButtonProps) {
       document.body.style.overflow = "";
     };
   }, [isOpen]);
-
-  const digits = customerPhone?.replace(/\D/g, "") ?? "";
-  const whatsappUrl = digits ? `https://wa.me/${digits}` : "https://wa.me/";
 
   return (
     <>
@@ -95,8 +92,8 @@ export function PrintButton({ invoiceNo, customerPhone }: PrintButtonProps) {
               <h3 className="mt-4 text-lg font-black text-slate-900 dark:text-white">
                 Share Invoice PDF
               </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                This browser cannot attach the PDF to WhatsApp directly. Download the PDF, then attach it in WhatsApp.
+              <p className="mt-2 text-sm leading-relaxed text-slate-650 dark:text-slate-400">
+                This browser cannot attach the PDF directly to WhatsApp. Download the invoice PDF, then attach it in WhatsApp.
               </p>
             </div>
 
@@ -105,6 +102,7 @@ export function PrintButton({ invoiceNo, customerPhone }: PrintButtonProps) {
                 type="button"
                 onClick={() => {
                   printWithMode("a4", invoiceNo);
+                  setIsOpen(false);
                 }}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-700 font-bold text-white hover:bg-blue-800"
               >
@@ -112,23 +110,12 @@ export function PrintButton({ invoiceNo, customerPhone }: PrintButtonProps) {
                 Download PDF
               </button>
 
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setIsOpen(false)}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 font-bold text-white hover:bg-emerald-700"
-              >
-                <MessageCircle className="size-4" />
-                Open WhatsApp
-              </a>
-
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="mt-1 flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
               >
-                Cancel
+                Close
               </button>
             </div>
           </div>
