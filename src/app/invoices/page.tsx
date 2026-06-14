@@ -6,6 +6,8 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { listInvoices } from "@/lib/data/invoices";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/formatters";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-PK", {
@@ -32,7 +34,11 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; dir?: string }>;
+}) {
   if (!env.isSupabaseConfigured) redirect("/login");
   const { user, profile, organization } = await getCurrentContext();
   if (!user) redirect("/login");
@@ -40,6 +46,20 @@ export default async function InvoicesPage() {
 
   const invoices = await listInvoices(profile.organization_id);
   const currency = organization?.currency_code ?? "PKR";
+
+  const params = await searchParams;
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedInvoices = sortData(invoices, sort || "invoice_date", sort ? dir : "desc", {
+    invoice_no: "natural",
+    invoice_date: "date",
+    customer_name: "string",
+    grand_total: "number",
+    amount_paid: "number",
+    balance_due: "number",
+    status: "string",
+  });
 
   return (
     <AppShell pageTitle="Invoices">
@@ -73,18 +93,18 @@ export default async function InvoicesPage() {
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/[0.07] dark:bg-white/[0.02] dark:text-slate-400">
                   <tr>
-                    <th className="px-4 py-3">Invoice</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3 text-right">Total</th>
-                    <th className="px-4 py-3 text-right">Paid</th>
-                    <th className="px-4 py-3 text-right">Due</th>
-                    <th className="px-4 py-3">Status</th>
+                    <SortableHeader label="Invoice" columnKey="invoice_no" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Date" columnKey="invoice_date" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Customer" columnKey="customer_name" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Total" columnKey="grand_total" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Paid" columnKey="amount_paid" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Due" columnKey="balance_due" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Status" columnKey="status" currentSortKey={sort} direction={dir} currentParams={params} />
                     <th className="px-4 py-3 text-right" />
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => (
+                  {sortedInvoices.map((inv) => (
                     <tr key={inv.id} className="border-b border-slate-100 dark:border-white/[0.05]">
                       <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">{inv.invoice_no}</td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{fmtDate(inv.invoice_date)}</td>
@@ -111,7 +131,7 @@ export default async function InvoicesPage() {
               </table>
             </div>
             <ul className="space-y-2 p-2 pb-[calc(1rem+env(safe-area-inset-bottom))] md:hidden">
-              {invoices.map((inv) => (
+              {sortedInvoices.map((inv) => (
                 <li key={inv.id} className="rounded-xl border border-slate-200 bg-[#fff] p-3 shadow-sm dark:border-white/[0.07] dark:bg-slate-950">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">

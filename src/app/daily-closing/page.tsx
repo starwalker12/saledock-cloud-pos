@@ -30,6 +30,8 @@ import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { CloseDayForm, ReopenDayForm } from "./closing-form";
 import { ClosingPrintButtons, ShiftPrintButton } from "./print-button";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 import {
   OpenShiftForm,
   CloseShiftForm,
@@ -38,7 +40,11 @@ import {
   ShiftPrintSection,
 } from "./shift-ui";
 
-type SearchParams = { date?: string };
+type SearchParams = {
+  date?: string;
+  sort?: string;
+  dir?: string;
+};
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-PK", {
@@ -100,6 +106,18 @@ export default async function DailyClosingPage({
     getCurrentShift(orgId, branchId),
     getShiftHistory(orgId, branchId, 10),
   ]);
+
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedRecent = sortData(recent, sort || "closing_date", sort ? dir : "desc", {
+    closing_date: "date",
+    bills_count: "number",
+    cash_sales: "number",
+    expected_closing_cash: "number",
+    actual_closing_cash: "number",
+    cash_difference: "number",
+  });
 
   let shiftActivity = null;
   let shiftStaff = null;
@@ -442,18 +460,18 @@ export default async function DailyClosingPage({
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Bills</th>
-                  <th className="px-4 py-3 text-right">Cash sales</th>
-                  <th className="px-4 py-3 text-right">Expected</th>
-                  <th className="px-4 py-3 text-right">Counted</th>
-                  <th className="px-4 py-3 text-right">Difference</th>
+                  <SortableHeader label="Date" columnKey="closing_date" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Status" columnKey="is_closed" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Bills" columnKey="bills_count" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Cash sales" columnKey="cash_sales" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Expected" columnKey="expected_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Counted" columnKey="actual_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Difference" columnKey="cash_difference" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {recent.map((r) => (
+                {sortedRecent.map((r) => (
                   <tr key={r.id} className="border-b border-slate-100">
                     <td className="px-4 py-3 text-slate-700">{fmtDay(r.closing_date)}</td>
                     <td className="px-4 py-3">
@@ -498,7 +516,7 @@ export default async function DailyClosingPage({
             </table>
           </div>
           <div className="space-y-3 md:hidden">
-            {recent.map((r) => (
+            {sortedRecent.map((r) => (
               <div key={r.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

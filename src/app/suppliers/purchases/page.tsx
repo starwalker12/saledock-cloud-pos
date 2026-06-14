@@ -14,6 +14,8 @@ import {
 } from "@/lib/data/supplier-purchases";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 type SearchParams = {
   q?: string;
@@ -21,6 +23,8 @@ type SearchParams = {
   status?: string;
   from?: string;
   to?: string;
+  sort?: string;
+  dir?: string;
 };
 
 const STATUS_LABEL: Record<SupplierPurchaseStatus, string> = {
@@ -72,6 +76,19 @@ export default async function SupplierPurchasesPage({
     listSuppliersWithBalances(orgId),
     listSupplierPurchases(orgId, filters),
   ]);
+
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedPurchases = sortData(purchases, sort || "purchase_date", sort ? dir : "desc", {
+    purchase_date: "date",
+    purchase_no: "natural",
+    supplier_name: "string",
+    grand_total: "number",
+    amount_paid: "number",
+    balance_due: "number",
+    status: "string",
+  });
 
   const supplierDuesTotal = suppliers.reduce((s, x) => s + x.outstanding_balance, 0);
   const dueSupplierCount = suppliers.filter((s) => s.outstanding_balance > 0).length;
@@ -307,18 +324,18 @@ export default async function SupplierPurchasesPage({
               <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Purchase #</th>
-                    <th className="px-3 py-3">Supplier</th>
-                    <th className="px-3 py-3 text-right">Total</th>
-                    <th className="px-3 py-3 text-right">Paid</th>
-                    <th className="px-3 py-3 text-right">Balance</th>
-                    <th className="px-3 py-3">Status</th>
+                    <SortableHeader label="Date" columnKey="purchase_date" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Purchase #" columnKey="purchase_no" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Supplier" columnKey="supplier_name" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Total" columnKey="grand_total" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Paid" columnKey="amount_paid" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Balance" columnKey="balance_due" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Status" columnKey="status" currentSortKey={sort} direction={dir} currentParams={params} />
                     <th className="px-3 py-3 text-right" />
                   </tr>
                 </thead>
                 <tbody>
-                  {purchases.map((p) => (
+                  {sortedPurchases.map((p) => (
                     <tr key={p.id} className="border-b border-slate-100 align-top">
                       <td className="px-3 py-3 text-slate-700">{fmtDate(p.purchase_date)}</td>
                       <td className="px-3 py-3 font-bold text-slate-900">{p.purchase_no}</td>
@@ -349,7 +366,7 @@ export default async function SupplierPurchasesPage({
               </table>
             </div>
             <div className="space-y-3 md:hidden">
-              {purchases.map((p) => (
+              {sortedPurchases.map((p) => (
                 <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

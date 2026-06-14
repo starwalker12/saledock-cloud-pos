@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useMemo } from "react";
 import {
   Clock,
   Play,
@@ -13,6 +13,8 @@ import {
   HandCoins,
   BadgeMinus,
   User,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { openShiftAction, closeShiftAction, type ShiftActionState } from "./shift-actions";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
@@ -320,7 +322,50 @@ export function CloseShiftForm({
   );
 }
 
-// ── Shift History Table ────────────────────────────────────────────────────────
+function SortableHeader({
+  label,
+  columnKey,
+  currentSortKey,
+  direction,
+  onSort,
+  align = "left",
+  className = "",
+}: {
+  label: string;
+  columnKey: string;
+  currentSortKey: string;
+  direction: "asc" | "desc";
+  onSort: (key: string) => void;
+  align?: "left" | "right" | "center";
+  className?: string;
+}) {
+  const isSorted = currentSortKey === columnKey;
+  const alignClass =
+    align === "right"
+      ? "justify-end text-right"
+      : align === "center"
+      ? "justify-center text-center"
+      : "justify-start text-left";
+
+  return (
+    <th className={`${className} p-0 select-none border-b border-slate-200 dark:border-white/[0.07]`}>
+      <button
+        type="button"
+        onClick={() => onSort(columnKey)}
+        className={`flex items-center gap-1 px-4 py-3 font-bold uppercase transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.04] cursor-pointer w-full text-slate-500 dark:text-slate-400 ${alignClass}`}
+      >
+        <span>{label}</span>
+        {isSorted && (
+          direction === "asc" ? (
+            <ArrowUp className="size-3.5 shrink-0 text-blue-700 dark:text-blue-400" />
+          ) : (
+            <ArrowDown className="size-3.5 shrink-0 text-blue-700 dark:text-blue-400" />
+          )
+        )}
+      </button>
+    </th>
+  );
+}
 
 export function ShiftHistoryTable({
   shifts,
@@ -330,6 +375,46 @@ export function ShiftHistoryTable({
   currency: string;
 }) {
   const fmt = (n: number) => formatCurrency(n, currency);
+
+  const [sortBy, setSortBy] = useState<string>("opened_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedShifts = useMemo(() => {
+    const sorted = [...shifts];
+    sorted.sort((rowA, rowB) => {
+      const a = rowA[sortBy as keyof CashShiftRow];
+      const b = rowB[sortBy as keyof CashShiftRow];
+
+      const aEmpty = a == null || a === "";
+      const bEmpty = b == null || b === "";
+      if (aEmpty && bEmpty) return 0;
+      if (aEmpty) return 1;
+      if (bEmpty) return -1;
+
+      let cmp = 0;
+      if (sortBy === "opened_at" || sortBy === "closed_at" || sortBy === "created_at") {
+        const valA = new Date(a as string).getTime();
+        const valB = new Date(b as string).getTime();
+        cmp = valA - valB;
+      } else if (typeof a === "number" && typeof b === "number") {
+        cmp = a - b;
+      } else {
+        cmp = String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [shifts, sortBy, sortDir]);
 
   if (shifts.length === 0) {
     return (
@@ -345,18 +430,18 @@ export function ShiftHistoryTable({
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             <tr>
-              <th className="px-4 py-3">ID</th>
-              <th className="px-4 py-3">Opened</th>
-              <th className="px-4 py-3">By</th>
-              <th className="px-4 py-3 text-right">Start</th>
-              <th className="px-4 py-3 text-right">Expected</th>
-              <th className="px-4 py-3 text-right">Counted</th>
-              <th className="px-4 py-3 text-right">Diff</th>
-              <th className="px-4 py-3">Status</th>
+              <SortableHeader label="ID" columnKey="id" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+              <SortableHeader label="Opened" columnKey="opened_at" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+              <SortableHeader label="By" columnKey="opened_by_name" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+              <SortableHeader label="Start" columnKey="starting_cash" align="right" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+              <SortableHeader label="Expected" columnKey="expected_cash" align="right" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+              <SortableHeader label="Counted" columnKey="counted_cash" align="right" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+              <SortableHeader label="Diff" columnKey="cash_difference" align="right" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+              <SortableHeader label="Status" columnKey="status" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
-            {shifts.map((s) => (
+            {sortedShifts.map((s) => (
               <tr key={s.id} className="border-b border-slate-100 dark:border-slate-800/60">
                 <td className="px-4 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">
                   {fmtShortId(s.id)}
@@ -407,7 +492,7 @@ export function ShiftHistoryTable({
       </div>
 
       <div className="space-y-3 md:hidden">
-        {shifts.map((s) => (
+        {sortedShifts.map((s) => (
           <div key={s.id} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">

@@ -30,6 +30,8 @@ import { CategoryForm } from "./category-form";
 import { ProductForm } from "./product-form";
 import { SupplierForm } from "./supplier-form";
 import { InventorySection } from "./inventory-section";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 type Tab = "products" | "categories" | "suppliers";
 const TABS: { id: Tab; label: string }[] = [
@@ -46,6 +48,8 @@ type SearchParams = {
   inactive?: string;
   edit?: string;
   barcode?: string;
+  sort?: string;
+  dir?: string;
 };
 
 export default async function ProductsPage({
@@ -191,6 +195,21 @@ async function ProductsTab({
   const hasProductFilters = Boolean(params.q || params.category || params.lowstock || params.inactive);
   const createInitial = prefillBarcode && !isEdit ? { barcode: prefillBarcode } as Partial<ProductRow> : editing;
 
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedProducts = sortData(products, sort || "name", sort ? dir : "asc", {
+    name: "string",
+    sku: "string",
+    category_name: "string",
+    supplier_name: "string",
+    purchase_price: "number",
+    sale_price: "number",
+    stock_quantity: "number",
+    minimum_stock: "number",
+    is_active: "string",
+  });
+
   return (
     <div className="space-y-3 md:space-y-5">
       {canWrite && (
@@ -334,20 +353,20 @@ async function ProductsTab({
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-3 py-3">Name</th>
-                  <th className="px-3 py-3">SKU / Barcode</th>
-                  <th className="px-3 py-3">Category</th>
-                  <th className="px-3 py-3">Supplier</th>
-                  <th className="px-3 py-3 text-right">Cost</th>
-                  <th className="px-3 py-3 text-right">Sale</th>
-                  <th className="px-3 py-3 text-right">Stock</th>
-                  <th className="px-3 py-3 text-right">Reorder</th>
-                  <th className="px-3 py-3">Status</th>
+                  <SortableHeader label="Name" columnKey="name" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="SKU / Barcode" columnKey="sku" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Category" columnKey="category_name" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Supplier" columnKey="supplier_name" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Cost" columnKey="purchase_price" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Sale" columnKey="sale_price" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Stock" columnKey="stock_quantity" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Reorder" columnKey="minimum_stock" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Status" columnKey="is_active" currentSortKey={sort} direction={dir} currentParams={params} />
                   <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => (
+                {sortedProducts.map((p) => (
                   <ProductRowDesktop
                     key={p.id}
                     p={p}
@@ -360,7 +379,7 @@ async function ProductsTab({
             </table>
           </div>
           <div className="space-y-3 md:hidden">
-            {products.map((p) => (
+            {sortedProducts.map((p) => (
               <ProductCard key={p.id} p={p} currency={currency} canWrite={canWrite} suppliers={suppliers} />
             ))}
           </div>
@@ -568,6 +587,17 @@ function CategoriesTab({
 }) {
   const editing = params.edit ? categories.find((c) => c.id === params.edit) : undefined;
   const isEdit = Boolean(editing);
+
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedCategories = sortData(categories, sort || "name", sort ? dir : "asc", {
+    name: "string",
+    description: "string",
+    product_count: "number",
+    is_active: "string",
+  });
+
   return (
     <div className="space-y-5">
       {canWrite && (
@@ -598,15 +628,15 @@ function CategoriesTab({
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-3 py-3">Name</th>
-                <th className="px-3 py-3">Description</th>
-                <th className="px-3 py-3 text-right">Products</th>
-                <th className="px-3 py-3">Status</th>
+                <SortableHeader label="Name" columnKey="name" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Description" columnKey="description" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Products" columnKey="product_count" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Status" columnKey="is_active" currentSortKey={sort} direction={dir} currentParams={params} />
                 <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {categories.map((c) => (
+              {sortedCategories.map((c) => (
                 <tr key={c.id} className="border-b border-slate-100 align-top">
                   <td className="px-3 py-3 font-bold text-slate-900">{c.name}</td>
                   <td className="px-3 py-3 text-sm text-slate-600">{c.description ?? "—"}</td>
@@ -622,7 +652,7 @@ function CategoriesTab({
                     {canWrite ? (
                       <div className="flex justify-end gap-2">
                         <Link
-                          href={`/products?tab=categories&edit=${c.id}`}
+                           href={`/products?tab=categories&edit=${c.id}`}
                           className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                         >
                           Edit
@@ -653,7 +683,7 @@ function CategoriesTab({
           </table>
         </div>
         <div className="space-y-3 md:hidden">
-          {categories.map((c) => (
+          {sortedCategories.map((c) => (
             <CategoryCard key={c.id} category={c} canWrite={canWrite} />
           ))}
         </div>
@@ -733,6 +763,19 @@ function SuppliersTab({
 }) {
   const editing = params.edit ? suppliers.find((s) => s.id === params.edit) : undefined;
   const isEdit = Boolean(editing);
+
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedSuppliers = sortData(suppliers, sort || "name", sort ? dir : "asc", {
+    name: "string",
+    company: "string",
+    phone: "string",
+    email: "string",
+    address: "string",
+    is_active: "string",
+  });
+
   return (
     <div className="space-y-5">
       {canWrite && (
@@ -763,17 +806,17 @@ function SuppliersTab({
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-3 py-3">Name</th>
-                <th className="px-3 py-3">Company</th>
-                <th className="px-3 py-3">Phone</th>
-                <th className="px-3 py-3">Email</th>
-                <th className="px-3 py-3">Address</th>
-                <th className="px-3 py-3">Status</th>
+                <SortableHeader label="Name" columnKey="name" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Company" columnKey="company" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Phone" columnKey="phone" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Email" columnKey="email" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Address" columnKey="address" currentSortKey={sort} direction={dir} currentParams={params} />
+                <SortableHeader label="Status" columnKey="is_active" currentSortKey={sort} direction={dir} currentParams={params} />
                 <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {suppliers.map((s) => (
+              {sortedSuppliers.map((s) => (
                 <tr key={s.id} className="border-b border-slate-100 align-top">
                   <td className="px-3 py-3 font-bold text-slate-900">{s.name}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{s.company ?? "—"}</td>
@@ -822,7 +865,7 @@ function SuppliersTab({
           </table>
         </div>
         <div className="space-y-3 md:hidden">
-          {suppliers.map((s) => (
+          {sortedSuppliers.map((s) => (
             <SupplierCard key={s.id} supplier={s} canWrite={canWrite} />
           ))}
         </div>

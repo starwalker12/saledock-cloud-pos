@@ -2,9 +2,46 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, AlertTriangle, PackageCheck as PkgCheck, Truck, ArrowUpDown } from "lucide-react";
+import { Search, AlertTriangle, PackageCheck as PkgCheck, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriority, SupplierGroup } from "@/lib/data/replenishment";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+
+function ReplenishmentHeader({
+  label,
+  columnKey,
+  currentSortKey,
+  direction,
+  onSort,
+  align = "left",
+  className = "",
+}: {
+  label: string;
+  columnKey: string;
+  currentSortKey: string;
+  direction: "asc" | "desc";
+  onSort: (key: string) => void;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  const isSorted = currentSortKey === columnKey;
+  return (
+    <button
+      onClick={() => onSort(columnKey)}
+      className={`flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-350 font-bold uppercase transition-colors cursor-pointer select-none ${
+        align === "right" ? "justify-end text-right w-full" : "justify-start text-left"
+      } ${className}`}
+    >
+      <span>{label}</span>
+      {isSorted && (
+        direction === "asc" ? (
+          <ArrowUp className="size-3 shrink-0 text-blue-700 dark:text-blue-400" />
+        ) : (
+          <ArrowDown className="size-3 shrink-0 text-blue-700 dark:text-blue-400" />
+        )
+      )}
+    </button>
+  );
+}
 
 const priorityColor: Record<ReplenishmentPriority, string> = {
   critical: "text-rose-700 bg-rose-50 dark:text-rose-300 dark:bg-rose-900/20",
@@ -27,7 +64,17 @@ export function ReplenishmentUI({
 }) {
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<ReplenishmentPriority | "all">("all");
-  const [sortBy, setSortBy] = useState<"priority" | "stock" | "cost" | "name">("priority");
+  const [sortBy, setSortBy] = useState<string>("priority");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+  };
 
   const filtered = useMemo(() => {
     let groups = summary.supplierGroups;
@@ -101,8 +148,28 @@ export function ReplenishmentUI({
           <option value="medium">Medium</option>
         </select>
         <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as "priority" | "stock" | "cost" | "name")}
+          value={
+            sortBy === "productName"
+              ? "name"
+              : sortBy === "currentStock"
+              ? "stock"
+              : sortBy === "estimatedCost"
+              ? "cost"
+              : "priority"
+          }
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "name") {
+              setSortBy("productName");
+            } else if (val === "stock") {
+              setSortBy("currentStock");
+            } else if (val === "cost") {
+              setSortBy("estimatedCost");
+            } else {
+              setSortBy("priority");
+            }
+            setSortDir("asc");
+          }}
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
         >
           <option value="priority">Sort: Priority</option>
@@ -127,6 +194,9 @@ export function ReplenishmentUI({
               key={group.supplierId ?? "__unassigned__"}
               group={group}
               currency={currency}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSort={handleSort}
             />
           ))}
         </div>
@@ -157,14 +227,50 @@ function SummaryCard({
 function SupplierGroupCard({
   group,
   currency,
+  sortBy,
+  sortDir,
+  onSort,
 }: {
   group: SupplierGroup;
   currency: string;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+  onSort: (key: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
   const criticalCount = group.suggestions.filter((s) => s.priority === "critical").length;
   const highCount = group.suggestions.filter((s) => s.priority === "high").length;
+
+  const sortedSuggestions = useMemo(() => {
+    const sorted = [...group.suggestions];
+    const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2 };
+
+    sorted.sort((rowA, rowB) => {
+      const a = rowA[sortBy as keyof ReplenishmentSuggestion];
+      const b = rowB[sortBy as keyof ReplenishmentSuggestion];
+
+      const aEmpty = a == null || a === "";
+      const bEmpty = b == null || b === "";
+      if (aEmpty && bEmpty) return 0;
+      if (aEmpty) return 1;
+      if (bEmpty) return -1;
+
+      let cmp = 0;
+      if (sortBy === "priority") {
+        const valA = priorityOrder[a as string] ?? 99;
+        const valB = priorityOrder[b as string] ?? 99;
+        cmp = valA - valB;
+      } else if (typeof a === "number" && typeof b === "number") {
+        cmp = a - b;
+      } else {
+        cmp = String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [group.suggestions, sortBy, sortDir]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-white/[0.03]">
@@ -201,25 +307,36 @@ function SupplierGroupCard({
         <div className="divide-y divide-slate-100 dark:divide-white/[0.06]">
           {/* Column headers */}
           <div className="hidden grid-cols-12 gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:grid dark:text-slate-500">
-            <div className="col-span-4">Product</div>
-            <div className="col-span-1 text-right">Stock</div>
-            <div className="col-span-1 text-right">Min</div>
-            <div className="col-span-1 text-right">Target</div>
-            <div className="col-span-1 text-right">Order</div>
-            <div className="col-span-2 text-right">Unit cost</div>
-            <div className="col-span-1 text-right">Total</div>
-            <div className="col-span-1">Priority</div>
+            <div className="col-span-4">
+              <ReplenishmentHeader label="Product" columnKey="productName" currentSortKey={sortBy} direction={sortDir} onSort={onSort} />
+            </div>
+            <div className="col-span-1 text-right">
+              <ReplenishmentHeader label="Stock" columnKey="currentStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+            </div>
+            <div className="col-span-1 text-right">
+              <ReplenishmentHeader label="Min" columnKey="minimumStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+            </div>
+            <div className="col-span-1 text-right">
+              <ReplenishmentHeader label="Target" columnKey="targetStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+            </div>
+            <div className="col-span-1 text-right">
+              <ReplenishmentHeader label="Order" columnKey="suggestedQuantity" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+            </div>
+            <div className="col-span-2 text-right">
+              <ReplenishmentHeader label="Unit cost" columnKey="purchasePrice" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+            </div>
+            <div className="col-span-1 text-right">
+              <ReplenishmentHeader label="Total" columnKey="estimatedCost" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+            </div>
+            <div className="col-span-1">
+              <ReplenishmentHeader label="Priority" columnKey="priority" currentSortKey={sortBy} direction={sortDir} onSort={onSort} />
+            </div>
           </div>
 
           {/* Sort suggestions within group */}
-          {[...group.suggestions]
-            .sort((a, b) => {
-              const order = { critical: 0, high: 1, medium: 2 };
-              return order[a.priority] - order[b.priority];
-            })
-            .map((s) => (
-              <ProductRow key={s.productId} suggestion={s} currency={currency} />
-            ))}
+          {sortedSuggestions.map((s) => (
+            <ProductRow key={s.productId} suggestion={s} currency={currency} />
+          ))}
         </div>
       )}
 

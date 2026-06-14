@@ -27,14 +27,16 @@ export function CustomerForm({
   }, [state.success, initialValues?.id, onSaved]);
 
   const input =
-    "mt-1 h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 disabled:bg-slate-50 disabled:text-slate-500";
+    "mt-1 h-11 w-full rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 dark:border-white/[0.12] dark:text-slate-100 px-3 outline-none focus:border-blue-600 disabled:bg-slate-50 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-400";
 
   return (
     <form ref={formRef} action={action} className="grid gap-3 md:grid-cols-2">
       {initialValues?.id && <input type="hidden" name="id" value={initialValues.id} />}
 
       <label className="block md:col-span-2">
-        <span className="text-sm font-semibold text-slate-700">Full Name <span className="text-red-500">*</span></span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          Full Name <span className="text-red-500">*</span>
+        </span>
         <input
           required
           name="name"
@@ -46,7 +48,9 @@ export function CustomerForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Phone (optional)</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          Phone (optional)
+        </span>
         <input
           name="phone"
           defaultValue={initialValues?.phone ?? ""}
@@ -57,7 +61,9 @@ export function CustomerForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Email (optional)</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          Email (optional)
+        </span>
         <input
           type="email"
           name="email"
@@ -69,7 +75,9 @@ export function CustomerForm({
       </label>
 
       <label className="block md:col-span-2">
-        <span className="text-sm font-semibold text-slate-700">Address (optional)</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          Address (optional)
+        </span>
         <input
           name="address"
           defaultValue={initialValues?.address ?? ""}
@@ -80,7 +88,9 @@ export function CustomerForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Credit Limit (PKR)</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          Credit Limit (PKR)
+        </span>
         <input
           type="number"
           min={0}
@@ -93,37 +103,41 @@ export function CustomerForm({
       </label>
 
       <div className="flex items-end pb-3">
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             name="is_archived"
             defaultChecked={initialValues?.is_archived ?? false}
             disabled={!canWrite}
-            className="size-4"
+            className="size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
           />
-          <span className="text-sm font-semibold text-slate-700">Archived</span>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Archived
+          </span>
         </label>
       </div>
 
       <label className="block md:col-span-2">
-        <span className="text-sm font-semibold text-slate-700">Notes (optional)</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          Notes (optional)
+        </span>
         <textarea
           name="notes"
           rows={2}
           defaultValue={initialValues?.notes ?? ""}
           disabled={!canWrite}
-          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-blue-600 disabled:bg-slate-50"
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 dark:border-white/[0.12] dark:text-slate-100 px-3 py-2 outline-none focus:border-blue-600 disabled:bg-slate-50 dark:disabled:bg-slate-800"
           placeholder="Customer-specific billing or trade remarks..."
         />
       </label>
 
       {state.error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 md:col-span-2">
+        <p className="rounded-lg bg-red-50 dark:bg-red-950/20 px-3 py-2 text-sm font-medium text-red-700 dark:text-red-400 md:col-span-2">
           {state.error}
         </p>
       )}
       {state.success && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 md:col-span-2">
+        <p className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-400 md:col-span-2">
           {state.success}
         </p>
       )}

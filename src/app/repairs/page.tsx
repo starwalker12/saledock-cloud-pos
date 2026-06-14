@@ -11,6 +11,8 @@ import { listCustomers } from "@/lib/data/customers";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { RepairForm } from "./repair-form";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 type SearchParams = {
   q?: string;
@@ -19,6 +21,8 @@ type SearchParams = {
   to?: string;
   add?: string;
   edit?: string;
+  sort?: string;
+  dir?: string;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -68,8 +72,26 @@ export default async function RepairsPage({
     listCustomers(orgId),
   ]);
 
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const repairsWithBalance = repairs.map((r) => ({
+    ...r,
+    balance_due: Math.max(r.estimated_cost - r.advance_paid, 0),
+  }));
+
+  const sortedRepairs = sortData(repairsWithBalance, sort || "created_at", sort ? dir : "desc", {
+    job_no: "natural",
+    customer_name: "string",
+    estimated_cost: "number",
+    advance_paid: "number",
+    balance_due: "number",
+    status: "string",
+    created_at: "date",
+  });
+
   const showIntake = params.add === "1";
-  const editing = params.edit ? repairs.find((r) => r.id === params.edit) : undefined;
+  const editing = params.edit ? sortedRepairs.find((r) => r.id === params.edit) : undefined;
   const showModal = showIntake || Boolean(editing);
 
   return (
@@ -287,19 +309,19 @@ export default async function RepairsPage({
               <table className="w-full text-left text-sm min-w-[900px]">
                 <thead className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Job No</th>
-                    <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3">Device & Fault</th>
-                    <th className="px-4 py-3 text-right">Estimate</th>
-                    <th className="px-4 py-3 text-right">Advance Paid</th>
-                    <th className="px-4 py-3 text-right">Balance Due</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Intake Date</th>
+                    <SortableHeader label="Job No" columnKey="job_no" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Customer" columnKey="customer_name" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <th className="px-4 py-3 select-none border-b border-slate-200 dark:border-white/[0.07] font-bold uppercase text-slate-500">Device & Fault</th>
+                    <SortableHeader label="Estimate" columnKey="estimated_cost" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Advance Paid" columnKey="advance_paid" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Balance Due" columnKey="balance_due" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Status" columnKey="status" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Intake Date" columnKey="created_at" currentSortKey={sort} direction={dir} currentParams={params} />
                     <th className="px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {repairs.map((r) => {
+                  {sortedRepairs.map((r) => {
                     const balance = Math.max(r.estimated_cost - r.advance_paid, 0);
 
                     return (
@@ -351,7 +373,7 @@ export default async function RepairsPage({
 
             {/* Mobile Card List View */}
             <div className="block md:hidden p-4 space-y-3">
-              {repairs.map((r) => {
+              {sortedRepairs.map((r) => {
                 const balance = Math.max(r.estimated_cost - r.advance_paid, 0);
 
                 return (

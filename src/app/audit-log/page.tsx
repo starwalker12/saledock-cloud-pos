@@ -6,6 +6,8 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canViewAuditLog } from "@/lib/permissions";
 import { listAuditLogs, getAuditModules, getAuditActors } from "@/lib/data/audit-logs";
 import { env } from "@/lib/env";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 type SearchParams = {
   q?: string;
@@ -16,6 +18,8 @@ type SearchParams = {
   actor?: string;
   limit?: string;
   before?: string;
+  sort?: string;
+  dir?: string;
 };
 
 /** Derive a severity/color from the action string */
@@ -136,6 +140,17 @@ export default async function AuditLogPage({
     getAuditModules(orgId),
     getAuditActors(orgId),
   ]);
+
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedLogs = sortData(logs, sort || "created_at", sort ? dir : "desc", {
+    created_at: "date",
+    actor_name: "string",
+    module: "string",
+    action: "string",
+    details: "string",
+  });
 
   // Build "load more" URL
   const lastLog = logs[logs.length - 1];
@@ -366,16 +381,16 @@ export default async function AuditLogPage({
               <table className="w-full text-left text-sm min-w-[860px]">
                 <thead className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Date / Time</th>
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Module</th>
-                    <th className="px-4 py-3">Action</th>
-                    <th className="px-4 py-3">Details</th>
-                    <th className="px-4 py-3">Level</th>
+                    <SortableHeader label="Date / Time" columnKey="created_at" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="User" columnKey="actor_name" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Module" columnKey="module" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Action" columnKey="action" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader label="Details" columnKey="details" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <th className="px-4 py-3 select-none border-b border-slate-200 dark:border-white/[0.07] font-bold uppercase text-slate-500">Level</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map((log) => {
+                  {sortedLogs.map((log) => {
                     const severity = actionSeverity(log.action);
                     return (
                       <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50/50">
@@ -423,7 +438,7 @@ export default async function AuditLogPage({
 
             {/* Mobile Card List */}
             <div className="block md:hidden divide-y divide-slate-100 p-3 space-y-3 dark:divide-slate-800">
-              {logs.map((log) => {
+              {sortedLogs.map((log) => {
                 const severity = actionSeverity(log.action);
                 return (
                   <div key={log.id} className="pt-3 first:pt-0 space-y-2">

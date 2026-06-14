@@ -8,8 +8,14 @@ import { canManageSupplierPurchases } from "@/lib/permissions";
 import { listSuppliersWithBalances } from "@/lib/data/supplier-purchases";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
-export default async function SupplierDuesPage() {
+export default async function SupplierDuesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; dir?: string }>;
+}) {
   if (!env.isSupabaseConfigured) redirect("/login");
 
   const { user, profile, organization } = await getCurrentContext();
@@ -22,12 +28,21 @@ export default async function SupplierDuesPage() {
 
   const orgId = profile.organization_id;
   const currency = organization?.currency_code ?? "PKR";
+  const params = await searchParams;
 
   const suppliers = await listSuppliersWithBalances(orgId);
 
   const dueSuppliers = suppliers
-    .filter((s) => s.outstanding_balance > 0)
-    .sort((a, b) => b.outstanding_balance - a.outstanding_balance);
+    .filter((s) => s.outstanding_balance > 0);
+
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedSuppliers = sortData(dueSuppliers, sort || "outstanding_balance", sort ? dir : "desc", {
+    name: "string",
+    phone: "string",
+    outstanding_balance: "number",
+  });
 
   const totalOwed = dueSuppliers.reduce((s, x) => s + x.outstanding_balance, 0);
 
@@ -85,14 +100,14 @@ export default async function SupplierDuesPage() {
             <table className="w-full min-w-[600px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800">
                 <tr>
-                  <th className="px-3 py-3">Supplier</th>
-                  <th className="px-3 py-3">Phone</th>
-                  <th className="px-3 py-3 text-right">Outstanding</th>
+                  <SortableHeader label="Supplier" columnKey="name" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Phone" columnKey="phone" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Outstanding" columnKey="outstanding_balance" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
                   <th className="px-3 py-3 text-right" />
                 </tr>
               </thead>
               <tbody>
-                {dueSuppliers.map((s) => (
+                {sortedSuppliers.map((s) => (
                   <tr key={s.id} className="border-b border-slate-100 dark:border-slate-800">
                     <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">
                       {s.name}
@@ -124,7 +139,7 @@ export default async function SupplierDuesPage() {
             </table>
           </div>
           <div className="space-y-3 p-5 sm:p-6 md:hidden">
-            {dueSuppliers.map((s) => (
+            {sortedSuppliers.map((s) => (
               <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

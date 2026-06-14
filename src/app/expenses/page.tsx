@@ -18,6 +18,8 @@ import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { ExpenseForm } from "./expense-form";
 import { restoreExpenseAction } from "./actions";
 import { VoidExpenseForm } from "./void-expense-form";
+import { sortData } from "@/lib/sort";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Cash",
@@ -45,6 +47,8 @@ type SearchParams = {
   to?: string;
   archived?: string;
   edit?: string;
+  sort?: string;
+  dir?: string;
 };
 
 function StatusPill({ status }: { status: string }) {
@@ -93,7 +97,19 @@ export default async function ExpensesPage({
     listExpenseCategories(orgId),
   ]);
 
-  const editing = params.edit ? expenses.find((e) => e.id === params.edit) : undefined;
+  const sort = params.sort;
+  const dir = params.dir === "desc" ? "desc" : "asc";
+
+  const sortedExpenses = sortData(expenses, sort || "spent_at", sort ? dir : "desc", {
+    spent_at: "date",
+    category: "string",
+    vendor_name: "string",
+    payment_method: "string",
+    amount: "number",
+    status: "string",
+  });
+
+  const editing = params.edit ? sortedExpenses.find((e) => e.id === params.edit) : undefined;
   const isEdit = Boolean(editing);
 
   return (
@@ -384,18 +400,18 @@ export default async function ExpensesPage({
                 <table className="w-full min-w-[820px] text-left text-sm">
                   <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-3 py-3">Date</th>
-                      <th className="px-3 py-3">Category</th>
-                      <th className="px-3 py-3">Vendor</th>
-                      <th className="px-3 py-3">Method</th>
-                      <th className="px-3 py-3">Created by</th>
-                      <th className="px-3 py-3 text-right">Amount</th>
-                      <th className="px-3 py-3">Status</th>
+                      <SortableHeader label="Date" columnKey="spent_at" currentSortKey={sort} direction={dir} currentParams={params} />
+                      <SortableHeader label="Category" columnKey="category" currentSortKey={sort} direction={dir} currentParams={params} />
+                      <SortableHeader label="Vendor" columnKey="vendor_name" currentSortKey={sort} direction={dir} currentParams={params} />
+                      <SortableHeader label="Method" columnKey="payment_method" currentSortKey={sort} direction={dir} currentParams={params} />
+                      <th className="px-3 py-3 select-none border-b border-slate-200 dark:border-white/[0.07] font-bold uppercase text-slate-500">Created by</th>
+                      <SortableHeader label="Amount" columnKey="amount" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                      <SortableHeader label="Status" columnKey="status" currentSortKey={sort} direction={dir} currentParams={params} />
                       <th className="px-3 py-3 text-right" />
                     </tr>
                   </thead>
                   <tbody>
-                    {expenses.map((e) => (
+                    {sortedExpenses.map((e) => (
                       <tr key={e.id} className="border-b border-slate-100 align-top">
                         <td className="px-3 py-3 text-slate-700">{fmtDate(e.spent_at)}</td>
                         <td className="px-3 py-3 font-bold text-slate-900">{e.category}</td>
@@ -413,7 +429,7 @@ export default async function ExpensesPage({
                 </table>
               </div>
               <ul className="space-y-3 md:hidden pb-[calc(4rem+env(safe-area-inset-bottom))]">
-                {expenses.map((e) => (
+                {sortedExpenses.map((e) => (
                   <li key={e.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
