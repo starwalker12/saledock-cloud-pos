@@ -57,7 +57,22 @@ export async function saveCategoryAction(
   };
 
   if (id) {
-    const { error } = await supabase.from("product_categories").update(payload).eq("id", id);
+    const { data: existingCategory, error: fetchErr } = await supabase
+      .from("product_categories")
+      .select("id")
+      .eq("id", id)
+      .eq("organization_id", w.ctx.profile!.organization_id!)
+      .maybeSingle();
+
+    if (fetchErr || !existingCategory) {
+      return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+    }
+
+    const { error } = await supabase
+      .from("product_categories")
+      .update(payload)
+      .eq("id", id)
+      .eq("organization_id", w.ctx.profile!.organization_id!);
     if (error) return err(error.message);
   } else {
     const { error } = await supabase.from("product_categories").insert(payload);
@@ -74,7 +89,26 @@ export async function archiveCategoryAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("product_categories").update({ is_active: false }).eq("id", id);
+
+  const { data: existingCategory, error: fetchErr } = await supabase
+    .from("product_categories")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingCategory) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("product_categories")
+    .update({ is_active: false })
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/products");
 }
 
@@ -84,7 +118,26 @@ export async function unarchiveCategoryAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("product_categories").update({ is_active: true }).eq("id", id);
+
+  const { data: existingCategory, error: fetchErr } = await supabase
+    .from("product_categories")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingCategory) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("product_categories")
+    .update({ is_active: true })
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/products");
 }
 
@@ -114,7 +167,22 @@ export async function saveSupplierAction(
   };
 
   if (id) {
-    const { error } = await supabase.from("suppliers").update(payload).eq("id", id);
+    const { data: existingSupplier, error: fetchErr } = await supabase
+      .from("suppliers")
+      .select("id")
+      .eq("id", id)
+      .eq("organization_id", w.ctx.profile!.organization_id!)
+      .maybeSingle();
+
+    if (fetchErr || !existingSupplier) {
+      return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+    }
+
+    const { error } = await supabase
+      .from("suppliers")
+      .update(payload)
+      .eq("id", id)
+      .eq("organization_id", w.ctx.profile!.organization_id!);
     if (error) return err(error.message);
   } else {
     const { error } = await supabase.from("suppliers").insert(payload);
@@ -131,7 +199,26 @@ export async function archiveSupplierAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("suppliers").update({ is_active: false }).eq("id", id);
+
+  const { data: existingSupplier, error: fetchErr } = await supabase
+    .from("suppliers")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingSupplier) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("suppliers")
+    .update({ is_active: false })
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/products");
 }
 
@@ -141,7 +228,26 @@ export async function unarchiveSupplierAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("suppliers").update({ is_active: true }).eq("id", id);
+
+  const { data: existingSupplier, error: fetchErr } = await supabase
+    .from("suppliers")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingSupplier) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("suppliers")
+    .update({ is_active: true })
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/products");
 }
 
@@ -206,13 +312,22 @@ export async function saveProductAction(
 
   if (id) {
     // Query old state for comparative override audit logs
-    const { data: oldProduct } = await supabase
+    const { data: oldProduct, error: fetchErr } = await supabase
       .from("products")
       .select("allow_sell_at_loss, sell_at_loss_reason, name")
       .eq("id", id)
-      .single();
+      .eq("organization_id", orgId)
+      .maybeSingle();
 
-    const { error } = await supabase.from("products").update(payload).eq("id", id);
+    if (fetchErr || !oldProduct) {
+      return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+    }
+
+    const { error } = await supabase
+      .from("products")
+      .update(payload)
+      .eq("id", id)
+      .eq("organization_id", orgId);
     if (error) return err(error.message);
 
     if (oldProduct && !isService) {
@@ -275,7 +390,26 @@ export async function archiveProductAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("products").update({ is_active: false }).eq("id", id);
+
+  const { data: existingProduct, error: fetchErr } = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingProduct) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("products")
+    .update({ is_active: false })
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/products");
   revalidatePath("/dashboard");
   logAudit({
@@ -292,7 +426,26 @@ export async function unarchiveProductAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("products").update({ is_active: true }).eq("id", id);
+
+  const { data: existingProduct, error: fetchErr } = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingProduct) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("products")
+    .update({ is_active: true })
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/products");
   revalidatePath("/dashboard");
 }

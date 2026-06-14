@@ -9,9 +9,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createReturnSchema, type RefundMethod } from "@/lib/validation/returns";
 import { logAudit } from "@/lib/audit";
 
-export type ReturnActionState = { error: string | null; success: string | null };
+export type ReturnActionState = {
+  error: string | null;
+  success: string | null;
+  returnId?: string | null;
+  returnNo?: string | null;
+  refundAmount?: number | null;
+};
 
-const ok = (msg: string): ReturnActionState => ({ error: null, success: msg });
 const err = (msg: string): ReturnActionState => ({ error: msg, success: null });
 
 function flatten(error: z.ZodError): string {
@@ -85,5 +90,11 @@ export async function createInvoiceReturnAction(
     },
   });
 
-  return ok(row?.return_no ? `Return ${row.return_no} processed.` : "Return processed.");
+  return {
+    error: null,
+    success: row?.return_no ? `Return ${row.return_no} processed.` : "Return processed.",
+    returnId: row?.return_id ?? null,
+    returnNo: row?.return_no ?? null,
+    refundAmount: row?.refund_amount != null ? Number(row.refund_amount) : null,
+  };
 }

@@ -71,7 +71,22 @@ export async function saveCustomerAction(
   };
 
   if (id) {
-    const { error } = await supabase.from("customers").update(payload).eq("id", id);
+    const { data: existingCustomer, error: fetchErr } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", id)
+      .eq("organization_id", w.ctx.profile!.organization_id!)
+      .maybeSingle();
+
+    if (fetchErr || !existingCustomer) {
+      return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+    }
+
+    const { error } = await supabase
+      .from("customers")
+      .update(payload)
+      .eq("id", id)
+      .eq("organization_id", w.ctx.profile!.organization_id!);
     if (error) return err(error.message);
   } else {
     const { error } = await supabase.from("customers").insert(payload);
@@ -92,10 +107,26 @@ export async function archiveCustomerAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase
+
+  const { data: existingCustomer, error: fetchErr } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingCustomer) {
+    return;
+  }
+
+  const { error } = await supabase
     .from("customers")
     .update({ is_archived: true, archived_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
   revalidatePath("/dashboard");
@@ -107,7 +138,26 @@ export async function restoreCustomerAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase.from("customers").update({ is_archived: false, archived_at: null }).eq("id", id);
+
+  const { data: existingCustomer, error: fetchErr } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingCustomer) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("customers")
+    .update({ is_archived: false, archived_at: null })
+    .eq("id", id)
+    .eq("organization_id", w.ctx.profile!.organization_id!);
+
+  if (error) return;
+
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
   revalidatePath("/dashboard");
@@ -135,6 +185,18 @@ export async function recordCreditPaymentAction(
   if (!parsed.success) return err(flatten(parsed.error));
 
   const supabase = await createClient();
+
+  const { data: existingCustomer, error: fetchErr } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("id", customerId)
+    .eq("organization_id", ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingCustomer) {
+    return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+  }
+
   const { error } = await supabase.rpc("record_credit_payment", {
     p_customer_id: customerId,
     p_amount: parsed.data.amount,
@@ -181,6 +243,18 @@ export async function recordWriteOffAction(
   if (!parsed.success) return err(flatten(parsed.error));
 
   const supabase = await createClient();
+
+  const { data: existingCustomer, error: fetchErr } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("id", customerId)
+    .eq("organization_id", ctx.profile!.organization_id!)
+    .maybeSingle();
+
+  if (fetchErr || !existingCustomer) {
+    return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+  }
+
   const { error } = await supabase.rpc("record_customer_write_off", {
     p_customer_id: customerId,
     p_amount: parsed.data.amount,

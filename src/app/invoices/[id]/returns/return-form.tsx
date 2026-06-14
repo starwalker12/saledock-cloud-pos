@@ -5,7 +5,7 @@ import { createInvoiceReturnAction, type ReturnActionState } from "./actions";
 import type { ReturnableInvoiceItem } from "@/lib/data/returns";
 import { formatCurrency } from "@/lib/formatters";
 import { REFUND_METHODS } from "@/lib/validation/returns";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 
 const initial: ReturnActionState = { error: null, success: null };
 
@@ -49,6 +49,55 @@ export function ReturnForm({
         <p className="mt-1 text-sm text-amber-800">
           Owner, admin, or manager access is required to process returns.
         </p>
+      </section>
+    );
+  }
+
+  if (state.success) {
+    return (
+      <section className="print-hidden mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/30 p-5 dark:border-emerald-800 dark:bg-emerald-950/20 text-center flex flex-col items-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 mb-3">
+          <Check className="size-6 stroke-[3]" />
+        </div>
+        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Return Processed</h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          {state.success}
+        </p>
+
+        {state.returnNo && (
+          <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 p-4 text-left w-full max-w-sm space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500 dark:text-slate-400">Return No:</span>
+              <span className="font-bold text-slate-900 dark:text-slate-100">{state.returnNo}</span>
+            </div>
+            {state.refundAmount !== undefined && state.refundAmount !== null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Refund Amount:</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(state.refundAmount, currency)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-col sm:flex-row gap-2 w-full max-w-sm">
+          {state.returnId && (
+            <a
+              href={`/returns/${state.returnId}`}
+              className="flex-1 inline-flex h-11 items-center justify-center rounded-xl bg-blue-700 font-bold text-[#fff] hover:bg-blue-800 transition cursor-pointer select-none"
+            >
+              View return
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              window.location.reload();
+            }}
+            className="flex-1 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-[#fff] dark:border-slate-800 dark:bg-slate-900 font-bold text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer select-none"
+          >
+            Refresh invoice
+          </button>
+        </div>
       </section>
     );
   }
