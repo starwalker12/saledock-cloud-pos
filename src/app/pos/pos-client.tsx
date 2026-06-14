@@ -454,8 +454,8 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                   disabled={outOfStock || !canCheckout}
                   className={`flex min-h-36 h-full flex-col rounded-xl border p-3 text-left transition ${
                     outOfStock
-                      ? "border-slate-200 bg-slate-50 opacity-60"
-                      : "border-slate-200 bg-white hover:border-blue-600 hover:shadow"
+                      ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60 dark:border-slate-700 dark:bg-slate-900"
+                      : "cursor-pointer border-slate-200 bg-white hover:border-blue-600 hover:bg-slate-50 hover:shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:hover:border-blue-500 dark:hover:bg-slate-800 dark:hover:shadow-blue-900/30"
                   }`}
                 >
                   <div className="flex min-w-0 items-center justify-between gap-2">

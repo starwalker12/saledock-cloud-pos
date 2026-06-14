@@ -372,9 +372,9 @@ function ProductRow({
   currency: string;
 }) {
   return (
-    <div className="px-3 py-2 text-xs sm:grid sm:grid-cols-12 sm:gap-2 sm:px-4 sm:py-2.5 align-middle border-b border-slate-50 dark:border-slate-800 last:border-b-0">
+    <div className="px-4 py-2.5 text-xs sm:grid sm:grid-cols-12 sm:gap-2 items-center border-b border-slate-50 dark:border-slate-800 last:border-b-0">
       {/* Product Name & SKU */}
-      <div className="min-w-0 sm:col-span-4 mb-2 sm:mb-0">
+      <div className="min-w-0 sm:col-span-4">
         <p className="font-semibold text-slate-950 dark:text-white truncate">{suggestion.productName}</p>
         {suggestion.sku && (
           <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">SKU: {suggestion.sku}</p>

@@ -185,7 +185,7 @@ export default async function SupplierPurchasesPage({
                   <select
                     name="supplier_id"
                     defaultValue={params.supplier_id ?? ""}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                   >
                     <option value="">All</option>
                     {suppliers.map((s) => (
@@ -202,7 +202,7 @@ export default async function SupplierPurchasesPage({
                   <select
                     name="status"
                     defaultValue={statusValue}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                   >
                     <option value="all">All</option>
                     <option value="unpaid">Unpaid</option>
@@ -218,7 +218,7 @@ export default async function SupplierPurchasesPage({
                       type="date"
                       name="from"
                       defaultValue={params.from ?? ""}
-                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                      className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                     />
                   </label>
                   <label className="block min-w-0">
@@ -227,7 +227,7 @@ export default async function SupplierPurchasesPage({
                       type="date"
                       name="to"
                       defaultValue={params.to ?? ""}
-                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                      className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                     />
                   </label>
                 </div>
@@ -249,7 +249,7 @@ export default async function SupplierPurchasesPage({
                 name="q"
                 defaultValue={params.q ?? ""}
                 placeholder="Purchase #, ref, notes"
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-56"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-56"
               />
             </label>
             <label className="block min-w-0">
@@ -257,7 +257,7 @@ export default async function SupplierPurchasesPage({
               <select
                 name="supplier_id"
                 defaultValue={params.supplier_id ?? ""}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-56"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-56"
               >
                 <option value="">All</option>
                 {suppliers.map((s) => (
@@ -273,7 +273,7 @@ export default async function SupplierPurchasesPage({
               <select
                 name="status"
                 defaultValue={statusValue}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-40"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-40"
               >
                 <option value="all">All</option>
                 <option value="unpaid">Unpaid</option>
@@ -287,7 +287,7 @@ export default async function SupplierPurchasesPage({
                 type="date"
                 name="from"
                 defaultValue={params.from ?? ""}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
               />
             </label>
             <label className="block min-w-0">
@@ -296,7 +296,7 @@ export default async function SupplierPurchasesPage({
                 type="date"
                 name="to"
                 defaultValue={params.to ?? ""}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
               />
             </label>
             <button type="submit" className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white">
