@@ -228,7 +228,7 @@ async function ProductsTab({
               canManageOverride={canManageOverride}
             />
             {isEdit && (
-              <Link href="/products?tab=products" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline">
+              <Link href="/products?tab=products" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline dark:text-slate-400">
                 Cancel edit
               </Link>
             )}
@@ -258,7 +258,7 @@ async function ProductsTab({
           </summary>
           <div className="mt-3 grid gap-3">
             <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Category</span>
               <select
                 name="category"
                 defaultValue={params.category ?? ""}
@@ -285,7 +285,7 @@ async function ProductsTab({
           </div>
         </details>
         {hasProductFilters && (
-          <Link href="/products?tab=products" className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline">
+          <Link href="/products?tab=products" className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline dark:text-slate-400">
             Reset filters
           </Link>
         )}
@@ -294,7 +294,7 @@ async function ProductsTab({
       <form className="hidden gap-3 md:grid md:grid-cols-2 lg:flex lg:flex-wrap lg:items-end" action="/products">
         <input type="hidden" name="tab" value="products" />
         <label className="block min-w-0">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Search</span>
           <input
             name="q"
             defaultValue={params.q ?? ""}
@@ -303,7 +303,7 @@ async function ProductsTab({
           />
         </label>
         <label className="block min-w-0">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Category</span>
           <select
             name="category"
             defaultValue={params.category ?? ""}
@@ -329,7 +329,7 @@ async function ProductsTab({
           Apply
         </button>
         {(params.q || params.category || params.lowstock || params.inactive) && (
-          <Link href="/products?tab=products" className="self-center text-xs font-semibold text-slate-600 underline">
+          <Link href="/products?tab=products" className="self-center text-xs font-semibold text-slate-600 underline dark:text-slate-400">
             Reset filters
           </Link>
         )}
@@ -351,7 +351,7 @@ async function ProductsTab({
         <>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 <tr>
                   <SortableHeader label="Name" columnKey="name" currentSortKey={sort} direction={dir} currentParams={params} />
                   <SortableHeader label="SKU / Barcode" columnKey="sku" currentSortKey={sort} direction={dir} currentParams={params} />
@@ -426,8 +426,8 @@ function ProductRowDesktop({
   return (
     <tr className="border-b border-slate-100 align-top dark:border-slate-800">
       <td className="px-3 py-3">
-        <div className="font-bold text-slate-900">{p.name} {lossAllowedBadge(p)}</div>
-        <div className="text-xs text-slate-500">
+        <div className="font-bold text-slate-900 dark:text-slate-100">{p.name} {lossAllowedBadge(p)}</div>
+        <div className="text-xs text-slate-500 dark:text-slate-400">
           {p.type === "service" ? "Service" : "Product"}
           {!p.is_active && " · Archived"}
         </div>
@@ -441,19 +441,19 @@ function ProductRowDesktop({
           />
         )}
       </td>
-      <td className="px-3 py-3 text-xs text-slate-600">
+      <td className="px-3 py-3 text-xs text-slate-600 dark:text-slate-300">
         <div>{p.sku ?? "—"}</div>
-        <div className="text-slate-400">{p.barcode ?? "—"}</div>
+        <div className="text-slate-400 dark:text-slate-500">{p.barcode ?? "—"}</div>
       </td>
-      <td className="px-3 py-3 text-sm text-slate-700">{p.category_name ?? "—"}</td>
-      <td className="px-3 py-3 text-sm text-slate-700">{p.supplier_name ?? "—"}</td>
-      <td className="px-3 py-3 text-right text-sm text-slate-700">{formatCurrency(p.purchase_price, currency)}</td>
-      <td className="px-3 py-3 text-right text-sm font-bold text-slate-900">{formatCurrency(p.sale_price, currency)}</td>
-      <td className="px-3 py-3 text-right text-sm">
+      <td className="px-3 py-3 text-sm text-slate-700 dark:text-slate-300">{p.category_name ?? "—"}</td>
+      <td className="px-3 py-3 text-sm text-slate-700 dark:text-slate-300">{p.supplier_name ?? "—"}</td>
+      <td className="px-3 py-3 text-right text-sm text-slate-700 dark:text-slate-300">{formatCurrency(p.purchase_price, currency)}</td>
+      <td className="px-3 py-3 text-right text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency(p.sale_price, currency)}</td>
+      <td className="px-3 py-3 text-right text-sm dark:text-slate-300">
         {p.type === "service" ? "—" : formatNumber(p.stock_quantity)}
         {lowStockBadge(p)}
       </td>
-      <td className="px-3 py-3 text-right text-sm text-slate-600">
+      <td className="px-3 py-3 text-right text-sm text-slate-600 dark:text-slate-300">
         {p.type === "service" ? "—" : formatNumber(p.minimum_stock)}
       </td>
       <td className="px-3 py-3">
@@ -485,12 +485,12 @@ function ProductCard({
     <div className="rounded-xl border border-slate-200 bg-[#fff] p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5 font-bold leading-snug text-slate-900">
+          <div className="flex flex-wrap items-center gap-1.5 font-bold leading-snug text-slate-900 dark:text-slate-100">
             <span className="min-w-0 break-words">{p.name}</span>
             {lowStockBadge(p)}
             {lossAllowedBadge(p)}
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {p.type === "service" ? "Service" : "Product"}
             {!p.is_active && " · Archived"}
           </div>
@@ -506,7 +506,7 @@ function ProductCard({
       <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
         <div className="min-w-0 rounded-lg bg-slate-50 p-2 dark:bg-slate-900">
           <dt className="text-xs text-slate-500 dark:text-slate-400">Sale</dt>
-          <dd className="break-words font-bold leading-tight text-slate-900">{formatCurrency(p.sale_price, currency)}</dd>
+          <dd className="break-words font-bold leading-tight text-slate-900 dark:text-slate-100">{formatCurrency(p.sale_price, currency)}</dd>
         </div>
         <div className="min-w-0 rounded-lg bg-slate-50 p-2 dark:bg-slate-900">
           <dt className="text-xs text-slate-500 dark:text-slate-400">Cost</dt>
@@ -546,7 +546,7 @@ function ProductCard({
 }
 
 function ProductActions({ p, canWrite }: { p: ProductRow; canWrite: boolean }) {
-  if (!canWrite) return <span className="text-xs text-slate-400">View only</span>;
+  if (!canWrite) return <span className="text-xs text-slate-400 dark:text-slate-500">View only</span>;
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <Link
@@ -602,13 +602,13 @@ function CategoriesTab({
     <div className="space-y-5">
       {canWrite && (
         <details open={isEdit} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
-          <summary className="cursor-pointer text-sm font-bold text-slate-800">
+          <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-slate-200">
             {isEdit ? `Edit category: ${editing!.name}` : "Add a new category"}
           </summary>
           <div className="mt-4">
             <CategoryForm key={editing?.id ?? "new"} initialValues={editing} canWrite={canWrite} />
             {isEdit && (
-              <Link href="/products?tab=categories" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline">
+              <Link href="/products?tab=categories" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline dark:text-slate-400">
                 Cancel edit
               </Link>
             )}
@@ -626,7 +626,7 @@ function CategoriesTab({
         <>
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[560px] text-left text-sm">
-            <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <tr>
                 <SortableHeader label="Name" columnKey="name" currentSortKey={sort} direction={dir} currentParams={params} />
                 <SortableHeader label="Description" columnKey="description" currentSortKey={sort} direction={dir} currentParams={params} />
@@ -638,9 +638,9 @@ function CategoriesTab({
             <tbody>
               {sortedCategories.map((c) => (
                 <tr key={c.id} className="border-b border-slate-100 align-top dark:border-slate-800">
-                  <td className="px-3 py-3 font-bold text-slate-900">{c.name}</td>
-                  <td className="px-3 py-3 text-sm text-slate-600">{c.description ?? "—"}</td>
-                  <td className="px-3 py-3 text-right text-sm text-slate-700">{formatNumber(c.product_count ?? 0)}</td>
+                  <td className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100">{c.name}</td>
+                  <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-300">{c.description ?? "—"}</td>
+                  <td className="px-3 py-3 text-right text-sm text-slate-700 dark:text-slate-300">{formatNumber(c.product_count ?? 0)}</td>
                   <td className="px-3 py-3">
                     {c.is_active ? (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">Active</span>
@@ -674,7 +674,7 @@ function CategoriesTab({
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400">View only</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">View only</span>
                     )}
                   </td>
                 </tr>
@@ -698,8 +698,8 @@ function CategoryCard({ category, canWrite }: { category: CategoryRow; canWrite:
     <article className="rounded-xl border border-slate-200 bg-[#fff] p-4 dark:border-slate-800 dark:bg-slate-950">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="break-words font-black text-slate-950">{category.name}</h3>
-          <p className="mt-1 text-sm text-slate-600">{category.description ?? "No description"}</p>
+          <h3 className="break-words font-black text-slate-950 dark:text-slate-100">{category.name}</h3>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{category.description ?? "No description"}</p>
         </div>
         {category.is_active ? (
           <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
@@ -780,13 +780,13 @@ function SuppliersTab({
     <div className="space-y-5">
       {canWrite && (
         <details open={isEdit} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
-          <summary className="cursor-pointer text-sm font-bold text-slate-800">
+          <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-slate-200">
             {isEdit ? `Edit supplier: ${editing!.name}` : "Add a new supplier"}
           </summary>
           <div className="mt-4">
             <SupplierForm key={editing?.id ?? "new"} initialValues={editing} canWrite={canWrite} />
             {isEdit && (
-              <Link href="/products?tab=suppliers" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline">
+              <Link href="/products?tab=suppliers" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline dark:text-slate-400">
                 Cancel edit
               </Link>
             )}
@@ -804,7 +804,7 @@ function SuppliersTab({
         <>
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <tr>
                 <SortableHeader label="Name" columnKey="name" currentSortKey={sort} direction={dir} currentParams={params} />
                 <SortableHeader label="Company" columnKey="company" currentSortKey={sort} direction={dir} currentParams={params} />
@@ -818,11 +818,11 @@ function SuppliersTab({
             <tbody>
               {sortedSuppliers.map((s) => (
                 <tr key={s.id} className="border-b border-slate-100 align-top dark:border-slate-800">
-                  <td className="px-3 py-3 font-bold text-slate-900">{s.name}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{s.company ?? "—"}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{s.phone ?? "—"}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{s.email ?? "—"}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{s.address ?? "—"}</td>
+                  <td className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100">{s.name}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700 dark:text-slate-300">{s.company ?? "—"}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700 dark:text-slate-300">{s.phone ?? "—"}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700 dark:text-slate-300">{s.email ?? "—"}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700 dark:text-slate-300">{s.address ?? "—"}</td>
                   <td className="px-3 py-3">
                     {s.is_active ? (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">Active</span>
@@ -856,7 +856,7 @@ function SuppliersTab({
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400">View only</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">View only</span>
                     )}
                   </td>
                 </tr>
@@ -880,8 +880,8 @@ function SupplierCard({ supplier, canWrite }: { supplier: SupplierRow; canWrite:
     <article className="rounded-xl border border-slate-200 bg-[#fff] p-4 dark:border-slate-800 dark:bg-slate-950">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="break-words font-black text-slate-950">{supplier.name}</h3>
-          <p className="mt-1 text-sm text-slate-600">{supplier.company ?? "No company"}</p>
+          <h3 className="break-words font-black text-slate-950 dark:text-slate-100">{supplier.name}</h3>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{supplier.company ?? "No company"}</p>
         </div>
         {supplier.is_active ? (
           <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
@@ -895,16 +895,16 @@ function SupplierCard({ supplier, canWrite }: { supplier: SupplierRow; canWrite:
       </div>
       <dl className="mt-3 grid gap-2 text-sm min-[380px]:grid-cols-2">
         <div>
-          <dt className="text-xs font-semibold uppercase text-slate-400">Phone</dt>
-          <dd className="break-words text-slate-700">{supplier.phone ?? "—"}</dd>
+          <dt className="text-xs font-semibold uppercase text-slate-400 dark:text-slate-500">Phone</dt>
+          <dd className="break-words text-slate-700 dark:text-slate-300">{supplier.phone ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase text-slate-400">Email</dt>
-          <dd className="break-words text-slate-700">{supplier.email ?? "—"}</dd>
+          <dt className="text-xs font-semibold uppercase text-slate-400 dark:text-slate-500">Email</dt>
+          <dd className="break-words text-slate-700 dark:text-slate-300">{supplier.email ?? "—"}</dd>
         </div>
         <div className="min-[380px]:col-span-2">
-          <dt className="text-xs font-semibold uppercase text-slate-400">Address</dt>
-          <dd className="break-words text-slate-700">{supplier.address ?? "—"}</dd>
+          <dt className="text-xs font-semibold uppercase text-slate-400 dark:text-slate-500">Address</dt>
+          <dd className="break-words text-slate-700 dark:text-slate-300">{supplier.address ?? "—"}</dd>
         </div>
       </dl>
       <div className="mt-3">
