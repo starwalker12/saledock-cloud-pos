@@ -358,7 +358,7 @@ export default async function ReportsPage({
               <ChevronDown className="size-3.5 transition-transform duration-150 group-open:rotate-180" />
             </span>
           </summary>
-          <div className="mt-3 text-xs md:text-sm text-slate-600 dark:text-slate-350 space-y-3 border-t border-blue-100 dark:border-blue-900/30 pt-3">
+          <div className="mt-3 text-xs md:text-sm text-slate-600 dark:text-slate-300 space-y-3 border-t border-blue-100 dark:border-blue-900/30 pt-3">
             <p className="font-semibold text-slate-700 dark:text-slate-300">
               Understanding your shop&apos;s cash flow and margins:
             </p>
