@@ -261,12 +261,11 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
 
   const itemMap = useMemo(() => new Map(items.map((item) => [item.href, item])), [items]);
   const orderedHrefs = useMemo(() => normalizeOrder(items, prefs.order), [items, prefs.order]);
-  const activeHref = items.find((item) => isActive(item.href))?.href ?? null;
   const archivedHrefs = useMemo(() => {
     return new Set(
-      prefs.archived.filter((href) => itemMap.has(href) && !PROTECTED_HREFS.has(href) && href !== activeHref),
+      prefs.archived.filter((href) => itemMap.has(href) && !PROTECTED_HREFS.has(href)),
     );
-  }, [activeHref, itemMap, prefs.archived]);
+  }, [itemMap, prefs.archived]);
 
   const orderedItems = orderedHrefs
     .map((href) => itemMap.get(href))
@@ -522,34 +521,50 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
       </div>
 
       <div className={`flex border-b border-[var(--sidebar-border)] px-3 py-2 ${collapsed ? "flex-row items-center justify-center gap-1.5" : "flex-row items-center justify-between"}`}>
-        <button
-          type="button"
-          onClick={() => setRearrangeMode((prev) => !prev)}
-          className={`flex items-center justify-center rounded-xl border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
-            collapsed ? "size-8 shrink-0" : "h-10 px-3 gap-2 text-xs font-bold"
-          } ${
-            rearrangeMode
-              ? "border-[var(--sidebar-active-accent)] bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)]"
-              : "border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] text-[var(--sidebar-inactive)] hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)]"
-          }`}
-          aria-label={rearrangeMode ? "Done rearranging" : "Rearrange items"}
-          title={rearrangeMode ? "Done rearranging" : "Rearrange items"}
-        >
-          {rearrangeMode ? <Check className="size-4 shrink-0" /> : <ArrowUpDown className="size-4 shrink-0" />}
-          {!collapsed && <span>{rearrangeMode ? "Done" : "Rearrange"}</span>}
-        </button>
+        <div className="relative group/rearrange">
+          <button
+            type="button"
+            onClick={() => setRearrangeMode((prev) => !prev)}
+            className={`flex items-center justify-center rounded-xl border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
+              collapsed ? "size-8 shrink-0" : "h-10 px-3 gap-2 text-xs font-bold"
+            } ${
+              rearrangeMode
+                ? "border-[var(--sidebar-active-accent)] bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)]"
+                : "border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] text-[var(--sidebar-inactive)] hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)]"
+            }`}
+            aria-label={rearrangeMode ? "Done rearranging" : "Rearrange items"}
+          >
+            {rearrangeMode ? <Check className="size-4 shrink-0" /> : <ArrowUpDown className="size-4 shrink-0" />}
+            {!collapsed && <span>{rearrangeMode ? "Done" : "Rearrange"}</span>}
+          </button>
+          {collapsed && (
+            <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/rearrange:translate-x-0 group-hover/rearrange:scale-100 group-hover/rearrange:opacity-100 group-focus-within/rearrange:translate-x-0 group-focus-within/rearrange:scale-100 group-focus-within/rearrange:opacity-100">
+              <div className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-black text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 whitespace-nowrap">
+                {rearrangeMode ? "Done rearranging" : "Rearrange items"}
+              </div>
+            </div>
+          )}
+        </div>
 
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className={`flex items-center justify-center rounded-xl border border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] text-[var(--sidebar-inactive)] transition hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
-            collapsed ? "size-8 shrink-0" : "size-10"
-          }`}
-          aria-label={collapsed ? t("expandSidebar") : t("collapseSidebar")}
-          title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
-        >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-        </button>
+        <div className="relative group/togglecol">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className={`flex items-center justify-center rounded-xl border border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] text-[var(--sidebar-inactive)] transition hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
+              collapsed ? "size-8 shrink-0" : "size-10"
+            }`}
+            aria-label={collapsed ? t("expandSidebar") : t("collapseSidebar")}
+          >
+            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </button>
+          {collapsed && (
+            <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/togglecol:translate-x-0 group-hover/togglecol:scale-100 group-hover/togglecol:opacity-100 group-focus-within/togglecol:translate-x-0 group-focus-within/togglecol:scale-100 group-focus-within/togglecol:opacity-100">
+              <div className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-black text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 whitespace-nowrap">
+                {t("expandSidebar")}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <nav className={`min-h-0 flex-1 overflow-y-auto py-4 ${collapsed ? "px-2" : "px-3"}`} aria-label="Main navigation">
@@ -595,7 +610,6 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
                 <Link
                   href={item.href}
                   aria-label={collapsed ? label : undefined}
-                  title={collapsed ? label : undefined}
                   className={`relative flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
                     collapsed ? "justify-center" : ""
                   } ${
@@ -607,6 +621,14 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
                   {Icon && <Icon className="size-[22px] shrink-0" />}
                   {!collapsed && <span className="truncate">{label}</span>}
                 </Link>
+
+                {collapsed && (
+                  <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/navitem:translate-x-0 group-hover/navitem:scale-100 group-hover/navitem:opacity-100 group-focus-within/navitem:translate-x-0 group-focus-within/navitem:scale-100 group-focus-within/navitem:opacity-100">
+                    <div className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-black text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 whitespace-nowrap">
+                      {label}
+                    </div>
+                  </div>
+                )}
 
                 {!collapsed && canArchive && (
                   <div
@@ -702,27 +724,35 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => setArchiveOpen((open) => !open)}
-          className={`flex min-h-11 w-full items-center gap-3 rounded-xl border border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] px-3 text-sm font-bold text-[var(--sidebar-inactive)] transition hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
-            collapsed ? "justify-center" : ""
-          }`}
-          aria-controls="sidebar-archive-panel"
-          aria-expanded={archiveOpen}
-          aria-label={t("archived")}
-          title={collapsed ? t("archived") : undefined}
-        >
-          <Archive className="size-4 shrink-0" />
-          {!collapsed && (
-            <>
-              <span className="min-w-0 flex-1 truncate text-left">{t("archived")}</span>
-              <span className="rounded-full bg-[var(--sidebar-count-bg)] px-2 py-0.5 text-[11px] font-black text-[var(--sidebar-active-text)]">
-                {archivedItems.length}
-              </span>
-            </>
+        <div className="relative group/archivebtn">
+          <button
+            type="button"
+            onClick={() => setArchiveOpen((open) => !open)}
+            className={`flex min-h-11 w-full items-center gap-3 rounded-xl border border-[var(--sidebar-border-strong)] bg-[var(--sidebar-control-bg)] px-3 text-sm font-bold text-[var(--sidebar-inactive)] transition hover:bg-[var(--sidebar-hover-overlay)] hover:text-[var(--sidebar-active-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
+              collapsed ? "justify-center" : ""
+            }`}
+            aria-controls="sidebar-archive-panel"
+            aria-expanded={archiveOpen}
+            aria-label={t("archived")}
+          >
+            <Archive className="size-4 shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="min-w-0 flex-1 truncate text-left">{t("archived")}</span>
+                <span className="rounded-full bg-[var(--sidebar-count-bg)] px-2 py-0.5 text-[11px] font-black text-[var(--sidebar-active-text)]">
+                  {archivedItems.length}
+                </span>
+              </>
+            )}
+          </button>
+          {collapsed && (
+            <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/archivebtn:translate-x-0 group-hover/archivebtn:scale-100 group-hover/archivebtn:opacity-100 group-focus-within/archivebtn:translate-x-0 group-focus-within/archivebtn:scale-100 group-focus-within/archivebtn:opacity-100">
+              <div className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-black text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 whitespace-nowrap">
+                {t("archived")} ({archivedItems.length})
+              </div>
+            </div>
           )}
-        </button>
+        </div>
       </div>
     </aside>
   );
