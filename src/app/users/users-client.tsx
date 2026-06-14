@@ -247,7 +247,7 @@ export function UserManagementClient({
 
         <div className="hidden overflow-x-auto xl:block">
           <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-805 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <tr>
                 <SortableHeader label="Staff" columnKey="full_name" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Role" columnKey="role" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
@@ -261,7 +261,7 @@ export function UserManagementClient({
               {sortedUsers.map((user) => (
                 <tr key={user.id} className="border-b border-slate-100 dark:border-slate-800/60 align-top">
                   <td className="px-4 py-3">
-                    <p className="font-black text-slate-955 dark:text-slate-100">{user.full_name}</p>
+                    <p className="font-black text-slate-950 dark:text-slate-100">{user.full_name}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{user.email ?? "No email found"}</p>
                     {user.id === currentProfileId && (
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-blue-700 dark:text-blue-400">You</p>

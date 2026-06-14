@@ -393,7 +393,7 @@ export function OnboardingWizard({
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-6 text-sm font-bold text-slate-600 hover:bg-slate-50 transition active:scale-[0.98] dark:border-slate-700 dark:bg-slate-850 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+                    className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-6 text-sm font-bold text-slate-600 hover:bg-slate-50 transition active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Back
                   </button>
@@ -401,7 +401,7 @@ export function OnboardingWizard({
                 <button
                   type="button"
                   onClick={restartSetup}
-                  className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-5 text-sm font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition active:scale-[0.98] dark:border-slate-850 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-350 cursor-pointer"
+                  className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-5 text-sm font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition active:scale-[0.98] dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-300 cursor-pointer"
                 >
                   Restart
                 </button>
@@ -496,7 +496,7 @@ function ProfileStep({
             type="email"
             value={data.orgEmail}
             onChange={(e) => onChange("orgEmail", e.target.value)}
-            className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-slate-50 text-slate-400 dark:bg-slate-900/60 dark:border-slate-800 dark:text-slate-550 cursor-not-allowed"
+            className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-slate-50 text-slate-400 dark:bg-slate-900/60 dark:border-slate-800 dark:text-slate-500 cursor-not-allowed"
             readOnly
             tabIndex={-1}
           />
@@ -504,7 +504,7 @@ function ProfileStep({
         </label>
       </div>
 
-      <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20">
+      <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20">
         <ImageUpload
           bucket="profile-pictures"
           folderPath={`users/${userId}/profile-picture`}

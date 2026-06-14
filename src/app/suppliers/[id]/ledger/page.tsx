@@ -162,7 +162,7 @@ export default async function SupplierLedgerPage({
                     <div key={e.id} className="rounded-xl border border-slate-200 bg-[#fff] dark:border-slate-800 dark:bg-slate-900 p-3 shadow-sm">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[11px] text-slate-500">{fmtTime(e.created_at)}</span>
-                        <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-350">
+                        <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                           {e.entry_type.replace("_", " ")}
                         </span>
                       </div>

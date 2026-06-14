@@ -47,7 +47,7 @@ export default async function UsersPage() {
               <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-400">
                 Staff access
               </p>
-              <h2 className="mt-1 sm:mt-2 text-lg sm:text-2xl font-black text-slate-955 dark:text-slate-100">
+              <h2 className="mt-1 sm:mt-2 text-lg sm:text-2xl font-black text-slate-950 dark:text-slate-100">
                 User Management
               </h2>
               <p className="mt-1 sm:mt-2 max-w-3xl text-xs sm:text-sm leading-5 sm:leading-6 text-slate-500 dark:text-slate-400">

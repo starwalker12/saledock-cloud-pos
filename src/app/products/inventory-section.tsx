@@ -189,7 +189,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                       <button
                         onClick={() => setActiveSubTab("restock")}
                         className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                          activeSubTab === "restock" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-550 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                          activeSubTab === "restock" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
                         }`}
                       >
                         <PlusCircle className="size-3" />
@@ -198,7 +198,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                       <button
                         onClick={() => setActiveSubTab("adjust")}
                         className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                          activeSubTab === "adjust" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-550 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                          activeSubTab === "adjust" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
                         }`}
                       >
                         <ArrowUpDown className="size-3" />
@@ -297,7 +297,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                                   {m.invoice_no ? `Invoice: ${m.invoice_no}` : m.reference_type ?? "—"}
                                 </td>
                                 <td className="px-2.5 py-2 text-slate-600">{m.created_by_name ?? "System"}</td>
-                                <td className="px-2.5 py-2 text-slate-550 italic max-w-[200px] truncate" title={m.notes ?? ""}>{m.notes ?? "—"}</td>
+                                <td className="px-2.5 py-2 text-slate-500 italic max-w-[200px] truncate" title={m.notes ?? ""}>{m.notes ?? "—"}</td>
                               </tr>
                             ))}
                           </tbody>

@@ -27,7 +27,7 @@ function ReplenishmentHeader({
   return (
     <button
       onClick={() => onSort(columnKey)}
-      className={`flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-350 font-bold uppercase transition-colors cursor-pointer select-none ${
+      className={`flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-300 font-bold uppercase transition-colors cursor-pointer select-none ${
         align === "right" ? "justify-end text-right w-full" : "justify-start text-left"
       } ${className}`}
     >
@@ -367,7 +367,7 @@ function ProductRow({
     <div className="px-3 py-2 text-xs sm:grid sm:grid-cols-12 sm:gap-2 sm:px-4 sm:py-2.5 align-middle border-b border-slate-50 dark:border-slate-800 last:border-b-0">
       {/* Product Name & SKU */}
       <div className="min-w-0 sm:col-span-4 mb-2 sm:mb-0">
-        <p className="font-semibold text-slate-955 dark:text-white truncate">{suggestion.productName}</p>
+        <p className="font-semibold text-slate-950 dark:text-white truncate">{suggestion.productName}</p>
         {suggestion.sku && (
           <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">SKU: {suggestion.sku}</p>
         )}
@@ -398,7 +398,7 @@ function ProductRow({
         </div>
         <div className="col-span-2 text-right">
           <span className="block text-[9px] text-slate-400 font-bold uppercase">Est. Cost</span>
-          <span className="font-bold text-slate-955 dark:text-white">
+          <span className="font-bold text-slate-950 dark:text-white">
             {suggestion.estimatedCost !== null ? formatCurrency(suggestion.estimatedCost, currency) : "—"}
           </span>
         </div>

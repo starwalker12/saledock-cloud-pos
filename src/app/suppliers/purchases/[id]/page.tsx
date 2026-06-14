@@ -158,7 +158,7 @@ export default async function SupplierPurchaseDetailPage({
                         <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight">
                           {it.product_name}
                         </h4>
-                        {it.notes && <p className="text-xs text-slate-550 mt-0.5">{it.notes}</p>}
+                        {it.notes && <p className="text-xs text-slate-500 mt-0.5">{it.notes}</p>}
                         {it.stock_lot_id && (
                           <p className="text-[10px] uppercase text-slate-400 dark:text-slate-500 mt-1">Lot {it.stock_lot_id.slice(0, 8)}</p>
                         )}
@@ -218,7 +218,7 @@ export default async function SupplierPurchaseDetailPage({
                   {payments.map((p) => (
                     <div key={p.id} className="rounded-xl border border-slate-200 bg-[#fff] dark:border-slate-800 dark:bg-slate-900 p-3 shadow-sm">
                       <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-[11px] text-slate-550">{fmtTime(p.paid_at)}</span>
+                        <span className="text-[11px] text-slate-500">{fmtTime(p.paid_at)}</span>
                         <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:text-slate-300 uppercase">
                           {PAYMENT_LABELS[p.method] ?? p.method}
                         </span>

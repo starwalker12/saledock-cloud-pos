@@ -212,7 +212,7 @@ export default async function CustomersPage({
                           <Link href={`/customers/${c.id}`} className="font-bold text-blue-700 dark:text-blue-400 hover:underline">
                             {c.name}
                           </Link>
-                          {c.notes && <div className="text-[11px] text-slate-400 dark:text-slate-550 max-w-[200px] truncate">{c.notes}</div>}
+                          {c.notes && <div className="text-[11px] text-slate-400 dark:text-slate-500 max-w-[200px] truncate">{c.notes}</div>}
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
                           <div>{c.phone ?? "—"}</div>
@@ -303,7 +303,7 @@ function CustomerActions({ c, canWrite }: { c: CustomerRow; canWrite: boolean })
               <input type="hidden" name="id" value={c.id} />
               <button
                 type="submit"
-                className="inline-flex min-h-9 items-center rounded-md border border-emerald-200 dark:border-emerald-800/40 bg-[#fff] dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-955/20 cursor-pointer"
+                className="inline-flex min-h-9 items-center rounded-md border border-emerald-200 dark:border-emerald-800/40 bg-[#fff] dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 cursor-pointer"
               >
                 Restore
               </button>
@@ -313,7 +313,7 @@ function CustomerActions({ c, canWrite }: { c: CustomerRow; canWrite: boolean })
               <input type="hidden" name="id" value={c.id} />
               <button
                 type="submit"
-                className="inline-flex min-h-9 items-center rounded-md border border-red-200 dark:border-red-800/40 bg-[#fff] dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-955/20 cursor-pointer"
+                className="inline-flex min-h-9 items-center rounded-md border border-red-200 dark:border-red-800/40 bg-[#fff] dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
               >
                 Archive
               </button>

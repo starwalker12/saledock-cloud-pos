@@ -2172,7 +2172,7 @@ export function BackupTab({
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
-              <h3 className="text-lg font-black text-slate-955">4. Double Confirmation Required</h3>
+              <h3 className="text-lg font-black text-slate-950">4. Double Confirmation Required</h3>
               <p className="text-xs text-slate-500">Confirm you understand this is a merge operation and cannot be undone.</p>
             </div>
             <button
@@ -2184,7 +2184,7 @@ export function BackupTab({
           </header>
 
           <div className="space-y-4">
-            <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-rose-50 border border-rose-100 p-4 text-xs text-rose-955">
+            <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-rose-50 border border-rose-100 p-4 text-xs text-rose-950">
               <input
                 type="checkbox"
                 checked={confirmCheckbox}
@@ -2335,7 +2335,7 @@ export function BackupTab({
           </header>
 
           {importError ? (
-            <div className="rounded-xl bg-rose-50 p-4 text-xs text-rose-955 border border-rose-100 flex gap-2">
+            <div className="rounded-xl bg-rose-50 p-4 text-xs text-rose-950 border border-rose-100 flex gap-2">
               <AlertTriangle className="size-5 text-rose-600 shrink-0" />
               <div>
                 <p className="font-bold text-sm">Import Process Halted</p>
@@ -2345,7 +2345,7 @@ export function BackupTab({
           ) : (
             <div className="space-y-6">
               {!hasCoreFailures ? (
-                <div className="rounded-xl bg-emerald-50 p-4 text-xs text-emerald-955 border border-emerald-100 flex gap-2">
+                <div className="rounded-xl bg-emerald-50 p-4 text-xs text-emerald-950 border border-emerald-100 flex gap-2">
                   <CheckCircle className="size-5 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-sm text-emerald-900">Backup Restored Successfully</p>
@@ -2353,7 +2353,7 @@ export function BackupTab({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl bg-amber-50 p-4 text-xs text-amber-955 border border-amber-200 flex gap-2">
+                <div className="rounded-xl bg-amber-50 p-4 text-xs text-amber-950 border border-amber-200 flex gap-2">
                   <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-sm text-amber-900">Import Completed with Issues</p>
@@ -2531,7 +2531,7 @@ export function BackupTab({
                     </div>
 
                     {checkboxBackupDownloaded && (
-                      <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-emerald-955 flex gap-2">
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-emerald-950 flex gap-2">
                         <CheckCircle className="size-5 text-emerald-600 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold">Backup download triggered successfully!</p>
@@ -2561,7 +2561,7 @@ export function BackupTab({
                 {resetStep === "confirm" && (
                   <div className="space-y-4">
                     <div className="rounded-xl bg-rose-50 border border-rose-100 p-4">
-                      <p className="font-bold text-rose-955">⚠️ Final Hard Confirmations Required</p>
+                      <p className="font-bold text-rose-950">⚠️ Final Hard Confirmations Required</p>
                       <p className="mt-1 text-rose-800">
                         Wiping business data cannot be reversed. Please carefully acknowledge each warning checkmark below.
                       </p>
