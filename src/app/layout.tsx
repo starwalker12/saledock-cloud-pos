@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Geist, Geist_Mono, Syne, Noto_Nastaliq_Urdu } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
@@ -185,6 +187,8 @@ export default async function RootLayout({
           gaMeasurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
           clarityProjectId={process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID}
         />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

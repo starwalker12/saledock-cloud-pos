@@ -7,7 +7,7 @@ import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriori
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 
 const REPLENISHMENT_GRID_CLASS =
-  "grid grid-cols-[minmax(16rem,1.8fr)_5rem_4.75rem_5.25rem_5.25rem_7.5rem_7.5rem_6.75rem] items-center gap-3";
+  "grid grid-cols-[minmax(20rem,2.2fr)_6rem_5.5rem_6rem_6rem_9rem_9rem_7.5rem] items-center gap-4";
 
 function ReplenishmentHeader({
   label,
@@ -318,7 +318,7 @@ function SupplierGroupCard({
         <div>
           {/* Column headers */}
           <div className="hidden overflow-x-auto sm:block">
-            <div className="min-w-[980px]">
+            <div className="min-w-[1120px]">
               <div className={`${REPLENISHMENT_GRID_CLASS} border-b border-slate-100 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:border-white/[0.06] dark:text-slate-500`}>
                 <ReplenishmentHeader label="Product" columnKey="productName" currentSortKey={sortBy} direction={sortDir} onSort={onSort} />
                 <ReplenishmentHeader label="Stock" columnKey="currentStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />

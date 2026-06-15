@@ -376,25 +376,30 @@ export default async function HomePage() {
       />
 
       {/* ── STICKY NAV ── */}
-      <nav className="sticky top-0 z-50 hidden w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95 md:block">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-          <Link href="/" className="inline-flex items-center gap-3 rounded-full px-1 py-1 text-white transition hover:-translate-y-0.5">
-            <span className="flex size-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-sm font-black shadow-sm">
+      <nav className="fixed inset-x-0 top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
+        <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-6 md:min-h-16">
+          <Link
+            href="/"
+            aria-label="SaleDock home"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white shadow-sm transition hover:-translate-y-0.5 md:size-11"
+          >
+            <span className="text-sm font-black">
               SD
             </span>
-            <span className="text-lg font-black tracking-tight">SaleDock</span>
           </Link>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeToggle />
-            <LanguageToggle />
+          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 [&_button]:min-h-11">
+              <ThemeToggle />
+              <LanguageToggle />
+            </div>
             <>
               <Link href="/login"
-                className="hidden h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 text-xs font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 sm:flex sm:text-sm">
+                className="hidden h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 min-[380px]:flex sm:px-4 sm:text-sm">
                 {d.nav?.signIn || "Sign in"}
               </Link>
               <Link href="/login?signup=1"
-                className="flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-[#fff] px-4 text-xs font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-[#fff]/90 hover:-translate-y-0.5 sm:text-sm dark:bg-cyan-300 dark:text-[#020617] dark:hover:bg-cyan-200">
+                className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#fff] px-2.5 text-[11px] font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-[#fff]/90 hover:-translate-y-0.5 sm:px-4 sm:text-sm dark:bg-cyan-300 dark:text-[#020617] dark:hover:bg-cyan-200">
                 {d.nav?.startFree || "Start free"}
               </Link>
             </>
@@ -405,7 +410,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════════════════════════════
           HERO — split layout, proper light/dark theming
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden pt-14 md:pt-16">
 
         {/* Animated gradient shift — light mode only */}
         <ParallaxLayer
@@ -468,21 +473,8 @@ export default async function HomePage() {
           }}
         />
 
-        <div className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 pt-4 md:hidden">
-          <Link
-            href="/"
-            className="inline-flex min-h-10 items-center rounded-full border border-slate-200/80 bg-[#fff]/90 px-4 text-sm font-black tracking-tight text-slate-950 shadow-sm dark:border-white/10 dark:bg-slate-950/80 dark:text-white"
-          >
-            SaleDock
-          </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LanguageToggle />
-          </div>
-        </div>
-
         {/* Content */}
-        <div className="relative mx-auto grid min-h-[90vh] max-w-7xl grid-cols-1 items-center gap-10 px-4 py-10 sm:px-6 md:py-16 lg:grid-cols-2 lg:gap-14 lg:py-0">
+        <div className="relative mx-auto grid min-h-[88vh] max-w-7xl grid-cols-1 items-center gap-10 px-4 py-8 sm:px-6 md:py-16 lg:grid-cols-2 lg:gap-14 lg:py-0">
 
           {/* ── LEFT: text column ── */}
           <div className="flex flex-col items-start">

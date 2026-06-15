@@ -16,6 +16,7 @@ import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
+import { PurchaseFilterSelect, type PurchaseFilterOption } from "./filter-select";
 
 type SearchParams = {
   q?: string;
@@ -96,6 +97,19 @@ export default async function SupplierPurchasesPage({
 
   const supplierDuesTotal = suppliers.reduce((s, x) => s + x.outstanding_balance, 0);
   const dueSupplierCount = suppliers.filter((s) => s.outstanding_balance > 0).length;
+  const supplierFilterOptions: PurchaseFilterOption[] = [
+    { value: "", label: "All" },
+    ...suppliers.map((s) => ({
+      value: s.id,
+      label: `${s.name}${s.company ? ` · ${s.company}` : ""}`,
+    })),
+  ];
+  const statusFilterOptions: PurchaseFilterOption[] = [
+    { value: "all", label: "All" },
+    { value: "unpaid", label: "Unpaid" },
+    { value: "partial", label: "Partial" },
+    { value: "paid", label: "Paid" },
+  ];
 
   return (
     <AppShell pageTitle="Supplier Purchases">
@@ -184,36 +198,19 @@ export default async function SupplierPurchasesPage({
                 Filters
               </summary>
               <div className="mt-3 grid gap-3">
-                <label className={FILTER_GROUP_CLASS}>
-                  <span className={FILTER_LABEL_CLASS}>Supplier</span>
-                  <select
-                    name="supplier_id"
-                    defaultValue={params.supplier_id ?? ""}
-                    className={FILTER_INPUT_CLASS}
-                  >
-                    <option value="">All</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                        {s.company ? ` · ${s.company}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <PurchaseFilterSelect
+                  name="supplier_id"
+                  label="Supplier"
+                  defaultValue={params.supplier_id ?? ""}
+                  options={supplierFilterOptions}
+                />
 
-                <label className={FILTER_GROUP_CLASS}>
-                  <span className={FILTER_LABEL_CLASS}>Status</span>
-                  <select
-                    name="status"
-                    defaultValue={statusValue}
-                    className={FILTER_INPUT_CLASS}
-                  >
-                    <option value="all">All</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="partial">Partial</option>
-                    <option value="paid">Paid</option>
-                  </select>
-                </label>
+                <PurchaseFilterSelect
+                  name="status"
+                  label="Status"
+                  defaultValue={statusValue}
+                  options={statusFilterOptions}
+                />
 
                 <div className="grid grid-cols-2 gap-2">
                   <label className={FILTER_GROUP_CLASS}>
@@ -256,35 +253,18 @@ export default async function SupplierPurchasesPage({
                 className={FILTER_INPUT_CLASS}
               />
             </label>
-            <label className={FILTER_GROUP_CLASS}>
-              <span className={FILTER_LABEL_CLASS}>Supplier</span>
-              <select
-                name="supplier_id"
-                defaultValue={params.supplier_id ?? ""}
-                className={FILTER_INPUT_CLASS}
-              >
-                <option value="">All</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                    {s.company ? ` · ${s.company}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={FILTER_GROUP_CLASS}>
-              <span className={FILTER_LABEL_CLASS}>Status</span>
-              <select
-                name="status"
-                defaultValue={statusValue}
-                className={FILTER_INPUT_CLASS}
-              >
-                <option value="all">All</option>
-                <option value="unpaid">Unpaid</option>
-                <option value="partial">Partial</option>
-                <option value="paid">Paid</option>
-              </select>
-            </label>
+            <PurchaseFilterSelect
+              name="supplier_id"
+              label="Supplier"
+              defaultValue={params.supplier_id ?? ""}
+              options={supplierFilterOptions}
+            />
+            <PurchaseFilterSelect
+              name="status"
+              label="Status"
+              defaultValue={statusValue}
+              options={statusFilterOptions}
+            />
             <label className={FILTER_GROUP_CLASS}>
               <span className={FILTER_LABEL_CLASS}>From</span>
               <input

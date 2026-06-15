@@ -13,7 +13,6 @@ import {
 import type { ComponentType } from "react";
 import { useDrawer } from "@/components/layout/drawer-context";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { saveSidebarPreferences } from "@/lib/use-ui-preferences";
 
 function ClientPortal({ children }: { children: React.ReactNode }) {
@@ -494,16 +493,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                       <Settings className="size-4.5 text-slate-500" />
                       <span>Customize bottom tabs</span>
                     </button>
-                  </div>
-                </div>
-
-                {/* Theme Toggle section */}
-                <div className="border-t border-slate-200 pt-3 dark:border-slate-800 pb-6">
-                  <p className="mb-2 px-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                    Theme
-                  </p>
-                  <div className="px-4">
-                    <ThemeToggle showLabelOnMobile={true} align="up" />
                   </div>
                 </div>
               </div>

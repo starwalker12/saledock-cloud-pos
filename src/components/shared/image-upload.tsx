@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type PointerEvent } from "react";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { validateImageFile, uploadImage, type UploadResult } from "@/lib/storage/upload";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +28,15 @@ type CropState = {
   zoom: number;
   x: number;
   y: number;
+};
+
+type CropDragState = {
+  pointerId: number;
+  startPointerX: number;
+  startPointerY: number;
+  startX: number;
+  startY: number;
+  zoom: number;
 };
 
 const cropOutputSize = {
@@ -105,6 +114,7 @@ export function ImageUpload({
   const [cropState, setCropState] = useState<CropState | null>(null);
   const [cropProcessing, setCropProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cropDragRef = useRef<CropDragState | null>(null);
 
   useEffect(() => {
     async function checkAuth() {
@@ -199,7 +209,44 @@ export function ImageUpload({
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  function clampPosition(value: number) {
+    return Math.max(0, Math.min(100, value));
+  }
+
+  function handleCropPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (!cropState || cropProcessing) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropDragRef.current = {
+      pointerId: event.pointerId,
+      startPointerX: event.clientX,
+      startPointerY: event.clientY,
+      startX: cropState.x,
+      startY: cropState.y,
+      zoom: cropState.zoom,
+    };
+  }
+
+  function handleCropPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const drag = cropDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const deltaX = event.clientX - drag.startPointerX;
+    const deltaY = event.clientY - drag.startPointerY;
+    const nextX = clampPosition(drag.startX - (deltaX / rect.width) * (100 / drag.zoom));
+    const nextY = clampPosition(drag.startY - (deltaY / rect.height) * (100 / drag.zoom));
+
+    setCropState((current) => current ? { ...current, x: nextX, y: nextY } : current);
+  }
+
+  function handleCropPointerEnd(event: PointerEvent<HTMLDivElement>) {
+    if (cropDragRef.current?.pointerId === event.pointerId) {
+      cropDragRef.current = null;
+    }
+  }
+
   function handleCancelCrop() {
+    cropDragRef.current = null;
     setCropState(null);
     setCropProcessing(false);
     if (inputRef.current) inputRef.current.value = "";
@@ -220,6 +267,7 @@ export function ImageUpload({
         cropState.y
       );
       setCropState(null);
+      cropDragRef.current = null;
       setCropProcessing(false);
       await uploadPreparedFile(croppedFile);
     } catch (e) {
@@ -369,7 +417,7 @@ export function ImageUpload({
                   Crop image
                 </h3>
                 <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
-                  Position the image, then confirm to upload the cropped version.
+                  Drag the image to position it, adjust zoom, then confirm to upload.
                 </p>
               </div>
               <button
@@ -383,7 +431,17 @@ export function ImageUpload({
             </div>
 
             <div className="mt-4 rounded-2xl bg-slate-100 p-3 dark:bg-slate-900">
-              <div className={`relative mx-auto max-h-[48dvh] w-full overflow-hidden rounded-xl bg-slate-950 ${aspectClasses[aspectRatio]}`}>
+              <div
+                className={`relative mx-auto max-h-[48dvh] w-full touch-none overflow-hidden rounded-xl bg-slate-950 ${aspectClasses[aspectRatio]} ${
+                  cropProcessing ? "cursor-wait" : "cursor-grab active:cursor-grabbing"
+                }`}
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={handleCropPointerEnd}
+                onPointerCancel={handleCropPointerEnd}
+                onLostPointerCapture={(event) => handleCropPointerEnd(event)}
+                aria-label="Drag image to reposition crop"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={cropState.url}
@@ -395,8 +453,17 @@ export function ImageUpload({
                   }}
                   draggable={false}
                 />
+                <div className="pointer-events-none absolute inset-0 bg-slate-950/20" />
+                <div
+                  className={`pointer-events-none absolute inset-4 border-2 border-white shadow-[0_0_0_999px_rgba(2,6,23,0.42)] ${
+                    aspectRatio === "square" ? "rounded-full" : "rounded-2xl"
+                  }`}
+                />
                 <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
               </div>
+              <p className="mt-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Drag to position. Use zoom for a closer crop.
+              </p>
             </div>
 
             <div className="mt-4 space-y-3">
@@ -409,30 +476,6 @@ export function ImageUpload({
                   step="0.05"
                   value={cropState.zoom}
                   onChange={(e) => setCropState((current) => current ? { ...current, zoom: Number(e.target.value) } : current)}
-                  className="mt-2 w-full accent-[var(--primary-accent-bg)]"
-                />
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Horizontal position
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={cropState.x}
-                  onChange={(e) => setCropState((current) => current ? { ...current, x: Number(e.target.value) } : current)}
-                  className="mt-2 w-full accent-[var(--primary-accent-bg)]"
-                />
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Vertical position
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={cropState.y}
-                  onChange={(e) => setCropState((current) => current ? { ...current, y: Number(e.target.value) } : current)}
                   className="mt-2 w-full accent-[var(--primary-accent-bg)]"
                 />
               </label>

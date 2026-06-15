@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { getCurrentContext, signProfilePictureUrl } from "@/lib/auth/session";
 import { GlobalSearch } from "@/components/search/global-search";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MobileDrawerWrapper } from "@/components/layout/mobile-drawer-wrapper";
 import { NotificationPopover } from "@/components/layout/notification-popover";
@@ -69,7 +68,6 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
         </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[860px] lg:flex-1 lg:justify-end xl:max-w-[980px]">
           <GlobalSearch />
-          <ThemeToggle />
           <NotificationPopover />
           {user ? (
             <UserMenu

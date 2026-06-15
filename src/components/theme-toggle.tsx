@@ -63,7 +63,7 @@ export function ThemeToggle({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+        className="flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-[#fff]/80 px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-[#fff] hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="Theme"
@@ -80,7 +80,7 @@ export function ThemeToggle({
 
       {open && (
         <div
-          className={`absolute right-0 z-50 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900 ${
+          className={`absolute right-0 z-50 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900 ${
             align === "up" ? "bottom-full mb-2" : "top-full mt-2"
           }`}
         >
@@ -108,6 +108,51 @@ export function ThemeToggle({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+export function ThemeMenuSection() {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  const activeTheme = mounted ? theme ?? "system" : "system";
+
+  return (
+    <div className="space-y-2 px-2 py-1">
+      <p className="px-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+        Theme
+      </p>
+      <div className="grid grid-cols-3 gap-1.5">
+        {themeOptions.map((option) => {
+          const Icon = option.icon;
+          const isActive = option.value === activeTheme;
+          const isResolved = option.value !== "system" && option.value === resolvedTheme;
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setTheme(option.value)}
+              className={`flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] ${
+                isActive
+                  ? "border-[var(--primary-accent-bg)] bg-[var(--primary-accent-soft)] text-slate-950 dark:text-white"
+                  : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              }`}
+              aria-pressed={isActive}
+              title={isResolved && !isActive ? `${option.label} active by system` : option.label}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+              <span>{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

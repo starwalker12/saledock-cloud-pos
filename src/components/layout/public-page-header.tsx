@@ -12,13 +12,6 @@ export function PublicPageHeader({
   showLanguage?: boolean;
   compact?: boolean;
 }) {
-  const handleBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      e.preventDefault();
-      window.history.back();
-    }
-  };
-
   return (
     <div
       className={`flex items-center justify-between border-b border-slate-100 dark:border-slate-700 ${
@@ -27,7 +20,6 @@ export function PublicPageHeader({
     >
       <Link
         href="/"
-        onClick={handleBack}
         className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition cursor-pointer"
       >
         <ArrowLeft className="h-4 w-4" />
