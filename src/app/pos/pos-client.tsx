@@ -452,10 +452,10 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                   data-testid="pos-product-btn"
                   onClick={() => addToCart(p)}
                   disabled={outOfStock || !canCheckout}
-                  className={`flex min-h-36 h-full flex-col rounded-xl border p-3 text-left transition ${
+                  className={`flex min-h-36 h-full flex-col rounded-xl border p-3 text-left transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-cyan-400/70 dark:focus-visible:ring-offset-slate-950 ${
                     outOfStock
-                      ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60 dark:border-slate-700 dark:bg-slate-900"
-                      : "cursor-pointer border-slate-200 bg-white hover:border-blue-600 hover:bg-slate-50 hover:shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:hover:border-blue-500 dark:hover:bg-slate-800 dark:hover:shadow-blue-900/30"
+                      ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60 dark:border-slate-800 dark:bg-slate-900/70"
+                      : "cursor-pointer border-slate-200 bg-[#fff] shadow-sm hover:-translate-y-0.5 hover:border-blue-600 hover:bg-blue-50/50 hover:shadow-md hover:shadow-blue-100/60 dark:border-slate-700 dark:bg-slate-950 dark:shadow-none dark:hover:border-cyan-400/80 dark:hover:bg-slate-800/90 dark:hover:ring-1 dark:hover:ring-cyan-400/40 dark:hover:shadow-lg dark:hover:shadow-cyan-950/40"
                   }`}
                 >
                   <div className="flex min-w-0 items-center justify-between gap-2">
@@ -473,14 +473,14 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 line-clamp-2 break-words text-sm font-bold text-slate-900">{p.name}</p>
-                  <p className="mt-1 truncate text-xs text-slate-500">{p.sku ?? p.barcode ?? p.category_name ?? "—"}</p>
+                  <p className="mt-2 line-clamp-2 break-words text-sm font-bold text-slate-900 dark:text-slate-100">{p.name}</p>
+                  <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{p.sku ?? p.barcode ?? p.category_name ?? "—"}</p>
                   <div className="mt-auto flex flex-col gap-1 pt-3 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between">
-                    <span className="text-sm font-black text-slate-950 sm:text-base">
+                    <span className="text-sm font-black text-slate-950 sm:text-base dark:text-white">
                       {formatCurrency(p.sale_price, currency)}
                     </span>
                     {p.type === "product" && (
-                      <span className="text-xs text-slate-500">{formatNumber(p.stock_quantity)} in stock</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(p.stock_quantity)} in stock</span>
                     )}
                   </div>
                 </button>
@@ -811,7 +811,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       </div>
 
       {cart.length > 0 && mobileTab === "products" && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-12px_28px_rgba(15,23,42,0.12)] backdrop-blur xl:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-[#fff]/95 p-3 shadow-[0_-12px_28px_rgba(15,23,42,0.12)] backdrop-blur xl:hidden">
           <button
             type="button"
             onClick={() => setMobileTab("cart")}

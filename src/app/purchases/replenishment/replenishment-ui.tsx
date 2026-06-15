@@ -6,6 +6,9 @@ import { Search, AlertTriangle, PackageCheck as PkgCheck, Truck, ArrowUpDown, Ar
 import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriority, SupplierGroup } from "@/lib/data/replenishment";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 
+const REPLENISHMENT_GRID_CLASS =
+  "grid grid-cols-[minmax(16rem,1.8fr)_5rem_4.75rem_5.25rem_5.25rem_7.5rem_7.5rem_6.75rem] items-center gap-3";
+
 function ReplenishmentHeader({
   label,
   columnKey,
@@ -33,11 +36,11 @@ function ReplenishmentHeader({
     <button
       onClick={() => onSort(columnKey)}
       aria-label={ariaLabel}
-      className={`group flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-300 font-bold uppercase transition-colors cursor-pointer select-none w-full ${
+      className={`group flex min-w-0 items-center gap-1 whitespace-nowrap hover:text-slate-700 dark:hover:text-slate-300 font-bold uppercase transition-colors cursor-pointer select-none w-full ${
         align === "right" ? "justify-end text-right" : "justify-start text-left"
       } ${className}`}
     >
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
       {isSorted ? (
         direction === "asc" ? (
           <ArrowUp className="size-3 shrink-0 text-blue-700 dark:text-blue-400" />
@@ -142,13 +145,13 @@ export function ReplenishmentUI({
             placeholder="Search products..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs font-medium text-slate-950 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
+            className="h-9 w-full rounded-lg border border-slate-200 bg-[#fff] pl-9 pr-3 text-xs font-medium text-slate-950 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
           />
         </div>
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value as ReplenishmentPriority | "all")}
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
+          className="h-9 rounded-lg border border-slate-200 bg-[#fff] px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
         >
           <option value="all">All priorities</option>
           <option value="critical">Critical</option>
@@ -178,7 +181,7 @@ export function ReplenishmentUI({
             }
             setSortDir("asc");
           }}
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
+          className="h-9 rounded-lg border border-slate-200 bg-[#fff] px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
         >
           <option value="priority">Sort: Priority</option>
           <option value="stock">Sort: Stock level</option>
@@ -188,7 +191,7 @@ export function ReplenishmentUI({
       </div>
 
       {totalItems === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-12 text-center dark:border-white/[0.08] dark:bg-white/[0.03]">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-[#fff] px-4 py-12 text-center dark:border-white/[0.08] dark:bg-white/[0.03]">
           <PkgCheck className="mb-2 size-8 text-slate-300 dark:text-slate-600" />
           <p className="text-sm font-bold text-slate-950 dark:text-white">All stocked up!</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -312,39 +315,31 @@ function SupplierGroupCard({
       </button>
 
       {expanded && (
-        <div className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+        <div>
           {/* Column headers */}
-          <div className="hidden grid-cols-12 gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:grid dark:text-slate-500">
-            <div className="col-span-4">
-              <ReplenishmentHeader label="Product" columnKey="productName" currentSortKey={sortBy} direction={sortDir} onSort={onSort} />
-            </div>
-            <div className="col-span-1 text-right">
-              <ReplenishmentHeader label="Stock" columnKey="currentStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
-            </div>
-            <div className="col-span-1 text-right">
-              <ReplenishmentHeader label="Min" columnKey="minimumStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
-            </div>
-            <div className="col-span-1 text-right">
-              <ReplenishmentHeader label="Target" columnKey="targetStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
-            </div>
-            <div className="col-span-1 text-right">
-              <ReplenishmentHeader label="Order" columnKey="suggestedQuantity" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
-            </div>
-            <div className="col-span-2 text-right">
-              <ReplenishmentHeader label="Unit cost" columnKey="purchasePrice" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
-            </div>
-            <div className="col-span-1 text-right">
-              <ReplenishmentHeader label="Total" columnKey="estimatedCost" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
-            </div>
-            <div className="col-span-1 text-right">
-              <ReplenishmentHeader label="Priority" columnKey="priority" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+          <div className="hidden overflow-x-auto sm:block">
+            <div className="min-w-[980px]">
+              <div className={`${REPLENISHMENT_GRID_CLASS} border-b border-slate-100 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:border-white/[0.06] dark:text-slate-500`}>
+                <ReplenishmentHeader label="Product" columnKey="productName" currentSortKey={sortBy} direction={sortDir} onSort={onSort} />
+                <ReplenishmentHeader label="Stock" columnKey="currentStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+                <ReplenishmentHeader label="Min" columnKey="minimumStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+                <ReplenishmentHeader label="Target" columnKey="targetStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+                <ReplenishmentHeader label="Order" columnKey="suggestedQuantity" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+                <ReplenishmentHeader label="Unit cost" columnKey="purchasePrice" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+                <ReplenishmentHeader label="Total" columnKey="estimatedCost" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+                <ReplenishmentHeader label="Priority" columnKey="priority" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
+              </div>
+              {sortedSuggestions.map((s) => (
+                <ProductDesktopRow key={s.productId} suggestion={s} currency={currency} />
+              ))}
             </div>
           </div>
 
-          {/* Sort suggestions within group */}
-          {sortedSuggestions.map((s) => (
-            <ProductRow key={s.productId} suggestion={s} currency={currency} />
-          ))}
+          <div className="sm:hidden">
+            {sortedSuggestions.map((s) => (
+              <ProductMobileRow key={s.productId} suggestion={s} currency={currency} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -364,7 +359,7 @@ function SupplierGroupCard({
   );
 }
 
-function ProductRow({
+function ProductMobileRow({
   suggestion,
   currency,
 }: {
@@ -372,22 +367,22 @@ function ProductRow({
   currency: string;
 }) {
   return (
-    <div className="px-4 py-2.5 text-xs sm:grid sm:grid-cols-12 sm:gap-2 items-center border-b border-slate-50 dark:border-slate-800 last:border-b-0">
+    <div className="border-b border-slate-50 px-4 py-2.5 text-xs last:border-b-0 dark:border-slate-800">
       {/* Product Name & SKU */}
-      <div className="min-w-0 sm:col-span-4">
+      <div className="min-w-0">
         <p className="font-semibold text-slate-950 dark:text-white truncate">{suggestion.productName}</p>
         {suggestion.sku && (
           <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">SKU: {suggestion.sku}</p>
         )}
         <span
-          className={`sm:hidden mt-1 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-tight ${priorityColor[suggestion.priority]}`}
+          className={`mt-1 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-tight ${priorityColor[suggestion.priority]}`}
         >
           {priorityLabel[suggestion.priority]}
         </span>
       </div>
 
       {/* Mobile-only grid block */}
-      <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-400 sm:hidden bg-slate-50/60 dark:bg-slate-950/40 p-2 rounded-lg mb-2">
+      <div className="mt-2 grid grid-cols-3 gap-2 rounded-lg bg-slate-50/60 p-2 text-[11px] text-slate-600 dark:bg-slate-950/40 dark:text-slate-400">
         <div>
           <span className="block text-[9px] text-slate-400 font-bold uppercase">Stock</span>
           <span className="font-semibold text-slate-800 dark:text-slate-200">{formatNumber(suggestion.currentStock)}</span>
@@ -411,29 +406,48 @@ function ProductRow({
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProductDesktopRow({
+  suggestion,
+  currency,
+}: {
+  suggestion: ReplenishmentSuggestion;
+  currency: string;
+}) {
+  return (
+    <div className={`${REPLENISHMENT_GRID_CLASS} border-b border-slate-50 px-4 py-2.5 text-xs last:border-b-0 dark:border-slate-800`}>
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-slate-950 dark:text-white">{suggestion.productName}</p>
+        {suggestion.sku && (
+          <p className="truncate text-[10px] text-slate-400 dark:text-slate-500">SKU: {suggestion.sku}</p>
+        )}
+      </div>
 
       {/* Desktop Column Views */}
-      <div className="hidden sm:block text-right text-slate-700 sm:col-span-1 dark:text-slate-300">
+      <div className="text-right tabular-nums text-slate-700 dark:text-slate-300">
         {formatNumber(suggestion.currentStock)}
       </div>
-      <div className="hidden sm:block text-right text-slate-700 sm:col-span-1 dark:text-slate-300">
+      <div className="text-right tabular-nums text-slate-700 dark:text-slate-300">
         {formatNumber(suggestion.minimumStock)}
       </div>
-      <div className="hidden sm:block text-right text-slate-700 sm:col-span-1 dark:text-slate-300">
+      <div className="text-right tabular-nums text-slate-700 dark:text-slate-300">
         {formatNumber(suggestion.targetStock)}
       </div>
-      <div className="hidden sm:block text-right font-bold text-slate-950 sm:col-span-1 dark:text-white">
+      <div className="text-right font-bold tabular-nums text-slate-950 dark:text-white">
         {formatNumber(suggestion.suggestedQuantity)}
       </div>
-      <div className="hidden sm:block text-right text-slate-700 sm:col-span-2 dark:text-slate-300">
+      <div className="text-right tabular-nums text-slate-700 dark:text-slate-300">
         {formatCurrency(suggestion.purchasePrice, currency)}
       </div>
-      <div className="hidden sm:block text-right font-semibold text-slate-950 sm:col-span-1 dark:text-white">
+      <div className="text-right font-semibold tabular-nums text-slate-950 dark:text-white">
         {suggestion.estimatedCost !== null
           ? formatCurrency(suggestion.estimatedCost, currency)
           : "—"}
       </div>
-      <div className="hidden sm:col-span-1 sm:block text-right">
+      <div className="flex justify-end">
         <span
           className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-tight ${priorityColor[suggestion.priority]}`}
         >

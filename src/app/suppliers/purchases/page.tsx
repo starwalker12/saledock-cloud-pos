@@ -37,6 +37,10 @@ const STATUS_CLASS: Record<SupplierPurchaseStatus, string> = {
   partial: "bg-amber-100 text-amber-800",
   paid: "bg-emerald-100 text-emerald-800",
 };
+const FILTER_GROUP_CLASS = "flex min-w-0 flex-col gap-1.5";
+const FILTER_LABEL_CLASS = "text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
+const FILTER_INPUT_CLASS =
+  "h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm text-slate-900 outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100";
 
 function fmtDate(d: string) {
   return new Date(`${d}T00:00:00`).toLocaleDateString("en-PK", {
@@ -134,11 +138,11 @@ export default async function SupplierPurchasesPage({
         />
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/[0.07]">
           <div>
-            <h2 className="text-base font-black text-slate-950">All purchases</h2>
-            <p className="text-xs text-slate-500">
+            <h2 className="text-base font-black text-slate-950 dark:text-white">All purchases</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Stock purchases create stock lots (FIFO) and supplier dues. They are NOT expenses.
             </p>
           </div>
@@ -160,14 +164,14 @@ export default async function SupplierPurchasesPage({
         <div className="space-y-5 p-5 sm:p-6">
           {/* Mobile Filter form */}
           <form className="rounded-xl border border-slate-200 bg-[#fff] p-3 md:hidden dark:border-slate-800 dark:bg-slate-950" action="/suppliers/purchases">
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <label className="block min-w-0">
-                <span className="sr-only">Search purchases</span>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+              <label className={FILTER_GROUP_CLASS}>
+                <span className={FILTER_LABEL_CLASS}>Search</span>
                 <input
                   name="q"
                   defaultValue={params.q ?? ""}
                   placeholder="Purchase #, ref, notes"
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                  className={FILTER_INPUT_CLASS}
                 />
               </label>
               <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer">
@@ -180,12 +184,12 @@ export default async function SupplierPurchasesPage({
                 Filters
               </summary>
               <div className="mt-3 grid gap-3">
-                <label className="block min-w-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Supplier</span>
+                <label className={FILTER_GROUP_CLASS}>
+                  <span className={FILTER_LABEL_CLASS}>Supplier</span>
                   <select
                     name="supplier_id"
                     defaultValue={params.supplier_id ?? ""}
-                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                    className={FILTER_INPUT_CLASS}
                   >
                     <option value="">All</option>
                     {suppliers.map((s) => (
@@ -197,12 +201,12 @@ export default async function SupplierPurchasesPage({
                   </select>
                 </label>
 
-                <label className="block min-w-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+                <label className={FILTER_GROUP_CLASS}>
+                  <span className={FILTER_LABEL_CLASS}>Status</span>
                   <select
                     name="status"
                     defaultValue={statusValue}
-                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                    className={FILTER_INPUT_CLASS}
                   >
                     <option value="all">All</option>
                     <option value="unpaid">Unpaid</option>
@@ -212,22 +216,22 @@ export default async function SupplierPurchasesPage({
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="block min-w-0">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">From</span>
+                  <label className={FILTER_GROUP_CLASS}>
+                    <span className={FILTER_LABEL_CLASS}>From</span>
                     <input
                       type="date"
                       name="from"
                       defaultValue={params.from ?? ""}
-                      className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                      className={FILTER_INPUT_CLASS}
                     />
                   </label>
-                  <label className="block min-w-0">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">To</span>
+                  <label className={FILTER_GROUP_CLASS}>
+                    <span className={FILTER_LABEL_CLASS}>To</span>
                     <input
                       type="date"
                       name="to"
                       defaultValue={params.to ?? ""}
-                      className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
+                      className={FILTER_INPUT_CLASS}
                     />
                   </label>
                 </div>
@@ -242,22 +246,22 @@ export default async function SupplierPurchasesPage({
           </form>
 
           {/* Desktop Filter form */}
-          <form className="hidden md:grid md:gap-3 md:grid-cols-2 lg:flex lg:flex-wrap lg:items-end" action="/suppliers/purchases">
-            <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search</span>
+          <form className="hidden md:grid md:grid-cols-2 md:items-end md:gap-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(14rem,1fr)_9rem_10.5rem_10.5rem_auto_auto]" action="/suppliers/purchases">
+            <label className={FILTER_GROUP_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>Search</span>
               <input
                 name="q"
                 defaultValue={params.q ?? ""}
                 placeholder="Purchase #, ref, notes"
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-56"
+                className={FILTER_INPUT_CLASS}
               />
             </label>
-            <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Supplier</span>
+            <label className={FILTER_GROUP_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>Supplier</span>
               <select
                 name="supplier_id"
                 defaultValue={params.supplier_id ?? ""}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-56"
+                className={FILTER_INPUT_CLASS}
               >
                 <option value="">All</option>
                 {suppliers.map((s) => (
@@ -268,12 +272,12 @@ export default async function SupplierPurchasesPage({
                 ))}
               </select>
             </label>
-            <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+            <label className={FILTER_GROUP_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>Status</span>
               <select
                 name="status"
                 defaultValue={statusValue}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-40"
+                className={FILTER_INPUT_CLASS}
               >
                 <option value="all">All</option>
                 <option value="unpaid">Unpaid</option>
@@ -281,25 +285,25 @@ export default async function SupplierPurchasesPage({
                 <option value="paid">Paid</option>
               </select>
             </label>
-            <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">From</span>
+            <label className={FILTER_GROUP_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>From</span>
               <input
                 type="date"
                 name="from"
                 defaultValue={params.from ?? ""}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
+                className={FILTER_INPUT_CLASS}
               />
             </label>
-            <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">To</span>
+            <label className={FILTER_GROUP_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>To</span>
               <input
                 type="date"
                 name="to"
                 defaultValue={params.to ?? ""}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
+                className={FILTER_INPUT_CLASS}
               />
             </label>
-            <button type="submit" className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white">
+            <button type="submit" className="h-10 self-end rounded-lg bg-slate-900 px-4 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900">
               Apply
             </button>
             {(params.q || params.supplier_id || (params.status && params.status !== "all") || params.from || params.to) && (
@@ -322,7 +326,7 @@ export default async function SupplierPurchasesPage({
             <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[820px] text-left text-sm">
-                <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
                   <tr>
                     <SortableHeader label="Date" columnKey="purchase_date" currentSortKey={sort} direction={dir} currentParams={params} />
                     <SortableHeader label="Purchase #" columnKey="purchase_no" currentSortKey={sort} direction={dir} currentParams={params} />
@@ -336,15 +340,15 @@ export default async function SupplierPurchasesPage({
                 </thead>
                 <tbody>
                   {sortedPurchases.map((p) => (
-                    <tr key={p.id} className="border-b border-slate-100 align-top">
-                      <td className="px-3 py-3 text-slate-700">{fmtDate(p.purchase_date)}</td>
-                      <td className="px-3 py-3 font-bold text-slate-900">{p.purchase_no}</td>
-                      <td className="px-3 py-3 text-slate-700">{p.supplier_name ?? "—"}</td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-900">
+                    <tr key={p.id} className="border-b border-slate-100 align-top dark:border-white/[0.06]">
+                      <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{fmtDate(p.purchase_date)}</td>
+                      <td className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100">{p.purchase_no}</td>
+                      <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{p.supplier_name ?? "—"}</td>
+                      <td className="px-3 py-3 text-right font-bold text-slate-900 dark:text-slate-100">
                         {formatCurrency(p.grand_total, currency)}
                       </td>
-                      <td className="px-3 py-3 text-right text-emerald-700">{formatCurrency(p.amount_paid, currency)}</td>
-                      <td className="px-3 py-3 text-right text-rose-700">{formatCurrency(p.balance_due, currency)}</td>
+                      <td className="px-3 py-3 text-right text-emerald-700 dark:text-emerald-300">{formatCurrency(p.amount_paid, currency)}</td>
+                      <td className="px-3 py-3 text-right text-rose-700 dark:text-rose-300">{formatCurrency(p.balance_due, currency)}</td>
                       <td className="px-3 py-3">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CLASS[p.status]}`}
@@ -355,7 +359,7 @@ export default async function SupplierPurchasesPage({
                       <td className="px-3 py-3 text-right">
                         <Link
                           href={`/suppliers/purchases/${p.id}`}
-                          className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                         >
                           Open
                         </Link>
@@ -407,11 +411,11 @@ export default async function SupplierPurchasesPage({
                 })}
               </div>
               {sortedPurchases.map((p) => (
-                <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                <div key={p.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 dark:border-white/[0.07] dark:bg-slate-950">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-bold text-slate-900">{p.purchase_no}</p>
-                      <p className="text-sm text-slate-500">{fmtDate(p.purchase_date)}</p>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{p.purchase_no}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{fmtDate(p.purchase_date)}</p>
                     </div>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CLASS[p.status]}`}>
                       {STATUS_LABEL[p.status]}
@@ -419,26 +423,26 @@ export default async function SupplierPurchasesPage({
                   </div>
                   <dl className="mt-3 grid gap-1.5 text-sm">
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Supplier</dt>
-                      <dd className="font-semibold text-slate-700">{p.supplier_name ?? "—"}</dd>
+                      <dt className="text-slate-500 dark:text-slate-400">Supplier</dt>
+                      <dd className="font-semibold text-slate-700 dark:text-slate-300">{p.supplier_name ?? "—"}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Total</dt>
-                      <dd className="font-bold text-slate-900">{formatCurrency(p.grand_total, currency)}</dd>
+                      <dt className="text-slate-500 dark:text-slate-400">Total</dt>
+                      <dd className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(p.grand_total, currency)}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Paid</dt>
-                      <dd className="font-bold text-emerald-700">{formatCurrency(p.amount_paid, currency)}</dd>
+                      <dt className="text-slate-500 dark:text-slate-400">Paid</dt>
+                      <dd className="font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(p.amount_paid, currency)}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Balance</dt>
-                      <dd className="font-bold text-rose-700">{formatCurrency(p.balance_due, currency)}</dd>
+                      <dt className="text-slate-500 dark:text-slate-400">Balance</dt>
+                      <dd className="font-bold text-rose-700 dark:text-rose-300">{formatCurrency(p.balance_due, currency)}</dd>
                     </div>
                   </dl>
                   <div className="mt-3 flex justify-end">
                     <Link
                       href={`/suppliers/purchases/${p.id}`}
-                      className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                     >
                       Open
                     </Link>
@@ -452,7 +456,7 @@ export default async function SupplierPurchasesPage({
       </div>
 
       {suppliers.some((s) => s.outstanding_balance > 0) && (
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm">
           <div className="border-b border-slate-200 px-5 py-4">
             <h3 className="text-base font-black text-slate-950">Supplier dues</h3>
             <p className="text-xs text-slate-500">Outstanding amounts owed to your suppliers.</p>
@@ -499,7 +503,7 @@ export default async function SupplierPurchasesPage({
               .filter((s) => s.outstanding_balance > 0)
               .sort((a, b) => b.outstanding_balance - a.outstanding_balance)
               .map((s) => (
-                <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                <div key={s.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-bold text-slate-900">{s.name}</p>
