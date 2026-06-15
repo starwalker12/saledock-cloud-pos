@@ -60,6 +60,19 @@ function hasShoLogo(logoUrl: string): boolean {
   return Boolean(logoUrl) && logoUrl !== DEFAULT_LOGO;
 }
 
+async function optionalInvoiceDetailSection<T>(
+  label: string,
+  loader: () => Promise<T>,
+  fallback: T,
+): Promise<T> {
+  try {
+    return await loader();
+  } catch (error) {
+    console.error(`[InvoiceDetailPage] ${label} failed:`, error);
+    return fallback;
+  }
+}
+
 export default async function InvoiceDetailPage({
   params,
 }: {
@@ -69,14 +82,52 @@ export default async function InvoiceDetailPage({
   const { user, profile, organization } = await getCurrentContext();
   if (!user) redirect("/login");
   if (!profile?.organization_id) redirect("/setup");
+  const organizationId = profile.organization_id;
 
   const { id } = await params;
-  const invoice = await getInvoiceDetail(profile.organization_id, id);
+  const invoice = await getInvoiceDetail(organizationId, id);
   if (!invoice) notFound();
   const [returnableItems, invoiceReturns, branding] = await Promise.all([
-    listReturnableInvoiceItems(profile.organization_id, id),
-    listReturnsForInvoice(profile.organization_id, id),
-    getBrandingSettings(profile.organization_id, invoice.branch?.id ?? profile.branch_id),
+    optionalInvoiceDetailSection(
+      "returnable invoice items query",
+      () => listReturnableInvoiceItems(organizationId, id),
+      [],
+    ),
+    optionalInvoiceDetailSection(
+      "invoice returns query",
+      () => listReturnsForInvoice(organizationId, id),
+      [],
+    ),
+    optionalInvoiceDetailSection(
+      "branding settings query",
+      () => getBrandingSettings(organizationId, invoice.branch?.id ?? profile.branch_id),
+      {
+        appSettingsId: null,
+        organizationId,
+        branchId: invoice.branch?.id ?? profile.branch_id ?? null,
+        shopName: organization?.name || "Gadget Zone",
+        ownerName: "",
+        phone: "",
+        whatsappSupport: "",
+        email: "",
+        address: "",
+        branchName: invoice.branch?.name ?? "Main Branch",
+        branchPhone: invoice.branch?.phone ?? "",
+        branchAddress: invoice.branch?.address ?? "",
+        currencyCode: organization?.currency_code || "PKR",
+        timezone: organization?.timezone || "Asia/Karachi",
+        logoUrl: DEFAULT_LOGO,
+        appLogoUrl: "",
+        invoiceFooter: "",
+        receiptTerms: "",
+        printFormat: "a4",
+        lowStockDefaultThreshold: 5,
+        businessSubtitle: "Mobile & Accessories Hub",
+        primaryColor: null,
+        accentColor: null,
+        defaultTheme: null,
+      },
+    ),
   ]);
 
   const currency = branding.currencyCode || organization?.currency_code || "PKR";

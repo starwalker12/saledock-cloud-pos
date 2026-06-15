@@ -110,28 +110,64 @@ export async function getInvoiceDetail(
   if (error) throw new Error(error.message);
   if (!inv) return null;
 
-  const [{ data: items, error: itemErr }, { data: pays, error: payErr }, cashier] =
+  const [items, pays, cashier] =
     await Promise.all([
-      supabase
-        .from("invoice_items")
-        .select(
-          `id, product_name, product_type, quantity, unit_price, item_discount, line_total,
-           purchase_price, service_provider, service_direction, service_transaction_amount,
-           service_commission, service_total_charged, service_reference_no, service_note`,
-        )
-        .eq("invoice_id", invoiceId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("payments")
-        .select("id, method, amount, reference_no, paid_at")
-        .eq("invoice_id", invoiceId)
-        .order("paid_at", { ascending: true }),
-      inv.created_by
-        ? supabase.from("profiles").select("full_name").eq("id", inv.created_by).maybeSingle()
-        : Promise.resolve({ data: null }),
+      (async () => {
+        try {
+          const { data, error: itemErr } = await supabase
+            .from("invoice_items")
+            .select(
+              `id, product_name, product_type, quantity, unit_price, item_discount, line_total,
+               purchase_price, service_provider, service_direction, service_transaction_amount,
+               service_commission, service_total_charged, service_reference_no, service_note`,
+            )
+            .eq("invoice_id", invoiceId)
+            .order("created_at", { ascending: true });
+          if (itemErr) {
+            console.error("[getInvoiceDetail] invoice_items query failed:", itemErr.message);
+            return [];
+          }
+          return data ?? [];
+        } catch (err) {
+          console.error("[getInvoiceDetail] invoice_items query failed:", err);
+          return [];
+        }
+      })(),
+      (async () => {
+        try {
+          const { data, error: payErr } = await supabase
+            .from("payments")
+            .select("id, method, amount, reference_no, paid_at")
+            .eq("invoice_id", invoiceId)
+            .order("paid_at", { ascending: true });
+          if (payErr) {
+            console.error("[getInvoiceDetail] payments query failed:", payErr.message);
+            return [];
+          }
+          return data ?? [];
+        } catch (err) {
+          console.error("[getInvoiceDetail] payments query failed:", err);
+          return [];
+        }
+      })(),
+      (async () => {
+        if (!inv.created_by) return { data: null };
+        try {
+          return await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", inv.created_by)
+            .maybeSingle();
+        } catch (err) {
+          console.error("[getInvoiceDetail] cashier query failed:", err);
+          return { data: null };
+        }
+      })(),
     ]);
-  if (itemErr) throw new Error(itemErr.message);
-  if (payErr) throw new Error(payErr.message);
+
+  if ("error" in cashier && cashier.error) {
+    console.error("[getInvoiceDetail] cashier query failed:", cashier.error.message);
+  }
 
   type Joined = { id?: string; name?: string; phone?: string; address?: string };
   const c = inv.customers as Joined | Joined[] | null;
