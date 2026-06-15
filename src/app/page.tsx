@@ -377,17 +377,7 @@ export default async function HomePage() {
 
       {/* ── STICKY NAV ── */}
       <nav className="fixed inset-x-0 top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
-        <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-6 md:min-h-16">
-          <Link
-            href="/"
-            aria-label="SaleDock home"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white shadow-sm transition hover:-translate-y-0.5 md:size-11"
-          >
-            <span className="text-sm font-black">
-              SD
-            </span>
-          </Link>
-
+        <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-end gap-2 px-3 py-2 sm:px-6 md:min-h-16">
           <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 [&_button]:min-h-11">
               <ThemeToggle />
