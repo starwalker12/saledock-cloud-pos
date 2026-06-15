@@ -70,6 +70,32 @@ export type BrandingSettings = {
   defaultTheme: "light" | "dark" | "system" | null;
 };
 
+const FALLBACK_BRANDING: BrandingSettings = {
+  appSettingsId: null,
+  organizationId: "",
+  branchId: null,
+  shopName: "Gadget Zone",
+  ownerName: "",
+  phone: "",
+  whatsappSupport: "",
+  email: "",
+  address: "",
+  branchName: "Main Branch",
+  branchPhone: "",
+  branchAddress: "",
+  currencyCode: "PKR",
+  timezone: "Asia/Karachi",
+  logoUrl: "/saledock-logo-full.png",
+  appLogoUrl: "",
+  invoiceFooter: "",
+  receiptTerms: "",
+  printFormat: "a4",
+  lowStockDefaultThreshold: 5,
+  businessSubtitle: "Mobile & Accessories Hub",
+  primaryColor: null,
+  accentColor: null,
+  defaultTheme: null,
+};
 function stringSetting(settings: JsonObject | null | undefined, key: string, fallback = "") {
   const value = settings?.[key];
   return typeof value === "string" ? value : fallback;
@@ -96,70 +122,81 @@ export async function getBrandingSettings(
   organizationId: string,
   branchId?: string | null,
 ): Promise<BrandingSettings> {
-  const db = await getDb();
+  try {
+    const db = await getDb();
 
-  const [{ data: org, error: orgError }, { data: branch, error: branchError }, { data: settings, error: settingsError }] =
-    await Promise.all([
-      db
-        .from("organizations")
-        .select("id, name, legal_name, phone, email, address, currency_code, timezone, logo_url, owner_name, primary_color, accent_color, default_theme")
-        .eq("id", organizationId)
-        .maybeSingle<OrganizationSettingsRow>(),
-      branchId
-        ? db
-            .from("branches")
-            .select("id, organization_id, name, phone, address")
-            .eq("organization_id", organizationId)
-            .eq("id", branchId)
-            .maybeSingle<BranchSettingsRow>()
-        : Promise.resolve({ data: null, error: null }),
-      db
-        .from("app_settings")
-        .select(
-          "id, organization_id, branch_id, shop_name, business_subtitle, phone, email, address, invoice_template, theme_accent, receipt_footer, settings",
-        )
-        .eq("organization_id", organizationId)
-        .order("created_at", { ascending: true })
-        .returns<AppSettingsRow[]>(),
-    ]);
+    const [{ data: org, error: orgError }, { data: branch, error: branchError }, { data: settings, error: settingsError }] =
+      await Promise.all([
+        db
+          .from("organizations")
+          .select("id, name, legal_name, phone, email, address, currency_code, timezone, logo_url, owner_name, primary_color, accent_color, default_theme")
+          .eq("id", organizationId)
+          .maybeSingle<OrganizationSettingsRow>(),
+        branchId
+          ? db
+              .from("branches")
+              .select("id, organization_id, name, phone, address")
+              .eq("organization_id", organizationId)
+              .eq("id", branchId)
+              .maybeSingle<BranchSettingsRow>()
+          : Promise.resolve({ data: null, error: null }),
+        db
+          .from("app_settings")
+          .select(
+            "id, organization_id, branch_id, shop_name, business_subtitle, phone, email, address, invoice_template, theme_accent, receipt_footer, settings",
+          )
+          .eq("organization_id", organizationId)
+          .order("created_at", { ascending: true })
+          .returns<AppSettingsRow[]>(),
+      ]);
 
-  if (orgError) throw new Error(orgError.message);
-  if (branchError) throw new Error(branchError.message);
-  if (settingsError) throw new Error(settingsError.message);
-  if (!org) throw new Error("Organization settings were not found.");
+    if (orgError || !org) {
+      console.error("[getBrandingSettings] org query failed:", orgError?.message ?? "org not found");
+      return { ...FALLBACK_BRANDING, organizationId };
+    }
+    if (branchError) {
+      console.error("[getBrandingSettings] branch query failed:", branchError.message);
+    }
+    if (settingsError) {
+      console.error("[getBrandingSettings] app_settings query failed:", settingsError.message);
+    }
 
-  const rows = settings ?? [];
-  const appSettings =
-    rows.find((row) => row.branch_id === (branch?.id ?? branchId ?? null)) ??
-    rows.find((row) => row.branch_id === null) ??
-    rows[0] ??
-    null;
-  const json = appSettings?.settings ?? {};
+    const rows = settings ?? [];
+    const appSettings =
+      rows.find((row) => row.branch_id === (branch?.id ?? branchId ?? null)) ??
+      rows.find((row) => row.branch_id === null) ??
+      rows[0] ??
+      null;
+    const json = appSettings?.settings ?? {};
 
-  return {
-    appSettingsId: appSettings?.id ?? null,
-    organizationId: org.id,
-    branchId: branch?.id ?? branchId ?? appSettings?.branch_id ?? null,
-    shopName: appSettings?.shop_name || org.name || "Gadget Zone",
-    ownerName: stringSetting(json, "owner_name") || org.owner_name || "",
-    phone: appSettings?.phone || org.phone || "",
-    whatsappSupport: stringSetting(json, "whatsapp_support", appSettings?.phone || org.phone || ""),
-    email: appSettings?.email || org.email || "",
-    address: appSettings?.address || org.address || "",
-    branchName: branch?.name || "Main Branch",
-    branchPhone: branch?.phone || "",
-    branchAddress: branch?.address || "",
-    currencyCode: org.currency_code || "PKR",
-    timezone: org.timezone || "Asia/Karachi",
-    logoUrl: stringSetting(json, "logo_url") || org.logo_url || "/saledock-logo-full.png",
-    appLogoUrl: stringSetting(json, "app_logo_url"),
-    invoiceFooter: appSettings?.receipt_footer || "",
-    receiptTerms: stringSetting(json, "receipt_terms"),
-    printFormat: printFormat(json.print_format ?? appSettings?.invoice_template),
-    lowStockDefaultThreshold: numberSetting(json, "low_stock_default_threshold", 5),
-    businessSubtitle: appSettings?.business_subtitle || "Mobile & Accessories Hub",
-    primaryColor: org.primary_color ?? null,
-    accentColor: org.accent_color ?? null,
-    defaultTheme: org.default_theme ?? null,
-  };
+    return {
+      appSettingsId: appSettings?.id ?? null,
+      organizationId: org.id,
+      branchId: branch?.id ?? branchId ?? appSettings?.branch_id ?? null,
+      shopName: appSettings?.shop_name || org.name || "Gadget Zone",
+      ownerName: stringSetting(json, "owner_name") || org.owner_name || "",
+      phone: appSettings?.phone || org.phone || "",
+      whatsappSupport: stringSetting(json, "whatsapp_support", appSettings?.phone || org.phone || ""),
+      email: appSettings?.email || org.email || "",
+      address: appSettings?.address || org.address || "",
+      branchName: branch?.name || "Main Branch",
+      branchPhone: branch?.phone || "",
+      branchAddress: branch?.address || "",
+      currencyCode: org.currency_code || "PKR",
+      timezone: org.timezone || "Asia/Karachi",
+      logoUrl: stringSetting(json, "logo_url") || org.logo_url || "/saledock-logo-full.png",
+      appLogoUrl: stringSetting(json, "app_logo_url"),
+      invoiceFooter: appSettings?.receipt_footer || "",
+      receiptTerms: stringSetting(json, "receipt_terms"),
+      printFormat: printFormat(json.print_format ?? appSettings?.invoice_template),
+      lowStockDefaultThreshold: numberSetting(json, "low_stock_default_threshold", 5),
+      businessSubtitle: appSettings?.business_subtitle || "Mobile & Accessories Hub",
+      primaryColor: org.primary_color ?? null,
+      accentColor: org.accent_color ?? null,
+      defaultTheme: org.default_theme ?? null,
+    };
+  } catch (err) {
+    console.error("[getBrandingSettings] unexpected error:", err);
+    return { ...FALLBACK_BRANDING, organizationId };
+  }
 }
