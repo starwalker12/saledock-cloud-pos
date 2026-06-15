@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useActionState, useEffect, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import type { BrandingSettings } from "@/lib/data/settings";
 import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState, type SettingsIntent } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -44,10 +44,10 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <section className="rounded-2xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-6">
       <div>
-        <h2 className="text-lg font-black text-slate-950">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+        <h2 className="break-words text-lg font-black text-slate-950 dark:text-white">{title}</h2>
+        <p className="mt-1 break-words text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
       </div>
       <div className="mt-5">{children}</div>
     </section>
@@ -57,17 +57,22 @@ function Section({
 function BlockSaveButton({
   pending,
   canEdit,
+  isDirty,
   label = "Save",
 }: {
   pending: boolean;
   canEdit: boolean;
+  isDirty: boolean;
   label?: string;
 }) {
+  const disabled = !canEdit || pending || !isDirty;
+
   return (
     <button
       type="submit"
-      disabled={!canEdit || pending}
-      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary-accent-bg)] px-5 text-sm font-bold text-[var(--primary-accent-text)] transition hover:bg-[var(--primary-accent-hover)] disabled:opacity-60 cursor-pointer"
+      disabled={disabled}
+      title={!isDirty && canEdit ? "Make a change to enable saving" : undefined}
+      className="mt-4 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary-accent-bg)] px-5 text-sm font-bold text-[var(--primary-accent-text)] transition hover:bg-[var(--primary-accent-hover)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
     >
       {pending ? (
         <>
@@ -92,6 +97,73 @@ function BlockMessage({ state }: { state: SettingsActionState }) {
       )}
     </>
   );
+}
+
+type DirtyFieldValues = Record<string, string | number | null | undefined>;
+
+function normalizeDirtyValue(value: FormDataEntryValue | string | number | null | undefined): string {
+  if (typeof File !== "undefined" && value instanceof File) return value.name;
+  return String(value ?? "");
+}
+
+function normalizeDirtyFields(values: DirtyFieldValues): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [key, normalizeDirtyValue(value)])
+  );
+}
+
+function sameDirtyFields(a: Record<string, string>, b: Record<string, string>) {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    if ((a[key] ?? "") !== (b[key] ?? "")) return false;
+  }
+  return true;
+}
+
+function useDirtyForm(formRef: { current: HTMLFormElement | null }, initialValues: DirtyFieldValues) {
+  const initialKey = JSON.stringify(normalizeDirtyFields(initialValues));
+  const [baseline, setBaseline] = useState<Record<string, string>>(() => normalizeDirtyFields(initialValues));
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setBaseline(normalizeDirtyFields(initialValues));
+      setIsDirty(false);
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialKey]);
+
+  function readCurrentValues(nextBaseline = baseline) {
+    if (!formRef.current) return nextBaseline;
+    const formData = new FormData(formRef.current);
+    const current = { ...nextBaseline };
+    for (const key of Object.keys(nextBaseline)) {
+      current[key] = normalizeDirtyValue(formData.get(key));
+    }
+    return current;
+  }
+
+  function refresh(nextBaseline = baseline) {
+    const current = readCurrentValues(nextBaseline);
+    setIsDirty(!sameDirtyFields(current, nextBaseline));
+  }
+
+  function handleChange() {
+    window.requestAnimationFrame(() => refresh());
+  }
+
+  function preventCleanSubmit(event: FormEvent<HTMLFormElement>) {
+    if (!isDirty) event.preventDefault();
+  }
+
+  function markSaved() {
+    const current = readCurrentValues();
+    setBaseline(current);
+    setIsDirty(false);
+  }
+
+  return { isDirty, handleChange, preventCleanSubmit, refresh, markSaved };
 }
 
 function readStoredCustomThemeColors(): CustomThemeColors | null {
@@ -330,26 +402,26 @@ function ColorThemePicker() {
               type="button"
               onClick={() => chooseTheme(option.value)}
               aria-pressed={isActive}
-              className={`min-h-24 rounded-2xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] ${
+              className={`min-h-28 rounded-2xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] ${
                 isActive
                   ? "border-[var(--primary-accent-bg)] bg-[var(--primary-accent-soft)] shadow-sm"
                   : "border-slate-200 bg-[#f8fafc] hover:border-slate-300 hover:bg-[#eef2f7] dark:border-slate-700 dark:bg-[#111827] dark:hover:border-slate-600 dark:hover:bg-[#1f2937]"
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:flex-col xl:flex-row">
+                <span className="flex min-w-0 items-center gap-2">
                   <span
-                    className="flex h-8 w-12 overflow-hidden rounded-lg border border-black/10 shadow-sm dark:border-white/10"
+                    className="flex h-8 w-12 shrink-0 overflow-hidden rounded-lg border border-black/10 shadow-sm dark:border-white/10"
                     aria-hidden="true"
                   >
                     <span className="h-full flex-1" style={{ backgroundColor: preview.sidebarBg }} />
                     <span className="h-full w-3" style={{ backgroundColor: preview.activeBg }} />
                     <span className="h-full w-1.5" style={{ backgroundColor: preview.accent }} />
                   </span>
-                  <span className="font-bold text-slate-800 dark:text-slate-100">{label}</span>
+                  <span className="min-w-0 break-words font-bold leading-tight text-slate-800 dark:text-slate-100">{label}</span>
                 </span>
                 {isActive && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary-accent-bg)] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-[var(--primary-accent-text)]">
+                  <span className="inline-flex shrink-0 items-center gap-1 self-start rounded-full bg-[var(--primary-accent-bg)] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-[var(--primary-accent-text)]">
                     <Check className="size-3" aria-hidden="true" />
                     {t("current", "Current")}
                   </span>
@@ -562,6 +634,81 @@ export function SettingsForm({
   const [logoError, setLogoError] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState(settings.logoUrl ?? "");
   const [appLogoUrlInput, setAppLogoUrlInput] = useState(settings.appLogoUrl ?? "");
+  const businessFormRef = useRef<HTMLFormElement>(null);
+  const appLogoFormRef = useRef<HTMLFormElement>(null);
+  const branchFormRef = useRef<HTMLFormElement>(null);
+  const invoiceFormRef = useRef<HTMLFormElement>(null);
+  const regionalFormRef = useRef<HTMLFormElement>(null);
+  const businessDirty = useDirtyForm(businessFormRef, {
+    shopName: settings.shopName,
+    ownerName: settings.ownerName,
+    phone: settings.phone,
+    whatsappSupport: settings.whatsappSupport,
+    email: settings.email,
+    address: settings.address,
+  });
+  const appLogoDirty = useDirtyForm(appLogoFormRef, { appLogoUrl: settings.appLogoUrl ?? "" });
+  const branchDirty = useDirtyForm(branchFormRef, {
+    branchName: settings.branchName,
+    branchPhone: settings.branchPhone,
+    branchAddress: settings.branchAddress,
+  });
+  const invoiceDirty = useDirtyForm(invoiceFormRef, {
+    logoUrl: settings.logoUrl ?? "",
+    invoiceFooter: settings.invoiceFooter,
+    receiptTerms: settings.receiptTerms,
+    printFormat: settings.printFormat,
+  });
+  const regionalDirty = useDirtyForm(regionalFormRef, {
+    currencyCode: settings.currencyCode || "PKR",
+    timezone: settings.timezone || "Asia/Karachi",
+    lowStockDefaultThreshold: settings.lowStockDefaultThreshold,
+  });
+
+  useEffect(() => {
+    if (!bpState.success) return;
+    const id = window.setTimeout(() => businessDirty.markSaved(), 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bpState]);
+
+  useEffect(() => {
+    if (!logoState.success) return;
+    const id = window.setTimeout(() => appLogoDirty.markSaved(), 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logoState]);
+
+  useEffect(() => {
+    if (!brState.success) return;
+    const id = window.setTimeout(() => branchDirty.markSaved(), 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brState]);
+
+  useEffect(() => {
+    if (!invState.success) return;
+    const id = window.setTimeout(() => invoiceDirty.markSaved(), 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invState]);
+
+  useEffect(() => {
+    if (!regState.success) return;
+    const id = window.setTimeout(() => regionalDirty.markSaved(), 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regState]);
+
+  useEffect(() => {
+    appLogoDirty.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appLogoUrlInput]);
+
+  useEffect(() => {
+    invoiceDirty.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logoUrlInput]);
 
   const DEFAULT_LOGO = "/saledock-logo-full.png";
   const effectiveLogoUrl = logoPreview || settings.logoUrl || DEFAULT_LOGO;
@@ -633,7 +780,13 @@ export function SettingsForm({
         title="Business Profile"
         description="Primary shop details used in app headers, print documents, and future sharing."
       >
-        <form action={makeAction("business_profile")}>
+        <form
+          ref={businessFormRef}
+          action={makeAction("business_profile")}
+          onInput={businessDirty.handleChange}
+          onChange={businessDirty.handleChange}
+          onSubmit={businessDirty.preventCleanSubmit}
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <label className={labelClass}>
               <span className={labelTextClass}>Shop name</span>
@@ -670,13 +823,19 @@ export function SettingsForm({
               <textarea name="address" defaultValue={settings.address} disabled={!canEdit || bpPending} className={textareaClass} />
             </label>
           </div>
-          <BlockSaveButton pending={bpPending} canEdit={canEdit} label="Save business profile" />
+          <BlockSaveButton pending={bpPending} canEdit={canEdit} isDirty={businessDirty.isDirty} label="Save business profile" />
           <BlockMessage state={bpState} />
         </form>
 
         {/* App / Shop Logo — inline sub-form inside same section */}
         <div className="mt-6 border-t border-slate-100 pt-6">
-          <form action={makeAction("app_logo")}>
+          <form
+            ref={appLogoFormRef}
+            action={makeAction("app_logo")}
+            onInput={appLogoDirty.handleChange}
+            onChange={appLogoDirty.handleChange}
+            onSubmit={appLogoDirty.preventCleanSubmit}
+          >
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500">App / Shop Logo</p>
             <p className="mt-1 text-xs text-slate-400">Shown in the app sidebar/header next to the SaleDock logo.</p>
             <input type="hidden" name="appLogoUrl" value={appLogoUrlInput} />
@@ -693,7 +852,7 @@ export function SettingsForm({
                 removeLabel="Remove shop logo"
               />
             </div>
-            <BlockSaveButton pending={logoPending} canEdit={canEdit} label="Save shop logo" />
+            <BlockSaveButton pending={logoPending} canEdit={canEdit} isDirty={appLogoDirty.isDirty} label="Save shop logo" />
             <BlockMessage state={logoState} />
           </form>
         </div>
@@ -704,7 +863,13 @@ export function SettingsForm({
         title="Branch Profile"
         description="Branch-level name and contact details shown on invoices, repair receipts, and reports."
       >
-        <form action={makeAction("branch_profile")}>
+        <form
+          ref={branchFormRef}
+          action={makeAction("branch_profile")}
+          onInput={branchDirty.handleChange}
+          onChange={branchDirty.handleChange}
+          onSubmit={branchDirty.preventCleanSubmit}
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <label className={labelClass}>
               <span className={labelTextClass}>Branch name</span>
@@ -729,7 +894,7 @@ export function SettingsForm({
               <textarea name="branchAddress" defaultValue={settings.branchAddress} disabled={!canEdit || brPending} className={textareaClass} />
             </label>
           </div>
-          <BlockSaveButton pending={brPending} canEdit={canEdit} label="Save branch profile" />
+          <BlockSaveButton pending={brPending} canEdit={canEdit} isDirty={branchDirty.isDirty} label="Save branch profile" />
           <BlockMessage state={brState} />
         </form>
       </Section>
@@ -739,10 +904,16 @@ export function SettingsForm({
         title="Invoice & Receipt Branding"
         description="Branding fields used by invoice prints, repair receipts, and reports."
       >
-        <form action={makeAction("invoice_branding")}>
+        <form
+          ref={invoiceFormRef}
+          action={makeAction("invoice_branding")}
+          onInput={invoiceDirty.handleChange}
+          onChange={invoiceDirty.handleChange}
+          onSubmit={invoiceDirty.preventCleanSubmit}
+        >
           <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex aspect-square items-center justify-center rounded-xl bg-white p-5">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex aspect-square items-center justify-center rounded-xl bg-[#fff] p-5">
                 {logoError ? (
                   <div className="flex flex-col items-center gap-2">
                     <ImageIcon className="size-10 text-slate-300" />
@@ -807,7 +978,7 @@ export function SettingsForm({
               </label>
             </div>
           </div>
-          <BlockSaveButton pending={invPending} canEdit={canEdit} label="Save invoice branding" />
+          <BlockSaveButton pending={invPending} canEdit={canEdit} isDirty={invoiceDirty.isDirty} label="Save invoice branding" />
           <BlockMessage state={invState} />
         </form>
       </Section>
@@ -866,7 +1037,13 @@ export function SettingsForm({
         title="Regional / Currency"
         description="Regional defaults for money formatting, reporting, and future branch operations."
       >
-        <form action={makeAction("regional")}>
+        <form
+          ref={regionalFormRef}
+          action={makeAction("regional")}
+          onInput={regionalDirty.handleChange}
+          onChange={regionalDirty.handleChange}
+          onSubmit={regionalDirty.preventCleanSubmit}
+        >
           <div className="grid gap-4 md:grid-cols-3">
             <label className={labelClass}>
               <span className={labelTextClass}>Currency</span>
@@ -888,7 +1065,7 @@ export function SettingsForm({
               />
             </label>
           </div>
-          <BlockSaveButton pending={regPending} canEdit={canEdit} label="Save regional settings" />
+          <BlockSaveButton pending={regPending} canEdit={canEdit} isDirty={regionalDirty.isDirty} label="Save regional settings" />
           <BlockMessage state={regState} />
         </form>
       </Section>

@@ -22,6 +22,70 @@ const aspectClasses = {
   landscape: "aspect-[4/3]",
 };
 
+type CropState = {
+  file: File;
+  url: string;
+  zoom: number;
+  x: number;
+  y: number;
+};
+
+const cropOutputSize = {
+  square: { width: 800, height: 800, aspect: 1 },
+  landscape: { width: 960, height: 720, aspect: 4 / 3 },
+};
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Image could not be loaded for cropping."));
+    img.src = src;
+  });
+}
+
+async function createCroppedFile(file: File, url: string, aspectRatio: "square" | "landscape", zoom: number, x: number, y: number) {
+  const img = await loadImage(url);
+  const { width, height, aspect } = cropOutputSize[aspectRatio];
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Image crop could not be prepared.");
+
+  const imageAspect = img.naturalWidth / img.naturalHeight;
+  let cropWidth = img.naturalWidth;
+  let cropHeight = img.naturalHeight;
+
+  if (imageAspect > aspect) {
+    cropWidth = img.naturalHeight * aspect;
+  } else {
+    cropHeight = img.naturalWidth / aspect;
+  }
+
+  cropWidth = Math.max(1, cropWidth / zoom);
+  cropHeight = Math.max(1, cropHeight / zoom);
+
+  const sourceX = Math.max(0, (img.naturalWidth - cropWidth) * (x / 100));
+  const sourceY = Math.max(0, (img.naturalHeight - cropHeight) * (y / 100));
+  const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+
+  if (outputType === "image/jpeg") {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  ctx.drawImage(img, sourceX, sourceY, cropWidth, cropHeight, 0, 0, width, height);
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, outputType, 0.92));
+  if (!blob) throw new Error("Image crop could not be saved.");
+
+  const extension = outputType === "image/png" ? "png" : "jpg";
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "image";
+  return new File([blob], `${baseName}-cropped.${extension}`, { type: outputType });
+}
+
 export function ImageUpload({
   bucket,
   folderPath,
@@ -38,6 +102,8 @@ export function ImageUpload({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [cropState, setCropState] = useState<CropState | null>(null);
+  const [cropProcessing, setCropProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,6 +122,25 @@ export function ImageUpload({
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (cropState?.url) {
+        URL.revokeObjectURL(cropState.url);
+      }
+    };
+  }, [cropState?.url]);
+
+  useEffect(() => {
+    if (!cropState) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !cropProcessing) {
+        handleCancelCrop();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cropState, cropProcessing]);
+
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -69,6 +154,13 @@ export function ImageUpload({
       return;
     }
 
+    setCropState((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return { file, url: URL.createObjectURL(file), zoom: 1, x: 50, y: 50 };
+    });
+  }
+
+  async function uploadPreparedFile(file: File) {
     const localPreview = URL.createObjectURL(file);
     setPreview(localPreview);
     setUploading(true);
@@ -105,6 +197,36 @@ export function ImageUpload({
     }
     URL.revokeObjectURL(localPreview);
     if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function handleCancelCrop() {
+    setCropState(null);
+    setCropProcessing(false);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function handleConfirmCrop() {
+    if (!cropState || cropProcessing) return;
+    setUploadError(null);
+    setCropProcessing(true);
+
+    try {
+      const croppedFile = await createCroppedFile(
+        cropState.file,
+        cropState.url,
+        aspectRatio,
+        cropState.zoom,
+        cropState.x,
+        cropState.y
+      );
+      setCropState(null);
+      setCropProcessing(false);
+      await uploadPreparedFile(croppedFile);
+    } catch (e) {
+      console.error("[ImageUploadCrop]", e);
+      setCropProcessing(false);
+      setUploadError("Image could not be cropped. Please try another image.");
+    }
   }
 
   function handleRemove() {
@@ -225,6 +347,117 @@ export function ImageUpload({
 
       {uploadError && (
         <p className="text-xs text-red-500">{uploadError}</p>
+      )}
+
+      {cropState && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-3 sm:items-center sm:p-6">
+          <button
+            type="button"
+            aria-label="Cancel image crop"
+            className="absolute inset-0 cursor-default"
+            onClick={handleCancelCrop}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="image-crop-title"
+            className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-[#fff] p-4 shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 id="image-crop-title" className="text-base font-bold text-slate-950 dark:text-white">
+                  Crop image
+                </h3>
+                <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
+                  Position the image, then confirm to upload the cropped version.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelCrop}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                aria-label="Close crop dialog"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-slate-100 p-3 dark:bg-slate-900">
+              <div className={`relative mx-auto max-h-[48dvh] w-full overflow-hidden rounded-xl bg-slate-950 ${aspectClasses[aspectRatio]}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={cropState.url}
+                  alt="Crop preview"
+                  className="h-full w-full select-none object-cover transition-transform duration-150"
+                  style={{
+                    objectPosition: `${cropState.x}% ${cropState.y}%`,
+                    transform: `scale(${cropState.zoom})`,
+                  }}
+                  draggable={false}
+                />
+                <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Zoom
+                <input
+                  type="range"
+                  min="1"
+                  max="3"
+                  step="0.05"
+                  value={cropState.zoom}
+                  onChange={(e) => setCropState((current) => current ? { ...current, zoom: Number(e.target.value) } : current)}
+                  className="mt-2 w-full accent-[var(--primary-accent-bg)]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Horizontal position
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={cropState.x}
+                  onChange={(e) => setCropState((current) => current ? { ...current, x: Number(e.target.value) } : current)}
+                  className="mt-2 w-full accent-[var(--primary-accent-bg)]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Vertical position
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={cropState.y}
+                  onChange={(e) => setCropState((current) => current ? { ...current, y: Number(e.target.value) } : current)}
+                  className="mt-2 w-full accent-[var(--primary-accent-bg)]"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleCancelCrop}
+                disabled={cropProcessing}
+                className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCrop}
+                disabled={cropProcessing}
+                className="min-h-11 rounded-xl bg-[var(--primary-accent-bg)] px-4 text-sm font-bold text-[var(--primary-accent-text)] shadow-sm transition hover:bg-[var(--primary-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cropProcessing ? "Preparing..." : "Use crop"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
