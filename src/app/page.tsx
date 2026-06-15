@@ -376,11 +376,13 @@ export default async function HomePage() {
       />
 
       {/* ── STICKY NAV ── */}
-      <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="inline-flex items-center rounded-2xl bg-white/95 px-4 py-2 shadow-sm ring-1 ring-white/40 dark:bg-white/95">
-            <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={488} height={178}
-              className="h-8 w-auto object-contain sm:h-9" priority />
+      <nav className="sticky top-0 z-50 hidden w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95 md:block">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
+          <Link href="/" className="inline-flex items-center gap-3 rounded-full px-1 py-1 text-white transition hover:-translate-y-0.5">
+            <span className="flex size-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-sm font-black shadow-sm">
+              SD
+            </span>
+            <span className="text-lg font-black tracking-tight">SaleDock</span>
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -466,8 +468,21 @@ export default async function HomePage() {
           }}
         />
 
+        <div className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 pt-4 md:hidden">
+          <Link
+            href="/"
+            className="inline-flex min-h-10 items-center rounded-full border border-slate-200/80 bg-[#fff]/90 px-4 text-sm font-black tracking-tight text-slate-950 shadow-sm dark:border-white/10 dark:bg-slate-950/80 dark:text-white"
+          >
+            SaleDock
+          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
+        </div>
+
         {/* Content */}
-        <div className="relative mx-auto grid min-h-[90vh] max-w-7xl grid-cols-1 items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-14 lg:py-0">
+        <div className="relative mx-auto grid min-h-[90vh] max-w-7xl grid-cols-1 items-center gap-10 px-4 py-10 sm:px-6 md:py-16 lg:grid-cols-2 lg:gap-14 lg:py-0">
 
           {/* ── LEFT: text column ── */}
           <div className="flex flex-col items-start">

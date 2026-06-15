@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { updateStaffPermissionsAction, type PermissionActionState } from "./actions";
 import { PERMISSIONS, type Permission } from "@/lib/staff-permissions-shared";
 import type { PermissionEditorStaff } from "@/lib/data/staff-permissions-data";
@@ -32,7 +32,7 @@ export function PermissionsEditor({ staff }: { staff: PermissionEditorStaff[] })
         <StaffPermissionCard key={member.id} member={member} />
       ))}
       {staff.length === 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-[#fff] p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
           No staff members found. Invite staff from the Users page to manage permissions.
         </div>
       )}
@@ -42,15 +42,28 @@ export function PermissionsEditor({ staff }: { staff: PermissionEditorStaff[] })
 
 function StaffPermissionCard({ member }: { member: PermissionEditorStaff }) {
   const [state, formAction, pending] = useActionState(updateStaffPermissionsAction, initialState);
+  const initialPermissions = () => Object.fromEntries(
+    PERMISSIONS.map((perm) => [perm, member.effective[perm]])
+  ) as Record<Permission, boolean>;
+  const [savedPermissions, setSavedPermissions] = useState<Record<Permission, boolean>>(initialPermissions);
+  const [currentPermissions, setCurrentPermissions] = useState<Record<Permission, boolean>>(initialPermissions);
+  const isDirty = PERMISSIONS.some((perm) => currentPermissions[perm] !== savedPermissions[perm]);
+
+  useEffect(() => {
+    if (!state.success) return;
+    const id = window.setTimeout(() => setSavedPermissions(currentPermissions), 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 sm:px-6">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="font-black text-slate-950">{member.full_name}</p>
-            <p className="text-sm text-slate-500">{member.email ?? "No email"}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <p className="font-black text-slate-950 dark:text-white">{member.full_name}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{member.email ?? "No email"}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
               <RoleBadge role={member.role} />
               <span>{member.branch_name ?? "No branch"}</span>
               {!member.is_active && (
@@ -63,7 +76,13 @@ function StaffPermissionCard({ member }: { member: PermissionEditorStaff }) {
         </div>
       </div>
 
-      <form action={formAction} className="p-4 sm:p-6">
+      <form
+        action={formAction}
+        className="p-4 sm:p-6"
+        onSubmit={(event) => {
+          if (!isDirty) event.preventDefault();
+        }}
+      >
         <input type="hidden" name="profileId" value={member.id} />
 
         {state.error && (
@@ -82,21 +101,25 @@ function StaffPermissionCard({ member }: { member: PermissionEditorStaff }) {
             <PermissionToggle
               key={perm}
               permission={perm}
-              effective={member.effective[perm]}
+              checked={currentPermissions[perm]}
+              onCheckedChange={(checked) => {
+                setCurrentPermissions((current) => ({ ...current, [perm]: checked }));
+              }}
               hasOverride={member.overrides[perm] !== null}
             />
           ))}
         </div>
 
-        <div className="mt-6 flex items-center gap-3 border-t border-slate-100 pt-4">
+        <div className="mt-6 flex items-center gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
           <button
             type="submit"
-            disabled={pending}
-            className="min-h-10 rounded-lg bg-blue-700 px-5 text-sm font-black text-white hover:bg-blue-800 disabled:opacity-60"
+            disabled={pending || !isDirty}
+            className="min-h-10 rounded-lg bg-blue-700 px-5 text-sm font-black text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
+            title={!isDirty ? "Toggle a permission to enable saving" : undefined}
           >
             {pending ? "Saving..." : "Save permissions"}
           </button>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 dark:text-slate-500">
             Toggle permissions above, then save.
           </p>
         </div>
@@ -107,32 +130,35 @@ function StaffPermissionCard({ member }: { member: PermissionEditorStaff }) {
 
 function PermissionToggle({
   permission,
-  effective,
+  checked,
+  onCheckedChange,
   hasOverride,
 }: {
   permission: Permission;
-  effective: boolean;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
   hasOverride: boolean;
 }) {
   const label = permissionLabels[permission];
   const fieldName = permission;
 
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:border-blue-300 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-500">
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:border-blue-300 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-500 dark:border-slate-800 dark:hover:border-blue-500/60">
       <div className="relative inline-flex h-5 w-9 shrink-0 items-center">
         <input
           type="checkbox"
           name={fieldName}
           value="true"
-          defaultChecked={effective}
+          checked={checked}
+          onChange={(event) => onCheckedChange(event.target.checked)}
           className="peer sr-only"
         />
         <span className="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-blue-700" />
-        <span className="absolute left-0.5 size-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+        <span className="absolute left-0.5 size-4 rounded-full bg-[#fff] shadow transition-transform peer-checked:translate-x-4" />
         <input type="hidden" name={fieldName} value="false" />
       </div>
       <div className="min-w-0">
-        <span className="text-sm font-bold text-slate-950">{label}</span>
+        <span className="text-sm font-bold text-slate-950 dark:text-slate-100">{label}</span>
         {hasOverride && (
           <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">
             (custom)
