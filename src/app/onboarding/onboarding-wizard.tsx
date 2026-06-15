@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { completeOnboardingAction, type OnboardingState } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
+import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
 
 const initialState: OnboardingState = { error: null };
@@ -158,6 +159,9 @@ export function OnboardingWizard({
           errs.orgPhone = "Please enter your shop phone number.";
         } else if (!isValidPhoneNumber(formData.orgPhone)) {
           errs.orgPhone = "Please enter a valid phone number (e.g. +92 300 1234567).";
+        }
+        if (formData.orgWhatsapp && !isValidPhoneNumber(formData.orgWhatsapp)) {
+          errs.orgWhatsapp = "Please enter a valid WhatsApp number (e.g. +92 300 7654321).";
         }
         if (!formData.orgEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.orgEmail.trim())) {
           errs.orgEmail = "Please enter a valid shop email address.";
@@ -473,21 +477,14 @@ function ProfileStep({
             />
             <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">Must be unique across SaleDock.</p>
           </label>
-          <label className="block">
-            <span className={labelTextClass}>Phone (optional)</span>
-            <input
-              type="tel"
-              value={data.phone}
-              onChange={(e) => onChange("phone", e.target.value)}
-              className={`${inputClass} ${errors.phone ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
-              placeholder="e.g. +92 300 1234567"
-            />
-            {errors.phone ? (
-              <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.phone}</p>
-            ) : (
-              <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">Include country code, e.g. +923001234567.</p>
-            )}
-          </label>
+          <PhoneNumberInput
+            label="Phone (optional)"
+            id="phone"
+            value={data.phone}
+            onChange={(value) => onChange("phone", value)}
+            error={errors.phone}
+            helperText="Pakistan +92 is selected by default. Search by country or code."
+          />
         </div>
 
         <label className="block">
@@ -600,31 +597,23 @@ function ShopStep({
               placeholder="e.g. Apex Owner"
             />
           </label>
-          <label className="block">
-            <span className={labelTextClass}>Phone <span className="text-red-500">*</span></span>
-            <input
-              id="orgPhone"
-              type="tel"
-              required
-              value={data.orgPhone}
-              onChange={(e) => onChange("orgPhone", e.target.value)}
-              className={`${inputClass} ${errors.orgPhone ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
-              placeholder="e.g. +92 300 1234567"
-            />
-            {errors.orgPhone && (
-              <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.orgPhone}</p>
-            )}
-          </label>
-          <label className="block">
-            <span className={labelTextClass}>WhatsApp</span>
-            <input
-              type="tel"
-              value={data.orgWhatsapp}
-              onChange={(e) => onChange("orgWhatsapp", e.target.value)}
-              className={inputClass}
-              placeholder="e.g. +92 300 7654321"
-            />
-          </label>
+          <PhoneNumberInput
+            label="Phone"
+            id="orgPhone"
+            value={data.orgPhone}
+            onChange={(value) => onChange("orgPhone", value)}
+            required
+            error={errors.orgPhone}
+            helperText="This number appears on invoices and receipts."
+          />
+          <PhoneNumberInput
+            label="WhatsApp"
+            id="orgWhatsapp"
+            value={data.orgWhatsapp}
+            onChange={(value) => onChange("orgWhatsapp", value)}
+            error={errors.orgWhatsapp}
+            helperText="Optional support number for customers."
+          />
           <label className="block">
             <span className={labelTextClass}>Email <span className="text-red-500">*</span></span>
             <input
@@ -843,19 +832,14 @@ function BranchStep({
             />
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="block">
-              <span className={labelTextClass}>Branch phone (optional)</span>
-              <input
-                type="tel"
-                value={data.branchPhone}
-                onChange={(e) => onChange("branchPhone", e.target.value)}
-                className={`${inputClass} ${errors?.branchPhone ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
-                placeholder="e.g. +92 300 1234567"
-              />
-              {errors?.branchPhone && (
-                <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.branchPhone}</p>
-              )}
-            </label>
+            <PhoneNumberInput
+              label="Branch phone (optional)"
+              id="branchPhone"
+              value={data.branchPhone}
+              onChange={(value) => onChange("branchPhone", value)}
+              error={errors?.branchPhone}
+              helperText="Use a branch-specific number if different from the shop."
+            />
             <label className="block">
               <span className={labelTextClass}>Branch address</span>
               <input

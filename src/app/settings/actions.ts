@@ -56,7 +56,9 @@ const businessProfileSchema = z.object({
   phone: optionalText(50).refine((val) => !val || isValidPhoneNumber(val), {
     message: "Please enter a valid phone number (e.g. +92 300 1234567).",
   }),
-  whatsappSupport: optionalText(50).transform((v) => v ? v.replace(/[^\d+]/g, "") : undefined),
+  whatsappSupport: optionalText(50).refine((val) => !val || isValidPhoneNumber(val), {
+    message: "Please enter a valid WhatsApp support number (e.g. +92 300 7654321).",
+  }).transform((v) => v ? v.replace(/[^\d+]/g, "") : undefined),
   email: optionalEmail,
   address: optionalText(300),
 });
