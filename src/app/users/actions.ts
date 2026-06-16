@@ -37,7 +37,7 @@ function inviteRedirectTo(origin: string): string {
 }
 
 function hasSignInProof(user: User | null | undefined, profileLastLoginAt?: string | null): boolean {
-  return Boolean(user?.last_sign_in_at || profileLastLoginAt);
+  return Boolean(user?.last_sign_in_at ?? profileLastLoginAt);
 }
 
 async function publicOrigin(): Promise<string> {
@@ -294,7 +294,19 @@ export async function updateUserProfileAction(formData: FormData): Promise<void>
     nextRole: parsed.data.role,
     nextActive: true,
   });
-  if (safetyError) return;
+  if (safetyError) {
+    await logAudit({
+      module: "users",
+      action: "users.last_privilege_role_change_blocked",
+      details: `Blocked role change for last active owner\/admin: ${targetProfile.full_name}`,
+      metadata: {
+        profile_id: parsed.data.profileId,
+        attempted_role: parsed.data.role,
+        reason: "last_active_owner_admin",
+      },
+    });
+    return;
+  }
 
   const { error: updateError } = await admin
     .from("profiles")
@@ -350,7 +362,18 @@ export async function deactivateUserAction(formData: FormData): Promise<void> {
     nextRole: "cashier",
     nextActive: false,
   });
-  if (safetyError) return;
+  if (safetyError) {
+    await logAudit({
+      module: "users",
+      action: "users.last_privilege_deactivate_blocked",
+      details: `Blocked deactivation of last active owner\/admin: ${parsed.data.profileId}`,
+      metadata: {
+        profile_id: parsed.data.profileId,
+        reason: "last_active_owner_admin",
+      },
+    });
+    return;
+  }
 
   const admin = createAdminClient();
   const { error: updateError } = await admin
