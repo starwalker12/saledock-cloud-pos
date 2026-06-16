@@ -7,11 +7,12 @@ import { updateSettingsAction, updateProfilePictureAction, type SettingsActionSt
 import { ImageUpload } from "@/components/shared/image-upload";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { AppSelect } from "@/components/ui/app-select";
-import { Check, ImageIcon, RotateCcw, Loader2, MapPin } from "lucide-react";
+import { Check, ImageIcon, RotateCcw, Loader2, MapPin, Crosshair, Link2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
 import { useFormDraft } from "@/lib/hooks/use-form-draft";
-import { buildMapEmbedUrl, buildMapLinkUrl, hasMapData } from "@/lib/map-utils";
+import { buildMapEmbedUrl, buildMapLinkUrl, buildGoogleMapsSearchUrl, hasMapData, hasMapEmbedData, isGoogleMapsSearchUrl, isValidCoordinate, parseCoordinatesFromMapInput, type MapCoordinates } from "@/lib/map-utils";
+import { LocationMapPicker } from "@/components/shared/location-map-picker";
 import {
   COLOR_THEME_OPTIONS,
   COLOR_THEME_STORAGE_KEY,
@@ -615,6 +616,8 @@ export function SettingsForm({
   const [invoiceShowQrInput, setInvoiceShowQrInput] = useState(settings.invoiceShowLocationQr);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [coordinateParseMessage, setCoordinateParseMessage] = useState<string | null>(null);
   const businessFormRef = useRef<HTMLFormElement>(null);
   const appLogoFormRef = useRef<HTMLFormElement>(null);
   const branchFormRef = useRef<HTMLFormElement>(null);
@@ -743,7 +746,6 @@ export function SettingsForm({
     },
   });
 
-  const mapEmbedUrl = buildMapEmbedUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
   const mapLinkUrl = buildMapLinkUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
 
   useEffect(() => {
@@ -755,6 +757,26 @@ export function SettingsForm({
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locState]);
+
+  function syncGoogleMapsLinkFromCoordinates(lat: string, lng: string) {
+    const generatedLink = buildGoogleMapsSearchUrl(lat, lng);
+    if (!generatedLink) return;
+    setGoogleMapsUrlInput((prev) => {
+      const trimmed = prev.trim();
+      if (!trimmed || isGoogleMapsSearchUrl(trimmed)) return generatedLink;
+      return prev;
+    });
+  }
+
+  function updateLatitude(value: string) {
+    setLatitudeInput(value);
+    syncGoogleMapsLinkFromCoordinates(value, longitudeInput);
+  }
+
+  function updateLongitude(value: string) {
+    setLongitudeInput(value);
+    syncGoogleMapsLinkFromCoordinates(latitudeInput, value);
+  }
 
   function applyLocationDraft() {
     if (!locationDraft) return;
@@ -777,6 +799,21 @@ export function SettingsForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationDraft]);
 
+  function updateLocationFromCoordinates(lat: string, lng: string) {
+    setLatitudeInput(lat);
+    setLongitudeInput(lng);
+    const generatedLink = buildGoogleMapsSearchUrl(lat, lng);
+    if (generatedLink) {
+      setGoogleMapsUrlInput((prev) => {
+        // Only overwrite if empty or if the existing link was auto-generated from coordinates.
+        if (!prev.trim() || isGoogleMapsSearchUrl(prev.trim())) return generatedLink;
+        return prev;
+      });
+    }
+    setCoordinateParseMessage(null);
+    locationDirty.refresh();
+  }
+
   function handleGetLocation() {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setLocationError("Geolocation is not supported by your browser.");
@@ -786,10 +823,8 @@ export function SettingsForm({
     setLocationError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLatitudeInput(pos.coords.latitude.toString());
-        setLongitudeInput(pos.coords.longitude.toString());
+        updateLocationFromCoordinates(pos.coords.latitude.toString(), pos.coords.longitude.toString());
         setGettingLocation(false);
-        locationDirty.refresh();
       },
       (err) => {
         setLocationError(err.message || "Could not get your location.");
@@ -797,6 +832,40 @@ export function SettingsForm({
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+  }
+
+  function handleGenerateLinkFromCoordinates() {
+    const generatedLink = buildGoogleMapsSearchUrl(latitudeInput, longitudeInput);
+    if (generatedLink) {
+      setGoogleMapsUrlInput(generatedLink);
+      locationDirty.refresh();
+    }
+  }
+
+  function handleGoogleMapsUrlChange(value: string) {
+    setGoogleMapsUrlInput(value);
+    const coords = parseCoordinatesFromMapInput(value);
+    if (coords) {
+      setLatitudeInput(coords.lat.toString());
+      setLongitudeInput(coords.lng.toString());
+      setCoordinateParseMessage("Coordinates were read from the link.");
+    } else if (value.trim() && !isGoogleMapsSearchUrl(value.trim())) {
+      // Only show the helper when the pasted link looks like a real Google Maps URL
+      // but we could not extract coordinates from it.
+      setCoordinateParseMessage(
+        "We could not read coordinates from this link. Use current location or Adjust location to place the pin.",
+      );
+    } else {
+      setCoordinateParseMessage(null);
+    }
+    // Defer dirty refresh so React has applied the new lat/lng state before the
+    // dirty checker reads the form.
+    window.requestAnimationFrame(() => locationDirty.refresh());
+  }
+
+  function handleAdjustLocationConfirm(coords: MapCoordinates) {
+    updateLocationFromCoordinates(coords.lat.toString(), coords.lng.toString());
+    setShowLocationPicker(false);
   }
 
   const DEFAULT_LOGO = "/saledock-logo-full.png";
@@ -984,15 +1053,14 @@ export function SettingsForm({
               <input
                 name="googleMapsUrl"
                 value={googleMapsUrlInput}
-                onChange={(e) => {
-                  setGoogleMapsUrlInput(e.target.value);
-                  locationDirty.refresh();
-                }}
+                onChange={(e) => handleGoogleMapsUrlChange(e.target.value)}
                 disabled={!canEdit || locPending}
                 placeholder="e.g. https://maps.app.goo.gl/xyz123"
                 className={inputClass}
               />
-              <p className="mt-1 text-[10px] text-slate-400">You can also paste a lat,lng pair like 24.8607,67.0011.</p>
+              <p className="mt-1 text-[10px] text-slate-400">
+                You can also paste a lat,lng pair like 24.8607,67.0011 or a full Google Maps URL.
+              </p>
             </label>
             <label className={labelClass}>
               <span className={labelTextClass}>Latitude</span>
@@ -1002,7 +1070,7 @@ export function SettingsForm({
                 step="any"
                 value={latitudeInput}
                 onChange={(e) => {
-                  setLatitudeInput(e.target.value);
+                  updateLatitude(e.target.value);
                   locationDirty.refresh();
                 }}
                 disabled={!canEdit || locPending}
@@ -1018,7 +1086,7 @@ export function SettingsForm({
                 step="any"
                 value={longitudeInput}
                 onChange={(e) => {
-                  setLongitudeInput(e.target.value);
+                  updateLongitude(e.target.value);
                   locationDirty.refresh();
                 }}
                 disabled={!canEdit || locPending}
@@ -1038,6 +1106,26 @@ export function SettingsForm({
               <MapPin className="size-3.5" />
               {gettingLocation ? "Getting location..." : "Use my current location"}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowLocationPicker(true)}
+              disabled={!canEdit || locPending}
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <Crosshair className="size-3.5" />
+              Adjust location
+            </button>
+            {isValidCoordinate(latitudeInput, longitudeInput) && !isGoogleMapsSearchUrl(googleMapsUrlInput.trim()) && (
+              <button
+                type="button"
+                onClick={handleGenerateLinkFromCoordinates}
+                disabled={!canEdit || locPending}
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                <Link2 className="size-3.5" />
+                Generate link from coordinates
+              </button>
+            )}
             {latitudeInput && longitudeInput && (
               <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 Location set: {Number(latitudeInput).toFixed(4)}, {Number(longitudeInput).toFixed(4)}
@@ -1046,22 +1134,29 @@ export function SettingsForm({
             {locationError && (
               <p className="text-xs text-red-600 dark:text-red-400">{locationError}</p>
             )}
+            {coordinateParseMessage && (
+              <p className={`text-xs ${coordinateParseMessage.includes("could not read") ? "text-amber-700 dark:text-amber-300" : "text-emerald-600 dark:text-emerald-400"}`}>
+                {coordinateParseMessage}
+              </p>
+            )}
           </div>
 
           {mapLinkUrl && (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Preview</p>
-              {mapEmbedUrl ? (
+              {hasMapEmbedData(latitudeInput, longitudeInput) ? (
                 <iframe
                   title="Shop location map"
-                  src={mapEmbedUrl}
-                  className="mt-2 h-48 w-full rounded-lg border-0 print:hidden"
+                  src={buildMapEmbedUrl(googleMapsUrlInput, latitudeInput, longitudeInput) ?? undefined}
+                  className="mt-2 h-56 w-full rounded-lg border-0 print:hidden"
                   loading="lazy"
                   allowFullScreen
                 />
               ) : (
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Map preview is only available for coordinate locations. Google Maps links will open in the customer&apos;s map app.
+                  {googleMapsUrlInput.trim()
+                    ? "We could not read coordinates from this link. Use current location or Adjust location to place the pin."
+                    : "Enter coordinates or use a location tool above to see a map preview."}
                 </p>
               )}
               <a
@@ -1072,6 +1167,15 @@ export function SettingsForm({
               >
                 Open map link
               </a>
+            </div>
+          )}
+
+          {!mapLinkUrl && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Preview</p>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Add a Google Maps link or set coordinates to see a preview.
+              </p>
             </div>
           )}
 
@@ -1129,6 +1233,15 @@ export function SettingsForm({
 
           <BlockSaveButton pending={locPending} canEdit={canEdit} isDirty={locationDirty.isDirty} label="Save shop location" />
           <BlockMessage state={locState} />
+
+          {showLocationPicker && (
+            <LocationMapPicker
+              initialLat={latitudeInput}
+              initialLng={longitudeInput}
+              onConfirm={handleAdjustLocationConfirm}
+              onClose={() => setShowLocationPicker(false)}
+            />
+          )}
         </form>
       </Section>
 

@@ -1,11 +1,81 @@
 import { validateGoogleMapsUrl } from "@/lib/security/sanitize";
 
-function isValidCoordinate(latitude: string, longitude: string): { lat: number; lng: number } | null {
-  const lat = Number.parseFloat(latitude);
-  const lng = Number.parseFloat(longitude);
+export type MapCoordinates = { lat: number; lng: number };
+
+const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/?api=1&query=";
+const COORD_NUMBER = "-?\\d+(?:\\.\\d+)?";
+
+export function isValidCoordinate(latitude: string | number, longitude: string | number): MapCoordinates | null {
+  const latRaw = typeof latitude === "number" ? latitude.toString() : latitude;
+  const lngRaw = typeof longitude === "number" ? longitude.toString() : longitude;
+  if (typeof latRaw !== "string" || typeof lngRaw !== "string") return null;
+  if (!/^-?\d+(?:\.\d+)?$/.test(latRaw.trim()) || !/^-?\d+(?:\.\d+)?$/.test(lngRaw.trim())) return null;
+
+  const lat = Number.parseFloat(latRaw);
+  const lng = Number.parseFloat(lngRaw);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
+}
+
+export function buildGoogleMapsSearchUrl(latitude: string | number, longitude: string | number): string | null {
+  const coords = isValidCoordinate(latitude, longitude);
+  if (!coords) return null;
+  return `${GOOGLE_MAPS_SEARCH_URL}${coords.lat},${coords.lng}`;
+}
+
+export function isGoogleMapsSearchUrl(value: string): boolean {
+  return value.trim().startsWith(GOOGLE_MAPS_SEARCH_URL);
+}
+
+/**
+ * Try to extract latitude/longitude from a Google Maps URL or raw coordinate string.
+ * Supports:
+ * - plain "31.3720,74.2419"
+ * - https://www.google.com/maps/@31.3720,74.2419,17z
+ * - https://www.google.com/maps/place/.../@31.3720,74.2419,17z
+ * - https://www.google.com/maps/search/?api=1&query=31.3720,74.2419
+ * - ?q=31.3720,74.2419
+ * - ?ll=31.3720,74.2419
+ *
+ * Short links (maps.app.goo.gl, goo.gl/maps) cannot be expanded without a
+ * paid API or unsafe server fetch, so they return null.
+ */
+export function parseCoordinatesFromMapInput(input: string): MapCoordinates | null {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  // Short links don't contain coordinates directly and can't be expanded safely.
+  if (/^(https?:\/\/)?(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(trimmed)) {
+    return null;
+  }
+
+  // Only attempt extraction from known Google Maps hosts or bare query/coordinate strings.
+  // This prevents arbitrary websites from being treated as coordinate sources.
+  const isKnownMapHost = /^(https?:\/\/)?(www\.)?(google\.com|maps\.google\.com)\//i.test(trimmed);
+  const isBareCoordinateOrQuery = !trimmed.includes(":") && !trimmed.includes("//");
+  if (!isKnownMapHost && !isBareCoordinateOrQuery) return null;
+
+  // URL query parameters: query=, q, ll=
+  const queryMatch = trimmed.match(new RegExp(`[?&](?:query|q|ll)=(${COORD_NUMBER}),(${COORD_NUMBER})`, "i"));
+  if (queryMatch) {
+    return isValidCoordinate(queryMatch[1], queryMatch[2]);
+  }
+
+  // Google Maps path segment like /@31.3720,74.2419,17z or /place/.../@31.3720,74.2419,17z
+  const pathMatch = trimmed.match(new RegExp(`@(${COORD_NUMBER}),(${COORD_NUMBER})(?:,${COORD_NUMBER}z?)?`, "i"));
+  if (pathMatch) {
+    return isValidCoordinate(pathMatch[1], pathMatch[2]);
+  }
+
+  // Plain lat,lng
+  const plainMatch = trimmed.match(new RegExp(`^(${COORD_NUMBER})\\s*,\\s*(${COORD_NUMBER})$`));
+  if (plainMatch) {
+    return isValidCoordinate(plainMatch[1], plainMatch[2]);
+  }
+
+  return null;
 }
 
 export function buildMapEmbedUrl(
@@ -13,20 +83,23 @@ export function buildMapEmbedUrl(
   latitude: string,
   longitude: string,
 ): string | null {
+  // Coordinates take priority for embeds because OpenStreetMap is free and
+  // requires no API key. A Google Maps link alone cannot be embedded directly.
+  const coords = isValidCoordinate(latitude, longitude);
+  if (coords) {
+    const delta = 0.02;
+    const bbox = `${coords.lng - delta},${coords.lat - delta},${coords.lng + delta},${coords.lat + delta}`;
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${coords.lat},${coords.lng}`;
+  }
+
   const mapsUrl = validateGoogleMapsUrl(googleMapsUrl);
   if (mapsUrl && mapsUrl.startsWith("http")) {
-    // Embed Google Maps links directly is not possible without an API key.
-    // Return null so callers can fall back to a clickable link.
+    // No coordinates and only a Google Maps link: embedding is not possible
+    // without a paid API key.
     return null;
   }
 
-  const coords = isValidCoordinate(latitude, longitude);
-  if (!coords) return null;
-
-  // OpenStreetMap embed is free and requires no API key.
-  const delta = 0.02;
-  const bbox = `${coords.lng - delta},${coords.lat - delta},${coords.lng + delta},${coords.lat + delta}`;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${coords.lat},${coords.lng}`;
+  return null;
 }
 
 export function buildMapLinkUrl(
@@ -37,12 +110,21 @@ export function buildMapLinkUrl(
   const mapsUrl = validateGoogleMapsUrl(googleMapsUrl);
   if (mapsUrl && mapsUrl.startsWith("http")) return mapsUrl;
 
-  const coords = isValidCoordinate(latitude, longitude);
-  if (!coords) return null;
+  const generated = buildGoogleMapsSearchUrl(latitude, longitude);
+  if (generated) return generated;
 
-  return `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=16/${coords.lat}/${coords.lng}`;
+  const coords = isValidCoordinate(latitude, longitude);
+  if (coords) {
+    return `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=16/${coords.lat}/${coords.lng}`;
+  }
+
+  return null;
 }
 
 export function hasMapData(googleMapsUrl: string, latitude: string, longitude: string): boolean {
   return buildMapLinkUrl(googleMapsUrl, latitude, longitude) !== null;
+}
+
+export function hasMapEmbedData(latitude: string, longitude: string): boolean {
+  return isValidCoordinate(latitude, longitude) !== null;
 }
