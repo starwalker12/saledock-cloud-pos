@@ -97,7 +97,6 @@ const locationSchema = z.object({
     z.number().min(-180).max(180).optional(),
   ),
   showMap: z.enum(["true", "false"]).default("false"),
-  invoiceShowLocationMap: z.enum(["true", "false"]).default("false"),
   invoiceShowLocationQr: z.enum(["true", "false"]).default("false"),
 });
 
@@ -342,7 +341,7 @@ export async function updateSettingsAction(
       }
 
       case "location": {
-        const parsed = locationSchema.safeParse(readRaw(["googleMapsUrl", "latitude", "longitude", "showMap", "invoiceShowLocationMap", "invoiceShowLocationQr"]));
+        const parsed = locationSchema.safeParse(readRaw(["googleMapsUrl", "latitude", "longitude", "showMap", "invoiceShowLocationQr"]));
         if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Validation failed.", success: null };
         const v = parsed.data;
 
@@ -371,7 +370,6 @@ export async function updateSettingsAction(
             branch_id: branchId,
             shop_name: "Shop",
             settings: {
-              invoice_show_location_map: v.invoiceShowLocationMap === "true",
               invoice_show_location_qr: v.invoiceShowLocationQr === "true",
             },
           });
@@ -379,7 +377,6 @@ export async function updateSettingsAction(
           const existing = rows.find((r) => r.branch_id === branchId) ?? rows.find((r) => r.branch_id === null) ?? rows[0];
           const settingsJson = {
             ...(existing.settings ?? {}),
-            invoice_show_location_map: v.invoiceShowLocationMap === "true",
             invoice_show_location_qr: v.invoiceShowLocationQr === "true",
           };
           await db.from("app_settings").update({ settings: settingsJson }).eq("id", existing.id);

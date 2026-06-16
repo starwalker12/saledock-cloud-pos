@@ -76,7 +76,6 @@ export type BrandingSettings = {
   latitude: string;
   longitude: string;
   showMap: boolean;
-  invoiceShowLocationMap: boolean;
   invoiceShowLocationQr: boolean;
 };
 
@@ -109,7 +108,6 @@ const FALLBACK_BRANDING: BrandingSettings = {
   latitude: "",
   longitude: "",
   showMap: false,
-  invoiceShowLocationMap: false,
   invoiceShowLocationQr: false,
 };
 function stringSetting(settings: JsonObject | null | undefined, key: string, fallback = "") {
@@ -214,7 +212,6 @@ export async function getBrandingSettings(
       latitude: org.latitude != null ? String(org.latitude) : "",
       longitude: org.longitude != null ? String(org.longitude) : "",
       showMap: org.show_map === true,
-      invoiceShowLocationMap: json.invoice_show_location_map === true,
       invoiceShowLocationQr: json.invoice_show_location_qr === true,
     };
   } catch (err) {

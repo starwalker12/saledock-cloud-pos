@@ -663,6 +663,19 @@ export async function verifyOtpAction(
     console.error("[security] verifyOtpAction failed:", error.message);
     return { success: false, error: error.message };
   }
+  if (type === "invite") {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await logAudit({
+        module: "users",
+        action: "users.invite_accepted",
+        details: `Staff invite accepted: ${user.email ?? user.id}`,
+        metadata: { auth_user_id: user.id, email: user.email ?? null },
+      });
+    }
+  }
   return { success: true, error: null };
 }
 

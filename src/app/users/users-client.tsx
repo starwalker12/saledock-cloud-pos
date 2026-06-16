@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useMemo } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import {
   deactivateUserAction,
@@ -8,6 +8,7 @@ import {
   reactivateUserAction,
   resendInviteAction,
   updateUserProfileAction,
+  type InviteFormValues,
   type UserActionState,
 } from "./actions";
 import type { StaffBranch, StaffUser } from "@/lib/data/users";
@@ -111,10 +112,14 @@ function inviteStatusDetail(user: StaffUser): string {
 function BranchSelect({
   branches,
   defaultValue,
+  value,
+  onChange,
   className = inputClass,
 }: {
   branches: StaffBranch[];
   defaultValue?: string | null;
+  value?: string;
+  onChange?: (value: string) => void;
   className?: string;
 }) {
   const branchOptions = [
@@ -125,21 +130,27 @@ function BranchSelect({
   return (
     <AppSelect
       name="branchId"
+      value={value}
       defaultValue={defaultValue ?? ""}
       options={branchOptions}
       ariaLabel="Branch"
       searchable={branches.length > 8}
       buttonClassName={className}
+      onChange={onChange}
     />
   );
 }
 
 function RoleSelect({
   defaultValue,
+  value,
+  onChange,
   className = inputClass,
   disabled = false,
 }: {
   defaultValue: StaffRole;
+  value?: StaffRole;
+  onChange?: (value: StaffRole) => void;
   className?: string;
   disabled?: boolean;
 }) {
@@ -148,11 +159,13 @@ function RoleSelect({
   return (
     <AppSelect
       name="role"
+      value={value}
       defaultValue={defaultValue}
       options={roleOptions}
       ariaLabel="Role"
       buttonClassName={className}
       disabled={disabled}
+      onChange={(nextValue) => onChange?.(nextValue as StaffRole)}
     />
   );
 }
@@ -221,6 +234,22 @@ export function UserManagementClient({
     inviteUserAction,
     initialState,
   );
+  const defaultInviteValues = useMemo<InviteFormValues>(() => ({
+    fullName: "",
+    email: "",
+    role: "cashier",
+    branchId: branches[0]?.id ?? "",
+  }), [branches]);
+  const inviteFormDefaults = inviteState.success
+    ? defaultInviteValues
+    : inviteState.values ?? defaultInviteValues;
+  const inviteFormKey = [
+    inviteState.success ?? inviteState.error ?? "idle",
+    inviteFormDefaults.fullName,
+    inviteFormDefaults.email,
+    inviteFormDefaults.role,
+    inviteFormDefaults.branchId,
+  ].join("|");
 
   const [sortBy, setSortBy] = useState<string>("full_name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -281,22 +310,44 @@ export function UserManagementClient({
             {inviteState.success}
           </p>
         )}
-        <form action={inviteFormAction} className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_180px_220px_auto] xl:items-end">
+        <form
+          key={inviteFormKey}
+          action={inviteFormAction}
+          className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_180px_220px_auto] xl:items-end"
+        >
           <label className="block min-w-0">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Full name</span>
-            <input name="fullName" required className={inputClass} placeholder="Staff member name" />
+            <input
+              name="fullName"
+              required
+              className={inputClass}
+              placeholder="Staff member name"
+              defaultValue={inviteFormDefaults.fullName}
+            />
           </label>
           <label className="block min-w-0">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</span>
-            <input name="email" required type="email" className={inputClass} placeholder="staff@example.com" />
+            <input
+              name="email"
+              required
+              type="email"
+              className={inputClass}
+              placeholder="staff@example.com"
+              defaultValue={inviteFormDefaults.email}
+            />
           </label>
           <label className="block min-w-0">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Role</span>
-            <RoleSelect defaultValue="cashier" />
+            <RoleSelect
+              defaultValue={inviteFormDefaults.role}
+            />
           </label>
           <label className="block min-w-0">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Branch</span>
-            <BranchSelect branches={branches} defaultValue={branches[0]?.id} />
+            <BranchSelect
+              branches={branches}
+              defaultValue={inviteFormDefaults.branchId}
+            />
           </label>
           <button
             type="submit"

@@ -8,15 +8,24 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import {
+  STAFF_ROLES,
   inviteUserSchema,
   profileIdSchema,
   updateUserProfileSchema,
   type StaffRole,
 } from "@/lib/validation/users";
 
+export type InviteFormValues = {
+  fullName: string;
+  email: string;
+  role: StaffRole;
+  branchId: string;
+};
+
 export type UserActionState = {
   error: string | null;
   success: string | null;
+  values?: InviteFormValues;
 };
 
 type ProfileSafetyRow = {
@@ -30,7 +39,7 @@ type InviteProfileRow = ProfileSafetyRow & {
   last_login_at: string | null;
 };
 
-const INVITE_REDIRECT_PATH = "/auth/callback?next=%2Fdashboard";
+const INVITE_REDIRECT_PATH = "/auth/invite?next=%2Fdashboard";
 
 function inviteRedirectTo(origin: string): string {
   return `${origin}${INVITE_REDIRECT_PATH}`;
@@ -38,6 +47,28 @@ function inviteRedirectTo(origin: string): string {
 
 function hasSignInProof(user: User | null | undefined, profileLastLoginAt?: string | null): boolean {
   return Boolean(user?.last_sign_in_at ?? profileLastLoginAt);
+}
+
+function readInviteFormValues(formData: FormData): InviteFormValues {
+  const role = String(formData.get("role") ?? "cashier");
+  return {
+    fullName: String(formData.get("fullName") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    role: STAFF_ROLES.includes(role as StaffRole) ? (role as StaffRole) : "cashier",
+    branchId: String(formData.get("branchId") ?? ""),
+  };
+}
+
+function inviteError(message: string, values: InviteFormValues): UserActionState {
+  return { error: message, success: null, values };
+}
+
+function inviteSuccess(message: string): UserActionState {
+  return {
+    error: null,
+    success: message,
+    values: { fullName: "", email: "", role: "cashier", branchId: "" },
+  };
 }
 
 async function publicOrigin(): Promise<string> {
@@ -104,11 +135,12 @@ export async function inviteUserAction(
   _prev: UserActionState,
   formData: FormData,
 ): Promise<UserActionState> {
+  const submittedValues = readInviteFormValues(formData);
   const { error, context } = await requireUserManager();
-  if (error || !context) return { error, success: null };
+  if (error || !context) return inviteError(error ?? "Only owners and admins can manage staff users.", submittedValues);
   const profile = context.profile;
   if (!profile?.organization_id) {
-    return { error: "Organization profile is missing.", success: null };
+    return inviteError("Organization profile is missing.", submittedValues);
   }
 
   const parsed = inviteUserSchema.safeParse({
@@ -118,7 +150,7 @@ export async function inviteUserAction(
     branchId: formData.get("branchId"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid staff invite.", success: null };
+    return inviteError(parsed.error.issues[0]?.message ?? "Invalid staff invite.", submittedValues);
   }
 
   const admin = createAdminClient();
@@ -134,7 +166,7 @@ export async function inviteUserAction(
       details: `Could not look up existing users for invite: ${values.email}`,
       metadata: { email: values.email, role: values.role },
     });
-    return { error: "We could not check existing accounts right now. Please try again.", success: null };
+    return inviteError("We could not check existing accounts right now. Please try again.", submittedValues);
   }
   const existingAuthUser = existingUsers.data.users.find(
     (user) => user.email?.toLowerCase() === values.email,
@@ -157,7 +189,7 @@ export async function inviteUserAction(
         details: `Profile read failed during invite check: ${values.email}`,
         metadata: { email: values.email, role: values.role, error: profileReadError.message },
       });
-      return { error: "We could not verify this email's account. Please try again.", success: null };
+      return inviteError("We could not verify this email's account. Please try again.", submittedValues);
     }
 
     if (existingProfile?.organization_id && existingProfile.organization_id !== organizationId) {
@@ -167,7 +199,7 @@ export async function inviteUserAction(
         details: `Blocked invite: ${values.email} already belongs to another shop`,
         metadata: { email: values.email, role: values.role, target_organization_id: existingProfile.organization_id },
       });
-      return { error: "This email is already connected to another shop. Use a different email for staff access.", success: null };
+      return inviteError("This email is already connected to another shop. Use a different email for staff access.", submittedValues);
     }
 
     if (existingProfile?.organization_id === organizationId) {
@@ -181,6 +213,7 @@ export async function inviteUserAction(
       return {
         error: `That email is already on this staff list (${status}). Use the staff table to edit or resend the invite.`,
         success: null,
+        values: submittedValues,
       };
     }
 
@@ -197,6 +230,7 @@ export async function inviteUserAction(
       error:
         "This email already has an account. Ask the person to use a different email address, or contact support to link the account manually.",
       success: null,
+      values: submittedValues,
     };
   }
 
@@ -212,7 +246,7 @@ export async function inviteUserAction(
         details: `Failed to send staff invite: ${values.email}`,
         metadata: { email: values.email, role: values.role, error: invite.error?.message ?? "No auth user returned" },
       });
-      return { error: "Invite could not be sent. Check the email address and try again.", success: null };
+      return inviteError("Invite could not be sent. Check the email address and try again.", submittedValues);
     }
     authUserId = invite.data.user.id;
     invited = true;
@@ -230,10 +264,10 @@ export async function inviteUserAction(
       details: `Profile read failed after invite send: ${values.email}`,
       metadata: { email: values.email, role: values.role, error: profileReadError.message },
     });
-    return { error: "Invite was sent, but we could not verify the staff profile. Please contact support.", success: null };
+    return inviteError("Invite was sent, but we could not verify the staff profile. Please contact support.", submittedValues);
   }
   if (existingProfile?.organization_id && existingProfile.organization_id !== organizationId) {
-    return { error: "This email is already connected to another shop. Use a different email for staff access.", success: null };
+    return inviteError("This email is already connected to another shop. Use a different email for staff access.", submittedValues);
   }
 
   const payload = {
@@ -260,6 +294,7 @@ export async function inviteUserAction(
         ? "Invite email was sent, but the staff profile could not be created. Please contact support before resending."
         : "We could not save the staff profile. Please try again.",
       success: null,
+      values: submittedValues,
     };
   }
 
@@ -277,10 +312,7 @@ export async function inviteUserAction(
   });
 
   revalidatePath("/users");
-  return {
-    error: null,
-    success: "Invite email sent. The user will stay Pending until they accept the email invite and sign in.",
-  };
+  return inviteSuccess("Invite email sent. The user will stay Pending until they accept the email invite and sign in.");
 }
 
 export async function updateUserProfileAction(formData: FormData): Promise<void> {

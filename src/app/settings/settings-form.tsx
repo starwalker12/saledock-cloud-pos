@@ -612,7 +612,6 @@ export function SettingsForm({
   const [latitudeInput, setLatitudeInput] = useState(settings.latitude ?? "");
   const [longitudeInput, setLongitudeInput] = useState(settings.longitude ?? "");
   const [showMapInput, setShowMapInput] = useState(settings.showMap);
-  const [invoiceShowMapInput, setInvoiceShowMapInput] = useState(settings.invoiceShowLocationMap);
   const [invoiceShowQrInput, setInvoiceShowQrInput] = useState(settings.invoiceShowLocationQr);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
@@ -654,7 +653,6 @@ export function SettingsForm({
     latitude: settings.latitude ?? "",
     longitude: settings.longitude ?? "",
     showMap: settings.showMap ? "true" : "false",
-    invoiceShowLocationMap: settings.invoiceShowLocationMap ? "true" : "false",
     invoiceShowLocationQr: settings.invoiceShowLocationQr ? "true" : "false",
   });
 
@@ -667,7 +665,6 @@ export function SettingsForm({
       setLatitudeInput(settings.latitude ?? "");
       setLongitudeInput(settings.longitude ?? "");
       setShowMapInput(settings.showMap);
-      setInvoiceShowMapInput(settings.invoiceShowLocationMap);
       setInvoiceShowQrInput(settings.invoiceShowLocationQr);
       setPhoneError(null);
       setWhatsappError(null);
@@ -675,7 +672,7 @@ export function SettingsForm({
       setLocationError(null);
     }, 0);
     return () => window.clearTimeout(id);
-  }, [settings.branchPhone, settings.phone, settings.whatsappSupport, settings.googleMapsUrl, settings.latitude, settings.longitude, settings.showMap, settings.invoiceShowLocationMap, settings.invoiceShowLocationQr]);
+  }, [settings.branchPhone, settings.phone, settings.whatsappSupport, settings.googleMapsUrl, settings.latitude, settings.longitude, settings.showMap, settings.invoiceShowLocationQr]);
 
   useEffect(() => {
     businessDirty.refresh();
@@ -741,7 +738,6 @@ export function SettingsForm({
       latitude: latitudeInput,
       longitude: longitudeInput,
       showMap: showMapInput,
-      invoiceShowLocationMap: invoiceShowMapInput,
       invoiceShowLocationQr: invoiceShowQrInput,
     },
   });
@@ -784,7 +780,6 @@ export function SettingsForm({
     if (locationDraft.latitude && !latitudeInput) setLatitudeInput(String(locationDraft.latitude));
     if (locationDraft.longitude && !longitudeInput) setLongitudeInput(String(locationDraft.longitude));
     if (typeof locationDraft.showMap === "boolean") setShowMapInput(locationDraft.showMap);
-    if (typeof locationDraft.invoiceShowLocationMap === "boolean") setInvoiceShowMapInput(locationDraft.invoiceShowLocationMap);
     if (typeof locationDraft.invoiceShowLocationQr === "boolean") setInvoiceShowQrInput(locationDraft.invoiceShowLocationQr);
   }
 
@@ -1181,20 +1176,6 @@ export function SettingsForm({
 
           <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Invoice options</p>
-            <input type="hidden" name="invoiceShowLocationMap" value={invoiceShowMapInput ? "true" : "false"} />
-            <label className="flex items-start gap-2.5">
-              <input
-                type="checkbox"
-                checked={invoiceShowMapInput}
-                onChange={(e) => {
-                  setInvoiceShowMapInput(e.target.checked);
-                  locationDirty.refresh();
-                }}
-                disabled={!canEdit || locPending}
-                className={checkboxClass}
-              />
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Show shop map on A4 invoice</span>
-            </label>
             <input type="hidden" name="invoiceShowLocationQr" value={invoiceShowQrInput ? "true" : "false"} />
             <label className="flex items-start gap-2.5">
               <input
@@ -1209,9 +1190,9 @@ export function SettingsForm({
               />
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Show shop location QR code on invoice</span>
             </label>
-            {!hasMapData(googleMapsUrlInput, latitudeInput, longitudeInput) && (invoiceShowMapInput || invoiceShowQrInput) && (
+            {!hasMapData(googleMapsUrlInput, latitudeInput, longitudeInput) && invoiceShowQrInput && (
               <p className="text-xs text-amber-700 dark:text-amber-300">
-                Add a Google Maps link or coordinates above to enable map/QR on invoices.
+                Add a Google Maps link or coordinates above to enable the location QR code on invoices.
               </p>
             )}
           </div>
