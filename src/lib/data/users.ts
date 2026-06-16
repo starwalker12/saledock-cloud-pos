@@ -28,7 +28,7 @@ export type StaffUser = StaffProfile & {
   last_sign_in_at: string | null;
   invited_at: string | null;
   email_confirmed_at: string | null;
-  invite_status: "accepted" | "pending" | "unknown";
+  invite_status: "accepted" | "pending" | "not_linked";
 };
 
 export type UserManagementData = {
@@ -48,9 +48,13 @@ function authEmail(user: User | undefined): string | null {
   return user?.email ?? null;
 }
 
-function inviteStatus(user: User | undefined): StaffUser["invite_status"] {
-  if (!user) return "unknown";
-  return user.email_confirmed_at ? "accepted" : "pending";
+function acceptedAt(user: User | undefined, profile: Pick<StaffProfile, "last_login_at">): string | null {
+  return user?.last_sign_in_at ?? profile.last_login_at ?? null;
+}
+
+function inviteStatus(user: User | undefined, profile: Pick<StaffProfile, "last_login_at">): StaffUser["invite_status"] {
+  if (!user) return "not_linked";
+  return acceptedAt(user, profile) ? "accepted" : "pending";
 }
 
 export async function getUserManagementData(
@@ -89,10 +93,10 @@ export async function getUserManagementData(
       email: authEmail(authUser),
       branch_name: profile.branch_id ? branchNameById.get(profile.branch_id) ?? null : null,
       auth_created_at: authUser?.created_at ?? null,
-      last_sign_in_at: authUser?.last_sign_in_at ?? profile.last_login_at ?? null,
+      last_sign_in_at: acceptedAt(authUser, profile),
       invited_at: authUser?.invited_at ?? null,
       email_confirmed_at: authUser?.email_confirmed_at ?? null,
-      invite_status: inviteStatus(authUser),
+      invite_status: inviteStatus(authUser, profile),
     } satisfies StaffUser;
   });
 
