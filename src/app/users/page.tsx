@@ -68,7 +68,7 @@ export default async function UsersPage() {
           <StatCard
             label="Active users"
             value={formatNumber(data.stats.activeUsers)}
-            detail="Profiles that can access the POS."
+            detail="Profiles that are not blocked."
             icon={<UserCheck className="size-5" />}
           />
           <StatCard
@@ -92,8 +92,8 @@ export default async function UsersPage() {
         </div>
 
         <div className="rounded-2xl border border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm leading-6 text-blue-950 dark:text-blue-300">
-          Public signup remains closed. Invites are sent through Supabase Auth and
-          the service role is used server-side only.
+          Staff can join only from invite emails. A new staff member stays Pending
+          until they accept the email invite and sign in.
         </div>
 
         <UserManagementClient

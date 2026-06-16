@@ -56,6 +56,48 @@ function RoleBadge({ role }: { role: StaffRole }) {
   );
 }
 
+function AccessStatusBadge({ active }: { active: boolean }) {
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${active ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>
+      {active ? "Access active" : "Inactive / blocked"}
+    </span>
+  );
+}
+
+function InviteStatusBadge({ user }: { user: StaffUser }) {
+  if (user.invite_status === "accepted") {
+    return (
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+        Accepted
+      </span>
+    );
+  }
+  if (user.invite_status === "pending") {
+    return (
+      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+        Pending invite
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-800 dark:bg-red-900/30 dark:text-red-300">
+      Not linked
+    </span>
+  );
+}
+
+function inviteStatusDetail(user: StaffUser): string {
+  if (user.invite_status === "accepted") {
+    return `Accepted: ${fmtDate(user.last_sign_in_at)}`;
+  }
+  if (user.invite_status === "pending") {
+    return user.invited_at
+      ? `Invite sent: ${fmtDate(user.invited_at)}`
+      : "Waiting for invite acceptance.";
+  }
+  return "No auth account is linked to this staff profile.";
+}
+
 function BranchSelect({
   branches,
   defaultValue,
@@ -85,9 +127,11 @@ function BranchSelect({
 function RoleSelect({
   defaultValue,
   className = inputClass,
+  disabled = false,
 }: {
   defaultValue: StaffRole;
   className?: string;
+  disabled?: boolean;
 }) {
   const roleOptions = STAFF_ROLES.map((role) => ({ value: role, label: roleLabels[role] }));
 
@@ -98,6 +142,7 @@ function RoleSelect({
       options={roleOptions}
       ariaLabel="Role"
       buttonClassName={className}
+      disabled={disabled}
     />
   );
 }
@@ -213,7 +258,7 @@ export function UserManagementClient({
         <div>
           <h2 className="text-lg font-black text-slate-950 dark:text-slate-100">Invite staff</h2>
           <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            Send a Supabase invite email and create the staff profile with the selected role and branch.
+            Send an invite email. The staff member stays Pending until they accept the invite and sign in.
           </p>
         </div>
         {inviteState.error && (
@@ -286,10 +331,11 @@ export function UserManagementClient({
                   <td className="px-4 py-3"><RoleBadge role={user.role} /></td>
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{user.branch_name ?? "No branch"}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${user.is_active ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>
-                      {user.is_active ? "Active" : "Inactive"}
-                    </span>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{user.invite_status}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <AccessStatusBadge active={user.is_active} />
+                      <InviteStatusBadge user={user} />
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{inviteStatusDetail(user)}</p>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">{fmtDate(user.last_sign_in_at)}</td>
                   <td className="px-4 py-3">
@@ -310,9 +356,8 @@ export function UserManagementClient({
                   <p className="break-words text-xs text-slate-500 dark:text-slate-400">{user.email ?? "No email found"}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     <RoleBadge role={user.role} />
-                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${user.is_active ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>
-                      {user.is_active ? "Active" : "Inactive"}
-                    </span>
+                    <AccessStatusBadge active={user.is_active} />
+                    <InviteStatusBadge user={user} />
                     {user.id === currentProfileId && (
                       <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-400">You</span>
                     )}
@@ -321,7 +366,7 @@ export function UserManagementClient({
                 <div className="text-xs text-slate-600 dark:text-slate-300 sm:text-right">
                   <p className="font-semibold">{user.branch_name ?? "No branch"}</p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">Sign-in: {fmtDate(user.last_sign_in_at)}</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Invite: {user.invite_status}</p>
+                  <p className="text-[11px] leading-5 text-slate-500 dark:text-slate-400">{inviteStatusDetail(user)}</p>
                 </div>
               </div>
               <div className="mt-3">
@@ -346,7 +391,8 @@ function StaffActions({
   currentProfileId: string;
   compact?: boolean;
 }) {
-  const isSelfOwner = user.id === currentProfileId && user.role === "owner" && user.is_active;
+  const isCurrentUser = user.id === currentProfileId;
+  const isSelfDeactivate = isCurrentUser && user.is_active;
   return (
     <div className="space-y-2">
       <details className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-3">
@@ -354,7 +400,14 @@ function StaffActions({
         <form action={updateUserProfileAction} className={`mt-3 grid gap-2 ${compact ? "grid-cols-1" : "sm:grid-cols-2"}`}>
           <input type="hidden" name="profileId" value={user.id} />
           <input name="fullName" defaultValue={user.full_name} className={compactInputClass} />
-          <RoleSelect defaultValue={user.role} className={compactInputClass} />
+          <div className="space-y-1">
+            <RoleSelect defaultValue={user.role} className={compactInputClass} disabled={isCurrentUser} />
+            {isCurrentUser && (
+              <p className="text-[10px] font-semibold leading-4 text-slate-500 dark:text-slate-400">
+                Your own role is locked for safety.
+              </p>
+            )}
+          </div>
           <BranchSelect branches={branches} defaultValue={user.branch_id} className={compactInputClass} />
           <button type="submit" className="min-h-9 rounded-md bg-slate-950 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 text-xs font-bold text-white">
             Save
@@ -364,21 +417,16 @@ function StaffActions({
 
       <div className="flex flex-wrap justify-end gap-2">
         {user.invite_status === "pending" && user.email && (
-          <form action={resendInviteAction}>
-            <input type="hidden" name="profileId" value={user.id} />
-            <button type="submit" className="min-h-9 rounded-md border border-blue-200 dark:border-blue-900/30 px-3 text-xs font-bold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20">
-              Resend invite
-            </button>
-          </form>
+          <ResendInviteForm profileId={user.id} />
         )}
         {user.is_active ? (
           <form action={deactivateUserAction}>
             <input type="hidden" name="profileId" value={user.id} />
             <button
               type="submit"
-              disabled={isSelfOwner}
+              disabled={isSelfDeactivate}
               className="min-h-9 rounded-md border border-red-200 dark:border-red-900/30 px-3 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:cursor-not-allowed disabled:opacity-50"
-              title={isSelfOwner ? "Owners cannot deactivate their own active owner account." : "Deactivate user"}
+              title={isSelfDeactivate ? "You cannot deactivate your own account." : "Deactivate user"}
             >
               Deactivate
             </button>
@@ -393,5 +441,32 @@ function StaffActions({
         )}
       </div>
     </div>
+  );
+}
+
+function ResendInviteForm({ profileId }: { profileId: string }) {
+  const [state, action, pending] = useActionState(resendInviteAction, initialState);
+
+  return (
+    <form action={action} className="space-y-1">
+      <input type="hidden" name="profileId" value={profileId} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="min-h-9 rounded-md border border-blue-200 px-3 text-xs font-bold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-950/20"
+      >
+        {pending ? "Sending..." : "Resend invite"}
+      </button>
+      {state.error && (
+        <p className="max-w-64 text-[11px] font-semibold leading-4 text-red-700 dark:text-red-300">
+          {state.error}
+        </p>
+      )}
+      {state.success && (
+        <p className="max-w-64 text-[11px] font-semibold leading-4 text-emerald-700 dark:text-emerald-300">
+          {state.success}
+        </p>
+      )}
+    </form>
   );
 }
