@@ -7,9 +7,11 @@ import { updateSettingsAction, updateProfilePictureAction, type SettingsActionSt
 import { ImageUpload } from "@/components/shared/image-upload";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { AppSelect } from "@/components/ui/app-select";
-import { Check, ImageIcon, RotateCcw, Loader2 } from "lucide-react";
+import { Check, ImageIcon, RotateCcw, Loader2, MapPin } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
+import { useFormDraft } from "@/lib/hooks/use-form-draft";
+import { buildMapEmbedUrl, buildMapLinkUrl, hasMapData } from "@/lib/map-utils";
 import {
   COLOR_THEME_OPTIONS,
   COLOR_THEME_STORAGE_KEY,
@@ -589,6 +591,7 @@ export function SettingsForm({
   const [invState, invAction, invPending] = useActionState(updateSettingsAction, initialState);
   const [, thAction] = useActionState(updateSettingsAction, initialState);
   const [regState, regAction, regPending] = useActionState(updateSettingsAction, initialState);
+  const [locState, locAction, locPending] = useActionState(updateSettingsAction, initialState);
   const [ppState, ppAction] = useActionState(updateProfilePictureAction, initialState);
 
   const { dict } = useLanguage();
@@ -604,11 +607,20 @@ export function SettingsForm({
   const [logoError, setLogoError] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState(settings.logoUrl ?? "");
   const [appLogoUrlInput, setAppLogoUrlInput] = useState(settings.appLogoUrl ?? "");
+  const [googleMapsUrlInput, setGoogleMapsUrlInput] = useState(settings.googleMapsUrl ?? "");
+  const [latitudeInput, setLatitudeInput] = useState(settings.latitude ?? "");
+  const [longitudeInput, setLongitudeInput] = useState(settings.longitude ?? "");
+  const [showMapInput, setShowMapInput] = useState(settings.showMap);
+  const [invoiceShowMapInput, setInvoiceShowMapInput] = useState(settings.invoiceShowLocationMap);
+  const [invoiceShowQrInput, setInvoiceShowQrInput] = useState(settings.invoiceShowLocationQr);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [gettingLocation, setGettingLocation] = useState(false);
   const businessFormRef = useRef<HTMLFormElement>(null);
   const appLogoFormRef = useRef<HTMLFormElement>(null);
   const branchFormRef = useRef<HTMLFormElement>(null);
   const invoiceFormRef = useRef<HTMLFormElement>(null);
   const regionalFormRef = useRef<HTMLFormElement>(null);
+  const locationFormRef = useRef<HTMLFormElement>(null);
   const businessDirty = useDirtyForm(businessFormRef, {
     shopName: settings.shopName,
     ownerName: settings.ownerName,
@@ -634,18 +646,33 @@ export function SettingsForm({
     timezone: settings.timezone || "Asia/Karachi",
     lowStockDefaultThreshold: settings.lowStockDefaultThreshold,
   });
+  const locationDirty = useDirtyForm(locationFormRef, {
+    googleMapsUrl: settings.googleMapsUrl ?? "",
+    latitude: settings.latitude ?? "",
+    longitude: settings.longitude ?? "",
+    showMap: settings.showMap ? "true" : "false",
+    invoiceShowLocationMap: settings.invoiceShowLocationMap ? "true" : "false",
+    invoiceShowLocationQr: settings.invoiceShowLocationQr ? "true" : "false",
+  });
 
   useEffect(() => {
     const id = window.setTimeout(() => {
       setBusinessPhone(settings.phone ?? "");
       setWhatsappSupport(settings.whatsappSupport ?? "");
       setBranchPhone(settings.branchPhone ?? "");
+      setGoogleMapsUrlInput(settings.googleMapsUrl ?? "");
+      setLatitudeInput(settings.latitude ?? "");
+      setLongitudeInput(settings.longitude ?? "");
+      setShowMapInput(settings.showMap);
+      setInvoiceShowMapInput(settings.invoiceShowLocationMap);
+      setInvoiceShowQrInput(settings.invoiceShowLocationQr);
       setPhoneError(null);
       setWhatsappError(null);
       setBranchPhoneError(null);
+      setLocationError(null);
     }, 0);
     return () => window.clearTimeout(id);
-  }, [settings.branchPhone, settings.phone, settings.whatsappSupport]);
+  }, [settings.branchPhone, settings.phone, settings.whatsappSupport, settings.googleMapsUrl, settings.latitude, settings.longitude, settings.showMap, settings.invoiceShowLocationMap, settings.invoiceShowLocationQr]);
 
   useEffect(() => {
     businessDirty.refresh();
@@ -701,6 +728,76 @@ export function SettingsForm({
     invoiceDirty.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logoUrlInput]);
+
+  // Safe local draft preservation for the location form only.
+  const { draft: locationDraft, discardDraft: discardLocationDraft } = useFormDraft({
+    storageKey: `saledock-settings-location-draft-${organizationId}`,
+    enabled: true,
+    values: {
+      googleMapsUrl: googleMapsUrlInput,
+      latitude: latitudeInput,
+      longitude: longitudeInput,
+      showMap: showMapInput,
+      invoiceShowLocationMap: invoiceShowMapInput,
+      invoiceShowLocationQr: invoiceShowQrInput,
+    },
+  });
+
+  const mapEmbedUrl = buildMapEmbedUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
+  const mapLinkUrl = buildMapLinkUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
+
+  useEffect(() => {
+    if (!locState.success) return;
+    const id = window.setTimeout(() => {
+      locationDirty.markSaved();
+      discardLocationDraft();
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locState]);
+
+  function applyLocationDraft() {
+    if (!locationDraft) return;
+    if (locationDraft.googleMapsUrl && !googleMapsUrlInput) setGoogleMapsUrlInput(String(locationDraft.googleMapsUrl));
+    if (locationDraft.latitude && !latitudeInput) setLatitudeInput(String(locationDraft.latitude));
+    if (locationDraft.longitude && !longitudeInput) setLongitudeInput(String(locationDraft.longitude));
+    if (typeof locationDraft.showMap === "boolean") setShowMapInput(locationDraft.showMap);
+    if (typeof locationDraft.invoiceShowLocationMap === "boolean") setInvoiceShowMapInput(locationDraft.invoiceShowLocationMap);
+    if (typeof locationDraft.invoiceShowLocationQr === "boolean") setInvoiceShowQrInput(locationDraft.invoiceShowLocationQr);
+  }
+
+  const [draftRestored, setDraftRestored] = useState(false);
+  useEffect(() => {
+    if (draftRestored || !locationDraft) return;
+    const id = window.setTimeout(() => {
+      applyLocationDraft();
+      setDraftRestored(true);
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationDraft]);
+
+  function handleGetLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGettingLocation(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitudeInput(pos.coords.latitude.toString());
+        setLongitudeInput(pos.coords.longitude.toString());
+        setGettingLocation(false);
+        locationDirty.refresh();
+      },
+      (err) => {
+        setLocationError(err.message || "Could not get your location.");
+        setGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
 
   const DEFAULT_LOGO = "/saledock-logo-full.png";
   const effectiveLogoUrl = logoPreview || settings.logoUrl || DEFAULT_LOGO;
@@ -768,10 +865,13 @@ export function SettingsForm({
         invoice_branding: invAction,
         theme: thAction,
         regional: regAction,
+        location: locAction,
       };
       actions[intent](formData);
     };
   }
+
+  const checkboxClass = "h-4 w-4 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-[var(--primary-accent-bg)] focus:ring-[var(--primary-accent-bg)]";
 
   return (
     <div className="space-y-5">
@@ -864,6 +964,172 @@ export function SettingsForm({
             <BlockMessage state={logoState} />
           </form>
         </div>
+      </Section>
+
+      {/* Shop Location */}
+      <Section
+        title="Shop Location"
+        description="Set your shop location for receipts, invoices, and customer directions."
+      >
+        <form
+          ref={locationFormRef}
+          action={makeAction("location")}
+          onInput={locationDirty.handleChange}
+          onChange={locationDirty.handleChange}
+          onSubmit={locationDirty.preventCleanSubmit}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block min-w-0 md:col-span-2">
+              <span className={labelTextClass}>Google Maps link</span>
+              <input
+                name="googleMapsUrl"
+                value={googleMapsUrlInput}
+                onChange={(e) => {
+                  setGoogleMapsUrlInput(e.target.value);
+                  locationDirty.refresh();
+                }}
+                disabled={!canEdit || locPending}
+                placeholder="e.g. https://maps.app.goo.gl/xyz123"
+                className={inputClass}
+              />
+              <p className="mt-1 text-[10px] text-slate-400">You can also paste a lat,lng pair like 24.8607,67.0011.</p>
+            </label>
+            <label className={labelClass}>
+              <span className={labelTextClass}>Latitude</span>
+              <input
+                name="latitude"
+                type="number"
+                step="any"
+                value={latitudeInput}
+                onChange={(e) => {
+                  setLatitudeInput(e.target.value);
+                  locationDirty.refresh();
+                }}
+                disabled={!canEdit || locPending}
+                placeholder="e.g. 33.6844"
+                className={inputClass}
+              />
+            </label>
+            <label className={labelClass}>
+              <span className={labelTextClass}>Longitude</span>
+              <input
+                name="longitude"
+                type="number"
+                step="any"
+                value={longitudeInput}
+                onChange={(e) => {
+                  setLongitudeInput(e.target.value);
+                  locationDirty.refresh();
+                }}
+                disabled={!canEdit || locPending}
+                placeholder="e.g. 73.0479"
+                className={inputClass}
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleGetLocation}
+              disabled={gettingLocation || !canEdit || locPending}
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <MapPin className="size-3.5" />
+              {gettingLocation ? "Getting location..." : "Use my current location"}
+            </button>
+            {latitudeInput && longitudeInput && (
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                Location set: {Number(latitudeInput).toFixed(4)}, {Number(longitudeInput).toFixed(4)}
+              </p>
+            )}
+            {locationError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{locationError}</p>
+            )}
+          </div>
+
+          {mapLinkUrl && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Preview</p>
+              {mapEmbedUrl ? (
+                <iframe
+                  title="Shop location map"
+                  src={mapEmbedUrl}
+                  className="mt-2 h-48 w-full rounded-lg border-0 print:hidden"
+                  loading="lazy"
+                  allowFullScreen
+                />
+              ) : (
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  Map preview is only available for coordinate locations. Google Maps links will open in the customer&apos;s map app.
+                </p>
+              )}
+              <a
+                href={mapLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Open map link
+              </a>
+            </div>
+          )}
+
+          <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Invoice options</p>
+            <input type="hidden" name="invoiceShowLocationMap" value={invoiceShowMapInput ? "true" : "false"} />
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={invoiceShowMapInput}
+                onChange={(e) => {
+                  setInvoiceShowMapInput(e.target.checked);
+                  locationDirty.refresh();
+                }}
+                disabled={!canEdit || locPending}
+                className={checkboxClass}
+              />
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Show shop map on A4 invoice</span>
+            </label>
+            <input type="hidden" name="invoiceShowLocationQr" value={invoiceShowQrInput ? "true" : "false"} />
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={invoiceShowQrInput}
+                onChange={(e) => {
+                  setInvoiceShowQrInput(e.target.checked);
+                  locationDirty.refresh();
+                }}
+                disabled={!canEdit || locPending}
+                className={checkboxClass}
+              />
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Show shop location QR code on invoice</span>
+            </label>
+            {!hasMapData(googleMapsUrlInput, latitudeInput, longitudeInput) && (invoiceShowMapInput || invoiceShowQrInput) && (
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Add a Google Maps link or coordinates above to enable map/QR on invoices.
+              </p>
+            )}
+          </div>
+
+          <input type="hidden" name="showMap" value={showMapInput ? "true" : "false"} />
+          <label className="mt-4 flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={showMapInput}
+              onChange={(e) => {
+                setShowMapInput(e.target.checked);
+                locationDirty.refresh();
+              }}
+              disabled={!canEdit || locPending}
+              className={checkboxClass}
+            />
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Show map on receipts and profile</span>
+          </label>
+
+          <BlockSaveButton pending={locPending} canEdit={canEdit} isDirty={locationDirty.isDirty} label="Save shop location" />
+          <BlockMessage state={locState} />
+        </form>
       </Section>
 
       {/* Branch Profile */}
