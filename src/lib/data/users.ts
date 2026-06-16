@@ -28,7 +28,7 @@ export type StaffUser = StaffProfile & {
   last_sign_in_at: string | null;
   invited_at: string | null;
   email_confirmed_at: string | null;
-  invite_status: "accepted" | "pending" | "not_linked";
+  invite_status: "accepted" | "pending" | "unverified" | "not_linked";
 };
 
 export type UserManagementData = {
@@ -52,20 +52,26 @@ function acceptedAt(user: User | undefined, profile: Pick<StaffProfile, "last_lo
   return user?.last_sign_in_at ?? profile.last_login_at ?? null;
 }
 
-function inviteStatus(user: User | undefined): StaffUser["invite_status"] {
+function inviteStatus(
+  user: User | undefined,
+  profile: Pick<StaffProfile, "role" | "last_login_at">,
+): StaffUser["invite_status"] {
   if (!user) return "not_linked";
 
-  // If the auth user was created by an invite email for this organization,
-  // email_confirmed_at proves they accepted the invite.
-  const acceptedThisShopInvite = !!user.email_confirmed_at;
+  // Owner accounts can come from shop setup, not a staff invite.
+  if (profile.role === "owner") {
+    return user.email_confirmed_at || acceptedAt(user, profile) ? "accepted" : "pending";
+  }
 
-  // last_sign_in_at / last_login_at alone does NOT mean they accepted this
-  // shop's invite; it can come from another shop or general sign-in.
-  if (acceptedThisShopInvite) return "accepted";
+  // Invited staff should have Supabase's invited_at marker. email_confirmed_at
+  // then means they accepted this staff invite.
+  if (user.invited_at) {
+    return user.email_confirmed_at ? "accepted" : "pending";
+  }
 
-  // If the user exists but has not confirmed the invite email, they are still
-  // pending for this shop.
-  return "pending";
+  // Existing/old linked auth records without an invite marker cannot prove
+  // that this shop's invitation was accepted.
+  return "unverified";
 }
 
 export async function getUserManagementData(
@@ -99,15 +105,16 @@ export async function getUserManagementData(
 
   const users = (profilesRes.data ?? []).map((profile) => {
     const authUser = authById.get(profile.id);
+    const invite_status = inviteStatus(authUser, profile);
     return {
       ...profile,
       email: authEmail(authUser),
       branch_name: profile.branch_id ? branchNameById.get(profile.branch_id) ?? null : null,
       auth_created_at: authUser?.created_at ?? null,
-      last_sign_in_at: acceptedAt(authUser, profile),
+      last_sign_in_at: invite_status === "accepted" ? acceptedAt(authUser, profile) : null,
       invited_at: authUser?.invited_at ?? null,
       email_confirmed_at: authUser?.email_confirmed_at ?? null,
-      invite_status: inviteStatus(authUser),
+      invite_status,
     } satisfies StaffUser;
   });
 

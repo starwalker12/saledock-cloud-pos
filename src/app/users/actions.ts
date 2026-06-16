@@ -474,8 +474,14 @@ export async function resendInviteAction(
   if (!user?.email) {
     return { error: "No auth account is linked to this staff profile, so no invite email can be resent.", success: null };
   }
-  if (hasSignInProof(user, targetProfile.last_login_at)) {
-    return { error: "This staff member has already accepted the invite and signed in.", success: null };
+  if (!user.invited_at) {
+    return {
+      error: "This staff profile does not have a verified pending invite to resend. Contact support before linking this account.",
+      success: null,
+    };
+  }
+  if (user.email_confirmed_at || hasSignInProof(user, targetProfile.last_login_at)) {
+    return { error: "This staff member has already accepted the invite.", success: null };
   }
 
   const origin = await publicOrigin();

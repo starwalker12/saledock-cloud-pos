@@ -79,6 +79,13 @@ function InviteStatusBadge({ user }: { user: StaffUser }) {
       </span>
     );
   }
+  if (user.invite_status === "unverified") {
+    return (
+      <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+        Invite not verified
+      </span>
+    );
+  }
   return (
     <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-800 dark:bg-red-900/30 dark:text-red-300">
       Not linked
@@ -94,6 +101,9 @@ function inviteStatusDetail(user: StaffUser): string {
     return user.invited_at
       ? `Invite sent: ${fmtDate(user.invited_at)}`
       : "Waiting for invite acceptance.";
+  }
+  if (user.invite_status === "unverified") {
+    return "This auth account is linked, but this shop invite was not verified.";
   }
   return "No auth account is linked to this staff profile.";
 }
