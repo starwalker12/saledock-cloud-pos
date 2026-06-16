@@ -263,7 +263,7 @@ export function GlobalSearch() {
                 <button
                   key={page.href}
                   onClick={() => handleNavigate(page.href)}
-                  className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 text-left text-xs font-bold text-slate-655 transition hover:border-slate-205 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 cursor-pointer min-h-[44px]"
+                  className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 text-left text-xs font-bold text-slate-600 transition hover:border-slate-200 hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 cursor-pointer min-h-[44px]"
                 >
                   <Icon className="size-4 shrink-0 text-slate-500" />
                   <span className="truncate">{page.title}</span>
