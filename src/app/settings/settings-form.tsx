@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import type { BrandingSettings } from "@/lib/data/settings";
 import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState, type SettingsIntent } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
+import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { Check, ImageIcon, RotateCcw, Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
@@ -587,48 +588,12 @@ export function SettingsForm({
 
   const { dict } = useLanguage();
   const shellDict = (dict as Record<string, Record<string, string>>).shell;
+  const [businessPhone, setBusinessPhone] = useState(settings.phone ?? "");
+  const [whatsappSupport, setWhatsappSupport] = useState(settings.whatsappSupport ?? "");
+  const [branchPhone, setBranchPhone] = useState(settings.branchPhone ?? "");
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [whatsappError, setWhatsappError] = useState<string | null>(null);
   const [branchPhoneError, setBranchPhoneError] = useState<string | null>(null);
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const isDirty = val !== (settings.phone || "");
-    if (phoneError) {
-      if (!isDirty || isValidPhoneNumber(val)) {
-        setPhoneError(null);
-      }
-    }
-  };
-
-  const handlePhoneBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const isDirty = val !== (settings.phone || "");
-    if (isDirty && !isValidPhoneNumber(val)) {
-      setPhoneError(shellDict?.invalidPhone || "Please enter a valid phone number (e.g. +92 300 1234567).");
-    } else {
-      setPhoneError(null);
-    }
-  };
-
-  const handleBranchPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const isDirty = val !== (settings.branchPhone || "");
-    if (branchPhoneError) {
-      if (!isDirty || isValidPhoneNumber(val)) {
-        setBranchPhoneError(null);
-      }
-    }
-  };
-
-  const handleBranchPhoneBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const isDirty = val !== (settings.branchPhone || "");
-    if (isDirty && !isValidPhoneNumber(val)) {
-      setBranchPhoneError(shellDict?.invalidPhone || "Please enter a valid phone number (e.g. +92 300 1234567).");
-    } else {
-      setBranchPhoneError(null);
-    }
-  };
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
@@ -664,6 +629,28 @@ export function SettingsForm({
     timezone: settings.timezone || "Asia/Karachi",
     lowStockDefaultThreshold: settings.lowStockDefaultThreshold,
   });
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setBusinessPhone(settings.phone ?? "");
+      setWhatsappSupport(settings.whatsappSupport ?? "");
+      setBranchPhone(settings.branchPhone ?? "");
+      setPhoneError(null);
+      setWhatsappError(null);
+      setBranchPhoneError(null);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [settings.branchPhone, settings.phone, settings.whatsappSupport]);
+
+  useEffect(() => {
+    businessDirty.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessPhone, whatsappSupport]);
+
+  useEffect(() => {
+    branchDirty.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchPhone]);
 
   useEffect(() => {
     if (!bpState.success) return;
@@ -743,12 +730,20 @@ export function SettingsForm({
       formData.set("intent", intent);
       if (intent === "business_profile") {
         const phone = formData.get("phone") as string;
+        const whatsapp = formData.get("whatsappSupport") as string;
         const isDirty = phone !== (settings.phone || "");
+        const whatsappIsDirty = whatsapp !== (settings.whatsappSupport || "");
         if (isDirty && !isValidPhoneNumber(phone)) {
           setPhoneError(shellDict?.invalidPhone || "Please enter a valid phone number (e.g. +92 300 1234567).");
           return;
         } else {
           setPhoneError(null);
+        }
+        if (whatsappIsDirty && !isValidPhoneNumber(whatsapp)) {
+          setWhatsappError("Please enter a valid WhatsApp support number (e.g. +92 300 7654321).");
+          return;
+        } else {
+          setWhatsappError(null);
         }
       }
       if (intent === "branch_profile") {
@@ -796,24 +791,32 @@ export function SettingsForm({
               <span className={labelTextClass}>Owner name</span>
               <input name="ownerName" defaultValue={settings.ownerName} disabled={!canEdit || bpPending} className={inputClass} />
             </label>
-            <label className={labelClass}>
-              <span className={labelTextClass}>Phone</span>
-              <input
-                name="phone"
-                defaultValue={settings.phone}
-                onChange={handlePhoneChange}
-                onBlur={handlePhoneBlur}
-                disabled={!canEdit || bpPending}
-                className={`${inputClass} ${phoneError ? "border-red-500 focus:border-red-500" : ""}`}
-              />
-              {phoneError && (
-                <p className="mt-1 text-xs text-red-600">{phoneError}</p>
-              )}
-            </label>
-            <label className={labelClass}>
-              <span className={labelTextClass}>WhatsApp support</span>
-              <input name="whatsappSupport" defaultValue={settings.whatsappSupport} disabled={!canEdit || bpPending} className={inputClass} />
-            </label>
+            <PhoneNumberInput
+              label="Phone"
+              id="settings-phone"
+              name="phone"
+              value={businessPhone}
+              onChange={(value) => {
+                setBusinessPhone(value);
+                if (!value || isValidPhoneNumber(value)) setPhoneError(null);
+              }}
+              disabled={!canEdit || bpPending}
+              error={phoneError}
+              helperText="This shop phone is used on invoices and receipts."
+            />
+            <PhoneNumberInput
+              label="WhatsApp support"
+              id="settings-whatsapp-support"
+              name="whatsappSupport"
+              value={whatsappSupport}
+              onChange={(value) => {
+                setWhatsappSupport(value);
+                if (!value || isValidPhoneNumber(value)) setWhatsappError(null);
+              }}
+              disabled={!canEdit || bpPending}
+              error={whatsappError}
+              helperText="Optional customer support WhatsApp number."
+            />
             <label className={labelClass}>
               <span className={labelTextClass}>Email</span>
               <input name="email" type="email" defaultValue={settings.email} disabled={!canEdit || bpPending} className={inputClass} />
@@ -875,20 +878,19 @@ export function SettingsForm({
               <span className={labelTextClass}>Branch name</span>
               <input name="branchName" required defaultValue={settings.branchName} disabled={!canEdit || brPending} className={inputClass} />
             </label>
-            <label className={labelClass}>
-              <span className={labelTextClass}>Branch phone</span>
-              <input
-                name="branchPhone"
-                defaultValue={settings.branchPhone}
-                onChange={handleBranchPhoneChange}
-                onBlur={handleBranchPhoneBlur}
-                disabled={!canEdit || brPending}
-                className={`${inputClass} ${branchPhoneError ? "border-red-500 focus:border-red-500" : ""}`}
-              />
-              {branchPhoneError && (
-                <p className="mt-1 text-xs text-red-600">{branchPhoneError}</p>
-              )}
-            </label>
+            <PhoneNumberInput
+              label="Branch phone"
+              id="settings-branch-phone"
+              name="branchPhone"
+              value={branchPhone}
+              onChange={(value) => {
+                setBranchPhone(value);
+                if (!value || isValidPhoneNumber(value)) setBranchPhoneError(null);
+              }}
+              disabled={!canEdit || brPending}
+              error={branchPhoneError}
+              helperText="Branch-specific number, if different from the main shop."
+            />
             <label className="block min-w-0 md:col-span-2">
               <span className={labelTextClass}>Branch address</span>
               <textarea name="branchAddress" defaultValue={settings.branchAddress} disabled={!canEdit || brPending} className={textareaClass} />

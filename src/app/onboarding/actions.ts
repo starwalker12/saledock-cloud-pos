@@ -21,7 +21,9 @@ const onboardingSchema = z.object({
   orgPhone: z.string().min(1, "Please enter your shop phone number.").refine((val) => isValidPhoneNumber(val), {
     message: "Please enter a valid shop phone number (e.g. +92 300 1234567).",
   }),
-  orgWhatsapp: z.string().optional().default(""),
+  orgWhatsapp: z.string().optional().default("").refine((val) => isValidPhoneNumber(val), {
+    message: "Please enter a valid WhatsApp number (e.g. +92 300 7654321).",
+  }),
   orgEmail: z.string().email("Please enter a valid shop email address."),
   orgAddress: z.string().optional().default(""),
   currencyCode: z.string().optional().default("PKR"),

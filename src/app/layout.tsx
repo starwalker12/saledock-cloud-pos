@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import AnalyticsNotice from "@/components/analytics-notice";
+import { OfflineScreen } from "@/components/network/offline-screen";
 import { env } from "@/lib/env";
 import {
   COLOR_THEME_STORAGE_KEY,
@@ -179,6 +180,7 @@ export default async function RootLayout({
           <LanguageProvider>
             <ToastProvider>
               {children}
+              <OfflineScreen />
             </ToastProvider>
           </LanguageProvider>
         </ThemeProvider>
