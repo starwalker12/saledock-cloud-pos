@@ -7,6 +7,7 @@ import type { SupplierRow } from "@/lib/data/catalog";
 import type { StockLotRow, StockMovementRow } from "@/lib/data/inventory";
 import type { ActionState } from "./inventory-actions";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { AppSelect } from "@/components/ui/app-select";
 
 type Props = {
   productId: string;
@@ -100,6 +101,17 @@ export function InventorySection({ productId, productName, suppliers, currency, 
       day: "numeric",
     });
   };
+  const supplierOptions = [
+    { value: "", label: "No supplier" },
+    ...suppliers.map((s) => ({
+      value: s.id,
+      label: `${s.name}${s.company ? ` (${s.company})` : ""}`,
+    })),
+  ];
+  const adjustmentTypeOptions = [
+    { value: "in", label: "Adjustment IN (+ Stock)" },
+    { value: "out", label: "Adjustment OUT (- Stock)" },
+  ];
 
   return (
     <div className="mt-2 border-t border-slate-100 pt-2 md:mt-4 md:pt-3 dark:border-slate-800">
@@ -346,17 +358,14 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                       </label>
                       <label className="block text-xs font-bold text-slate-600">
                         Supplier (Optional)
-                        <select
+                        <AppSelect
                           name="supplier_id"
-                          className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2 outline-none focus:border-blue-600 text-sm font-semibold bg-[#fff]"
-                        >
-                          <option value="">No supplier</option>
-                          {suppliers.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} {s.company ? `(${s.company})` : ""}
-                            </option>
-                          ))}
-                        </select>
+                          options={supplierOptions}
+                          ariaLabel="Supplier"
+                          searchable={suppliers.length > 8}
+                          className="mt-1"
+                          buttonClassName="h-9 rounded-md text-sm"
+                        />
                       </label>
                       <label className="block text-xs font-bold text-slate-600">
                         Lot Number (Optional)
@@ -423,14 +432,15 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                     <div className="grid gap-3 sm:grid-cols-3">
                       <label className="block text-xs font-bold text-slate-600">
                         Adjustment Type *
-                        <select
+                        <AppSelect
                           name="adjustment_type"
+                          defaultValue="in"
                           required
-                          className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2 outline-none focus:border-blue-600 text-sm font-semibold bg-[#fff]"
-                        >
-                          <option value="in">Adjustment IN (+ Stock)</option>
-                          <option value="out">Adjustment OUT (- Stock)</option>
-                        </select>
+                          options={adjustmentTypeOptions}
+                          ariaLabel="Adjustment type"
+                          className="mt-1"
+                          buttonClassName="h-9 rounded-md text-sm"
+                        />
                       </label>
                       <label className="block text-xs font-bold text-slate-600">
                         Audit Quantity *

@@ -6,6 +6,7 @@ import type { ReturnableInvoiceItem } from "@/lib/data/returns";
 import { formatCurrency } from "@/lib/formatters";
 import { REFUND_METHODS } from "@/lib/validation/returns";
 import { Loader2, Check } from "lucide-react";
+import { AppSelect } from "@/components/ui/app-select";
 
 const initial: ReturnActionState = { error: null, success: null };
 
@@ -16,6 +17,10 @@ const METHOD_LABELS: Record<string, string> = {
   jazzcash: "JazzCash",
   bank_transfer: "Bank transfer",
 };
+const REFUND_OPTIONS = [
+  { value: "", label: "No payout now" },
+  ...REFUND_METHODS.map((method) => ({ value: method, label: METHOD_LABELS[method] })),
+];
 
 export function ReturnForm({
   invoiceId,
@@ -247,18 +252,13 @@ export function ReturnForm({
             </label>
             <label className="block">
               <span className="text-xs font-bold text-slate-700">Refund method</span>
-              <select
+              <AppSelect
                 name="refund_method"
                 disabled={pending}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 disabled:bg-slate-50"
-              >
-                <option value="">No payout now</option>
-                {REFUND_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {METHOD_LABELS[method]}
-                  </option>
-                ))}
-              </select>
+                options={REFUND_OPTIONS}
+                ariaLabel="Refund method"
+                className="mt-1"
+              />
             </label>
             <label className="block">
               <span className="text-xs font-bold text-slate-700">Reference</span>

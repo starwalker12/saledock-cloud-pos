@@ -13,6 +13,7 @@ import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { RepairForm } from "./repair-form";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
+import { AppSelect } from "@/components/ui/app-select";
 
 type SearchParams = {
   q?: string;
@@ -33,6 +34,15 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
+const STATUS_OPTIONS = [
+  { value: "", label: "All statuses" },
+  { value: "received", label: "Received" },
+  { value: "waiting_for_parts", label: "Waiting for parts" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Ready for delivery" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-PK", {
@@ -170,19 +180,13 @@ export default async function RepairsPage({
               <div className="mt-3 grid gap-3">
                 <label className="block min-w-0">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
-                  <select
+                  <AppSelect
                     name="status"
                     defaultValue={params.status ?? ""}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
-                  >
-                    <option value="">All statuses</option>
-                    <option value="received">Received</option>
-                    <option value="waiting_for_parts">Waiting for parts</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Ready for delivery</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                    options={STATUS_OPTIONS}
+                    ariaLabel="Status"
+                    className="mt-1"
+                  />
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -230,19 +234,14 @@ export default async function RepairsPage({
 
             <div className="min-w-0">
               <label className="mb-1 block text-slate-500 text-xs font-semibold uppercase tracking-wide">Status</label>
-              <select
+              <AppSelect
                 name="status"
                 defaultValue={params.status ?? ""}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-blue-600 lg:w-auto"
-              >
-                <option value="">All statuses</option>
-                <option value="received">Received</option>
-                <option value="waiting_for_parts">Waiting for parts</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Ready for delivery</option>
-                <option value="delivered">Delivered</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+                options={STATUS_OPTIONS}
+                ariaLabel="Status"
+                buttonClassName="h-9 text-xs"
+                className="lg:w-48"
+              />
             </div>
 
             <div className="grid gap-2 min-[380px]:grid-cols-2 sm:col-span-2 lg:col-span-1">

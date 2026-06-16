@@ -5,6 +5,7 @@ import { saveProductAction, type ActionState } from "./actions";
 import type { CategoryRow, ProductRow, SupplierRow } from "@/lib/data/catalog";
 import { BarcodeScanner } from "./barcode-scanner";
 import { Loader2 } from "lucide-react";
+import { AppSelect } from "@/components/ui/app-select";
 
 const initial: ActionState = { error: null, success: null };
 
@@ -40,6 +41,20 @@ export function ProductForm({
   const input = "mt-1 h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600";
   const activeCategories = categories.filter((c) => c.is_active || c.id === initialValues?.category_id);
   const activeSuppliers = suppliers.filter((s) => s.is_active || s.id === initialValues?.supplier_id);
+  const categoryOptions = [
+    { value: "", label: "—" },
+    ...activeCategories.map((c) => ({
+      value: c.id,
+      label: `${c.name}${c.is_active ? "" : " (archived)"}`,
+    })),
+  ];
+  const supplierOptions = [
+    { value: "", label: "—" },
+    ...activeSuppliers.map((s) => ({
+      value: s.id,
+      label: `${s.name}${s.is_active ? "" : " (archived)"}`,
+    })),
+  ];
 
   return (
     <form ref={formRef} action={action} className="grid gap-3 md:grid-cols-2">
@@ -86,27 +101,29 @@ export function ProductForm({
 
       <label className="block">
         <span className="text-sm font-semibold text-slate-700">Category</span>
-        <select name="category_id" defaultValue={initialValues?.category_id ?? ""} disabled={!canWrite} className={input}>
-          <option value="">—</option>
-          {activeCategories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.is_active ? "" : " (archived)"}
-            </option>
-          ))}
-        </select>
+        <AppSelect
+          name="category_id"
+          defaultValue={initialValues?.category_id ?? ""}
+          disabled={!canWrite}
+          options={categoryOptions}
+          ariaLabel="Category"
+          searchable={activeCategories.length > 8}
+          className="mt-1"
+          buttonClassName="h-11"
+        />
       </label>
       <label className="block">
         <span className="text-sm font-semibold text-slate-700">Supplier</span>
-        <select name="supplier_id" defaultValue={initialValues?.supplier_id ?? ""} disabled={!canWrite} className={input}>
-          <option value="">—</option>
-          {activeSuppliers.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-              {s.is_active ? "" : " (archived)"}
-            </option>
-          ))}
-        </select>
+        <AppSelect
+          name="supplier_id"
+          defaultValue={initialValues?.supplier_id ?? ""}
+          disabled={!canWrite}
+          options={supplierOptions}
+          ariaLabel="Supplier"
+          searchable={activeSuppliers.length > 8}
+          className="mt-1"
+          buttonClassName="h-11"
+        />
       </label>
 
       <label className={`block ${isService ? "opacity-50" : ""}`}>

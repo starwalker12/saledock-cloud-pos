@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { updatePrivacyRequestStatusAction } from "../privacy-request-actions";
+import { AppSelect } from "@/components/ui/app-select";
 
 export type PrivacyRequest = {
   id: string;
@@ -56,6 +57,18 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 
 const STATUSES = ["all", "pending", "in_review", "completed", "rejected", "cancelled"] as const;
 const TYPES = ["all", "access", "export", "correction", "deletion", "restriction", "portability", "objection"] as const;
+const STATUS_FILTER_OPTIONS = STATUSES.map((status) => ({
+  value: status,
+  label: status === "all" ? "All statuses" : status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+}));
+const TYPE_FILTER_OPTIONS = TYPES.map((type) => ({
+  value: type,
+  label: type === "all" ? "All types" : REQUEST_TYPE_LABELS[type] ?? type,
+}));
+const UPDATE_STATUS_OPTIONS = ["pending", "in_review", "completed", "rejected"].map((status) => ({
+  value: status,
+  label: status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+}));
 
 function statusBadge(status: string) {
   const cfg = STATUS_CONFIG[status] ?? { label: status, className: "text-slate-700 bg-slate-50 border-slate-200" };
@@ -172,28 +185,22 @@ export function PrivacyRequestTriage({ requests: initialRequests, orgNames }: Pr
 
         <div className="flex items-center gap-2">
           <Filter className="size-4 text-slate-400" />
-          <select
+          <AppSelect
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s === "all" ? "All statuses" : s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-              </option>
-            ))}
-          </select>
-          <select
+            onChange={setFilterStatus}
+            options={STATUS_FILTER_OPTIONS}
+            ariaLabel="Privacy request status"
+            className="w-40"
+            buttonClassName="rounded-xl"
+          />
+          <AppSelect
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-          >
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t === "all" ? "All types" : REQUEST_TYPE_LABELS[t] ?? t}
-              </option>
-            ))}
-          </select>
+            onChange={setFilterType}
+            options={TYPE_FILTER_OPTIONS}
+            ariaLabel="Privacy request type"
+            className="w-40"
+            buttonClassName="rounded-xl"
+          />
         </div>
       </div>
 
@@ -397,17 +404,14 @@ function DetailPanel({
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Update Status
               </label>
-              <select
+              <AppSelect
                 name="status"
                 defaultValue={request.status}
-                className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-              >
-                {["pending", "in_review", "completed", "rejected"].map((s) => (
-                  <option key={s} value={s}>
-                    {s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </option>
-                ))}
-              </select>
+                options={UPDATE_STATUS_OPTIONS}
+                ariaLabel="Update status"
+                className="mt-1"
+                buttonClassName="rounded-xl font-semibold"
+              />
             </div>
           </div>
 

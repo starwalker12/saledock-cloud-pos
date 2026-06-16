@@ -5,8 +5,24 @@ import { X, Search, Loader2 } from "lucide-react";
 import { saveRepairAction } from "./actions";
 import type { CustomerRow } from "@/lib/data/customers";
 import type { RepairRow } from "@/lib/data/repairs";
+import { AppSelect } from "@/components/ui/app-select";
 
 const defaultState = { error: null as string | null, success: null as string | null };
+const PAYMENT_OPTIONS = [
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Card" },
+  { value: "easypaisa", label: "EasyPaisa" },
+  { value: "jazzcash", label: "JazzCash" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+];
+const STATUS_OPTIONS = [
+  { value: "received", label: "Received" },
+  { value: "waiting_for_parts", label: "Waiting for Parts" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Ready for Delivery" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 export function RepairForm({
   customers,
@@ -319,17 +335,12 @@ export function RepairForm({
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 Payment Method
               </label>
-              <select
+              <AppSelect
                 name="payment_method"
                 defaultValue={repair?.payment_method ?? "cash"}
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-600"
-              >
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="easypaisa">EasyPaisa</option>
-                <option value="jazzcash">JazzCash</option>
-                <option value="bank_transfer">Bank Transfer</option>
-              </select>
+                options={PAYMENT_OPTIONS}
+                ariaLabel="Payment method"
+              />
             </div>
           </div>
 
@@ -352,18 +363,13 @@ export function RepairForm({
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Status
                 </label>
-                <select
+                <AppSelect
                   name="status"
                   defaultValue={repair.status}
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-600 animate-pulse bg-amber-50/50"
-                >
-                  <option value="received">Received</option>
-                  <option value="waiting_for_parts">Waiting for Parts</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Ready for Delivery</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                  options={STATUS_OPTIONS}
+                  ariaLabel="Status"
+                  buttonClassName="bg-amber-50/50 font-bold"
+                />
               </div>
             ) : (
               <input type="hidden" name="status" value="received" />

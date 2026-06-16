@@ -4,8 +4,17 @@ import { useActionState, useState } from "react";
 import { updateRepairStatusAction } from "../actions";
 import type { RepairRow } from "@/lib/data/repairs";
 import type { RepairStatus } from "@/lib/validation/repairs";
+import { AppSelect } from "@/components/ui/app-select";
 
 const defaultState = { error: null as string | null, success: null as string | null };
+const STATUS_OPTIONS = [
+  { value: "received", label: "Received" },
+  { value: "waiting_for_parts", label: "Waiting for Parts" },
+  { value: "in_progress", label: "In Progress (Repairing)" },
+  { value: "completed", label: "Ready for Delivery (Completed)" },
+  { value: "delivered", label: "Delivered to Customer" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 export function StatusForm({ repair }: { repair: RepairRow }) {
   const [state, formAction, isPending] = useActionState(updateRepairStatusAction, defaultState);
@@ -25,19 +34,14 @@ export function StatusForm({ repair }: { repair: RepairRow }) {
           <label className="block text-xs font-bold text-slate-700 mb-1">
             Update Workflow Status
           </label>
-          <select
+          <AppSelect
             name="status"
             value={status}
-            onChange={(e) => setStatus(e.target.value as RepairStatus)}
-            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-600 bg-amber-50/50 font-bold"
-          >
-            <option value="received">Received</option>
-            <option value="waiting_for_parts">Waiting for Parts</option>
-            <option value="in_progress">In Progress (Repairing)</option>
-            <option value="completed">Ready for Delivery (Completed)</option>
-            <option value="delivered">Delivered to Customer</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            onChange={(nextValue) => setStatus(nextValue as RepairStatus)}
+            options={STATUS_OPTIONS}
+            ariaLabel="Update workflow status"
+            buttonClassName="bg-amber-50/50 font-bold"
+          />
         </div>
 
         {showFinalCost && (

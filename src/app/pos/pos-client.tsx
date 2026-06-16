@@ -17,6 +17,7 @@ import {
 import type { PosCustomer, PosProduct } from "@/lib/data/pos";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { useToast } from "@/components/ui/toast";
+import { AppSelect } from "@/components/ui/app-select";
 
 type Props = {
   products: PosProduct[];
@@ -128,6 +129,27 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       );
     });
   }, [products, search, categoryId]);
+  const categoryOptions = useMemo(
+    () => [
+      { value: "", label: "All categories" },
+      ...categories.map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [categories],
+  );
+  const customerOptions = useMemo(
+    () => [
+      { value: "", label: "Walk-in" },
+      ...customers.map((c) => ({
+        value: c.id,
+        label: `${c.name}${c.phone ? ` · ${c.phone}` : ""}`,
+      })),
+    ],
+    [customers],
+  );
+  const paymentOptions = useMemo(
+    () => PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_LABELS[m] })),
+    [],
+  );
 
   const subtotal = useMemo(
     () => cart.reduce((s, l) => s + Math.max(l.unit_price * l.quantity - l.discount, 0), 0),
@@ -395,18 +417,15 @@ export function PosClient({ products: initialProducts, customers: initialCustome
           />
           <label className="min-w-0">
             <span className="sr-only">Category</span>
-            <select
+            <AppSelect
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 sm:w-52"
-            >
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={setCategoryId}
+              options={categoryOptions}
+              ariaLabel="Category"
+              searchable={categories.length > 8}
+              className="sm:w-52"
+              buttonClassName="h-11"
+            />
           </label>
         </div>
         {scanResult && (
@@ -619,19 +638,14 @@ export function PosClient({ products: initialProducts, customers: initialCustome
         <div className="mt-5">
           <label className="block text-sm font-semibold text-slate-700">Customer</label>
           <div className="mt-1 flex flex-col gap-2 min-[360px]:flex-row">
-            <select
+            <AppSelect
               value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-              className="h-10 w-full min-w-0 flex-1 rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 px-3 outline-none focus:border-blue-600"
-            >
-              <option value="">Walk-in</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.phone ? ` · ${c.phone}` : ""}
-                </option>
-              ))}
-            </select>
+              onChange={setCustomerId}
+              options={customerOptions}
+              ariaLabel="Customer"
+              searchable={customers.length > 8}
+              className="min-w-0 flex-1"
+            />
             <button
               onClick={() => setShowCustomerForm((v) => !v)}
               className="flex h-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-[#fff] dark:bg-slate-900 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -692,10 +706,10 @@ export function PosClient({ products: initialProducts, customers: initialCustome
 
           <div className="border-t border-slate-200 pt-3">
             <label className="block text-sm font-semibold text-slate-700">Payment method</label>
-            <select
+            <AppSelect
               value={paymentMethod}
-              onChange={(e) => {
-                const method = e.target.value as PaymentMethod;
+              onChange={(nextValue) => {
+                const method = nextValue as PaymentMethod;
                 setPaymentMethod(method);
                 if (method === "customer_credit") {
                   setAmountPaid("0");
@@ -703,14 +717,10 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                   setAmountPaid("");
                 }
               }}
-              className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600"
-            >
-              {PAYMENT_METHODS.map((m) => (
-                <option key={m} value={m}>
-                  {PAYMENT_LABELS[m]}
-                </option>
-              ))}
-            </select>
+              options={paymentOptions}
+              ariaLabel="Payment method"
+              className="mt-1"
+            />
           </div>
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">Amount tendered</span>
@@ -846,6 +856,10 @@ function ServiceLineDetails({
   const totalLessThanCommission =
     s.total_charged !== "" && commissionNum > 0 && totalNum < commissionNum;
   const computedTotal = principalNum + commissionNum;
+  const directionOptions = [
+    { value: "", label: "—" },
+    ...SERVICE_DIRECTIONS.map((d) => ({ value: d, label: SERVICE_DIRECTION_LABELS[d] })),
+  ];
 
   return (
     <details className="mt-3 rounded-lg border border-blue-100 bg-blue-50/40 p-3" open>
@@ -870,20 +884,14 @@ function ServiceLineDetails({
         </label>
         <label className="text-xs">
           <span className="text-slate-600">Direction / type</span>
-          <select
+          <AppSelect
             value={s.direction}
-            onChange={(e) =>
-              onChange({ direction: e.target.value as ServiceDirection | "" })
-            }
-            className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2 outline-none focus:border-blue-600"
-          >
-            <option value="">—</option>
-            {SERVICE_DIRECTIONS.map((d) => (
-              <option key={d} value={d}>
-                {SERVICE_DIRECTION_LABELS[d]}
-              </option>
-            ))}
-          </select>
+            onChange={(nextValue) => onChange({ direction: nextValue as ServiceDirection | "" })}
+            options={directionOptions}
+            ariaLabel="Direction / type"
+            className="mt-1"
+            buttonClassName="h-9 rounded-md text-xs"
+          />
         </label>
         <label className="text-xs">
           <span className="text-slate-600">

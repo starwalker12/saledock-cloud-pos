@@ -8,6 +8,7 @@ import {
 } from "@/lib/validation/expenses";
 import type { ExpenseRow } from "@/lib/data/expenses";
 import { Loader2 } from "lucide-react";
+import { AppSelect } from "@/components/ui/app-select";
 
 const initial: ActionState = { error: null, success: null };
 
@@ -47,6 +48,10 @@ export function ExpenseForm({
   const allCategories = [
     ...new Set([...knownCategories, ...SUGGESTED_CATEGORIES]),
   ].sort((a, b) => a.localeCompare(b));
+  const paymentOptions = EXPENSE_PAYMENT_METHODS.map((m) => ({
+    value: m,
+    label: PAYMENT_LABELS[m] ?? m,
+  }));
 
   return (
     <form ref={formRef} action={action} className="grid gap-3 sm:grid-cols-2">
@@ -86,18 +91,15 @@ export function ExpenseForm({
 
       <label className="block">
         <span className="text-sm font-semibold text-slate-700">Payment method</span>
-        <select
+        <AppSelect
           name="payment_method"
           defaultValue={initialValues?.payment_method ?? "cash"}
           disabled={!canWrite}
-          className={input}
-        >
-          {EXPENSE_PAYMENT_METHODS.map((m) => (
-            <option key={m} value={m}>
-              {PAYMENT_LABELS[m] ?? m}
-            </option>
-          ))}
-        </select>
+          options={paymentOptions}
+          ariaLabel="Payment method"
+          className="mt-1"
+          buttonClassName="h-11"
+        />
       </label>
 
       <label className="block">

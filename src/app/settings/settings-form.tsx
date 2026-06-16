@@ -6,6 +6,7 @@ import type { BrandingSettings } from "@/lib/data/settings";
 import { updateSettingsAction, updateProfilePictureAction, type SettingsActionState, type SettingsIntent } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
+import { AppSelect } from "@/components/ui/app-select";
 import { Check, ImageIcon, RotateCcw, Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
@@ -34,6 +35,10 @@ const textareaClass =
 const labelClass = "block min-w-0";
 const labelTextClass = "text-xs font-bold uppercase tracking-wide text-slate-500";
 const MINIMUM_CONTRAST_RATIO = 4.5;
+const PRINT_FORMAT_OPTIONS = [
+  { value: "a4", label: "A4 default" },
+  { value: "80mm_planned", label: "80mm planned / deferred" },
+];
 
 function Section({
   title,
@@ -973,10 +978,15 @@ export function SettingsForm({
               </label>
               <label className={labelClass}>
                 <span className={labelTextClass}>Default print format</span>
-                <select name="printFormat" defaultValue={settings.printFormat} disabled={!canEdit || invPending} className={inputClass}>
-                  <option value="a4">A4 default</option>
-                  <option value="80mm_planned">80mm planned / deferred</option>
-                </select>
+                <AppSelect
+                  name="printFormat"
+                  defaultValue={settings.printFormat}
+                  disabled={!canEdit || invPending}
+                  options={PRINT_FORMAT_OPTIONS}
+                  ariaLabel="Default print format"
+                  className="mt-1"
+                  buttonClassName="h-11 rounded-xl"
+                />
               </label>
             </div>
           </div>

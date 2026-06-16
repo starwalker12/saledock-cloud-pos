@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AppSelect } from "@/components/ui/app-select";
 import { getCurrentContext } from "@/lib/auth/session";
 import {
   catalogCounts,
@@ -194,6 +195,10 @@ async function ProductsTab({
   const showForm = isEdit || Boolean(prefillBarcode);
   const hasProductFilters = Boolean(params.q || params.category || params.lowstock || params.inactive);
   const createInitial = prefillBarcode && !isEdit ? { barcode: prefillBarcode } as Partial<ProductRow> : editing;
+  const categoryOptions = [
+    { value: "", label: "All" },
+    ...categories.map((c) => ({ value: c.id, label: c.name })),
+  ];
 
   const sort = params.sort;
   const dir = params.dir === "desc" ? "desc" : "asc";
@@ -259,18 +264,14 @@ async function ProductsTab({
           <div className="mt-3 grid gap-3">
             <label className="block min-w-0">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Category</span>
-              <select
+              <AppSelect
                 name="category"
                 defaultValue={params.category ?? ""}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="">All</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                options={categoryOptions}
+                ariaLabel="Category"
+                searchable={categories.length > 8}
+                className="mt-1"
+              />
             </label>
             <div className="grid gap-2">
               <label className="flex min-h-10 items-center gap-2 rounded-lg bg-[#fff] px-3 dark:bg-slate-900">
@@ -304,18 +305,14 @@ async function ProductsTab({
         </label>
         <label className="block min-w-0">
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Category</span>
-          <select
+          <AppSelect
             name="category"
             defaultValue={params.category ?? ""}
-            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-48 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-          >
-            <option value="">All</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            options={categoryOptions}
+            ariaLabel="Category"
+            searchable={categories.length > 8}
+            className="mt-1 lg:w-48"
+          />
         </label>
         <label className="flex min-h-10 items-center gap-2">
           <input type="checkbox" name="lowstock" value="1" defaultChecked={params.lowstock === "1"} className="size-4" />

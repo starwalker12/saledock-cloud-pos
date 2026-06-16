@@ -4,6 +4,7 @@ import { AlertCircle, CalendarDays, Receipt, Tag, Wallet } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AppSelect } from "@/components/ui/app-select";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageExpenses } from "@/lib/permissions";
 import {
@@ -111,6 +112,14 @@ export default async function ExpensesPage({
 
   const editing = params.edit ? sortedExpenses.find((e) => e.id === params.edit) : undefined;
   const isEdit = Boolean(editing);
+  const categoryOptions = [
+    { value: "", label: "All" },
+    ...knownCategories.map((c) => ({ value: c, label: c })),
+  ];
+  const paymentOptions = [
+    { value: "", label: "All" },
+    ...EXPENSE_PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_LABELS[m] ?? m })),
+  ];
 
   return (
     <AppShell pageTitle="Expenses">
@@ -219,34 +228,25 @@ export default async function ExpensesPage({
               <div className="mt-3 grid gap-3">
                 <label className="block min-w-0">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
-                  <select
+                  <AppSelect
                     name="category"
                     defaultValue={params.category ?? ""}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
-                  >
-                    <option value="">All</option>
-                    {knownCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                    options={categoryOptions}
+                    ariaLabel="Category"
+                    searchable={knownCategories.length > 8}
+                    className="mt-1"
+                  />
                 </label>
 
                 <label className="block min-w-0">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
-                  <select
+                  <AppSelect
                     name="payment_method"
                     defaultValue={params.payment_method ?? ""}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
-                  >
-                    <option value="">All</option>
-                    {EXPENSE_PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {PAYMENT_LABELS[m] ?? m}
-                      </option>
-                    ))}
-                  </select>
+                    options={paymentOptions}
+                    ariaLabel="Payment method"
+                    className="mt-1"
+                  />
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -303,33 +303,24 @@ export default async function ExpensesPage({
             </label>
             <label className="block min-w-0">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
-              <select
+              <AppSelect
                 name="category"
                 defaultValue={params.category ?? ""}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-44"
-              >
-                <option value="">All</option>
-                {knownCategories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                options={categoryOptions}
+                ariaLabel="Category"
+                searchable={knownCategories.length > 8}
+                className="mt-1 lg:w-44"
+              />
             </label>
             <label className="block min-w-0">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
-              <select
+              <AppSelect
                 name="payment_method"
                 defaultValue={params.payment_method ?? ""}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-44"
-              >
-                <option value="">All</option>
-                {EXPENSE_PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {PAYMENT_LABELS[m] ?? m}
-                  </option>
-                ))}
-              </select>
+                options={paymentOptions}
+                ariaLabel="Payment method"
+                className="mt-1 lg:w-44"
+              />
             </label>
             <label className="block min-w-0 font-bold">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">From</span>

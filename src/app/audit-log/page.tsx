@@ -8,6 +8,7 @@ import { listAuditLogs, getAuditModules, getAuditActors } from "@/lib/data/audit
 import { env } from "@/lib/env";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
+import { AppSelect } from "@/components/ui/app-select";
 
 type SearchParams = {
   q?: string;
@@ -165,6 +166,14 @@ export default async function AuditLogPage({
   const loadMoreHref = `/audit-log?${loadMoreParams.toString()}`;
 
   const hasActiveFilters = params.q || params.module || params.action || params.from || params.to || params.actor;
+  const moduleOptions = [
+    { value: "", label: "All modules" },
+    ...modules.map((m) => ({ value: m, label: fmtModule(m) })),
+  ];
+  const actorOptions = [
+    { value: "", label: "All users" },
+    ...actors.map((a) => ({ value: a.id, label: a.full_name })),
+  ];
 
   return (
     <AppShell pageTitle="Audit Log">
@@ -210,34 +219,26 @@ export default async function AuditLogPage({
               <div className="mt-3 grid gap-3">
                 <label className="block min-w-0">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Module</span>
-                  <select
+                  <AppSelect
                     name="module"
                     defaultValue={params.module ?? ""}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
-                  >
-                    <option value="">All modules</option>
-                    {modules.map((m) => (
-                      <option key={m} value={m}>
-                        {fmtModule(m)}
-                      </option>
-                    ))}
-                  </select>
+                    options={moduleOptions}
+                    ariaLabel="Module"
+                    searchable={modules.length > 8}
+                    className="mt-1"
+                  />
                 </label>
 
                 <label className="block min-w-0">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">User</span>
-                  <select
+                  <AppSelect
                     name="actor"
                     defaultValue={params.actor ?? ""}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
-                  >
-                    <option value="">All users</option>
-                    {actors.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.full_name}
-                      </option>
-                    ))}
-                  </select>
+                    options={actorOptions}
+                    ariaLabel="User"
+                    searchable={actors.length > 8}
+                    className="mt-1"
+                  />
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -290,35 +291,29 @@ export default async function AuditLogPage({
             {/* Module Filter */}
             <div className="min-w-0">
               <label className="mb-1 block text-slate-500 text-xs font-semibold uppercase tracking-wide">Module</label>
-              <select
+              <AppSelect
                 name="module"
                 defaultValue={params.module ?? ""}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-blue-600 lg:w-auto"
-              >
-                <option value="">All modules</option>
-                {modules.map((m) => (
-                  <option key={m} value={m}>
-                    {fmtModule(m)}
-                  </option>
-                ))}
-              </select>
+                options={moduleOptions}
+                ariaLabel="Module"
+                searchable={modules.length > 8}
+                buttonClassName="h-9 text-xs"
+                className="lg:w-44"
+              />
             </div>
 
             {/* Actor Filter */}
             <div className="min-w-0">
               <label className="mb-1 block text-slate-500 text-xs font-semibold uppercase tracking-wide">User</label>
-              <select
+              <AppSelect
                 name="actor"
                 defaultValue={params.actor ?? ""}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-blue-600 lg:w-auto"
-              >
-                <option value="">All users</option>
-                {actors.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.full_name}
-                  </option>
-                ))}
-              </select>
+                options={actorOptions}
+                ariaLabel="User"
+                searchable={actors.length > 8}
+                buttonClassName="h-9 text-xs"
+                className="lg:w-44"
+              />
             </div>
 
             {/* Date Range */}
