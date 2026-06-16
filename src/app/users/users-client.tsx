@@ -12,6 +12,7 @@ import {
 } from "./actions";
 import type { StaffBranch, StaffUser } from "@/lib/data/users";
 import { STAFF_ROLES, type StaffRole } from "@/lib/validation/users";
+import { AppSelect } from "@/components/ui/app-select";
 
 const initialState: UserActionState = { error: null, success: null };
 
@@ -64,15 +65,20 @@ function BranchSelect({
   defaultValue?: string | null;
   className?: string;
 }) {
+  const branchOptions = [
+    { value: "", label: "No branch" },
+    ...branches.map((branch) => ({ value: branch.id, label: branch.name })),
+  ];
+
   return (
-    <select name="branchId" defaultValue={defaultValue ?? ""} className={className}>
-      <option value="">No branch</option>
-      {branches.map((branch) => (
-        <option key={branch.id} value={branch.id}>
-          {branch.name}
-        </option>
-      ))}
-    </select>
+    <AppSelect
+      name="branchId"
+      defaultValue={defaultValue ?? ""}
+      options={branchOptions}
+      ariaLabel="Branch"
+      searchable={branches.length > 8}
+      buttonClassName={className}
+    />
   );
 }
 
@@ -83,14 +89,16 @@ function RoleSelect({
   defaultValue: StaffRole;
   className?: string;
 }) {
+  const roleOptions = STAFF_ROLES.map((role) => ({ value: role, label: roleLabels[role] }));
+
   return (
-    <select name="role" defaultValue={defaultValue} className={className}>
-      {STAFF_ROLES.map((role) => (
-        <option key={role} value={role}>
-          {roleLabels[role]}
-        </option>
-      ))}
-    </select>
+    <AppSelect
+      name="role"
+      defaultValue={defaultValue}
+      options={roleOptions}
+      ariaLabel="Role"
+      buttonClassName={className}
+    />
   );
 }
 function SortableHeader({

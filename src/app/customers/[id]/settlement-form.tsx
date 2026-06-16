@@ -4,8 +4,13 @@ import { useActionState, useEffect, useRef } from "react";
 import { recordCreditPaymentAction, type ActionState } from "../actions";
 import { CREDIT_PAYMENT_METHODS } from "@/lib/validation/customers";
 import { Loader2 } from "lucide-react";
+import { AppSelect } from "@/components/ui/app-select";
 
 const initial: ActionState = { error: null, success: null };
+const PAYMENT_OPTIONS = CREDIT_PAYMENT_METHODS.map((method) => ({
+  value: method,
+  label: method.toUpperCase().replace("_", " "),
+}));
 
 export function SettlementForm({
   customerId,
@@ -56,13 +61,15 @@ export function SettlementForm({
 
           <label className="block">
             <span className="text-xs font-bold text-slate-700">Payment Method</span>
-            <select name="method" required disabled={pending} className={input}>
-              {CREDIT_PAYMENT_METHODS.map((m) => (
-                <option key={m} value={m}>
-                  {m.toUpperCase().replace("_", " ")}
-                </option>
-              ))}
-            </select>
+            <AppSelect
+              name="method"
+              defaultValue={CREDIT_PAYMENT_METHODS[0]}
+              required
+              disabled={pending}
+              options={PAYMENT_OPTIONS}
+              ariaLabel="Payment method"
+              className="mt-1"
+            />
           </label>
         </div>
 

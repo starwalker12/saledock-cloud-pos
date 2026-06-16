@@ -5,6 +5,7 @@ import { completeOnboardingAction, type OnboardingState } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
+import { AppSelect } from "@/components/ui/app-select";
 
 const initialState: OnboardingState = { error: null };
 
@@ -49,6 +50,23 @@ const SOCIAL_PLATFORMS = [
   "Instagram", "Facebook", "TikTok", "X / Twitter", "Snapchat",
   "YouTube", "LinkedIn", "Website", "WhatsApp Channel", "Other",
 ] as const;
+const CURRENCY_OPTIONS = CURRENCIES.map((currency) => ({
+  value: currency.code,
+  label: currency.label,
+}));
+const TIMEZONE_OPTIONS = TIMEZONES.map((timezone) => ({
+  value: timezone,
+  label: timezone,
+}));
+const THEME_OPTIONS = [
+  { value: "system", label: "System Default" },
+  { value: "light", label: "Light Theme" },
+  { value: "dark", label: "Dark Theme" },
+];
+const SOCIAL_PLATFORM_OPTIONS = SOCIAL_PLATFORMS.map((platform) => ({
+  value: platform,
+  label: platform,
+}));
 
 type SocialLink = { platform: string; url: string };
 type StepName = "profile" | "shop" | "branch" | "branding" | "confirm";
@@ -647,27 +665,27 @@ function ShopStep({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
             <span className={labelTextClass}>Currency</span>
-            <select
+            <AppSelect
               value={data.currencyCode}
-              onChange={(e) => onChange("currencyCode", e.target.value)}
-              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-[#fff] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>{c.label}</option>
-              ))}
-            </select>
+              onChange={(nextValue) => onChange("currencyCode", nextValue)}
+              options={CURRENCY_OPTIONS}
+              ariaLabel="Currency"
+              searchable
+              className="mt-1"
+              buttonClassName="h-11 rounded-xl"
+            />
           </label>
           <label className="block">
             <span className={labelTextClass}>Timezone</span>
-            <select
+            <AppSelect
               value={data.timezone}
-              onChange={(e) => onChange("timezone", e.target.value)}
-              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-[#fff] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
-              {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>{tz}</option>
-              ))}
-            </select>
+              onChange={(nextValue) => onChange("timezone", nextValue)}
+              options={TIMEZONE_OPTIONS}
+              ariaLabel="Timezone"
+              searchable
+              className="mt-1"
+              buttonClassName="h-11 rounded-xl"
+            />
           </label>
         </div>
       </div>
@@ -1022,15 +1040,14 @@ function BrandingStep({
           </label>
           <label className="block">
             <span className={labelTextClass}>Default theme</span>
-            <select
+            <AppSelect
               value={data.defaultTheme}
-              onChange={(e) => onChange("defaultTheme", e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none bg-[#fff] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
-              <option value="system">System Default</option>
-              <option value="light">Light Theme</option>
-              <option value="dark">Dark Theme</option>
-            </select>
+              onChange={(nextValue) => onChange("defaultTheme", nextValue)}
+              options={THEME_OPTIONS}
+              ariaLabel="Default theme"
+              className="mt-1.5"
+              buttonClassName="h-11 rounded-xl"
+            />
           </label>
         </div>
       </div>
@@ -1052,15 +1069,14 @@ function BrandingStep({
         <div className="space-y-2">
           {socialLinks.map((link, i) => (
             <div key={i} className="flex items-center gap-2">
-              <select
+              <AppSelect
                 value={link.platform}
-                onChange={(e) => updateSocialLink(i, "platform", e.target.value)}
-                className="h-10 rounded-lg border border-slate-200 bg-[#fff] px-2 text-xs outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              >
-                {SOCIAL_PLATFORMS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                onChange={(nextValue) => updateSocialLink(i, "platform", nextValue)}
+                options={SOCIAL_PLATFORM_OPTIONS}
+                ariaLabel="Social platform"
+                className="w-36 shrink-0"
+                buttonClassName="h-10 rounded-lg px-2 text-xs"
+              />
               <input
                 value={link.url}
                 onChange={(e) => updateSocialLink(i, "url", e.target.value)}

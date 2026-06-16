@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SUPPLIER_PAYMENT_METHODS, type SupplierPaymentMethod } from "@/lib/validation/supplier-purchases";
 import { recordSupplierPaymentAction } from "../actions";
 import { Loader2 } from "lucide-react";
+import { AppSelect } from "@/components/ui/app-select";
 
 const PAYMENT_LABELS: Record<SupplierPaymentMethod, string> = {
   cash: "Cash",
@@ -13,6 +14,10 @@ const PAYMENT_LABELS: Record<SupplierPaymentMethod, string> = {
   jazzcash: "JazzCash",
   bank_transfer: "Bank transfer",
 };
+const PAYMENT_OPTIONS = SUPPLIER_PAYMENT_METHODS.map((m) => ({
+  value: m,
+  label: PAYMENT_LABELS[m],
+}));
 
 export function RecordPaymentForm({
   supplierId,
@@ -84,17 +89,13 @@ export function RecordPaymentForm({
       </label>
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
-        <select
+        <AppSelect
           value={method}
-          onChange={(e) => setMethod(e.target.value as SupplierPaymentMethod)}
-          className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
-        >
-          {SUPPLIER_PAYMENT_METHODS.map((m) => (
-            <option key={m} value={m}>
-              {PAYMENT_LABELS[m]}
-            </option>
-          ))}
-        </select>
+          onChange={(nextValue) => setMethod(nextValue as SupplierPaymentMethod)}
+          options={PAYMENT_OPTIONS}
+          ariaLabel="Payment method"
+          className="mt-1"
+        />
       </label>
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reference (optional)</span>

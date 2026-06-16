@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/formatters";
 import { SUPPLIER_PAYMENT_METHODS, type SupplierPaymentMethod } from "@/lib/validation/supplier-purchases";
 import { createSupplierPurchaseAction } from "../actions";
+import { AppSelect } from "@/components/ui/app-select";
 
 type Supplier = { id: string; name: string; company: string | null };
 type Product = {
@@ -62,6 +63,31 @@ export function NewPurchaseForm({
   const productById = useMemo(
     () => new Map(products.map((p) => [p.id, p] as const)),
     [products],
+  );
+  const supplierOptions = useMemo(
+    () => [
+      { value: "", label: "— Pick a supplier —" },
+      ...suppliers.map((s) => ({
+        value: s.id,
+        label: `${s.name}${s.company ? ` · ${s.company}` : ""}`,
+      })),
+    ],
+    [suppliers],
+  );
+  const productOptions = useMemo(
+    () => [
+      { value: "", label: "— Pick a product —" },
+      ...products.map((p) => ({
+        value: p.id,
+        label: `${p.name}${p.sku ? ` (${p.sku})` : ""} · stock ${p.stock_quantity}`,
+        disabled: lines.some((l) => l.product_id === p.id),
+      })),
+    ],
+    [products, lines],
+  );
+  const paymentOptions = useMemo(
+    () => SUPPLIER_PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_LABELS[m] })),
+    [],
   );
 
   const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_cost, 0);
@@ -157,20 +183,14 @@ export function NewPurchaseForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Supplier *</span>
-              <select
+              <AppSelect
                 value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
-                required
-              >
-                <option value="">— Pick a supplier —</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                    {s.company ? ` · ${s.company}` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={setSupplierId}
+                options={supplierOptions}
+                ariaLabel="Supplier"
+                searchable={suppliers.length > 8}
+                className="mt-1"
+              />
             </label>
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Purchase date</span>
@@ -207,19 +227,14 @@ export function NewPurchaseForm({
           <div className="mb-4 flex flex-wrap items-end gap-3">
             <label className="block min-w-[260px] flex-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Add product</span>
-              <select
+              <AppSelect
                 value={productPicker}
-                onChange={(e) => setProductPicker(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
-              >
-                <option value="">— Pick a product —</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id} disabled={lines.some((l) => l.product_id === p.id)}>
-                    {p.name}
-                    {p.sku ? ` (${p.sku})` : ""} · stock {p.stock_quantity}
-                  </option>
-                ))}
-              </select>
+                onChange={setProductPicker}
+                options={productOptions}
+                ariaLabel="Add product"
+                searchable={products.length > 8}
+                className="mt-1"
+              />
             </label>
             <button
               type="button"
@@ -346,17 +361,13 @@ export function NewPurchaseForm({
               <>
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
-                  <select
+                  <AppSelect
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as SupplierPaymentMethod)}
-                    className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
-                  >
-                    {SUPPLIER_PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {PAYMENT_LABELS[m]}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(nextValue) => setPaymentMethod(nextValue as SupplierPaymentMethod)}
+                    options={paymentOptions}
+                    ariaLabel="Payment method"
+                    className="mt-1"
+                  />
                 </label>
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reference (optional)</span>

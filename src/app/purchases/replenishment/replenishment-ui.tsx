@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search, AlertTriangle, PackageCheck as PkgCheck, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriority, SupplierGroup } from "@/lib/data/replenishment";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { AppSelect } from "@/components/ui/app-select";
 
 const REPLENISHMENT_GRID_CLASS =
   "grid grid-cols-[minmax(20rem,2.2fr)_6rem_5.5rem_6rem_6rem_9rem_9rem_7.5rem] items-center gap-4";
@@ -65,6 +66,18 @@ const priorityLabel: Record<ReplenishmentPriority, string> = {
   high: "High",
   medium: "Medium",
 };
+const PRIORITY_OPTIONS = [
+  { value: "all", label: "All priorities" },
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+];
+const SORT_OPTIONS = [
+  { value: "priority", label: "Sort: Priority" },
+  { value: "stock", label: "Sort: Stock level" },
+  { value: "cost", label: "Sort: Est. cost" },
+  { value: "name", label: "Sort: Name" },
+];
 
 export function ReplenishmentUI({
   summary,
@@ -148,17 +161,15 @@ export function ReplenishmentUI({
             className="h-9 w-full rounded-lg border border-slate-200 bg-[#fff] pl-9 pr-3 text-xs font-medium text-slate-950 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
           />
         </div>
-        <select
+        <AppSelect
           value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value as ReplenishmentPriority | "all")}
-          className="h-9 rounded-lg border border-slate-200 bg-[#fff] px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
-        >
-          <option value="all">All priorities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-        </select>
-        <select
+          onChange={(nextValue) => setPriorityFilter(nextValue as ReplenishmentPriority | "all")}
+          options={PRIORITY_OPTIONS}
+          ariaLabel="Priority"
+          buttonClassName="h-9 text-xs"
+          className="w-full sm:w-40"
+        />
+        <AppSelect
           value={
             sortBy === "productName"
               ? "name"
@@ -168,8 +179,7 @@ export function ReplenishmentUI({
               ? "cost"
               : "priority"
           }
-          onChange={(e) => {
-            const val = e.target.value;
+          onChange={(val) => {
             if (val === "name") {
               setSortBy("productName");
             } else if (val === "stock") {
@@ -181,13 +191,11 @@ export function ReplenishmentUI({
             }
             setSortDir("asc");
           }}
-          className="h-9 rounded-lg border border-slate-200 bg-[#fff] px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
-        >
-          <option value="priority">Sort: Priority</option>
-          <option value="stock">Sort: Stock level</option>
-          <option value="cost">Sort: Est. cost</option>
-          <option value="name">Sort: Name</option>
-        </select>
+          options={SORT_OPTIONS}
+          ariaLabel="Sort"
+          buttonClassName="h-9 text-xs"
+          className="w-full sm:w-44"
+        />
       </div>
 
       {totalItems === 0 ? (
