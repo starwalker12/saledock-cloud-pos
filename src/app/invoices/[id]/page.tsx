@@ -163,7 +163,11 @@ export default async function InvoiceDetailPage({
   const mapLinkUrl = buildMapLinkUrl(branding.googleMapsUrl, branding.latitude, branding.longitude);
 
   return (
-    <AppShell pageTitle={`Invoice ${invoice.invoice_no}`}>
+    <AppShell
+      pageTitle={`Invoice ${invoice.invoice_no}`}
+      mainClassName="p-3 pb-3 sm:p-6 sm:pb-4 md:pb-6 print:p-0"
+      showMobileTabBar={false}
+    >
       {/* ── Action bar ── */}
       <div className="print-hidden mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link

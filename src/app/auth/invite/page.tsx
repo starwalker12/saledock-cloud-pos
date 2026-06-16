@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { AlertTriangle, CheckCircle, Loader2, MailCheck } from "lucide-react";
@@ -9,6 +9,12 @@ import { recordStaffInviteAcceptedAction } from "./actions";
 
 type InviteStatus = "loading" | "success" | "error";
 
+type InviteView = {
+  status: InviteStatus;
+  title: string;
+  message: string;
+};
+
 const EXPIRED_INVITE_MESSAGE =
   "This invite link has expired. Ask the shop owner to resend the invite.";
 
@@ -16,7 +22,7 @@ function isSafeRedirectPath(value: string | null): value is string {
   return Boolean(value && /^\/(?!\/)[a-zA-Z0-9/._-]*$/.test(value));
 }
 
-function friendlyInviteError(message: string | null | undefined): string {
+function friendlyInviteError(message: string | null | undefined): InviteView {
   const lower = (message ?? "").toLowerCase();
   if (
     lower.includes("expired") ||
@@ -25,9 +31,17 @@ function friendlyInviteError(message: string | null | undefined): string {
     lower.includes("token") ||
     lower.includes("link")
   ) {
-    return EXPIRED_INVITE_MESSAGE;
+    return {
+      status: "error",
+      title: "Invite link expired",
+      message: EXPIRED_INVITE_MESSAGE,
+    };
   }
-  return "We could not accept this invite. Ask the shop owner to resend it.";
+  return {
+    status: "error",
+    title: "Invite could not be opened",
+    message: "We could not accept this invite. Ask the shop owner to resend it.",
+  };
 }
 
 function hashParams(): URLSearchParams {
@@ -35,12 +49,41 @@ function hashParams(): URLSearchParams {
   return new URLSearchParams(window.location.hash.replace(/^#/, ""));
 }
 
+function clearInviteHash() {
+  if (typeof window === "undefined" || !window.location.hash) return;
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+}
+
+function decodeJwtSubject(token: string | null): string | null {
+  if (!token || typeof window === "undefined") return null;
+  const [, payload] = token.split(".");
+  if (!payload) return null;
+
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = JSON.parse(window.atob(padded)) as { sub?: unknown };
+    return typeof decoded.sub === "string" ? decoded.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+async function currentSessionUserId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user.id ?? null;
+}
+
 function InviteCard({
   status,
+  title,
   message,
   onBackToLogin,
 }: {
   status: InviteStatus;
+  title: string;
   message: string;
   onBackToLogin: () => void;
 }) {
@@ -69,7 +112,7 @@ function InviteCard({
 
       <div className="mt-5 space-y-2">
         <h1 className="text-xl font-black text-slate-950 dark:text-white">
-          {isLoading ? "Accepting invite..." : isSuccess ? "Invite accepted" : "Invite link expired"}
+          {title}
         </h1>
         <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
           {message}
@@ -92,6 +135,7 @@ function InviteCard({
 function InviteAcceptContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const processedRef = useRef(false);
   const code = searchParams.get("code");
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
@@ -99,14 +143,49 @@ function InviteAcceptContent() {
     () => (isSafeRedirectPath(searchParams.get("next")) ? searchParams.get("next")! : "/dashboard"),
     [searchParams],
   );
-  const [status, setStatus] = useState<InviteStatus>("loading");
-  const [message, setMessage] = useState("Please wait while SaleDock verifies this staff invite.");
+  const [view, setView] = useState<InviteView>({
+    status: "loading",
+    title: "Accepting invite...",
+    message: "Please wait while SaleDock verifies this staff invite.",
+  });
 
   useEffect(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
+
     let active = true;
 
+    const showView = (nextView: InviteView) => {
+      if (!active) return;
+      setView(nextView);
+    };
+
+    const showFriendlyError = (message: string | null | undefined) => {
+      showView(friendlyInviteError(message));
+    };
+
+    const finishAcceptedInvite = async (successMessage: string) => {
+      const result = await recordStaffInviteAcceptedAction();
+      if (!result.ok) {
+        showView({
+          status: "error",
+          title: "Invite needs help",
+          message: result.message,
+        });
+        return;
+      }
+
+      showView({
+        status: "success",
+        title: "Invite accepted",
+        message: successMessage,
+      });
+      window.setTimeout(() => {
+        if (active) router.replace(nextPath);
+      }, 700);
+    };
+
     async function acceptInvite() {
-      const supabase = createClient();
       const hash = hashParams();
       const errorMessage =
         searchParams.get("error_description") ??
@@ -115,15 +194,17 @@ function InviteAcceptContent() {
         hash.get("error");
 
       if (errorMessage) {
-        if (!active) return;
-        setStatus("error");
-        setMessage(friendlyInviteError(errorMessage));
+        showFriendlyError(errorMessage);
         return;
       }
 
       const hashAccessToken = hash.get("access_token");
       const hashRefreshToken = hash.get("refresh_token");
       const hashType = hash.get("type");
+      const hashUserId = decodeJwtSubject(hashAccessToken);
+      const hasInviteHashTokens = Boolean(hashAccessToken && hashRefreshToken);
+      if (hasInviteHashTokens) clearInviteHash();
+      const supabase = createClient();
 
       try {
         let authError: { message: string } | null = null;
@@ -144,6 +225,11 @@ function InviteAcceptContent() {
         } else if (hashAccessToken && hashRefreshToken) {
           if (hashType && hashType !== "invite") {
             authError = { message: "This is not a staff invite link." };
+          } else if (!hashUserId) {
+            authError = { message: "The invite link has an invalid token." };
+          } else if (hashUserId && (await currentSessionUserId(supabase)) === hashUserId) {
+            await finishAcceptedInvite("Your staff invite has been accepted. Opening the shop dashboard now.");
+            return;
           } else {
             const result = await supabase.auth.setSession({
               access_token: hashAccessToken,
@@ -152,13 +238,25 @@ function InviteAcceptContent() {
             authError = result.error;
           }
         } else {
-          authError = { message: "The invite link is missing verification details." };
+          const existingUserId = await currentSessionUserId(supabase);
+          if (existingUserId) {
+            await finishAcceptedInvite("You are already signed in. Opening the shop dashboard now.");
+            return;
+          }
+          showView({
+            status: "error",
+            title: "Invite already used",
+            message: "This invite may have already been used. Please sign in, or ask the shop owner to resend it.",
+          });
+          return;
         }
 
         if (authError) {
-          if (!active) return;
-          setStatus("error");
-          setMessage(friendlyInviteError(authError.message));
+          if (hashUserId && (await currentSessionUserId(supabase)) === hashUserId) {
+            await finishAcceptedInvite("Your staff invite has been accepted. Opening the shop dashboard now.");
+            return;
+          }
+          showFriendlyError(authError.message);
           return;
         }
 
@@ -168,22 +266,21 @@ function InviteAcceptContent() {
         } = await supabase.auth.getUser();
 
         if (userError || !user) {
-          if (!active) return;
-          setStatus("error");
-          setMessage("The invite was verified, but SaleDock could not start a signed-in session. Please ask the shop owner to resend the invite.");
+          showView({
+            status: "error",
+            title: "Invite needs help",
+            message: "The invite was verified, but SaleDock could not start a signed-in session. Please ask the shop owner to resend the invite.",
+          });
           return;
         }
 
-        await recordStaffInviteAcceptedAction().catch(() => undefined);
-
-        if (!active) return;
-        setStatus("success");
-        setMessage("Your staff invite has been accepted. Opening the shop dashboard now.");
-        window.setTimeout(() => router.replace(nextPath), 700);
+        await finishAcceptedInvite("Your staff invite has been accepted. Opening the shop dashboard now.");
       } catch {
-        if (!active) return;
-        setStatus("error");
-        setMessage(EXPIRED_INVITE_MESSAGE);
+        showView({
+          status: "error",
+          title: "Invite link expired",
+          message: EXPIRED_INVITE_MESSAGE,
+        });
       }
     }
 
@@ -196,8 +293,9 @@ function InviteAcceptContent() {
 
   return (
     <InviteCard
-      status={status}
-      message={message}
+      status={view.status}
+      title={view.title}
+      message={view.message}
       onBackToLogin={() => router.push("/login")}
     />
   );
@@ -207,6 +305,7 @@ function InviteLoadingFallback() {
   return (
     <InviteCard
       status="loading"
+      title="Accepting invite..."
       message="Please wait while SaleDock verifies this staff invite."
       onBackToLogin={() => undefined}
     />
