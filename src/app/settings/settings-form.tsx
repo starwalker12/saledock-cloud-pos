@@ -858,7 +858,9 @@ export function SettingsForm({
     } else {
       setCoordinateParseMessage(null);
     }
-    locationDirty.refresh();
+    // Defer dirty refresh so React has applied the new lat/lng state before the
+    // dirty checker reads the form.
+    window.requestAnimationFrame(() => locationDirty.refresh());
   }
 
   function handleAdjustLocationConfirm(coords: MapCoordinates) {

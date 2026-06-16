@@ -3,10 +3,16 @@ import { validateGoogleMapsUrl } from "@/lib/security/sanitize";
 export type MapCoordinates = { lat: number; lng: number };
 
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/?api=1&query=";
+const COORD_NUMBER = "-?\\d+(?:\\.\\d+)?";
 
 export function isValidCoordinate(latitude: string | number, longitude: string | number): MapCoordinates | null {
-  const lat = typeof latitude === "number" ? latitude : Number.parseFloat(latitude);
-  const lng = typeof longitude === "number" ? longitude : Number.parseFloat(longitude);
+  const latRaw = typeof latitude === "number" ? latitude.toString() : latitude;
+  const lngRaw = typeof longitude === "number" ? longitude.toString() : longitude;
+  if (typeof latRaw !== "string" || typeof lngRaw !== "string") return null;
+  if (!/^-?\d+(?:\.\d+)?$/.test(latRaw.trim()) || !/^-?\d+(?:\.\d+)?$/.test(lngRaw.trim())) return null;
+
+  const lat = Number.parseFloat(latRaw);
+  const lng = Number.parseFloat(lngRaw);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
@@ -45,20 +51,26 @@ export function parseCoordinatesFromMapInput(input: string): MapCoordinates | nu
     return null;
   }
 
-  // URL query parameters: query=, q=, ll=
-  const queryMatch = trimmed.match(/[?&](?:query|q|ll)=(-?\d+\.?\d*),(-?\d+\.?\d*)/i);
+  // Only attempt extraction from known Google Maps hosts or bare query/coordinate strings.
+  // This prevents arbitrary websites from being treated as coordinate sources.
+  const isKnownMapHost = /^(https?:\/\/)?(www\.)?(google\.com|maps\.google\.com)\//i.test(trimmed);
+  const isBareCoordinateOrQuery = !trimmed.includes(":") && !trimmed.includes("//");
+  if (!isKnownMapHost && !isBareCoordinateOrQuery) return null;
+
+  // URL query parameters: query=, q, ll=
+  const queryMatch = trimmed.match(new RegExp(`[?&](?:query|q|ll)=(${COORD_NUMBER}),(${COORD_NUMBER})`, "i"));
   if (queryMatch) {
     return isValidCoordinate(queryMatch[1], queryMatch[2]);
   }
 
   // Google Maps path segment like /@31.3720,74.2419,17z or /place/.../@31.3720,74.2419,17z
-  const pathMatch = trimmed.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)(?:,\d+\.?\d*z?)?/i);
+  const pathMatch = trimmed.match(new RegExp(`@(${COORD_NUMBER}),(${COORD_NUMBER})(?:,${COORD_NUMBER}z?)?`, "i"));
   if (pathMatch) {
     return isValidCoordinate(pathMatch[1], pathMatch[2]);
   }
 
   // Plain lat,lng
-  const plainMatch = trimmed.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  const plainMatch = trimmed.match(new RegExp(`^(${COORD_NUMBER})\\s*,\\s*(${COORD_NUMBER})$`));
   if (plainMatch) {
     return isValidCoordinate(plainMatch[1], plainMatch[2]);
   }
