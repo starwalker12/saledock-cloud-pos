@@ -6,11 +6,17 @@ import { Logo } from "@/components/logo";
 
 export function OfflineScreen() {
   const [isOffline, setIsOffline] = useState(() =>
-    typeof navigator === "undefined" ? false : !navigator.onLine,
+    typeof window === "undefined" ? false : !navigator.onLine,
   );
   const [checkedWhileOffline, setCheckedWhileOffline] = useState(false);
 
   useEffect(() => {
+    const syncOnlineState = () => {
+      const offline = !navigator.onLine;
+      setIsOffline(offline);
+      if (!offline) setCheckedWhileOffline(false);
+    };
+
     const updateOnline = () => {
       setIsOffline(false);
       setCheckedWhileOffline(false);
@@ -19,6 +25,8 @@ export function OfflineScreen() {
 
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOffline);
+
+    syncOnlineState();
 
     return () => {
       window.removeEventListener("online", updateOnline);
