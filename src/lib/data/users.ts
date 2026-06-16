@@ -52,9 +52,20 @@ function acceptedAt(user: User | undefined, profile: Pick<StaffProfile, "last_lo
   return user?.last_sign_in_at ?? profile.last_login_at ?? null;
 }
 
-function inviteStatus(user: User | undefined, profile: Pick<StaffProfile, "last_login_at">): StaffUser["invite_status"] {
+function inviteStatus(user: User | undefined): StaffUser["invite_status"] {
   if (!user) return "not_linked";
-  return acceptedAt(user, profile) ? "accepted" : "pending";
+
+  // If the auth user was created by an invite email for this organization,
+  // email_confirmed_at proves they accepted the invite.
+  const acceptedThisShopInvite = !!user.email_confirmed_at;
+
+  // last_sign_in_at / last_login_at alone does NOT mean they accepted this
+  // shop's invite; it can come from another shop or general sign-in.
+  if (acceptedThisShopInvite) return "accepted";
+
+  // If the user exists but has not confirmed the invite email, they are still
+  // pending for this shop.
+  return "pending";
 }
 
 export async function getUserManagementData(
@@ -96,7 +107,7 @@ export async function getUserManagementData(
       last_sign_in_at: acceptedAt(authUser, profile),
       invited_at: authUser?.invited_at ?? null,
       email_confirmed_at: authUser?.email_confirmed_at ?? null,
-      invite_status: inviteStatus(authUser, profile),
+      invite_status: inviteStatus(authUser),
     } satisfies StaffUser;
   });
 

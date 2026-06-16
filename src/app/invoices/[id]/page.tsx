@@ -11,7 +11,7 @@ import { canProcessReturns } from "@/lib/permissions";
 import { PrintButton } from "./print-button";
 import { ReturnForm } from "./returns/return-form";
 import { QrCodeImage } from "@/components/shared/qr-code";
-import { buildMapEmbedUrl, buildMapLinkUrl, hasMapData } from "@/lib/map-utils";
+import { buildMapEmbedUrl, buildMapLinkUrl, hasMapData, hasMapEmbedData } from "@/lib/map-utils";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Cash",
@@ -160,7 +160,7 @@ export default async function InvoiceDetailPage({
   const hasChangeDue = invoice.change_due > 0;
   const showLogo = hasShoLogo(branding.logoUrl);
 
-  const showInvoiceMap = branding.invoiceShowLocationMap && hasMapData(branding.googleMapsUrl, branding.latitude, branding.longitude);
+  const showInvoiceMap = branding.invoiceShowLocationMap && hasMapEmbedData(branding.latitude, branding.longitude);
   const showInvoiceQr = branding.invoiceShowLocationQr && hasMapData(branding.googleMapsUrl, branding.latitude, branding.longitude);
   const mapLinkUrl = buildMapLinkUrl(branding.googleMapsUrl, branding.latitude, branding.longitude);
   const mapEmbedUrl = buildMapEmbedUrl(branding.googleMapsUrl, branding.latitude, branding.longitude);

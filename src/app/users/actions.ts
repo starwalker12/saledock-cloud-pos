@@ -127,14 +127,21 @@ export async function inviteUserAction(
   const origin = await publicOrigin();
 
   const existingUsers = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (existingUsers.error) return { error: existingUsers.error.message, success: null };
+  if (existingUsers.error) {
+    logAudit({
+      module: "users",
+      action: "users.invite_auth_list_failed",
+      details: `Could not look up existing users for invite: ${values.email}`,
+      metadata: { email: values.email, role: values.role },
+    });
+    return { error: "We could not check existing accounts right now. Please try again.", success: null };
+  }
   const existingAuthUser = existingUsers.data.users.find(
     (user) => user.email?.toLowerCase() === values.email,
   );
 
   let authUserId = existingAuthUser?.id ?? null;
   let invited = false;
-  let linkedAcceptedExistingUser = false;
 
   if (authUserId) {
     const { data: existingProfile, error: profileReadError } = await admin
@@ -143,36 +150,54 @@ export async function inviteUserAction(
       .eq("id", authUserId)
       .maybeSingle<InviteProfileRow>();
 
-    if (profileReadError) return { error: profileReadError.message, success: null };
+    if (profileReadError) {
+      logAudit({
+        module: "users",
+        action: "users.invite_profile_read_failed",
+        details: `Profile read failed during invite check: ${values.email}`,
+        metadata: { email: values.email, role: values.role, error: profileReadError.message },
+      });
+      return { error: "We could not verify this email's account. Please try again.", success: null };
+    }
+
     if (existingProfile?.organization_id && existingProfile.organization_id !== organizationId) {
-      return { error: "That email is already linked to another shop.", success: null };
+      logAudit({
+        module: "users",
+        action: "users.invite_blocked_existing_shop",
+        details: `Blocked invite: ${values.email} already belongs to another shop`,
+        metadata: { email: values.email, role: values.role, target_organization_id: existingProfile.organization_id },
+      });
+      return { error: "This email is already connected to another shop. Use a different email for staff access.", success: null };
     }
 
     if (existingProfile?.organization_id === organizationId) {
-      const status = hasSignInProof(existingAuthUser, existingProfile.last_login_at)
-        ? "an accepted staff account"
-        : "a pending staff invite";
-      return {
-        error: `That email is already on this staff list as ${status}. Use the staff table to edit it or resend the invite.`,
-        success: null,
-      };
-    }
-
-    if (!hasSignInProof(existingAuthUser)) {
+      const status = existingProfile.is_active ? "active" : "inactive / blocked";
       logAudit({
         module: "users",
-        action: "users.invite_existing_unaccepted_blocked",
-        details: `Blocked staff invite for existing auth account without sign-in proof: ${values.email}`,
-        metadata: { email: values.email, role: values.role },
+        action: "users.invite_blocked_duplicate_staff",
+        details: `Blocked duplicate staff invite: ${values.email} already on this staff list`,
+        metadata: { email: values.email, role: values.role, status },
       });
       return {
-        error:
-          "This email already has an auth account, but we cannot verify that the person has accepted an invite or signed in. No staff profile was created.",
+        error: `That email is already on this staff list (${status}). Use the staff table to edit or resend the invite.`,
         success: null,
       };
     }
 
-    linkedAcceptedExistingUser = true;
+    // Auth user exists but is not attached to any organization/profile yet.
+    // We do not auto-link them to this shop because sign-in proof elsewhere
+    // does not mean they accepted this shop's invite.
+    logAudit({
+      module: "users",
+      action: "users.invite_blocked_existing_auth_unowned",
+      details: `Blocked invite: ${values.email} already has a Supabase auth account`,
+      metadata: { email: values.email, role: values.role },
+    });
+    return {
+      error:
+        "This email already has an account. Ask the person to use a different email address, or contact support to link the account manually.",
+      success: null,
+    };
   }
 
   if (!authUserId) {
@@ -187,7 +212,7 @@ export async function inviteUserAction(
         details: `Failed to send staff invite: ${values.email}`,
         metadata: { email: values.email, role: values.role, error: invite.error?.message ?? "No auth user returned" },
       });
-      return { error: invite.error?.message ?? "Invite failed — email was not sent.", success: null };
+      return { error: "Invite could not be sent. Check the email address and try again.", success: null };
     }
     authUserId = invite.data.user.id;
     invited = true;
@@ -198,9 +223,17 @@ export async function inviteUserAction(
     .select("id, organization_id")
     .eq("id", authUserId)
     .maybeSingle<{ id: string; organization_id: string | null }>();
-  if (profileReadError) return { error: profileReadError.message, success: null };
+  if (profileReadError) {
+    logAudit({
+      module: "users",
+      action: "users.invite_profile_read_failed",
+      details: `Profile read failed after invite send: ${values.email}`,
+      metadata: { email: values.email, role: values.role, error: profileReadError.message },
+    });
+    return { error: "Invite was sent, but we could not verify the staff profile. Please contact support.", success: null };
+  }
   if (existingProfile?.organization_id && existingProfile.organization_id !== organizationId) {
-    return { error: "That email is already linked to another organization.", success: null };
+    return { error: "This email is already connected to another shop. Use a different email for staff access.", success: null };
   }
 
   const payload = {
@@ -225,33 +258,28 @@ export async function inviteUserAction(
     return {
       error: invited
         ? "Invite email was sent, but the staff profile could not be created. Please contact support before resending."
-        : result.error.message,
+        : "We could not save the staff profile. Please try again.",
       success: null,
     };
   }
 
   logAudit({
     module: "users",
-    action: invited ? "users.invite_sent" : "users.existing_auth_linked",
-    details: invited
-      ? `Sent staff invite: ${values.fullName} (${values.email}) as ${values.role}`
-      : `Linked existing signed-in auth account: ${values.fullName} (${values.email}) as ${values.role}`,
+    action: "users.invite_sent",
+    details: `Sent staff invite: ${values.fullName} (${values.email}) as ${values.role}`,
     metadata: {
       email: values.email,
       role: values.role,
       full_name: values.fullName,
       auth_user_id: authUserId,
       invite_email_sent: invited,
-      accepted_existing_user: linkedAcceptedExistingUser,
     },
   });
 
   revalidatePath("/users");
   return {
     error: null,
-    success: invited
-      ? "Invite email sent. The user will stay Pending until they accept the email invite and sign in."
-      : "Existing signed-in account linked. This user shows Accepted because Supabase already has sign-in proof.",
+    success: "Invite email sent. The user will stay Pending until they accept the email invite and sign in.",
   };
 }
 
