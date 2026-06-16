@@ -11,7 +11,7 @@ import { canProcessReturns } from "@/lib/permissions";
 import { PrintButton } from "./print-button";
 import { ReturnForm } from "./returns/return-form";
 import { QrCodeImage } from "@/components/shared/qr-code";
-import { buildMapEmbedUrl, buildMapLinkUrl, hasMapData, hasMapEmbedData } from "@/lib/map-utils";
+import { buildMapLinkUrl, hasMapData } from "@/lib/map-utils";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Cash",
@@ -132,7 +132,6 @@ export default async function InvoiceDetailPage({
         latitude: "",
         longitude: "",
         showMap: false,
-        invoiceShowLocationMap: false,
         invoiceShowLocationQr: false,
       },
     ),
@@ -160,10 +159,8 @@ export default async function InvoiceDetailPage({
   const hasChangeDue = invoice.change_due > 0;
   const showLogo = hasShoLogo(branding.logoUrl);
 
-  const showInvoiceMap = branding.invoiceShowLocationMap && hasMapEmbedData(branding.latitude, branding.longitude);
   const showInvoiceQr = branding.invoiceShowLocationQr && hasMapData(branding.googleMapsUrl, branding.latitude, branding.longitude);
   const mapLinkUrl = buildMapLinkUrl(branding.googleMapsUrl, branding.latitude, branding.longitude);
-  const mapEmbedUrl = buildMapEmbedUrl(branding.googleMapsUrl, branding.latitude, branding.longitude);
 
   return (
     <AppShell pageTitle={`Invoice ${invoice.invoice_no}`}>
@@ -612,42 +609,25 @@ export default async function InvoiceDetailPage({
           </section>
         )}
 
-        {/* ── Location map / QR ── */}
-        {(showInvoiceMap || showInvoiceQr) && mapLinkUrl && (
+        {/* ── Location QR / link ── */}
+        {showInvoiceQr && mapLinkUrl && (
           <section className="border-t border-slate-200 px-6 py-5 dark:border-slate-800 sm:px-8 print:px-0 print:py-3">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
               Find us
             </p>
-            <div className={`grid gap-4 ${showInvoiceMap && showInvoiceQr ? "md:grid-cols-[1fr_auto]" : ""}`}>
-              {showInvoiceMap && (
-                <div className="min-w-0">
-                  {mapEmbedUrl ? (
-                    <iframe
-                      title="Shop location map"
-                      src={mapEmbedUrl}
-                      className="h-56 w-full rounded-xl border-0 print:hidden"
-                      loading="lazy"
-                      allowFullScreen
-                    />
-                  ) : null}
-                  <div className={`${mapEmbedUrl ? "mt-2" : ""} text-sm print:text-slate-900`}>
-                    <a
-                      href={mapLinkUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline dark:text-blue-400 print:text-slate-900"
-                    >
-                      Open shop location
-                    </a>
-                  </div>
-                </div>
-              )}
-              {showInvoiceQr && (
-                <div className="flex flex-col items-start gap-2">
-                  <QrCodeImage value={mapLinkUrl} size={128} alt="Shop location QR code" />
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Scan for directions</span>
-                </div>
-              )}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <a
+                href={mapLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400 print:text-slate-900"
+              >
+                Open shop location
+              </a>
+              <div className="flex flex-col items-start gap-2">
+                <QrCodeImage value={mapLinkUrl} size={128} alt="Shop location QR code" />
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">Scan for directions</span>
+              </div>
             </div>
           </section>
         )}
@@ -794,7 +774,7 @@ export default async function InvoiceDetailPage({
 
         <footer className="mt-3 border-t border-dashed border-black pt-2 text-center text-[9px] leading-tight text-black">
           <p>{branding.invoiceFooter || `Thank you for shopping at ${orgName}.`}</p>
-          {mapLinkUrl && (branding.invoiceShowLocationMap || branding.invoiceShowLocationQr) && (
+          {mapLinkUrl && branding.invoiceShowLocationQr && (
             <p className="mt-1 break-words">Location: {mapLinkUrl}</p>
           )}
         </footer>

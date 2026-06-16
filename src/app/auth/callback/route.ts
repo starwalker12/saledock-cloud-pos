@@ -9,7 +9,12 @@ function safeRedirect(origin: string, next: string | null): string {
   return `${origin}/dashboard`;
 }
 
-function renderResultPage(success: boolean, error: boolean, redirectUrl: string) {
+function renderResultPage(
+  success: boolean,
+  error: boolean,
+  redirectUrl: string,
+  inviteRedirectUrl?: string,
+) {
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -41,15 +46,21 @@ function renderResultPage(success: boolean, error: boolean, redirectUrl: string)
   <script>
     const hash = window.location.hash;
     const search = window.location.search;
+    const inviteRedirectUrl = ${JSON.stringify(inviteRedirectUrl ?? "")};
     
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
     }
     
     let hasError = ${error};
+    let forwardedInvite = false;
     
     if (hash) {
       const params = new URLSearchParams(hash.replace('#', '?'));
+      if (inviteRedirectUrl && params.get('type') === 'invite') {
+        forwardedInvite = true;
+        window.location.replace(inviteRedirectUrl + hash);
+      }
       if (params.get('error') || params.get('error_code')) {
         hasError = true;
       }
@@ -68,7 +79,14 @@ function renderResultPage(success: boolean, error: boolean, redirectUrl: string)
     const actionBtn = document.getElementById('action-btn');
     const redirectUrl = "${redirectUrl}";
     
-    if (hasError) {
+    if (forwardedInvite) {
+      titleEl.innerText = "Opening staff invite";
+      messageEl.innerText = "Please wait while SaleDock opens this invite securely.";
+      iconContainer.className = "mx-auto flex size-12 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300";
+      iconContainer.innerHTML = '<svg class="size-6 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.364-6.364-2.121 2.121M7.757 16.243l-2.121 2.121m12.728 0-2.121-2.121M7.757 7.757 5.636 5.636" /></svg>';
+      actionBtn.innerText = "Opening invite...";
+      actionBtn.href = inviteRedirectUrl;
+    } else if (hasError) {
       titleEl.innerText = "Link Invalid or Expired";
       messageEl.innerText = "This confirmation link is invalid or has expired. Please request a new one from Settings → Connected Accounts.";
       iconContainer.className = "mx-auto flex size-12 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300";
@@ -101,6 +119,7 @@ export async function GET(request: NextRequest) {
   const errorParam = url.searchParams.get("error_description") ?? url.searchParams.get("error");
   const errorCode = url.searchParams.get("error_code");
   const type = url.searchParams.get("type");
+  const tokenHash = url.searchParams.get("token_hash");
   const linkingParam = url.searchParams.get("linking");
 
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -112,9 +131,23 @@ export async function GET(request: NextRequest) {
 
   // Settings redirect fallback url
   const settingsUrl = `${origin}/settings?tab=accounts`;
+  const inviteUrl = new URL("/auth/invite", origin);
+  inviteUrl.searchParams.set("next", isSafeRedirectPath(next) ? next! : "/dashboard");
+
+  if (type === "invite" && tokenHash) {
+    inviteUrl.searchParams.set("token_hash", tokenHash);
+    inviteUrl.searchParams.set("type", "invite");
+    return NextResponse.redirect(inviteUrl);
+  }
 
   // ── Error handling ────────────────────────────────────────────────────────
   if (errorParam) {
+    if (type === "invite") {
+      inviteUrl.searchParams.set("error", errorParam);
+      if (errorCode) inviteUrl.searchParams.set("error_code", errorCode);
+      return NextResponse.redirect(inviteUrl);
+    }
+
     const lower = errorParam.toLowerCase();
 
     // Check if this is an email change / OTP link error
@@ -149,7 +182,7 @@ export async function GET(request: NextRequest) {
   if (!code) {
     // If we have hash parameters in the browser, client-side JS handles it.
     // Otherwise it will redirect back to login.
-    return renderResultPage(false, false, settingsUrl);
+    return renderResultPage(false, false, settingsUrl, inviteUrl.toString());
   }
 
   // ── Exchange code for session ─────────────────────────────────────────────
@@ -157,6 +190,11 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     const msg = error.message.toLowerCase();
+
+    if (type === "invite") {
+      inviteUrl.searchParams.set("error", error.message);
+      return NextResponse.redirect(inviteUrl);
+    }
 
     if (type === "email_change" || msg.includes("expired") || msg.includes("otp") || msg.includes("link") || msg.includes("verification")) {
       return renderResultPage(false, true, settingsUrl);

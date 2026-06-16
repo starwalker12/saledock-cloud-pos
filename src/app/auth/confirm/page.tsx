@@ -6,12 +6,23 @@ import { verifyOtpAction } from "@/app/(auth)/actions";
 import { CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
+const EXPIRED_INVITE_MESSAGE =
+  "This invite link has expired. Ask the shop owner to resend the invite.";
+
+function isSafeRedirectPath(value: string | null): value is string {
+  return Boolean(value && /^\/(?!\/)[a-zA-Z0-9/._-]*$/.test(value));
+}
+
 function ConfirmContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/settings?tab=accounts";
+  const next = isSafeRedirectPath(searchParams.get("next"))
+    ? searchParams.get("next")!
+    : type === "invite"
+      ? "/dashboard"
+      : "/settings?tab=accounts";
 
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -32,18 +43,20 @@ function ConfirmContent() {
         if (result.success) {
           if (type === "recovery") {
             router.push("/auth/reset-password");
+          } else if (type === "invite") {
+            router.push(next);
           } else {
             setStatus("success");
           }
         } else {
           setStatus("error");
-          setErrorMessage(result.error || "The confirmation link is invalid or has expired.");
+          setErrorMessage(type === "invite" ? EXPIRED_INVITE_MESSAGE : result.error || "The confirmation link is invalid or has expired.");
         }
       } catch (err) {
         if (!active) return;
         const msg = err instanceof Error ? err.message : "An unexpected error occurred during verification.";
         setStatus("error");
-        setErrorMessage(msg);
+        setErrorMessage(type === "invite" ? EXPIRED_INVITE_MESSAGE : msg);
       }
     }
 
@@ -84,10 +97,10 @@ function ConfirmContent() {
         </div>
         <button
           type="button"
-          onClick={() => router.push("/settings?tab=accounts")}
+          onClick={() => router.push(type === "invite" ? "/login" : "/settings?tab=accounts")}
           className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
         >
-          Back to Settings
+          {type === "invite" ? "Back to sign in" : "Back to Settings"}
         </button>
       </div>
     );
