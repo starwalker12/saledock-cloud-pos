@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canChangeSettingsNew } from "@/lib/staff-permissions";
 import { logAudit } from "@/lib/audit";
-import { sanitizePlainText, sanitizeNullableText, normalizePhone, validateImageUrl } from "@/lib/security/sanitize";
+import { sanitizePlainText, sanitizeNullableText, normalizePhone, validateImageUrl, validateGoogleMapsUrl } from "@/lib/security/sanitize";
 import { z } from "zod";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
 
@@ -27,7 +27,8 @@ export type SettingsIntent =
   | "branch_profile"
   | "invoice_branding"
   | "theme"
-  | "regional";
+  | "regional"
+  | "location";
 
 const optionalText = (max: number) =>
   z.preprocess(
@@ -80,6 +81,24 @@ const invoiceBrandingSchema = z.object({
   invoiceFooter: optionalText(500),
   receiptTerms: optionalText(1200),
   printFormat: z.enum(["a4", "80mm_planned"]).default("a4"),
+});
+
+const locationSchema = z.object({
+  googleMapsUrl: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined),
+    z.string().max(2048).refine((v) => validateGoogleMapsUrl(v) !== null, "Enter a valid Google Maps link or lat,lng.").optional(),
+  ),
+  latitude: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length > 0 ? Number(v.trim()) : undefined),
+    z.number().min(-90).max(90).optional(),
+  ),
+  longitude: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length > 0 ? Number(v.trim()) : undefined),
+    z.number().min(-180).max(180).optional(),
+  ),
+  showMap: z.enum(["true", "false"]).default("false"),
+  invoiceShowLocationMap: z.enum(["true", "false"]).default("false"),
+  invoiceShowLocationQr: z.enum(["true", "false"]).default("false"),
 });
 
 const themeSchema = z.object({
@@ -320,6 +339,55 @@ export async function updateSettingsAction(
 
         logAudit({ module: "settings", action: "settings.updated", details: "Regional settings updated" });
         return { error: null, success: "Regional settings saved." };
+      }
+
+      case "location": {
+        const parsed = locationSchema.safeParse(readRaw(["googleMapsUrl", "latitude", "longitude", "showMap", "invoiceShowLocationMap", "invoiceShowLocationQr"]));
+        if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Validation failed.", success: null };
+        const v = parsed.data;
+
+        const safeGoogleMapsUrl = v.googleMapsUrl ? validateGoogleMapsUrl(v.googleMapsUrl) : "";
+
+        const { db } = await getDb();
+        const { error: orgErr } = await db
+          .from("organizations")
+          .update({
+            google_maps_url: safeGoogleMapsUrl || null,
+            latitude: v.latitude ?? null,
+            longitude: v.longitude ?? null,
+            show_map: v.showMap === "true",
+          })
+          .eq("id", organizationId);
+        if (orgErr) return { error: orgErr.message, success: null };
+
+        const { data: rows } = await db
+          .from("app_settings")
+          .select("id, branch_id, settings")
+          .eq("organization_id", organizationId)
+          .returns<AppSettingsRow[]>();
+        if (!rows || rows.length === 0) {
+          await db.from("app_settings").insert({
+            organization_id: organizationId,
+            branch_id: branchId,
+            shop_name: "Shop",
+            settings: {
+              invoice_show_location_map: v.invoiceShowLocationMap === "true",
+              invoice_show_location_qr: v.invoiceShowLocationQr === "true",
+            },
+          });
+        } else {
+          const existing = rows.find((r) => r.branch_id === branchId) ?? rows.find((r) => r.branch_id === null) ?? rows[0];
+          const settingsJson = {
+            ...(existing.settings ?? {}),
+            invoice_show_location_map: v.invoiceShowLocationMap === "true",
+            invoice_show_location_qr: v.invoiceShowLocationQr === "true",
+          };
+          await db.from("app_settings").update({ settings: settingsJson }).eq("id", existing.id);
+        }
+
+        revalidatePath("/settings");
+        logAudit({ module: "settings", action: "settings.updated", details: "Shop location settings updated" });
+        return { error: null, success: "Shop location saved." };
       }
 
       default:

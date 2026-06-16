@@ -33,6 +33,10 @@ type OrganizationSettingsRow = {
   primary_color?: string | null;
   accent_color?: string | null;
   default_theme?: "light" | "dark" | "system" | null;
+  google_maps_url?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  show_map?: boolean | null;
 };
 
 type BranchSettingsRow = {
@@ -68,6 +72,12 @@ export type BrandingSettings = {
   primaryColor: string | null;
   accentColor: string | null;
   defaultTheme: "light" | "dark" | "system" | null;
+  googleMapsUrl: string;
+  latitude: string;
+  longitude: string;
+  showMap: boolean;
+  invoiceShowLocationMap: boolean;
+  invoiceShowLocationQr: boolean;
 };
 
 const FALLBACK_BRANDING: BrandingSettings = {
@@ -95,6 +105,12 @@ const FALLBACK_BRANDING: BrandingSettings = {
   primaryColor: null,
   accentColor: null,
   defaultTheme: null,
+  googleMapsUrl: "",
+  latitude: "",
+  longitude: "",
+  showMap: false,
+  invoiceShowLocationMap: false,
+  invoiceShowLocationQr: false,
 };
 function stringSetting(settings: JsonObject | null | undefined, key: string, fallback = "") {
   const value = settings?.[key];
@@ -129,7 +145,7 @@ export async function getBrandingSettings(
       await Promise.all([
         db
           .from("organizations")
-          .select("id, name, legal_name, phone, email, address, currency_code, timezone, logo_url, owner_name, primary_color, accent_color, default_theme")
+          .select("id, name, legal_name, phone, email, address, currency_code, timezone, logo_url, owner_name, primary_color, accent_color, default_theme, google_maps_url, latitude, longitude, show_map")
           .eq("id", organizationId)
           .maybeSingle<OrganizationSettingsRow>(),
         branchId
@@ -194,6 +210,12 @@ export async function getBrandingSettings(
       primaryColor: org.primary_color ?? null,
       accentColor: org.accent_color ?? null,
       defaultTheme: org.default_theme ?? null,
+      googleMapsUrl: org.google_maps_url || "",
+      latitude: org.latitude != null ? String(org.latitude) : "",
+      longitude: org.longitude != null ? String(org.longitude) : "",
+      showMap: org.show_map === true,
+      invoiceShowLocationMap: json.invoice_show_location_map === true,
+      invoiceShowLocationQr: json.invoice_show_location_qr === true,
     };
   } catch (err) {
     console.error("[getBrandingSettings] unexpected error:", err);
