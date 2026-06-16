@@ -729,18 +729,8 @@ export function SettingsForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logoUrlInput]);
 
-  useEffect(() => {
-    if (!locState.success) return;
-    const id = window.setTimeout(() => locationDirty.markSaved(), 0);
-    return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locState]);
-
-  const mapEmbedUrl = buildMapEmbedUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
-  const mapLinkUrl = buildMapLinkUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
-
   // Safe local draft preservation for the location form only.
-  const { draft: locationDraft } = useFormDraft({
+  const { draft: locationDraft, discardDraft: discardLocationDraft } = useFormDraft({
     storageKey: `saledock-settings-location-draft-${organizationId}`,
     enabled: true,
     values: {
@@ -752,6 +742,19 @@ export function SettingsForm({
       invoiceShowLocationQr: invoiceShowQrInput,
     },
   });
+
+  const mapEmbedUrl = buildMapEmbedUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
+  const mapLinkUrl = buildMapLinkUrl(googleMapsUrlInput, latitudeInput, longitudeInput);
+
+  useEffect(() => {
+    if (!locState.success) return;
+    const id = window.setTimeout(() => {
+      locationDirty.markSaved();
+      discardLocationDraft();
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locState]);
 
   function applyLocationDraft() {
     if (!locationDraft) return;

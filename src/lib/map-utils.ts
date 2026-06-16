@@ -1,5 +1,13 @@
 import { validateGoogleMapsUrl } from "@/lib/security/sanitize";
 
+function isValidCoordinate(latitude: string, longitude: string): { lat: number; lng: number } | null {
+  const lat = Number.parseFloat(latitude);
+  const lng = Number.parseFloat(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
 export function buildMapEmbedUrl(
   googleMapsUrl: string,
   latitude: string,
@@ -12,16 +20,13 @@ export function buildMapEmbedUrl(
     return null;
   }
 
-  const lat = Number.parseFloat(latitude);
-  const lng = Number.parseFloat(longitude);
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    // OpenStreetMap embed is free and requires no API key.
-    const delta = 0.02;
-    const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat},${lng}`;
-  }
+  const coords = isValidCoordinate(latitude, longitude);
+  if (!coords) return null;
 
-  return null;
+  // OpenStreetMap embed is free and requires no API key.
+  const delta = 0.02;
+  const bbox = `${coords.lng - delta},${coords.lat - delta},${coords.lng + delta},${coords.lat + delta}`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${coords.lat},${coords.lng}`;
 }
 
 export function buildMapLinkUrl(
@@ -32,13 +37,10 @@ export function buildMapLinkUrl(
   const mapsUrl = validateGoogleMapsUrl(googleMapsUrl);
   if (mapsUrl && mapsUrl.startsWith("http")) return mapsUrl;
 
-  const lat = Number.parseFloat(latitude);
-  const lng = Number.parseFloat(longitude);
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
-  }
+  const coords = isValidCoordinate(latitude, longitude);
+  if (!coords) return null;
 
-  return null;
+  return `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=16/${coords.lat}/${coords.lng}`;
 }
 
 export function hasMapData(googleMapsUrl: string, latitude: string, longitude: string): boolean {
