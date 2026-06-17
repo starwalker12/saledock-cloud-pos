@@ -878,47 +878,20 @@ export async function restartSetupAction(): Promise<{ error: string | null }> {
     return { error: "You must be signed in." };
   }
 
-  // Only allow restart if the user has no completed org
+  // Only allow restart if onboarding is not already complete.
+  // This action clears only the saved onboarding draft/progress.
+  // It must never delete organizations, reset profiles, or clear ownership data.
   const { data: profile } = await supabase
     .from("profiles")
     .select("organization_id, onboarding_completed")
     .eq("id", user.id)
     .maybeSingle<{ organization_id: string | null; onboarding_completed: boolean | null }>();
 
-  await supabase.from("onboarding_drafts").delete().eq("user_id", user.id);
-
-  if (!profile) {
-    // No profile yet — redirect to onboarding fresh
-    redirect("/onboarding");
-  }
-
-  if (profile.organization_id && profile.onboarding_completed) {
+  if (profile?.organization_id && profile.onboarding_completed) {
     return { error: "Your shop setup is already complete. You cannot restart setup." };
   }
 
-  // If there's a partial org (organization_id set but onboarding incomplete), delete it safely
-  if (profile.organization_id && !profile.onboarding_completed) {
-    // Only delete if the org is incomplete (onboarding_completed = false)
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("onboarding_completed")
-      .eq("id", profile.organization_id)
-      .maybeSingle<{ onboarding_completed: boolean | null }>();
-
-    if (org && !org.onboarding_completed) {
-      await supabase.from("organizations").delete().eq("id", profile.organization_id);
-    }
-  }
-
-  // Reset profile to pre-onboarding state
-  await supabase
-    .from("profiles")
-    .update({
-      organization_id: null,
-      branch_id: null,
-      onboarding_completed: false,
-    })
-    .eq("id", user.id);
+  await supabase.from("onboarding_drafts").delete().eq("user_id", user.id);
 
   redirect("/onboarding");
 }
