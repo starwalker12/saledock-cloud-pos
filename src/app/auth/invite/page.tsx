@@ -135,7 +135,8 @@ function InviteCard({
 function InviteAcceptContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const processedRef = useRef(false);
+  const settledRef = useRef(false);
+  const processingPromiseRef = useRef<Promise<void> | null>(null);
   const code = searchParams.get("code");
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
@@ -150,13 +151,14 @@ function InviteAcceptContent() {
   });
 
   useEffect(() => {
-    if (processedRef.current) return;
-    processedRef.current = true;
+    if (settledRef.current) return;
 
-    let active = true;
+    const abortController = new AbortController();
+    const signal = abortController.signal;
 
     const showView = (nextView: InviteView) => {
-      if (!active) return;
+      if (signal.aborted) return;
+      settledRef.current = true;
       setView(nextView);
     };
 
@@ -165,7 +167,9 @@ function InviteAcceptContent() {
     };
 
     const finishAcceptedInvite = async (successMessage: string) => {
+      if (signal.aborted) return;
       const result = await recordStaffInviteAcceptedAction();
+      if (signal.aborted) return;
       if (!result.ok) {
         showView({
           status: "error",
@@ -181,11 +185,11 @@ function InviteAcceptContent() {
         message: successMessage,
       });
       window.setTimeout(() => {
-        if (active) router.replace(nextPath);
+        if (!signal.aborted) router.replace(nextPath);
       }, 700);
     };
 
-    async function acceptInvite() {
+    async function doAcceptInvite() {
       const hash = hashParams();
       const errorMessage =
         searchParams.get("error_description") ??
@@ -284,10 +288,41 @@ function InviteAcceptContent() {
       }
     }
 
+    async function acceptInvite() {
+      if (processingPromiseRef.current) {
+        try {
+          await processingPromiseRef.current;
+        } catch {
+          // Previous run failed; fall through and check session below.
+        }
+        if (signal.aborted || settledRef.current) return;
+
+        const supabase = createClient();
+        const userId = await currentSessionUserId(supabase);
+        if (signal.aborted) return;
+        if (userId) {
+          await finishAcceptedInvite("Your staff invite has been accepted. Opening the shop dashboard now.");
+        } else {
+          showFriendlyError("The invite link has an invalid token.");
+        }
+        return;
+      }
+
+      processingPromiseRef.current = doAcceptInvite().finally(() => {
+        processingPromiseRef.current = null;
+      });
+
+      try {
+        await processingPromiseRef.current;
+      } catch {
+        // Errors are handled inside doAcceptInvite via showView.
+      }
+    }
+
     acceptInvite();
 
     return () => {
-      active = false;
+      abortController.abort();
     };
   }, [code, nextPath, router, searchParams, tokenHash, type]);
 
