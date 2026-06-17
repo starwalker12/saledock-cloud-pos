@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentContext } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { signOutAction } from "@/app/(auth)/actions";
+import { getOnboardingDraftForUser } from "./actions";
 import { OnboardingWizard } from "./onboarding-wizard";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
@@ -17,6 +18,7 @@ export default async function OnboardingPage() {
   if (onboardingDone) redirect("/dashboard");
 
   const defaultFullName = profile?.full_name ?? ((user.user_metadata as { full_name?: string } | null)?.full_name ?? "");
+  const draft = await getOnboardingDraftForUser(user.id);
 
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-slate-50 px-3 py-8 sm:px-4 sm:py-10 dark:bg-slate-950">
@@ -34,7 +36,7 @@ export default async function OnboardingPage() {
           </p>
         </div>
 
-        <OnboardingWizard defaultFullName={defaultFullName} userEmail={user.email ?? ""} userId={user.id} />
+        <OnboardingWizard defaultFullName={defaultFullName} userEmail={user.email ?? ""} userId={user.id} initialDraft={draft} />
 
         {/* Recovery buttons */}
         <div className="mt-8 flex flex-col items-center gap-3 border-t border-slate-200 pt-6 dark:border-slate-600">

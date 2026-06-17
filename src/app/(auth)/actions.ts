@@ -38,7 +38,23 @@ const resetSchema = z.object({
   email: z.string().email("Enter a valid email address."),
 });
 
-export type AuthState = { error: string | null; info?: string | null; success?: string | null };
+const emailOtpSchema = z.object({
+  email: z.string().email("Enter a valid email address."),
+  token: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Enter the 6-digit code from your email."),
+  otpType: z.enum(["signup", "email"]).optional().default("email"),
+});
+
+export type AuthState = {
+  error: string | null;
+  info?: string | null;
+  success?: string | null;
+  flow?: "signup_otp" | "login_otp" | null;
+  email?: string | null;
+  otpType?: "signup" | "email" | null;
+};
 
 function configError(): AuthState {
   return {
@@ -59,6 +75,45 @@ async function publicOrigin(): Promise<string> {
 // Where to land an authenticated user when we don't know if they have a shop yet.
 // The callback route does the actual onboarding-vs-dashboard branching.
 const POST_AUTH_PATH = "/auth/callback?next=%2Fdashboard";
+
+async function postAuthRedirectPath(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "/login";
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id, onboarding_completed")
+    .eq("id", user.id)
+    .maybeSingle<{ organization_id: string | null; onboarding_completed: boolean | null }>();
+
+  if (!profile?.organization_id || !profile?.onboarding_completed) {
+    return "/onboarding";
+  }
+
+  return "/dashboard";
+}
+
+async function sendLoginOtp(email: string): Promise<{ error: string | null }> {
+  const origin = await publicOrigin();
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: `${origin}${POST_AUTH_PATH}`,
+    },
+  });
+
+  if (error) {
+    console.error("[security] email OTP request failed:", error.message);
+    return { error: error.message };
+  }
+
+  return { error: null };
+}
 
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!env.isSupabaseConfigured) return configError();
@@ -182,15 +237,232 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
 
   await clearCaptchaPass();
 
-  // If email confirmation is enabled, no session is created yet — tell the user.
+  // If email confirmation is enabled, no session is created yet. Supabase sends the
+  // signup OTP from the Confirm Signup template when that template includes {{ .Token }}.
   if (!data.session) {
     return {
       error: null,
-      info: "Account created. Check your inbox to confirm your email, then sign in.",
+      info: `Enter the code we sent to ${parsed.data.email}.`,
+      flow: "signup_otp",
+      email: parsed.data.email,
+      otpType: "signup",
     };
   }
 
-  redirect("/onboarding");
+  // Some Supabase projects return a session immediately if email confirmation is
+  // disabled. Force the same owner verification UX by signing out and sending an
+  // email OTP that does not create a new account.
+  await supabase.auth.signOut();
+  const otpResult = await sendLoginOtp(parsed.data.email);
+  if (otpResult.error) {
+    return {
+      error: "Account was created, but we could not send the verification code. Please try signing in.",
+    };
+  }
+
+  return {
+    error: null,
+    info: `Enter the code we sent to ${parsed.data.email}.`,
+    flow: "signup_otp",
+    email: parsed.data.email,
+    otpType: "email",
+  };
+}
+
+export async function requestLoginOtpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const h = await headers();
+  const ip = extractClientIp(h.get("x-forwarded-for"));
+
+  const captchaPass = ip ? await readCaptchaPass(ip) : null;
+  if (!captchaPass) {
+    const recaptchaToken = formData.get("recaptchaToken") as string | null;
+    const recaptchaResult = await verifyRecaptchaToken(recaptchaToken);
+    if (!recaptchaResult.success) {
+      return { error: recaptchaResult.error ?? "Security check failed." };
+    }
+    if (ip) {
+      await setCaptchaPass(ip);
+    }
+  }
+
+  const parsed = resetSchema.safeParse({ email: formData.get("email") ?? "" });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please enter your email." };
+  }
+
+  if (ip) {
+    const rateCheck = await checkRateLimit(`otp:${parsed.data.email}`, ip);
+    if (!rateCheck.allowed) {
+      return { error: "Please wait before requesting another code." };
+    }
+  }
+
+  const result = await sendLoginOtp(parsed.data.email);
+  if (ip) {
+    await recordAttempt(`otp:${parsed.data.email}`, ip, !result.error);
+  }
+  await clearCaptchaPass();
+
+  if (result.error && result.error.toLowerCase().includes("rate")) {
+    return { error: "Please wait before requesting another code." };
+  }
+
+  return {
+    error: null,
+    info: "If this email has a SaleDock account, we sent a login code.",
+    flow: "login_otp",
+    email: parsed.data.email,
+    otpType: "email",
+  };
+}
+
+export async function resendSignupOtpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const parsed = resetSchema.safeParse({ email: formData.get("email") ?? "" });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please enter your email." };
+  }
+  const otpType = formData.get("otpType") === "signup" ? "signup" : "email";
+  const origin = await publicOrigin();
+  const supabase = await createClient();
+
+  const { error } = otpType === "signup"
+    ? await supabase.auth.resend({
+        type: "signup",
+        email: parsed.data.email,
+        options: { emailRedirectTo: `${origin}${POST_AUTH_PATH}` },
+      })
+    : await supabase.auth.signInWithOtp({
+        email: parsed.data.email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${origin}${POST_AUTH_PATH}`,
+        },
+      });
+
+  if (error) {
+    console.error("[security] signup OTP resend failed:", error.message);
+    if (error.message.toLowerCase().includes("rate")) {
+      return { error: "Please wait before requesting another code." };
+    }
+    return { error: "Could not resend the code. Please try again." };
+  }
+
+  return {
+    error: null,
+    info: `We sent a new code to ${parsed.data.email}.`,
+    flow: "signup_otp",
+    email: parsed.data.email,
+    otpType,
+  };
+}
+
+export async function resendLoginOtpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const parsed = resetSchema.safeParse({ email: formData.get("email") ?? "" });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please enter your email." };
+  }
+
+  const result = await sendLoginOtp(parsed.data.email);
+  if (result.error) {
+    if (result.error.toLowerCase().includes("rate")) {
+      return { error: "Please wait before requesting another code." };
+    }
+    return {
+      error: null,
+      info: "If this email has a SaleDock account, we sent a login code.",
+      flow: "login_otp",
+      email: parsed.data.email,
+      otpType: "email",
+    };
+  }
+
+  return {
+    error: null,
+    info: "If this email has a SaleDock account, we sent a new login code.",
+    flow: "login_otp",
+    email: parsed.data.email,
+    otpType: "email",
+  };
+}
+
+export async function verifyOwnerSignupOtpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const parsed = emailOtpSchema.safeParse({
+    email: formData.get("email") ?? "",
+    token: formData.get("token") ?? "",
+    otpType: formData.get("otpType") ?? "email",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Enter the code from your email." };
+  }
+
+  const supabase = await createClient();
+  const firstAttempt = await supabase.auth.verifyOtp({
+    email: parsed.data.email,
+    token: parsed.data.token,
+    type: parsed.data.otpType,
+  });
+
+  let error = firstAttempt.error;
+  if (error && parsed.data.otpType === "signup") {
+    const secondAttempt = await supabase.auth.verifyOtp({
+      email: parsed.data.email,
+      token: parsed.data.token,
+      type: "email",
+    });
+    error = secondAttempt.error;
+  }
+
+  if (error) {
+    console.error("[security] owner signup OTP verification failed:", error.message);
+    return {
+      error: "That code was not accepted. Please check the code or request a new one.",
+      flow: "signup_otp",
+      email: parsed.data.email,
+      otpType: parsed.data.otpType,
+    };
+  }
+
+  redirect(await postAuthRedirectPath());
+}
+
+export async function verifyLoginOtpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!env.isSupabaseConfigured) return configError();
+
+  const parsed = emailOtpSchema.safeParse({
+    email: formData.get("email") ?? "",
+    token: formData.get("token") ?? "",
+    otpType: "email",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Enter the code from your email." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({
+    email: parsed.data.email,
+    token: parsed.data.token,
+    type: "email",
+  });
+
+  if (error) {
+    console.error("[security] login OTP verification failed:", error.message);
+    return {
+      error: "That code was not accepted. Please check the code or request a new one.",
+      flow: "login_otp",
+      email: parsed.data.email,
+      otpType: "email",
+    };
+  }
+
+  redirect(await postAuthRedirectPath());
 }
 
 async function oAuthAction(provider: "google"): Promise<AuthState> {
@@ -606,45 +878,20 @@ export async function restartSetupAction(): Promise<{ error: string | null }> {
     return { error: "You must be signed in." };
   }
 
-  // Only allow restart if the user has no completed org
+  // Only allow restart if onboarding is not already complete.
+  // This action clears only the saved onboarding draft/progress.
+  // It must never delete organizations, reset profiles, or clear ownership data.
   const { data: profile } = await supabase
     .from("profiles")
     .select("organization_id, onboarding_completed")
     .eq("id", user.id)
     .maybeSingle<{ organization_id: string | null; onboarding_completed: boolean | null }>();
 
-  if (!profile) {
-    // No profile yet — redirect to onboarding fresh
-    redirect("/onboarding");
-  }
-
-  if (profile.organization_id && profile.onboarding_completed) {
+  if (profile?.organization_id && profile.onboarding_completed) {
     return { error: "Your shop setup is already complete. You cannot restart setup." };
   }
 
-  // If there's a partial org (organization_id set but onboarding incomplete), delete it safely
-  if (profile.organization_id && !profile.onboarding_completed) {
-    // Only delete if the org is incomplete (onboarding_completed = false)
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("onboarding_completed")
-      .eq("id", profile.organization_id)
-      .maybeSingle<{ onboarding_completed: boolean | null }>();
-
-    if (org && !org.onboarding_completed) {
-      await supabase.from("organizations").delete().eq("id", profile.organization_id);
-    }
-  }
-
-  // Reset profile to pre-onboarding state
-  await supabase
-    .from("profiles")
-    .update({
-      organization_id: null,
-      branch_id: null,
-      onboarding_completed: false,
-    })
-    .eq("id", user.id);
+  await supabase.from("onboarding_drafts").delete().eq("user_id", user.id);
 
   redirect("/onboarding");
 }
