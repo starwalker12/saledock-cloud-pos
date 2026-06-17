@@ -65,15 +65,15 @@ create table if not exists public.staff_invitations (
   expires_at timestamptz null,
 
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-
-  -- Only one invite row per organization + email. This keeps the lifecycle
-  -- simple and auditable: resending updates the existing pending row instead
-  -- of creating duplicates. Historical states are tracked via status columns
-  -- and timestamps, not by multiple rows.
-  constraint uq_staff_invitations_org_email
-    unique (organization_id, lower(email))
+  updated_at timestamptz not null default now()
 );
+
+-- Only one invite row per organization + email. This keeps the lifecycle
+-- simple and auditable: resending updates the existing pending row instead
+-- of creating duplicates. Historical states are tracked via status columns
+-- and timestamps, not by multiple rows.
+create unique index if not exists uq_staff_invitations_org_email
+  on public.staff_invitations (organization_id, lower(email));
 
 -- ── Indexes ─────────────────────────────────────────────────────────────────────
 
