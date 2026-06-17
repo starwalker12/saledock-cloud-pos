@@ -3,12 +3,12 @@
 import { randomBytes, createHash } from "crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
-import { getLinkedProviders } from "@/lib/auth/identities";
 import { z } from "zod";
 import { STAFF_ROLES, inviteUserSchema, type StaffRole } from "@/lib/validation/users";
 import { type StaffInvitation as BaseStaffInvitation } from "@/lib/data/users";
@@ -635,7 +635,7 @@ export async function acceptStaffInviteAction(
   // 4. Ensure a Supabase auth user exists for this email. The invite email should
   // have created one, but if it was already an existing auth user we handle it.
   let authUserId = invite.invited_auth_user_id;
-  let authUser: { id: string; email?: string | undefined; identities?: { provider: string; id: string }[] | null } | null = null;
+  let authUser: User | null = null;
   if (!authUserId) {
     const { user: existingUser } = await findAuthUserByEmail(invite.email);
     if (existingUser) {
@@ -654,12 +654,12 @@ export async function acceptStaffInviteAction(
   }
 
   // 5. Safety: do not silently overwrite an existing password. If the auth user
-  // already has an email/password identity, require them to sign in first.
-  const providers = getLinkedProviders(authUser);
-  if (providers.hasPassword) {
+  // already has a confirmed email and sign-in history, they have an active account
+  // and should sign in first.
+  if (authUser?.email_confirmed_at && authUser?.last_sign_in_at) {
     return {
       ok: false,
-      error: "This email already has a SaleDock password. Please sign in with your existing password first, then open this invite link again.",
+      error: "This email already has an active SaleDock account. Please sign in with your existing password first, then open this invite link again.",
     };
   }
 
