@@ -13,6 +13,8 @@ const staticPublicAssetPaths = [
   "/gadget-zone-logo.png",
   "/globe.svg",
   "/next.svg",
+  "/onboarding-ecosystem-dark.png",
+  "/onboarding-ecosystem-light.png",
   "/saledock-logo-full.png",
   "/saledock-logo-mark.png",
   "/vercel.svg",

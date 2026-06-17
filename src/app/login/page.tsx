@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
+import { ThemeImage } from "@/components/theme-image";
 
 export const metadata: Metadata = {
   title: "Sign In — SaleDock Cloud POS",
@@ -192,11 +192,14 @@ export default async function LoginPage({
 
             {/* Onboarding-themed illustration */}
             <div className="my-auto py-6 flex items-center justify-center">
-              <Image
-                src="/saledock-onboarding-illustration.png"
+              <ThemeImage
+                lightSrc="/onboarding-ecosystem-light.png"
+                darkSrc="/onboarding-ecosystem-dark.png"
+                lightWidth={533}
+                lightHeight={800}
+                darkWidth={640}
+                darkHeight={800}
                 alt="Shop setup with checklist, location pin, branding, and secure login"
-                width={320}
-                height={240}
                 className="w-full max-w-[320px] h-auto drop-shadow-2xl"
                 priority
               />

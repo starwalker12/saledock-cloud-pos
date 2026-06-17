@@ -110,10 +110,12 @@ function PermissionSummary({ role }: { role: StaffInvitation["role"] }) {
 }
 
 function AcceptForm({
+  isUnfinishedOwner,
   onAccepted,
   onError,
 }: {
-  onAccepted: () => void;
+  isUnfinishedOwner: boolean;
+  onAccepted: (redirectTo: string) => void;
   onError: (message: string) => void;
 }) {
   const [password, setPassword] = useState("");
@@ -141,7 +143,7 @@ function AcceptForm({
         recaptchaToken: captchaToken,
       });
       if (result.ok) {
-        onAccepted();
+        onAccepted(result.redirectTo);
       } else {
         onError(result.error);
         recaptchaResetRef.current?.();
@@ -158,33 +160,44 @@ function AcceptForm({
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4 text-left">
-      <div className="space-y-2">
-        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Create password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={8}
-          className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 dark:focus:border-blue-500"
-          placeholder="Enter a secure password"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Confirm password</label>
-        <input
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          minLength={8}
-          className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 dark:focus:border-blue-500"
-          placeholder="Re-enter your password"
-        />
-      </div>
-      <p className="text-xs text-slate-500 dark:text-slate-400">
-        Password must be at least 8 characters with uppercase, lowercase, number, and special character.
-      </p>
+      {!isUnfinishedOwner && (
+        <>
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Create password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 dark:focus:border-blue-500"
+              placeholder="Enter a secure password"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Confirm password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={8}
+              className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 dark:focus:border-blue-500"
+              placeholder="Re-enter your password"
+            />
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+          </p>
+        </>
+      )}
+      {isUnfinishedOwner && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            You already have a SaleDock account. Accept this invitation to join the shop with your existing password.
+          </p>
+        </div>
+      )}
       <div className="flex justify-center py-2">
         <Recaptcha onChange={setCaptchaToken} resetRef={recaptchaResetRef} />
       </div>
@@ -193,7 +206,7 @@ function AcceptForm({
         disabled={isSubmitting || !captchaToken}
         className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-60"
       >
-        {isSubmitting ? "Accepting..." : "Accept invitation & create account"}
+        {isSubmitting ? "Accepting..." : isUnfinishedOwner ? "Accept invitation" : "Accept invitation & create account"}
       </button>
     </form>
   );
@@ -208,6 +221,7 @@ function InviteAcceptContent() {
   const [errorMessage, setErrorMessage] = useState("");
   const [invite, setInvite] = useState<StaffInvitation | null>(null);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [isUnfinishedOwner, setIsUnfinishedOwner] = useState(false);
   const settledRef = useRef(false);
 
   useEffect(() => {
@@ -274,6 +288,17 @@ function InviteAcceptContent() {
         setSessionEmail(session.user.email);
       }
 
+      // Detect unfinished owner-signup accounts so we can skip password creation.
+      if (session?.user.id && !signal.aborted) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("organization_id, onboarding_completed")
+          .eq("id", session.user.id)
+          .maybeSingle<{ organization_id: string | null; onboarding_completed: boolean | null }>();
+        const unfinished = !profile?.organization_id && !profile?.onboarding_completed;
+        setIsUnfinishedOwner(unfinished);
+      }
+
       const result = await getStaffInviteByTokenAction(token);
       if (signal.aborted) return;
 
@@ -308,10 +333,10 @@ function InviteAcceptContent() {
     }
   };
 
-  const handleAccepted = () => {
+  const handleAccepted = (redirectTo: string) => {
     setStatus("accepted");
     window.setTimeout(() => {
-      router.replace("/login?invite_accepted=1");
+      router.replace(redirectTo);
     }, 1200);
   };
 
@@ -427,7 +452,7 @@ function InviteAcceptContent() {
       <div className="mt-6 space-y-3">
         {!emailMismatch && (
           <>
-            <AcceptForm onAccepted={handleAccepted} onError={(msg) => { setStatus("error"); setErrorMessage(msg); }} />
+            <AcceptForm isUnfinishedOwner={isUnfinishedOwner} onAccepted={handleAccepted} onError={(msg) => { setStatus("error"); setErrorMessage(msg); }} />
             <hr className="border-slate-200 dark:border-slate-800" />
             <button
               type="button"

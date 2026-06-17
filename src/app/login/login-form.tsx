@@ -14,6 +14,7 @@ import {
   type AuthState,
 } from "@/app/(auth)/actions";
 import { Recaptcha, type RecaptchaStatus } from "@/components/auth/recaptcha";
+import { ThemeImage } from "@/components/theme-image";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
@@ -234,6 +235,19 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
         >
           &larr; {isSignupOtp ? "Change email" : t("backToSignIn", "Back to sign in")}
         </button>
+
+        <div className="flex justify-center py-2">
+          <ThemeImage
+            lightSrc="/onboarding-ecosystem-light.png"
+            darkSrc="/onboarding-ecosystem-dark.png"
+            lightWidth={533}
+            lightHeight={800}
+            darkWidth={640}
+            darkHeight={800}
+            alt="Secure email verification illustration"
+            className="w-full max-w-[160px] h-auto"
+          />
+        </div>
 
         <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 dark:border-blue-900/50 dark:bg-blue-950/20">
           <p className="text-xs font-black uppercase tracking-wide text-blue-700 dark:text-blue-300">
