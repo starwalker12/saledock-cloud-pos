@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { signOutAction } from "@/app/(auth)/actions";
 import { getOnboardingDraftForUser } from "./actions";
 import { OnboardingWizard } from "./onboarding-wizard";
+import { ThemeImage } from "@/components/theme-image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 
@@ -18,6 +19,9 @@ export default async function OnboardingPage() {
   if (onboardingDone) redirect("/dashboard");
 
   const defaultFullName = profile?.full_name ?? ((user.user_metadata as { full_name?: string } | null)?.full_name ?? "");
+  const defaultNameParts = defaultFullName.trim().split(/\s+/);
+  const defaultFirstName = defaultNameParts[0] ?? "";
+  const defaultLastName = defaultNameParts.slice(1).join(" ") ?? "";
   const draft = await getOnboardingDraftForUser(user.id);
 
   return (
@@ -30,13 +34,31 @@ export default async function OnboardingPage() {
           <Link href="/onboarding" className="inline-block">
             <Logo className="mx-auto mb-4 h-14 w-auto max-w-[220px]" />
           </Link>
+          <div className="flex justify-center py-2">
+            <ThemeImage
+              lightSrc="/onboarding-ecosystem-light.png"
+              darkSrc="/onboarding-ecosystem-dark.png"
+              lightWidth={533}
+              lightHeight={800}
+              darkWidth={640}
+              darkHeight={800}
+              alt="Shop setup ecosystem illustration"
+              className="w-full max-w-[200px] h-auto"
+            />
+          </div>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">Set up your shop</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
             Complete the steps below to create your organization and start selling.
           </p>
         </div>
 
-        <OnboardingWizard defaultFullName={defaultFullName} userEmail={user.email ?? ""} userId={user.id} initialDraft={draft} />
+        <OnboardingWizard
+          defaultFirstName={defaultFirstName}
+          defaultLastName={defaultLastName}
+          userEmail={user.email ?? ""}
+          userId={user.id}
+          initialDraft={draft}
+        />
 
         {/* Recovery buttons */}
         <div className="mt-8 flex flex-col items-center gap-3 border-t border-slate-200 pt-6 dark:border-slate-600">

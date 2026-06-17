@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
+import { ThemeImage } from "@/components/theme-image";
 
 export const metadata: Metadata = {
   title: "Sign In — SaleDock Cloud POS",
@@ -189,61 +190,26 @@ export default async function LoginPage({
             {/* Top brand space (badge removed) */}
             <div className="h-4" />
 
-            {/* SVG Abstract Art Illustration */}
+            {/* Onboarding-themed illustration */}
             <div className="my-auto py-6 flex items-center justify-center">
-              <svg className="w-full max-w-[280px] h-auto drop-shadow-2xl" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* cash register / POS machine base outline */}
-                <rect x="30" y="130" width="180" height="70" rx="16" fill="url(#posGradient)" stroke="#3b82f6" strokeWidth="2.5" className="opacity-90" />
-                {/* register screen base */}
-                <rect x="50" y="60" width="140" height="80" rx="12" fill="#020617" stroke="#3b82f6" strokeWidth="2.5" />
-                {/* screen grid pattern */}
-                <path d="M 60 70 L 180 70 M 60 90 L 180 90 M 60 110 L 180 110" stroke="#1e293b" strokeWidth="1" />
-                {/* stylized sales bar chart on screen */}
-                <rect x="70" y="110" width="16" height="20" rx="3" fill="#14b8a6" className="animate-pulse" />
-                <rect x="94" y="95" width="16" height="35" rx="3" fill="#3b82f6" />
-                <rect x="118" y="80" width="16" height="50" rx="3" fill="#06b6d4" />
-                <rect x="142" y="70" width="16" height="60" rx="3" fill="#10b981" />
-                {/* interactive check / transaction path line */}
-                <path d="M 70 110 L 94 95 L 118 80 L 142 70" stroke="url(#lineGradient)" strokeWidth="3" strokeLinecap="round" />
-                
-                {/* stylized receipt rolling out */}
-                <path d="M 150 140 C 150 140, 165 155, 160 175 C 155 195, 175 200, 175 200" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeDasharray="3 3" />
-                <path d="M 148 145 H 172 M 153 155 H 177 M 150 165 H 174" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" />
-
-                {/* stylized floating coins / PKR shapes */}
-                <circle cx="205" cy="80" r="14" fill="url(#coinGradient)" stroke="#0d9488" strokeWidth="2" />
-                <path d="M 205 73 V 87 M 201 77 H 209 M 201 83 H 209" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
-                <circle cx="215" cy="115" r="10" fill="url(#coinGradient)" stroke="#0d9488" strokeWidth="1.5" />
-
-                {/* glowing dots / network connectivity */}
-                <circle cx="45" cy="50" r="4" fill="#10b981" />
-                <circle cx="195" cy="45" r="3" fill="#3b82f6" />
-                <circle cx="25" cy="110" r="5" fill="#f59e0b" />
-
-                {/* Gradients */}
-                <defs>
-                  <linearGradient id="posGradient" x1="30" y1="130" x2="210" y2="200" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#1e293b" />
-                    <stop offset="0.5" stopColor="#0f172a" />
-                    <stop offset="1" stopColor="#020617" />
-                  </linearGradient>
-                  <linearGradient id="lineGradient" x1="70" y1="110" x2="142" y2="70" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#22d3ee" />
-                    <stop offset="1" stopColor="#34d399" />
-                  </linearGradient>
-                  <linearGradient id="coinGradient" x1="191" y1="66" x2="219" y2="94" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#0d9488" />
-                    <stop offset="1" stopColor="#14b8a6" />
-                  </linearGradient>
-                </defs>
-              </svg>
+              <ThemeImage
+                lightSrc="/onboarding-ecosystem-light.png"
+                darkSrc="/onboarding-ecosystem-dark.png"
+                lightWidth={533}
+                lightHeight={800}
+                darkWidth={640}
+                darkHeight={800}
+                alt="Shop setup with checklist, location pin, branding, and secure login"
+                className="w-full max-w-[320px] h-auto drop-shadow-2xl"
+                priority
+              />
             </div>
 
             {/* Bottom info section */}
             <div className="space-y-2">
-              <h4 className="text-base font-bold text-white">Streamline shop transactions</h4>
+              <h4 className="text-base font-bold text-white">Set up your shop in minutes</h4>
               <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
-                Access your secure checkout, repairs tracking, ledger reconciliation, and business insights from any device.
+                Create your shop profile, set your location, add your branding, and start selling securely from any device.
               </p>
             </div>
           </div>

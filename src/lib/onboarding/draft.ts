@@ -3,7 +3,8 @@ export const ONBOARDING_STEPS = ["profile", "shop", "branch", "branding", "confi
 export type OnboardingStepName = (typeof ONBOARDING_STEPS)[number];
 
 export const ONBOARDING_DRAFT_FIELDS = [
-  "fullName",
+  "firstName",
+  "lastName",
   "username",
   "phone",
   "profilePictureUrl",

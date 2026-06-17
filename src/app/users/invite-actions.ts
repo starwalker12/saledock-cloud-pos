@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
@@ -102,13 +103,19 @@ async function findAuthUserByEmail(email: string) {
   return { user: user ?? null, error: null };
 }
 
+async function isConvertibleUnfinishedOwner(authUserId: string) {
+  const { profile } = await findProfileByAuthUserId(authUserId);
+  if (!profile) return true;
+  return !profile.organization_id && !profile.onboarding_completed;
+}
+
 async function findProfileByAuthUserId(authUserId: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("profiles")
-    .select("id, organization_id, role, is_active, full_name")
+    .select("id, organization_id, role, is_active, full_name, onboarding_completed")
     .eq("id", authUserId)
-    .maybeSingle<{ id: string; organization_id: string | null; role: StaffRole; is_active: boolean; full_name: string }>();
+    .maybeSingle<{ id: string; organization_id: string | null; role: StaffRole; is_active: boolean; full_name: string; onboarding_completed: boolean }>();
   return { profile: data, error };
 }
 
@@ -574,22 +581,7 @@ export async function acceptStaffInviteAction(
 > {
   if (!rawToken) return { ok: false, error: "Invite link is missing." };
 
-  // 1. Verify CAPTCHA first.
-  const recaptchaResult = await verifyRecaptchaToken(formData.recaptchaToken);
-  if (!recaptchaResult.success) {
-    return { ok: false, error: recaptchaResult.error ?? "Security check failed." };
-  }
-
-  // 2. Validate password.
-  if (formData.password !== formData.confirmPassword) {
-    return { ok: false, error: "Passwords do not match." };
-  }
-  const passwordParsed = passwordSchema.safeParse(formData.password);
-  if (!passwordParsed.success) {
-    return { ok: false, error: passwordParsed.error.issues[0]?.message ?? "Password does not meet requirements." };
-  }
-
-  // 3. Look up invitation.
+  // 1. Look up invitation first so we can decide whether this user needs a password.
   const admin = createAdminClient();
   const tokenHash = hashInviteToken(rawToken);
 
@@ -632,6 +624,20 @@ export async function acceptStaffInviteAction(
     return { ok: false, error: "This invite link has expired. Ask the shop owner to resend the invite." };
   }
 
+  // 2. Verify CAPTCHA.
+  const recaptchaResult = await verifyRecaptchaToken(formData.recaptchaToken);
+  if (!recaptchaResult.success) {
+    return { ok: false, error: recaptchaResult.error ?? "Security check failed." };
+  }
+
+  // 3. If the caller is signed in, enforce that their session email matches the
+  // invite email. The client also checks this, but this is the server-side guard.
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user.email && session.user.email.toLowerCase() !== invite.email.toLowerCase()) {
+    return { ok: false, error: "Please sign in with the email address this invitation was sent to." };
+  }
+
   // 4. Ensure a Supabase auth user exists for this email. The invite email should
   // have created one, but if it was already an existing auth user we handle it.
   let authUserId = invite.invited_auth_user_id;
@@ -653,10 +659,15 @@ export async function acceptStaffInviteAction(
     return { ok: false, error: "No account is linked to this invite. Ask the shop owner to resend the invite." };
   }
 
-  // 5. Safety: do not silently overwrite an existing password. If the auth user
-  // already has a confirmed email and sign-in history, they have an active account
-  // and should sign in first.
-  if (authUser?.email_confirmed_at && authUser?.last_sign_in_at) {
+  // 5. Detect unfinished owner-signup accounts. These users have a verified email
+  // but never completed shop setup, so it is safe to convert them to staff.
+  const isUnfinishedOwner = authUser?.email_confirmed_at
+    ? await isConvertibleUnfinishedOwner(authUserId)
+    : false;
+
+  // Safety: do not silently overwrite an active account. An active account has a
+  // completed profile in an organization. Unfinished owner signups are exempt.
+  if (authUser?.email_confirmed_at && authUser?.last_sign_in_at && !isUnfinishedOwner) {
     return {
       ok: false,
       error: "This email already has an active SaleDock account. Please sign in with your existing password first, then open this invite link again.",
@@ -665,23 +676,34 @@ export async function acceptStaffInviteAction(
 
   // 6. Set the user's password and confirm their email via service role.
   // This is the only place a password is ever set for an invited staff member.
-  const { error: updateAuthError } = await admin.auth.admin.updateUserById(authUserId, {
-    password: formData.password,
-    email_confirm: true,
-  });
-
-  if (updateAuthError) {
-    const msg = updateAuthError.message.toLowerCase();
-    if (msg.includes("same password") || msg.includes("different") || updateAuthError.code === "same_password") {
-      return { ok: false, error: "Your new password must be different from any previous password." };
+  // Unfinished owner-signup accounts already have a password, so skip this step.
+  if (!isUnfinishedOwner) {
+    if (formData.password !== formData.confirmPassword) {
+      return { ok: false, error: "Passwords do not match." };
     }
-    logAudit({
-      module: "users",
-      action: "users.invite_accept_password_failed",
-      details: `Failed to set password for invited staff ${invite.email}`,
-      metadata: { email: invite.email, invitation_id: invite.id, error: updateAuthError.message },
+    const passwordParsed = passwordSchema.safeParse(formData.password);
+    if (!passwordParsed.success) {
+      return { ok: false, error: passwordParsed.error.issues[0]?.message ?? "Password does not meet requirements." };
+    }
+
+    const { error: updateAuthError } = await admin.auth.admin.updateUserById(authUserId, {
+      password: formData.password,
+      email_confirm: true,
     });
-    return { ok: false, error: "Could not set your password. Please try again with a stronger password." };
+
+    if (updateAuthError) {
+      const msg = updateAuthError.message.toLowerCase();
+      if (msg.includes("same password") || msg.includes("different") || updateAuthError.code === "same_password") {
+        return { ok: false, error: "Your new password must be different from any previous password." };
+      }
+      logAudit({
+        module: "users",
+        action: "users.invite_accept_password_failed",
+        details: `Failed to set password for invited staff ${invite.email}`,
+        metadata: { email: invite.email, invitation_id: invite.id, error: updateAuthError.message },
+      });
+      return { ok: false, error: "Could not set your password. Please try again with a stronger password." };
+    }
   }
 
   // 7. Create or update the staff profile in the invited organization.
@@ -708,13 +730,26 @@ export async function acceptStaffInviteAction(
     logAudit({
       module: "users",
       action: "users.invite_accept_profile_failed",
-      details: `Password was set but profile creation failed for ${invite.email}`,
-      metadata: { email: invite.email, invitation_id: invite.id, error: profileError.message },
+      details: `${isUnfinishedOwner ? "Converted unfinished owner" : "Password was set"} but profile creation failed for ${invite.email}`,
+      metadata: { email: invite.email, invitation_id: invite.id, error: profileError.message, is_unfinished_owner: isUnfinishedOwner },
     });
     return { ok: false, error: "We could not finish joining the shop. Please contact support." };
   }
 
-  // 8. Copy invitation permissions to staff_permissions if present.
+  // 8. Clean up any onboarding draft for converted unfinished owners.
+  if (isUnfinishedOwner) {
+    const { error: draftDeleteError } = await admin.from("onboarding_drafts").delete().eq("user_id", authUserId);
+    if (draftDeleteError) {
+      logAudit({
+        module: "users",
+        action: "users.invite_accept_draft_cleanup_failed",
+        details: `Profile created but onboarding draft cleanup failed for ${invite.email}`,
+        metadata: { email: invite.email, invitation_id: invite.id, error: draftDeleteError.message },
+      });
+    }
+  }
+
+  // 9. Copy invitation permissions to staff_permissions if present.
   if (invite.permissions && Object.keys(invite.permissions).length > 0) {
     const perms = invite.permissions as Record<string, boolean | null>;
     const { error: permError } = await admin.from("staff_permissions").upsert(
@@ -744,7 +779,7 @@ export async function acceptStaffInviteAction(
     }
   }
 
-  // 9. Mark invitation accepted.
+  // 10. Mark invitation accepted.
   const { error: acceptError } = await admin
     .from("staff_invitations")
     .update({
@@ -775,12 +810,13 @@ export async function acceptStaffInviteAction(
       invitation_id: invite.id,
       auth_user_id: authUserId,
       organization_id: invite.organization_id,
+      is_unfinished_owner: isUnfinishedOwner,
     },
   });
 
-  // 10. The password update invalidated the session. Redirect to login so the
-  // user signs in with the password they just created.
-  return { ok: true, redirectTo: "/login?invite_accepted=1" };
+  // 11. Unfinished owners keep their existing session. New invitees had their
+  // session invalidated by the password update, so send them to login.
+  return { ok: true, redirectTo: isUnfinishedOwner ? "/dashboard" : "/login?invite_accepted=1" };
 }
 
 export async function listStaffInvitationsAction(organizationId: string): Promise<StaffInvitation[]> {

@@ -8,10 +8,22 @@ import {
   type OnboardingState,
 } from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
+import { LocationMapPicker } from "@/components/shared/location-map-picker";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
 import { AppSelect } from "@/components/ui/app-select";
 import { ONBOARDING_STEPS, type OnboardingDraftSnapshot, type OnboardingStepName } from "@/lib/onboarding/draft";
+import {
+  buildGoogleMapsSearchUrl,
+  buildMapEmbedUrl,
+  buildMapLinkUrl,
+  hasMapEmbedData,
+  isGoogleMapsSearchUrl,
+  isValidCoordinate,
+  parseCoordinatesFromMapInput,
+  type MapCoordinates,
+} from "@/lib/map-utils";
+import { MapPin, Crosshair, Link2 } from "lucide-react";
 
 const initialState: OnboardingState = { error: null };
 
@@ -116,12 +128,14 @@ function getDefaultTimezone(): string {
 }
 
 export function OnboardingWizard({
-  defaultFullName,
+  defaultFirstName,
+  defaultLastName,
   userEmail,
   userId,
   initialDraft,
 }: {
-  defaultFullName: string;
+  defaultFirstName: string;
+  defaultLastName: string;
   userEmail: string;
   userId: string;
   initialDraft: OnboardingDraftSnapshot;
@@ -129,7 +143,8 @@ export function OnboardingWizard({
   const defaultCurrency = getDefaultCurrency();
   const defaultTimezone = getDefaultTimezone();
   const baseFormData = useMemo<Record<string, string>>(() => ({
-    fullName: defaultFullName,
+    firstName: defaultFirstName,
+    lastName: defaultLastName,
     username: "",
     phone: "",
     profilePictureUrl: "",
@@ -157,7 +172,7 @@ export function OnboardingWizard({
     primaryColor: "#0b2f6f",
     accentColor: "#00b8b0",
     defaultTheme: "system",
-  }), [defaultCurrency, defaultFullName, defaultTimezone, userEmail]);
+  }), [defaultCurrency, defaultFirstName, defaultLastName, defaultTimezone, userEmail]);
   const initialFormData = useMemo<Record<string, string>>(
     () => ({ ...baseFormData, ...(initialDraft?.draftData ?? {}) }),
     [baseFormData, initialDraft?.draftData],
@@ -194,8 +209,8 @@ export function OnboardingWizard({
     const errs: Record<string, string> = {};
     switch (stepName) {
       case "profile":
-        if (!formData.fullName || formData.fullName.trim().length < 2) {
-          errs.fullName = "Please enter your full name.";
+        if (!formData.firstName || formData.firstName.trim().length < 2) {
+          errs.firstName = "Please enter your first name.";
         }
         if (formData.phone && !isValidPhoneNumber(formData.phone)) {
           errs.phone = "Please enter a valid phone number (e.g. +92 300 1234567).";
@@ -216,6 +231,11 @@ export function OnboardingWizard({
         if (!formData.orgEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.orgEmail.trim())) {
           errs.orgEmail = "Please enter a valid shop email address.";
         }
+        if (formData.latitude || formData.longitude) {
+          if (!isValidCoordinate(formData.latitude, formData.longitude)) {
+            errs.latitude = "Please enter valid latitude and longitude values.";
+          }
+        }
         break;
       case "branch":
         if (formData.branchUseShopDetails !== "true") {
@@ -224,6 +244,11 @@ export function OnboardingWizard({
           }
           if (formData.branchPhone && !isValidPhoneNumber(formData.branchPhone)) {
             errs.branchPhone = "Please enter a valid phone number (e.g. +92 300 1234567).";
+          }
+          if (formData.branchLatitude || formData.branchLongitude) {
+            if (!isValidCoordinate(formData.branchLatitude, formData.branchLongitude)) {
+              errs.branchLatitude = "Please enter valid branch latitude and longitude values.";
+            }
           }
         }
         break;
@@ -524,20 +549,35 @@ function ProfileStep({
           <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-500 dark:text-slate-400 font-bold">* Required fields</span>
         </div>
 
-        <label className="block">
-          <span className={labelTextClass}>Full name <span className="text-red-500">*</span></span>
-          <input
-            id="fullName"
-            required
-            value={data.fullName}
-            onChange={(e) => onChange("fullName", e.target.value)}
-            className={`${inputClass} ${errors.fullName ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
-            placeholder="e.g. John Doe"
-          />
-          {errors.fullName && (
-            <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.fullName}</p>
-          )}
-        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="block">
+            <span className={labelTextClass}>First name <span className="text-red-500">*</span></span>
+            <input
+              id="firstName"
+              required
+              value={data.firstName}
+              onChange={(e) => onChange("firstName", e.target.value)}
+              className={`${inputClass} ${errors.firstName ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
+              placeholder="e.g. John"
+            />
+            {errors.firstName && (
+              <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.firstName}</p>
+            )}
+          </label>
+          <label className="block">
+            <span className={labelTextClass}>Last name</span>
+            <input
+              id="lastName"
+              value={data.lastName}
+              onChange={(e) => onChange("lastName", e.target.value)}
+              className={`${inputClass} ${errors.lastName ? "border-red-400 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400" : ""}`}
+              placeholder="e.g. Doe"
+            />
+            {errors.lastName && (
+              <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.lastName}</p>
+            )}
+          </label>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
@@ -577,6 +617,7 @@ function ProfileStep({
 
       <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20">
         <ImageUpload
+          key={data.profilePictureUrl || "no-profile-picture"}
           bucket="profile-pictures"
           folderPath={`users/${userId}/profile-picture`}
           currentUrl={data.profilePictureUrl || null}
@@ -585,15 +626,6 @@ function ProfileStep({
           label="Profile picture (optional)"
           aspectRatio="square"
         />
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 select-none">Or use a direct image URL</summary>
-          <input
-            value={data.profilePictureUrl}
-            onChange={(e) => onChange("profilePictureUrl", e.target.value)}
-            className={`${inputClass} mt-2`}
-            placeholder="e.g. https://example.com/assets/photo.jpg"
-          />
-        </details>
       </div>
     </div>
   );
@@ -610,6 +642,42 @@ function ShopStep({
 }) {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
+  const [coordinateParseMessage, setCoordinateParseMessage] = useState<string | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+  const mapLinkUrl = buildMapLinkUrl(data.googleMapsUrl, data.latitude, data.longitude);
+
+  function syncGoogleMapsLinkFromCoordinates(lat: string, lng: string) {
+    const generatedLink = buildGoogleMapsSearchUrl(lat, lng);
+    if (!generatedLink) return;
+    const trimmed = data.googleMapsUrl.trim();
+    if (!trimmed || isGoogleMapsSearchUrl(trimmed)) {
+      onChange("googleMapsUrl", generatedLink);
+    }
+  }
+
+  function updateLatitude(value: string) {
+    onChange("latitude", value);
+    syncGoogleMapsLinkFromCoordinates(value, data.longitude);
+  }
+
+  function updateLongitude(value: string) {
+    onChange("longitude", value);
+    syncGoogleMapsLinkFromCoordinates(data.latitude, value);
+  }
+
+  function updateLocationFromCoordinates(lat: string, lng: string) {
+    onChange("latitude", lat);
+    onChange("longitude", lng);
+    const generatedLink = buildGoogleMapsSearchUrl(lat, lng);
+    if (generatedLink) {
+      const trimmed = data.googleMapsUrl.trim();
+      if (!trimmed || isGoogleMapsSearchUrl(trimmed)) {
+        onChange("googleMapsUrl", generatedLink);
+      }
+    }
+    setCoordinateParseMessage(null);
+  }
 
   function handleGetLocation() {
     if (!navigator.geolocation) {
@@ -620,16 +688,48 @@ function ShopStep({
     setLocationError("");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onChange("latitude", pos.coords.latitude.toString());
-        onChange("longitude", pos.coords.longitude.toString());
+        updateLocationFromCoordinates(pos.coords.latitude.toString(), pos.coords.longitude.toString());
         setGettingLocation(false);
       },
       (err) => {
-        setLocationError(err.message);
+        setLocationError(err.message || "Could not get your location.");
         setGettingLocation(false);
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+  }
+
+  function handleGoogleMapsUrlChange(value: string) {
+    onChange("googleMapsUrl", value);
+    const parsed = parseCoordinatesFromMapInput(value);
+    if (parsed) {
+      onChange("latitude", String(parsed.lat));
+      onChange("longitude", String(parsed.lng));
+      setCoordinateParseMessage(`Coordinates updated from link: ${parsed.lat.toFixed(4)}, ${parsed.lng.toFixed(4)}`);
+    } else {
+      setCoordinateParseMessage(null);
+    }
+  }
+
+  function handleGenerateLinkFromCoordinates() {
+    const generatedLink = buildGoogleMapsSearchUrl(data.latitude, data.longitude);
+    if (generatedLink) {
+      onChange("googleMapsUrl", generatedLink);
+    }
+  }
+
+  function handleAdjustLocationConfirm(coords: MapCoordinates) {
+    onChange("latitude", String(coords.lat));
+    onChange("longitude", String(coords.lng));
+    const generatedLink = buildGoogleMapsSearchUrl(String(coords.lat), String(coords.lng));
+    if (generatedLink) {
+      const trimmed = data.googleMapsUrl.trim();
+      if (!trimmed || isGoogleMapsSearchUrl(trimmed)) {
+        onChange("googleMapsUrl", generatedLink);
+      }
+    }
+    setCoordinateParseMessage(`Pin set to: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+    setShowLocationPicker(false);
   }
 
   return (
@@ -749,13 +849,14 @@ function ShopStep({
       <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20 space-y-4">
         <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Google Maps Location</span>
         <label className="block">
-          <span className={labelTextClass}>Google Maps link (optional)</span>
+          <span className={labelTextClass}>Google Maps link</span>
           <input
             value={data.googleMapsUrl}
-            onChange={(e) => onChange("googleMapsUrl", e.target.value)}
+            onChange={(e) => handleGoogleMapsUrlChange(e.target.value)}
             className={inputClass}
-            placeholder="e.g. https://maps.app.goo.gl/xyz123"
+            placeholder="e.g. https://maps.app.goo.gl/xyz123 or 33.6844,73.0479"
           />
+          <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">You can paste a Google Maps link, lat,lng pair, or use the tools below.</p>
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
@@ -764,7 +865,7 @@ function ShopStep({
               type="number"
               step="any"
               value={data.latitude}
-              onChange={(e) => onChange("latitude", e.target.value)}
+              onChange={(e) => updateLatitude(e.target.value)}
               className={inputClass}
               placeholder="e.g. 33.6844"
             />
@@ -775,30 +876,92 @@ function ShopStep({
               type="number"
               step="any"
               value={data.longitude}
-              onChange={(e) => onChange("longitude", e.target.value)}
+              onChange={(e) => updateLongitude(e.target.value)}
               className={inputClass}
               placeholder="e.g. 73.0479"
             />
           </label>
         </div>
+        {errors.latitude && (
+          <p className="text-xs text-red-600 dark:text-red-400">{errors.latitude}</p>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={handleGetLocation}
             disabled={gettingLocation}
-            className="h-10 rounded-xl border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 disabled:opacity-60 transition cursor-pointer"
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
           >
+            <MapPin className="size-3.5" />
             {gettingLocation ? "Getting location..." : "Use my current location"}
           </button>
-          {locationError && (
-            <p className="text-xs text-red-500">{locationError}</p>
+          <button
+            type="button"
+            onClick={() => setShowLocationPicker(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            <Crosshair className="size-3.5" />
+            Adjust location
+          </button>
+          {isValidCoordinate(data.latitude, data.longitude) && !isGoogleMapsSearchUrl(data.googleMapsUrl.trim()) && (
+            <button
+              type="button"
+              onClick={handleGenerateLinkFromCoordinates}
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <Link2 className="size-3.5" />
+              Generate link from coordinates
+            </button>
           )}
           {data.latitude && data.longitude && (
             <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              ✓ Location set: {Number(data.latitude).toFixed(4)}, {Number(data.longitude).toFixed(4)}
+              Location set: {Number(data.latitude).toFixed(4)}, {Number(data.longitude).toFixed(4)}
+            </p>
+          )}
+          {locationError && (
+            <p className="text-xs text-red-600 dark:text-red-400">{locationError}</p>
+          )}
+          {coordinateParseMessage && (
+            <p className={`text-xs ${coordinateParseMessage.includes("could not") ? "text-amber-700 dark:text-amber-300" : "text-emerald-600 dark:text-emerald-400"}`}>
+              {coordinateParseMessage}
             </p>
           )}
         </div>
+
+        {mapLinkUrl ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Preview</p>
+            {hasMapEmbedData(data.latitude, data.longitude) ? (
+              <iframe
+                title="Shop location map"
+                src={buildMapEmbedUrl(data.googleMapsUrl, data.latitude, data.longitude) ?? undefined}
+                className="mt-2 h-56 w-full rounded-lg border-0"
+                loading="lazy"
+                allowFullScreen
+              />
+            ) : (
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                We could not read coordinates from this link. Use current location or Adjust location to place the pin.
+              </p>
+            )}
+            <a
+              href={mapLinkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              Open map link
+            </a>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Preview</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Add a Google Maps link or set coordinates to see a map preview.
+            </p>
+          </div>
+        )}
+
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -809,6 +972,15 @@ function ShopStep({
           <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Show map on receipts and profile</span>
         </label>
       </div>
+
+      {showLocationPicker && (
+        <LocationMapPicker
+          initialLat={data.latitude}
+          initialLng={data.longitude}
+          onConfirm={handleAdjustLocationConfirm}
+          onClose={() => setShowLocationPicker(false)}
+        />
+      )}
     </div>
   );
 }
@@ -824,7 +996,11 @@ function BranchStep({
 }) {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
+  const [coordinateParseMessage, setCoordinateParseMessage] = useState<string | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const useShopDetails = data.branchUseShopDetails === "true";
+
+  const branchMapLinkUrl = buildMapLinkUrl(data.branchGoogleMapsUrl, data.branchLatitude, data.branchLongitude);
 
   function handleUseShopDetails(use: boolean) {
     onChange("branchUseShopDetails", use ? "true" : "false");
@@ -838,6 +1014,38 @@ function BranchStep({
     }
   }
 
+  function syncBranchGoogleMapsLinkFromCoordinates(lat: string, lng: string) {
+    const generatedLink = buildGoogleMapsSearchUrl(lat, lng);
+    if (!generatedLink) return;
+    const trimmed = data.branchGoogleMapsUrl.trim();
+    if (!trimmed || isGoogleMapsSearchUrl(trimmed)) {
+      onChange("branchGoogleMapsUrl", generatedLink);
+    }
+  }
+
+  function updateBranchLatitude(value: string) {
+    onChange("branchLatitude", value);
+    syncBranchGoogleMapsLinkFromCoordinates(value, data.branchLongitude);
+  }
+
+  function updateBranchLongitude(value: string) {
+    onChange("branchLongitude", value);
+    syncBranchGoogleMapsLinkFromCoordinates(data.branchLatitude, value);
+  }
+
+  function updateBranchLocationFromCoordinates(lat: string, lng: string) {
+    onChange("branchLatitude", lat);
+    onChange("branchLongitude", lng);
+    const generatedLink = buildGoogleMapsSearchUrl(lat, lng);
+    if (generatedLink) {
+      const trimmed = data.branchGoogleMapsUrl.trim();
+      if (!trimmed || isGoogleMapsSearchUrl(trimmed)) {
+        onChange("branchGoogleMapsUrl", generatedLink);
+      }
+    }
+    setCoordinateParseMessage(null);
+  }
+
   function handleGetLocation() {
     if (!navigator.geolocation) {
       setLocationError("Geolocation is not supported by your browser.");
@@ -847,16 +1055,48 @@ function BranchStep({
     setLocationError("");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onChange("branchLatitude", pos.coords.latitude.toString());
-        onChange("branchLongitude", pos.coords.longitude.toString());
+        updateBranchLocationFromCoordinates(pos.coords.latitude.toString(), pos.coords.longitude.toString());
         setGettingLocation(false);
       },
       (err) => {
-        setLocationError(err.message);
+        setLocationError(err.message || "Could not get your location.");
         setGettingLocation(false);
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+  }
+
+  function handleBranchGoogleMapsUrlChange(value: string) {
+    onChange("branchGoogleMapsUrl", value);
+    const parsed = parseCoordinatesFromMapInput(value);
+    if (parsed) {
+      onChange("branchLatitude", String(parsed.lat));
+      onChange("branchLongitude", String(parsed.lng));
+      setCoordinateParseMessage(`Coordinates updated from link: ${parsed.lat.toFixed(4)}, ${parsed.lng.toFixed(4)}`);
+    } else {
+      setCoordinateParseMessage(null);
+    }
+  }
+
+  function handleGenerateBranchLinkFromCoordinates() {
+    const generatedLink = buildGoogleMapsSearchUrl(data.branchLatitude, data.branchLongitude);
+    if (generatedLink) {
+      onChange("branchGoogleMapsUrl", generatedLink);
+    }
+  }
+
+  function handleAdjustBranchLocationConfirm(coords: MapCoordinates) {
+    onChange("branchLatitude", String(coords.lat));
+    onChange("branchLongitude", String(coords.lng));
+    const generatedLink = buildGoogleMapsSearchUrl(String(coords.lat), String(coords.lng));
+    if (generatedLink) {
+      const trimmed = data.branchGoogleMapsUrl.trim();
+      if (!trimmed || isGoogleMapsSearchUrl(trimmed)) {
+        onChange("branchGoogleMapsUrl", generatedLink);
+      }
+    }
+    setCoordinateParseMessage(`Pin set to: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+    setShowLocationPicker(false);
   }
 
   return (
@@ -925,12 +1165,12 @@ function BranchStep({
             </label>
           </div>
           <label className="block">
-            <span className={labelTextClass}>Google Maps link (optional)</span>
+            <span className={labelTextClass}>Google Maps link</span>
             <input
               value={data.branchGoogleMapsUrl}
-              onChange={(e) => onChange("branchGoogleMapsUrl", e.target.value)}
+              onChange={(e) => handleBranchGoogleMapsUrlChange(e.target.value)}
               className={inputClass}
-              placeholder="e.g. https://maps.app.goo.gl/abc789"
+              placeholder="e.g. https://maps.app.goo.gl/abc789 or 33.6844,73.0479"
             />
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -940,7 +1180,7 @@ function BranchStep({
                 type="number"
                 step="any"
                 value={data.branchLatitude}
-                onChange={(e) => onChange("branchLatitude", e.target.value)}
+                onChange={(e) => updateBranchLatitude(e.target.value)}
                 className={inputClass}
                 placeholder="e.g. 33.6844"
               />
@@ -951,31 +1191,101 @@ function BranchStep({
                 type="number"
                 step="any"
                 value={data.branchLongitude}
-                onChange={(e) => onChange("branchLongitude", e.target.value)}
+                onChange={(e) => updateBranchLongitude(e.target.value)}
                 className={inputClass}
                 placeholder="e.g. 73.0479"
               />
             </label>
           </div>
+          {errors?.branchLatitude && (
+            <p className="text-xs text-red-600 dark:text-red-400">{errors.branchLatitude}</p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={handleGetLocation}
               disabled={gettingLocation}
-              className="h-10 rounded-xl border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 disabled:opacity-60 transition cursor-pointer"
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
+              <MapPin className="size-3.5" />
               {gettingLocation ? "Getting location..." : "Use my current location"}
             </button>
-            {locationError && (
-              <p className="text-xs text-red-500">{locationError}</p>
+            <button
+              type="button"
+              onClick={() => setShowLocationPicker(true)}
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <Crosshair className="size-3.5" />
+              Adjust location
+            </button>
+            {isValidCoordinate(data.branchLatitude, data.branchLongitude) && !isGoogleMapsSearchUrl(data.branchGoogleMapsUrl.trim()) && (
+              <button
+                type="button"
+                onClick={handleGenerateBranchLinkFromCoordinates}
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                <Link2 className="size-3.5" />
+                Generate link from coordinates
+              </button>
             )}
             {data.branchLatitude && data.branchLongitude && (
               <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                ✓ Location set: {Number(data.branchLatitude).toFixed(4)}, {Number(data.branchLongitude).toFixed(4)}
+                Location set: {Number(data.branchLatitude).toFixed(4)}, {Number(data.branchLongitude).toFixed(4)}
+              </p>
+            )}
+            {locationError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{locationError}</p>
+            )}
+            {coordinateParseMessage && (
+              <p className={`text-xs ${coordinateParseMessage.includes("could not") ? "text-amber-700 dark:text-amber-300" : "text-emerald-600 dark:text-emerald-400"}`}>
+                {coordinateParseMessage}
               </p>
             )}
           </div>
+
+          {branchMapLinkUrl ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Preview</p>
+              {hasMapEmbedData(data.branchLatitude, data.branchLongitude) ? (
+                <iframe
+                  title="Branch location map"
+                  src={buildMapEmbedUrl(data.branchGoogleMapsUrl, data.branchLatitude, data.branchLongitude) ?? undefined}
+                  className="mt-2 h-56 w-full rounded-lg border-0"
+                  loading="lazy"
+                  allowFullScreen
+                />
+              ) : (
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  We could not read coordinates from this link. Use current location or Adjust location to place the pin.
+                </p>
+              )}
+              <a
+                href={branchMapLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Open map link
+              </a>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Preview</p>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Add a Google Maps link or set coordinates to see a map preview.
+              </p>
+            </div>
+          )}
         </div>
+      )}
+
+      {showLocationPicker && !useShopDetails && (
+        <LocationMapPicker
+          initialLat={data.branchLatitude}
+          initialLng={data.branchLongitude}
+          onConfirm={handleAdjustBranchLocationConfirm}
+          onClose={() => setShowLocationPicker(false)}
+        />
       )}
     </div>
   );
@@ -1029,6 +1339,7 @@ function BrandingStep({
       <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20 space-y-3">
         <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Shop Identity</span>
         <ImageUpload
+          key={data.logoUrl || "no-logo"}
           bucket="public-branding"
           folderPath={`temp/${userId}/logo`}
           currentUrl={data.logoUrl || null}
@@ -1038,15 +1349,6 @@ function BrandingStep({
           aspectRatio="landscape"
           uploadingText="Uploading logo..."
         />
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 select-none">Or use a direct logo image URL</summary>
-          <input
-            value={data.logoUrl}
-            onChange={(e) => onChange("logoUrl", e.target.value)}
-            className={`${inputClass} mt-2`}
-            placeholder="e.g. https://example.com/assets/logo.png"
-          />
-        </details>
       </div>
 
       <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20 space-y-4">
@@ -1205,7 +1507,8 @@ function ConfirmStep({
 
       <div className="space-y-4">
         <Section summary="Owner Profile">
-          <Row label="Name" value={data.fullName} />
+          <Row label="First name" value={data.firstName} />
+          <Row label="Last name" value={data.lastName || "—"} />
           <Row label="Username" value={data.username || "—"} />
           <Row label="Phone" value={data.phone || "—"} />
           <Row label="Email" value={data.orgEmail || "—"} />
@@ -1214,7 +1517,7 @@ function ConfirmStep({
 
         <Section summary="Shop Profile">
           <Row label="Shop name" value={data.organizationName} />
-          <Row label="Owner" value={data.ownerName || data.fullName} />
+          <Row label="Owner" value={data.ownerName || `${data.firstName} ${data.lastName}`.trim()} />
           <Row label="Phone" value={data.orgPhone || "—"} />
           <Row label="WhatsApp" value={data.orgWhatsapp || "—"} />
           <Row label="Email" value={data.orgEmail || "—"} />
