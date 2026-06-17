@@ -18,7 +18,8 @@ import {
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #0b2f6f");
 
 const onboardingSchema = z.object({
-  fullName: z.string().min(2, "Full name is required."),
+  firstName: z.string().min(2, "First name is required."),
+  lastName: z.string().optional().default(""),
   username: z.string().optional().default(""),
   phone: z.string().optional().default("").refine((val) => isValidPhoneNumber(val), {
     message: "Please enter a valid phone number (e.g. +92 300 1234567).",
@@ -182,10 +183,11 @@ export async function completeOnboardingAction(
   const d = parsed.data;
 
   // Sanitize all user-supplied values before passing to RPC
+  const fullName = sanitizePlainText(`${d.firstName} ${d.lastName || ""}`.trim(), 200);
   const sanitized = {
     organizationName: sanitizePlainText(d.organizationName, 200),
     branchName: sanitizePlainText(d.branchName || "Main Branch", 200),
-    fullName: sanitizePlainText(d.fullName, 200),
+    fullName,
     ownerName: sanitizeNullableText(d.ownerName, 200),
     phone: normalizePhone(d.phone),
     avatarUrl: validateImageUrl(d.profilePictureUrl),

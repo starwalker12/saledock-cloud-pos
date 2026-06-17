@@ -18,6 +18,9 @@ export default async function OnboardingPage() {
   if (onboardingDone) redirect("/dashboard");
 
   const defaultFullName = profile?.full_name ?? ((user.user_metadata as { full_name?: string } | null)?.full_name ?? "");
+  const defaultNameParts = defaultFullName.trim().split(/\s+/);
+  const defaultFirstName = defaultNameParts[0] ?? "";
+  const defaultLastName = defaultNameParts.slice(1).join(" ") ?? "";
   const draft = await getOnboardingDraftForUser(user.id);
 
   return (
@@ -36,7 +39,13 @@ export default async function OnboardingPage() {
           </p>
         </div>
 
-        <OnboardingWizard defaultFullName={defaultFullName} userEmail={user.email ?? ""} userId={user.id} initialDraft={draft} />
+        <OnboardingWizard
+          defaultFirstName={defaultFirstName}
+          defaultLastName={defaultLastName}
+          userEmail={user.email ?? ""}
+          userId={user.id}
+          initialDraft={draft}
+        />
 
         {/* Recovery buttons */}
         <div className="mt-8 flex flex-col items-center gap-3 border-t border-slate-200 pt-6 dark:border-slate-600">
