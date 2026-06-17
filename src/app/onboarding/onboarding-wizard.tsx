@@ -1,11 +1,17 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { completeOnboardingAction, type OnboardingState } from "./actions";
+import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  completeOnboardingAction,
+  restartOnboardingDraftAction,
+  saveOnboardingDraftAction,
+  type OnboardingState,
+} from "./actions";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
 import { AppSelect } from "@/components/ui/app-select";
+import { ONBOARDING_STEPS, type OnboardingDraftSnapshot, type OnboardingStepName } from "@/lib/onboarding/draft";
 
 const initialState: OnboardingState = { error: null };
 
@@ -69,7 +75,7 @@ const SOCIAL_PLATFORM_OPTIONS = SOCIAL_PLATFORMS.map((platform) => ({
 }));
 
 type SocialLink = { platform: string; url: string };
-type StepName = "profile" | "shop" | "branch" | "branding" | "confirm";
+type StepName = OnboardingStepName;
 
 const STEP_LABELS: Record<StepName, string> = {
   profile: "Owner Profile",
@@ -79,7 +85,7 @@ const STEP_LABELS: Record<StepName, string> = {
   confirm: "Finish",
 };
 
-const STEP_ORDER: StepName[] = ["profile", "shop", "branch", "branding", "confirm"];
+const STEP_ORDER: StepName[] = [...ONBOARDING_STEPS];
 
 function getDefaultCurrency(): string {
   if (typeof Intl === "undefined") return "PKR";
@@ -113,18 +119,16 @@ export function OnboardingWizard({
   defaultFullName,
   userEmail,
   userId,
+  initialDraft,
 }: {
   defaultFullName: string;
   userEmail: string;
   userId: string;
+  initialDraft: OnboardingDraftSnapshot;
 }) {
-  const [step, setStep] = useState<StepName>("profile");
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [state, formAction, pending] = useActionState(completeOnboardingAction, initialState);
   const defaultCurrency = getDefaultCurrency();
   const defaultTimezone = getDefaultTimezone();
-
-  const [formData, setFormData] = useState<Record<string, string>>({
+  const baseFormData = useMemo<Record<string, string>>(() => ({
     fullName: defaultFullName,
     username: "",
     phone: "",
@@ -153,10 +157,38 @@ export function OnboardingWizard({
     primaryColor: "#0b2f6f",
     accentColor: "#00b8b0",
     defaultTheme: "system",
-  });
+  }), [defaultCurrency, defaultFullName, defaultTimezone, userEmail]);
+  const initialFormData = useMemo<Record<string, string>>(
+    () => ({ ...baseFormData, ...(initialDraft?.draftData ?? {}) }),
+    [baseFormData, initialDraft?.draftData],
+  );
+
+  const [step, setStep] = useState<StepName>(() => initialDraft?.currentStep ?? "profile");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [state, formAction, pending] = useActionState(completeOnboardingAction, initialState);
+  const [formData, setFormData] = useState<Record<string, string>>(() => initialFormData);
+  const [showResumePrompt, setShowResumePrompt] = useState(() => Boolean(initialDraft && Object.keys(initialDraft.draftData).length > 0));
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isSavingDraft, startDraftTransition] = useTransition();
 
   const stepIndex = STEP_ORDER.indexOf(step);
   const isLastStep = step === "confirm";
+
+  useEffect(() => {
+    if (showResumePrompt) return;
+    const timer = window.setTimeout(() => {
+      startDraftTransition(async () => {
+        const result = await saveOnboardingDraftAction({
+          currentStep: step,
+          completedSteps: STEP_ORDER.slice(0, Math.max(0, stepIndex)),
+          draftData: formData,
+        });
+        setSaveMessage(result.error ?? "Setup saved");
+      });
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [formData, showResumePrompt, step, stepIndex]);
 
   function validateStep(stepName: StepName): Record<string, string> {
     const errs: Record<string, string> = {};
@@ -246,37 +278,17 @@ export function OnboardingWizard({
   }
 
   function restartSetup() {
-    setStep("profile");
-    setFormData({
-      fullName: defaultFullName,
-      username: "",
-      phone: "",
-      profilePictureUrl: "",
-      organizationName: "",
-      ownerName: "",
-      orgPhone: "",
-      orgWhatsapp: "",
-      orgEmail: userEmail,
-      orgAddress: "",
-      currencyCode: defaultCurrency,
-      timezone: defaultTimezone,
-      googleMapsUrl: "",
-      latitude: "",
-      longitude: "",
-      showMap: "false",
-      socialLinks: "[]",
-      branchName: "Main Branch",
-      branchPhone: "",
-      branchAddress: "",
-      branchGoogleMapsUrl: "",
-      branchLatitude: "",
-      branchLongitude: "",
-      branchUseShopDetails: "true",
-      logoUrl: "",
-      primaryColor: "#0b2f6f",
-      accentColor: "#00b8b0",
-      defaultTheme: "system",
+    startDraftTransition(async () => {
+      const result = await restartOnboardingDraftAction();
+      if (result.error) {
+        setSaveMessage(result.error);
+        return;
+      }
+      setShowResumePrompt(false);
+      setSaveMessage("Setup restarted");
     });
+    setStep("profile");
+    setFormData(baseFormData);
   }
 
   const currentStep = (function () {
@@ -296,6 +308,38 @@ export function OnboardingWizard({
 
   return (
     <div className="space-y-6">
+      {showResumePrompt ? (
+        <div className="rounded-3xl border border-blue-100 bg-blue-50/80 p-5 shadow-sm dark:border-blue-900/50 dark:bg-blue-950/20 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700 dark:text-blue-300">Continue setup</p>
+          <h2 className="mt-2 text-xl font-black text-slate-950 dark:text-white">Continue your shop setup?</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            SaleDock saved your setup progress. Continue where you left off, or start over with a clean setup form.
+          </p>
+          {initialDraft?.updatedAt && (
+            <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Last saved {new Date(initialDraft.updatedAt).toLocaleString()}
+            </p>
+          )}
+          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setShowResumePrompt(false)}
+              className="h-11 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white transition hover:bg-blue-800 active:scale-[0.98]"
+            >
+              Continue setup
+            </button>
+            <button
+              type="button"
+              onClick={restartSetup}
+              disabled={isSavingDraft}
+              className="h-11 rounded-xl border border-slate-200 bg-[#fff] px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              Start over
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Premium Step Indicator */}
       <div className="relative flex justify-between items-center w-full mb-8 px-1">
         {/* Background connecting line */}
@@ -374,6 +418,16 @@ export function OnboardingWizard({
         </p>
       )}
 
+      {saveMessage && (
+        <p className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+          saveMessage.includes("Could not") || saveMessage.includes("complete")
+            ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-300"
+            : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-300"
+        }`}>
+          {isSavingDraft ? "Saving setup..." : saveMessage}
+        </p>
+      )}
+
       <div className="min-h-[250px] transition-all duration-300 ease-in-out">
         {isLastStep ? (
           <form action={handleSubmit} className="space-y-6">
@@ -440,6 +494,8 @@ export function OnboardingWizard({
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
@@ -586,7 +642,7 @@ function ShopStep({
       <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20 space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Business Details</span>
-          <span className="text-[10px] bg-slate-100 dark:bg-slate-855 px-2 py-0.5 rounded text-slate-500 dark:text-slate-400 font-bold">* Required fields</span>
+          <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-500 dark:text-slate-400 font-bold">* Required fields</span>
         </div>
 
         <label className="block">

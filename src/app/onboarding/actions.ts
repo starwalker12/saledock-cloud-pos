@@ -6,6 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { sanitizePlainText, sanitizeNullableText, normalizePhone, validateImageUrl } from "@/lib/security/sanitize";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
+import {
+  normalizeCompletedSteps,
+  normalizeOnboardingStep,
+  sanitizeOnboardingDraftData,
+  type OnboardingDraftData,
+  type OnboardingDraftSnapshot,
+  type OnboardingStepName,
+} from "@/lib/onboarding/draft";
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #0b2f6f");
 
@@ -50,6 +58,107 @@ const onboardingSchema = z.object({
 export type OnboardingState = {
   error: string | null;
 };
+
+export type SaveOnboardingDraftInput = {
+  currentStep: OnboardingStepName;
+  completedSteps: OnboardingStepName[];
+  draftData: OnboardingDraftData;
+};
+
+export async function getOnboardingDraftForUser(userId: string): Promise<OnboardingDraftSnapshot> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("onboarding_drafts")
+    .select("current_step, completed_steps, draft_data, updated_at, status")
+    .eq("user_id", userId)
+    .eq("status", "draft")
+    .maybeSingle<{
+      current_step: string | null;
+      completed_steps: string[] | null;
+      draft_data: unknown;
+      updated_at: string | null;
+      status: string | null;
+    }>();
+
+  if (error) {
+    console.error("[onboarding] draft load failed:", error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    currentStep: normalizeOnboardingStep(data.current_step),
+    completedSteps: normalizeCompletedSteps(data.completed_steps),
+    draftData: sanitizeOnboardingDraftData(data.draft_data),
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function saveOnboardingDraftAction(input: SaveOnboardingDraftInput): Promise<{ error: string | null }> {
+  const { user } = await getCurrentContext();
+  if (!user) return { error: "Please sign in again to save setup progress." };
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id, onboarding_completed")
+    .eq("id", user.id)
+    .maybeSingle<{ organization_id: string | null; onboarding_completed: boolean | null }>();
+
+  if (profile?.organization_id && profile.onboarding_completed) {
+    return { error: null };
+  }
+
+  const currentStep = normalizeOnboardingStep(input.currentStep);
+  const completedSteps = normalizeCompletedSteps(input.completedSteps);
+  const draftData = sanitizeOnboardingDraftData(input.draftData);
+
+  const { error } = await supabase
+    .from("onboarding_drafts")
+    .upsert({
+      user_id: user.id,
+      email: user.email ?? "",
+      current_step: currentStep,
+      completed_steps: completedSteps,
+      draft_data: draftData,
+      status: "draft",
+    }, { onConflict: "user_id" });
+
+  if (error) {
+    console.error("[onboarding] draft save failed:", error.message);
+    return { error: "Could not save setup progress right now." };
+  }
+
+  return { error: null };
+}
+
+export async function restartOnboardingDraftAction(): Promise<{ error: string | null }> {
+  const { user } = await getCurrentContext();
+  if (!user) return { error: "Please sign in again to restart setup." };
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id, onboarding_completed")
+    .eq("id", user.id)
+    .maybeSingle<{ organization_id: string | null; onboarding_completed: boolean | null }>();
+
+  if (profile?.organization_id && profile.onboarding_completed) {
+    return { error: "Your shop setup is already complete." };
+  }
+
+  const { error } = await supabase
+    .from("onboarding_drafts")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("[onboarding] draft restart failed:", error.message);
+    return { error: "Could not restart setup right now." };
+  }
+
+  return { error: null };
+}
 
 export async function completeOnboardingAction(
   _prev: OnboardingState,
@@ -121,6 +230,19 @@ export async function completeOnboardingAction(
     }
     console.error("[security] Onboarding RPC failed:", rpcError.message);
     return { error: "Something went wrong while setting up your shop. Please try again." };
+  }
+
+  const { error: draftError } = await supabase
+    .from("onboarding_drafts")
+    .update({
+      status: "completed",
+      current_step: "confirm",
+      completed_steps: ["profile", "shop", "branch", "branding", "confirm"],
+    })
+    .eq("user_id", user.id);
+
+  if (draftError) {
+    console.error("[onboarding] draft completion marker failed:", draftError.message);
   }
 
   redirect("/dashboard");
