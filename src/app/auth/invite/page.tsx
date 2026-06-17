@@ -14,6 +14,19 @@ import {
 
 type InvitePageStatus = "loading" | "view" | "accepting" | "accepted" | "declined" | "error";
 
+const EXPIRED_INVITE_MESSAGE = "This invite link has expired. Ask the shop owner to resend the invite.";
+
+function isExpiredInviteError(value: string | null): boolean {
+  if (!value) return false;
+  const lower = value.toLowerCase();
+  return (
+    lower.includes("otp_expired") ||
+    lower.includes("expired") ||
+    lower.includes("token is expired") ||
+    lower.includes("link is expired")
+  );
+}
+
 function hashParams(): URLSearchParams {
   if (typeof window === "undefined") return new URLSearchParams();
   return new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -192,6 +205,20 @@ function InviteAcceptContent() {
     const signal = abortController.signal;
 
     async function load() {
+      const errorValue =
+        searchParams.get("error_description") ??
+        searchParams.get("error_code") ??
+        searchParams.get("error");
+
+      if (errorValue && isExpiredInviteError(errorValue)) {
+        if (!signal.aborted) {
+          settledRef.current = true;
+          setStatus("error");
+          setErrorMessage(EXPIRED_INVITE_MESSAGE);
+        }
+        return;
+      }
+
       if (!token) {
         if (!signal.aborted) {
           settledRef.current = true;
@@ -258,7 +285,7 @@ function InviteAcceptContent() {
     return () => {
       abortController.abort();
     };
-  }, [token]);
+  }, [token, searchParams]);
 
   const handleDecline = async () => {
     if (!token || !invite) return;

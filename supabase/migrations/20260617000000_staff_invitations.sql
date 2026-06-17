@@ -181,3 +181,19 @@ create policy "Staff invitations service role all"
   to service_role
   using (true)
   with check (true);
+
+-- ── Cleanup note for rollback/reversibility ─────────────────────────────────────
+--
+-- This migration is forward-only. The helper function public.is_org_manager(uuid)
+-- is created above for the RLS policies on this table. If this migration is ever
+-- manually reverted, drop the policies first, then drop the table, then drop the
+-- helper function in this order:
+--
+--   1. drop policies referencing public.is_org_manager
+--   2. drop trigger staff_invitations_branch_same_org
+--   3. drop function public.tg_staff_invitations_branch_same_org()
+--   4. drop table public.staff_invitations
+--   5. drop type public.staff_invitation_status
+--   6. drop function public.is_org_manager(uuid)
+--
+-- Do NOT drop public.is_org_manager while the staff_invitations policies still exist.
