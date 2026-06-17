@@ -37,6 +37,18 @@ function clearInviteHash() {
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
 }
 
+function getFirstErrorParam(searchParams: URLSearchParams): string | null {
+  const hash = hashParams();
+  return (
+    searchParams.get("error_description") ??
+    searchParams.get("error_code") ??
+    searchParams.get("error") ??
+    hash.get("error_description") ??
+    hash.get("error_code") ??
+    hash.get("error")
+  );
+}
+
 function InviteCard({
   status,
   title,
@@ -205,10 +217,7 @@ function InviteAcceptContent() {
     const signal = abortController.signal;
 
     async function load() {
-      const errorValue =
-        searchParams.get("error_description") ??
-        searchParams.get("error_code") ??
-        searchParams.get("error");
+      const errorValue = getFirstErrorParam(searchParams);
 
       if (errorValue && isExpiredInviteError(errorValue)) {
         if (!signal.aborted) {
