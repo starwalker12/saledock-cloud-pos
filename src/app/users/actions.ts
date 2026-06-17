@@ -1,31 +1,19 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import {
-  STAFF_ROLES,
-  inviteUserSchema,
   profileIdSchema,
   updateUserProfileSchema,
   type StaffRole,
 } from "@/lib/validation/users";
 
-export type InviteFormValues = {
-  fullName: string;
-  email: string;
-  role: StaffRole;
-  branchId: string;
-};
-
 export type UserActionState = {
   error: string | null;
   success: string | null;
-  values?: InviteFormValues;
 };
 
 type ProfileSafetyRow = {
@@ -34,51 +22,6 @@ type ProfileSafetyRow = {
   role: StaffRole;
   is_active: boolean;
 };
-
-type InviteProfileRow = ProfileSafetyRow & {
-  last_login_at: string | null;
-};
-
-const INVITE_REDIRECT_PATH = "/auth/invite?next=%2Fdashboard";
-
-function inviteRedirectTo(origin: string): string {
-  return `${origin}${INVITE_REDIRECT_PATH}`;
-}
-
-function hasSignInProof(user: User | null | undefined, profileLastLoginAt?: string | null): boolean {
-  return Boolean(user?.last_sign_in_at ?? profileLastLoginAt);
-}
-
-function readInviteFormValues(formData: FormData): InviteFormValues {
-  const role = String(formData.get("role") ?? "cashier");
-  return {
-    fullName: String(formData.get("fullName") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    role: STAFF_ROLES.includes(role as StaffRole) ? (role as StaffRole) : "cashier",
-    branchId: String(formData.get("branchId") ?? ""),
-  };
-}
-
-function inviteError(message: string, values: InviteFormValues): UserActionState {
-  return { error: message, success: null, values };
-}
-
-function inviteSuccess(message: string): UserActionState {
-  return {
-    error: null,
-    success: message,
-    values: { fullName: "", email: "", role: "cashier", branchId: "" },
-  };
-}
-
-async function publicOrigin(): Promise<string> {
-  const h = await headers();
-  const forwardedHost = h.get("x-forwarded-host");
-  const forwardedProto = h.get("x-forwarded-proto") ?? "https";
-  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
-  const host = h.get("host");
-  return host ? `${forwardedProto}://${host}` : "http://localhost:3000";
-}
 
 async function requireUserManager() {
   const context = await getCurrentContext();
@@ -129,190 +72,6 @@ async function assertSafePrivilegeChange({
   return (count ?? 0) > 0
     ? null
     : "At least one active owner or admin must remain.";
-}
-
-export async function inviteUserAction(
-  _prev: UserActionState,
-  formData: FormData,
-): Promise<UserActionState> {
-  const submittedValues = readInviteFormValues(formData);
-  const { error, context } = await requireUserManager();
-  if (error || !context) return inviteError(error ?? "Only owners and admins can manage staff users.", submittedValues);
-  const profile = context.profile;
-  if (!profile?.organization_id) {
-    return inviteError("Organization profile is missing.", submittedValues);
-  }
-
-  const parsed = inviteUserSchema.safeParse({
-    email: formData.get("email"),
-    fullName: formData.get("fullName"),
-    role: formData.get("role"),
-    branchId: formData.get("branchId"),
-  });
-  if (!parsed.success) {
-    return inviteError(parsed.error.issues[0]?.message ?? "Invalid staff invite.", submittedValues);
-  }
-
-  const admin = createAdminClient();
-  const organizationId = profile.organization_id;
-  const values = parsed.data;
-  const origin = await publicOrigin();
-
-  const existingUsers = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (existingUsers.error) {
-    logAudit({
-      module: "users",
-      action: "users.invite_auth_list_failed",
-      details: `Could not look up existing users for invite: ${values.email}`,
-      metadata: { email: values.email, role: values.role },
-    });
-    return inviteError("We could not check existing accounts right now. Please try again.", submittedValues);
-  }
-  const existingAuthUser = existingUsers.data.users.find(
-    (user) => user.email?.toLowerCase() === values.email,
-  );
-
-  let authUserId = existingAuthUser?.id ?? null;
-  let invited = false;
-
-  if (authUserId) {
-    const { data: existingProfile, error: profileReadError } = await admin
-      .from("profiles")
-      .select("id, organization_id, role, is_active, last_login_at")
-      .eq("id", authUserId)
-      .maybeSingle<InviteProfileRow>();
-
-    if (profileReadError) {
-      logAudit({
-        module: "users",
-        action: "users.invite_profile_read_failed",
-        details: `Profile read failed during invite check: ${values.email}`,
-        metadata: { email: values.email, role: values.role, error: profileReadError.message },
-      });
-      return inviteError("We could not verify this email's account. Please try again.", submittedValues);
-    }
-
-    if (existingProfile?.organization_id && existingProfile.organization_id !== organizationId) {
-      logAudit({
-        module: "users",
-        action: "users.invite_blocked_existing_shop",
-        details: `Blocked invite: ${values.email} already belongs to another shop`,
-        metadata: { email: values.email, role: values.role, target_organization_id: existingProfile.organization_id },
-      });
-      return inviteError("This email is already connected to another shop. Use a different email for staff access.", submittedValues);
-    }
-
-    if (existingProfile?.organization_id === organizationId) {
-      const status = existingProfile.is_active ? "active" : "inactive / blocked";
-      logAudit({
-        module: "users",
-        action: "users.invite_blocked_duplicate_staff",
-        details: `Blocked duplicate staff invite: ${values.email} already on this staff list`,
-        metadata: { email: values.email, role: values.role, status },
-      });
-      return {
-        error: `That email is already on this staff list (${status}). Use the staff table to edit or resend the invite.`,
-        success: null,
-        values: submittedValues,
-      };
-    }
-
-    // Auth user exists but is not attached to any organization/profile yet.
-    // We do not auto-link them to this shop because sign-in proof elsewhere
-    // does not mean they accepted this shop's invite.
-    logAudit({
-      module: "users",
-      action: "users.invite_blocked_existing_auth_unowned",
-      details: `Blocked invite: ${values.email} already has a Supabase auth account`,
-      metadata: { email: values.email, role: values.role },
-    });
-    return {
-      error:
-        "This email already has an account. Ask the person to use a different email address, or contact support to link the account manually.",
-      success: null,
-      values: submittedValues,
-    };
-  }
-
-  if (!authUserId) {
-    const invite = await admin.auth.admin.inviteUserByEmail(values.email, {
-      redirectTo: inviteRedirectTo(origin),
-      data: { full_name: values.fullName },
-    });
-    if (invite.error || !invite.data.user) {
-      logAudit({
-        module: "users",
-        action: "users.invite_failed",
-        details: `Failed to send staff invite: ${values.email}`,
-        metadata: { email: values.email, role: values.role, error: invite.error?.message ?? "No auth user returned" },
-      });
-      return inviteError("Invite could not be sent. Check the email address and try again.", submittedValues);
-    }
-    authUserId = invite.data.user.id;
-    invited = true;
-  }
-
-  const { data: existingProfile, error: profileReadError } = await admin
-    .from("profiles")
-    .select("id, organization_id")
-    .eq("id", authUserId)
-    .maybeSingle<{ id: string; organization_id: string | null }>();
-  if (profileReadError) {
-    logAudit({
-      module: "users",
-      action: "users.invite_profile_read_failed",
-      details: `Profile read failed after invite send: ${values.email}`,
-      metadata: { email: values.email, role: values.role, error: profileReadError.message },
-    });
-    return inviteError("Invite was sent, but we could not verify the staff profile. Please contact support.", submittedValues);
-  }
-  if (existingProfile?.organization_id && existingProfile.organization_id !== organizationId) {
-    return inviteError("This email is already connected to another shop. Use a different email for staff access.", submittedValues);
-  }
-
-  const payload = {
-    id: authUserId,
-    organization_id: organizationId,
-    branch_id: values.branchId,
-    full_name: values.fullName,
-    role: values.role,
-    is_active: true,
-  };
-
-  const result = existingProfile
-    ? await admin.from("profiles").update(payload).eq("id", authUserId)
-    : await admin.from("profiles").insert(payload);
-  if (result.error) {
-    logAudit({
-      module: "users",
-      action: "users.profile_create_failed",
-      details: `Staff profile could not be saved for invite: ${values.email}`,
-      metadata: { email: values.email, role: values.role, error: result.error.message, invite_email_sent: invited },
-    });
-    return {
-      error: invited
-        ? "Invite email was sent, but the staff profile could not be created. Please contact support before resending."
-        : "We could not save the staff profile. Please try again.",
-      success: null,
-      values: submittedValues,
-    };
-  }
-
-  logAudit({
-    module: "users",
-    action: "users.invite_sent",
-    details: `Sent staff invite: ${values.fullName} (${values.email}) as ${values.role}`,
-    metadata: {
-      email: values.email,
-      role: values.role,
-      full_name: values.fullName,
-      auth_user_id: authUserId,
-      invite_email_sent: invited,
-    },
-  });
-
-  revalidatePath("/users");
-  return inviteSuccess("Invite email sent. The user will stay Pending until they accept the email invite and sign in.");
 }
 
 export async function updateUserProfileAction(formData: FormData): Promise<void> {
@@ -475,70 +234,4 @@ export async function reactivateUserAction(formData: FormData): Promise<void> {
     details: `Reactivated staff: ${parsed.data.profileId}`,
     metadata: { profile_id: parsed.data.profileId },
   });
-}
-
-export async function resendInviteAction(
-  _prev: UserActionState,
-  formData: FormData,
-): Promise<UserActionState> {
-  const { error, context } = await requireUserManager();
-  if (error || !context) return { error, success: null };
-  const profile = context.profile;
-  if (!profile?.organization_id) return { error: "Organization profile is missing.", success: null };
-  const organizationId = profile.organization_id;
-
-  const parsed = profileIdSchema.safeParse({ profileId: formData.get("profileId") });
-  if (!parsed.success) return { error: "Staff profile not found.", success: null };
-
-  const admin = createAdminClient();
-  const { data: targetProfile, error: profileError } = await admin
-    .from("profiles")
-    .select("id, organization_id, role, is_active, last_login_at")
-    .eq("id", parsed.data.profileId)
-    .eq("organization_id", organizationId)
-    .maybeSingle<InviteProfileRow>();
-  if (profileError) return { error: profileError.message, success: null };
-  if (!targetProfile) return { error: "Staff profile not found.", success: null };
-
-  const users = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (users.error) return { error: users.error.message, success: null };
-  const user = users.data?.users.find((candidate) => candidate.id === targetProfile.id);
-  if (!user?.email) {
-    return { error: "No auth account is linked to this staff profile, so no invite email can be resent.", success: null };
-  }
-  if (!user.invited_at) {
-    return {
-      error: "This staff profile does not have a verified pending invite to resend. Contact support before linking this account.",
-      success: null,
-    };
-  }
-  if (user.email_confirmed_at || hasSignInProof(user, targetProfile.last_login_at)) {
-    return { error: "This staff member has already accepted the invite.", success: null };
-  }
-
-  const origin = await publicOrigin();
-  const invite = await admin.auth.admin.inviteUserByEmail(user.email, {
-    redirectTo: inviteRedirectTo(origin),
-  });
-  if (invite.error) {
-    logAudit({
-      module: "users",
-      action: "users.invite_resend_failed",
-      details: `Failed to resend staff invite: ${user.email}`,
-      metadata: { profile_id: targetProfile.id, email: user.email, error: invite.error.message },
-    });
-    return { error: invite.error.message || "Invite email could not be resent.", success: null };
-  }
-
-  revalidatePath("/users");
-  logAudit({
-    module: "users",
-    action: "users.invite_resent",
-    details: `Resent staff invite: ${user.email}`,
-    metadata: { profile_id: targetProfile.id, email: user.email },
-  });
-  return {
-    error: null,
-    success: "Invite email resent. The user will stay Pending until they accept the email invite and sign in.",
-  };
 }

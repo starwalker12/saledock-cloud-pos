@@ -1,21 +1,24 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { useActionState, useMemo, useState, useTransition } from "react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Mail, CheckCircle, XCircle, RefreshCw, UserX } from "lucide-react";
 import {
   deactivateUserAction,
-  inviteUserAction,
   reactivateUserAction,
-  resendInviteAction,
   updateUserProfileAction,
-  type InviteFormValues,
-  type UserActionState,
 } from "./actions";
-import type { StaffBranch, StaffUser } from "@/lib/data/users";
+import {
+  inviteStaffAction,
+  resendStaffInviteAction,
+  revokeStaffInviteAction,
+  type StaffInviteFormValues,
+  type StaffInviteActionState,
+} from "./invite-actions";
+import type { StaffBranch, StaffUser, StaffInvitation } from "@/lib/data/users";
 import { STAFF_ROLES, type StaffRole } from "@/lib/validation/users";
 import { AppSelect } from "@/components/ui/app-select";
 
-const initialState: UserActionState = { error: null, success: null };
+const initialInviteState: StaffInviteActionState = { error: null, success: null };
 
 const roleLabels: Record<StaffRole, string> = {
   owner: "Owner",
@@ -31,6 +34,22 @@ const roleClasses: Record<StaffRole, string> = {
   manager: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   cashier: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
   technician: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300",
+};
+
+const statusLabels: Record<StaffInvitation["status"], string> = {
+  pending: "Pending",
+  accepted: "Accepted",
+  declined: "Declined",
+  revoked: "Revoked",
+  expired: "Expired",
+};
+
+const statusClasses: Record<StaffInvitation["status"], string> = {
+  pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+  declined: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  revoked: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  expired: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
 };
 
 const inputClass =
@@ -65,48 +84,12 @@ function AccessStatusBadge({ active }: { active: boolean }) {
   );
 }
 
-function InviteStatusBadge({ user }: { user: StaffUser }) {
-  if (user.invite_status === "accepted") {
-    return (
-      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-        Accepted
-      </span>
-    );
-  }
-  if (user.invite_status === "pending") {
-    return (
-      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-        Pending invite
-      </span>
-    );
-  }
-  if (user.invite_status === "unverified") {
-    return (
-      <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
-        Invite not verified
-      </span>
-    );
-  }
+function InvitationStatusBadge({ status }: { status: StaffInvitation["status"] }) {
   return (
-    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-800 dark:bg-red-900/30 dark:text-red-300">
-      Not linked
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusClasses[status]}`}>
+      {statusLabels[status]}
     </span>
   );
-}
-
-function inviteStatusDetail(user: StaffUser): string {
-  if (user.invite_status === "accepted") {
-    return `Accepted: ${fmtDate(user.last_sign_in_at)}`;
-  }
-  if (user.invite_status === "pending") {
-    return user.invited_at
-      ? `Invite sent: ${fmtDate(user.invited_at)}`
-      : "Waiting for invite acceptance.";
-  }
-  if (user.invite_status === "unverified") {
-    return "This auth account is linked, but this shop invite was not verified.";
-  }
-  return "No auth account is linked to this staff profile.";
 }
 
 function BranchSelect({
@@ -169,6 +152,7 @@ function RoleSelect({
     />
   );
 }
+
 function SortableHeader({
   label,
   columnKey,
@@ -221,20 +205,23 @@ function SortableHeader({
     </th>
   );
 }
+
 export function UserManagementClient({
   users,
+  invitations,
   branches,
   currentProfileId,
 }: {
   users: StaffUser[];
+  invitations: StaffInvitation[];
   branches: StaffBranch[];
   currentProfileId: string;
 }) {
   const [inviteState, inviteFormAction, invitePending] = useActionState(
-    inviteUserAction,
-    initialState,
+    inviteStaffAction,
+    initialInviteState,
   );
-  const defaultInviteValues = useMemo<InviteFormValues>(() => ({
+  const defaultInviteValues = useMemo<StaffInviteFormValues>(() => ({
     fullName: "",
     email: "",
     role: "cashier",
@@ -251,23 +238,34 @@ export function UserManagementClient({
     inviteFormDefaults.branchId,
   ].join("|");
 
-  const [sortBy, setSortBy] = useState<string>("full_name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [userSortBy, setUserSortBy] = useState<string>("full_name");
+  const [userSortDir, setUserSortDir] = useState<"asc" | "desc">("asc");
+  const [inviteSortBy, setInviteSortBy] = useState<string>("created_at");
+  const [inviteSortDir, setInviteSortDir] = useState<"asc" | "desc">("desc");
 
-  const handleSort = (key: string) => {
-    if (sortBy === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  const handleUserSort = (key: string) => {
+    if (userSortBy === key) {
+      setUserSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
-      setSortBy(key);
-      setSortDir("asc");
+      setUserSortBy(key);
+      setUserSortDir("asc");
+    }
+  };
+
+  const handleInviteSort = (key: string) => {
+    if (inviteSortBy === key) {
+      setInviteSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setInviteSortBy(key);
+      setInviteSortDir("asc");
     }
   };
 
   const sortedUsers = useMemo(() => {
     const sorted = [...users];
     sorted.sort((rowA, rowB) => {
-      const a = rowA[sortBy as keyof StaffUser];
-      const b = rowB[sortBy as keyof StaffUser];
+      const a = rowA[userSortBy as keyof StaffUser];
+      const b = rowB[userSortBy as keyof StaffUser];
 
       const aEmpty = a == null || a === "";
       const bEmpty = b == null || b === "";
@@ -276,7 +274,7 @@ export function UserManagementClient({
       if (bEmpty) return -1;
 
       let cmp = 0;
-      if (sortBy === "last_sign_in_at") {
+      if (userSortBy === "last_sign_in_at") {
         const valA = new Date(a as string).getTime();
         const valB = new Date(b as string).getTime();
         cmp = valA - valB;
@@ -286,10 +284,36 @@ export function UserManagementClient({
         cmp = String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
       }
 
-      return sortDir === "asc" ? cmp : -cmp;
+      return userSortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [users, sortBy, sortDir]);
+  }, [users, userSortBy, userSortDir]);
+
+  const sortedInvitations = useMemo(() => {
+    const sorted = [...invitations];
+    sorted.sort((rowA, rowB) => {
+      const a = rowA[inviteSortBy as keyof StaffInvitation];
+      const b = rowB[inviteSortBy as keyof StaffInvitation];
+
+      const aEmpty = a == null || a === "";
+      const bEmpty = b == null || b === "";
+      if (aEmpty && bEmpty) return 0;
+      if (aEmpty) return 1;
+      if (bEmpty) return -1;
+
+      let cmp = 0;
+      if (["created_at", "sent_at", "expires_at", "accepted_at"].includes(inviteSortBy)) {
+        const valA = a ? new Date(a as string).getTime() : 0;
+        const valB = b ? new Date(b as string).getTime() : 0;
+        cmp = valA - valB;
+      } else {
+        cmp = String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return inviteSortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [invitations, inviteSortBy, inviteSortDir]);
 
   return (
     <div className="space-y-6">
@@ -297,7 +321,7 @@ export function UserManagementClient({
         <div>
           <h2 className="text-lg font-black text-slate-950 dark:text-slate-100">Invite staff</h2>
           <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            Send an invite email. The staff member stays Pending until they accept the invite and sign in.
+            Send an invite email. The staff member must open the email and click Accept to join.
           </p>
         </div>
         {inviteState.error && (
@@ -338,16 +362,11 @@ export function UserManagementClient({
           </label>
           <label className="block min-w-0">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Role</span>
-            <RoleSelect
-              defaultValue={inviteFormDefaults.role}
-            />
+            <RoleSelect defaultValue={inviteFormDefaults.role} />
           </label>
           <label className="block min-w-0">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Branch</span>
-            <BranchSelect
-              branches={branches}
-              defaultValue={inviteFormDefaults.branchId}
-            />
+            <BranchSelect branches={branches} defaultValue={inviteFormDefaults.branchId} />
           </label>
           <button
             type="submit"
@@ -358,6 +377,81 @@ export function UserManagementClient({
           </button>
         </form>
       </section>
+
+      {invitations.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 shadow-sm">
+          <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4 sm:px-6">
+            <h2 className="text-lg font-black text-slate-950 dark:text-slate-100">Invitations</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Pending, accepted, declined, revoked, and expired staff invites.
+            </p>
+          </div>
+
+          <div className="hidden overflow-x-auto xl:block">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <tr>
+                  <SortableHeader label="Name / Email" columnKey="full_name" currentSortKey={inviteSortBy} direction={inviteSortDir} onSort={handleInviteSort} />
+                  <SortableHeader label="Role" columnKey="role" currentSortKey={inviteSortBy} direction={inviteSortDir} onSort={handleInviteSort} />
+                  <SortableHeader label="Branch" columnKey="branch_name" currentSortKey={inviteSortBy} direction={inviteSortDir} onSort={handleInviteSort} />
+                  <SortableHeader label="Status" columnKey="status" currentSortKey={inviteSortBy} direction={inviteSortDir} onSort={handleInviteSort} />
+                  <SortableHeader label="Sent" columnKey="sent_at" currentSortKey={inviteSortBy} direction={inviteSortDir} onSort={handleInviteSort} />
+                  <SortableHeader label="Expires" columnKey="expires_at" currentSortKey={inviteSortBy} direction={inviteSortDir} onSort={handleInviteSort} />
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedInvitations.map((invite) => (
+                  <tr key={invite.id} className="border-b border-slate-100 dark:border-slate-800/60 align-top">
+                    <td className="px-4 py-3">
+                      <p className="font-black text-slate-950 dark:text-slate-100">{invite.full_name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{invite.email}</p>
+                    </td>
+                    <td className="px-4 py-3"><RoleBadge role={invite.role} /></td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{invite.branch_name ?? "No branch"}</td>
+                    <td className="px-4 py-3">
+                      <InvitationStatusBadge status={invite.status} />
+                      {invite.invited_by_name && (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Invited by {invite.invited_by_name}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">{fmtDate(invite.sent_at)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">{fmtDate(invite.expires_at)}</td>
+                    <td className="px-4 py-3">
+                      <InvitationActions invite={invite} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="space-y-2 p-3 xl:hidden">
+            {sortedInvitations.map((invite) => (
+              <article key={invite.id} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 p-3 shadow-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="break-words font-black text-slate-950 dark:text-slate-100 text-sm sm:text-base">{invite.full_name}</p>
+                    <p className="break-words text-xs text-slate-500 dark:text-slate-400">{invite.email}</p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      <RoleBadge role={invite.role} />
+                      <InvitationStatusBadge status={invite.status} />
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-300 sm:text-right">
+                    <p className="font-semibold">{invite.branch_name ?? "No branch"}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Sent: {fmtDate(invite.sent_at)}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Expires: {fmtDate(invite.expires_at)}</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <InvitationActions invite={invite} />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 shadow-sm">
         <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4 sm:px-6">
@@ -371,11 +465,11 @@ export function UserManagementClient({
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <tr>
-                <SortableHeader label="Staff" columnKey="full_name" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Role" columnKey="role" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Branch" columnKey="branch_name" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Status" columnKey="is_active" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Last sign-in" columnKey="last_sign_in_at" currentSortKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Staff" columnKey="full_name" currentSortKey={userSortBy} direction={userSortDir} onSort={handleUserSort} />
+                <SortableHeader label="Role" columnKey="role" currentSortKey={userSortBy} direction={userSortDir} onSort={handleUserSort} />
+                <SortableHeader label="Branch" columnKey="branch_name" currentSortKey={userSortBy} direction={userSortDir} onSort={handleUserSort} />
+                <SortableHeader label="Status" columnKey="is_active" currentSortKey={userSortBy} direction={userSortDir} onSort={handleUserSort} />
+                <SortableHeader label="Last sign-in" columnKey="last_sign_in_at" currentSortKey={userSortBy} direction={userSortDir} onSort={handleUserSort} />
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -394,9 +488,7 @@ export function UserManagementClient({
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       <AccessStatusBadge active={user.is_active} />
-                      <InviteStatusBadge user={user} />
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{inviteStatusDetail(user)}</p>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">{fmtDate(user.last_sign_in_at)}</td>
                   <td className="px-4 py-3">
@@ -418,7 +510,6 @@ export function UserManagementClient({
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     <RoleBadge role={user.role} />
                     <AccessStatusBadge active={user.is_active} />
-                    <InviteStatusBadge user={user} />
                     {user.id === currentProfileId && (
                       <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-400">You</span>
                     )}
@@ -427,7 +518,6 @@ export function UserManagementClient({
                 <div className="text-xs text-slate-600 dark:text-slate-300 sm:text-right">
                   <p className="font-semibold">{user.branch_name ?? "No branch"}</p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">Sign-in: {fmtDate(user.last_sign_in_at)}</p>
-                  <p className="text-[11px] leading-5 text-slate-500 dark:text-slate-400">{inviteStatusDetail(user)}</p>
                 </div>
               </div>
               <div className="mt-3">
@@ -437,6 +527,69 @@ export function UserManagementClient({
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function InvitationActions({ invite }: { invite: StaffInvitation }) {
+  const [isPending, startTransition] = useTransition();
+  const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+
+  const handleResend = () => {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await resendStaffInviteAction(invite.id);
+      setMessage(result.error ? { type: "error", text: result.error } : { type: "success", text: result.success ?? "Invite resent." });
+    });
+  };
+
+  const handleRevoke = () => {
+    if (!confirm("Are you sure you want to revoke this invite? The link will stop working.")) return;
+    setMessage(null);
+    startTransition(async () => {
+      const result = await revokeStaffInviteAction(invite.id);
+      setMessage(result.error ? { type: "error", text: result.error } : { type: "success", text: result.success ?? "Invite revoked." });
+    });
+  };
+
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      {invite.status === "pending" && (
+        <>
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={isPending}
+            className="inline-flex items-center gap-1 rounded-md border border-blue-200 dark:border-blue-900/30 px-3 py-1.5 text-xs font-bold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 disabled:opacity-60"
+          >
+            <RefreshCw className="size-3.5" />
+            {isPending ? "Sending..." : "Resend"}
+          </button>
+          <button
+            type="button"
+            onClick={handleRevoke}
+            disabled={isPending}
+            className="inline-flex items-center gap-1 rounded-md border border-red-200 dark:border-red-900/30 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-60"
+          >
+            <XCircle className="size-3.5" />
+            Revoke
+          </button>
+        </>
+      )}
+      {invite.status !== "pending" && (
+        <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+          {invite.status === "accepted" && <CheckCircle className="size-3.5 text-emerald-600 dark:text-emerald-400" />}
+          {invite.status === "declined" && <XCircle className="size-3.5 text-slate-500 dark:text-slate-400" />}
+          {invite.status === "revoked" && <UserX className="size-3.5 text-red-600 dark:text-red-400" />}
+          {invite.status === "expired" && <Mail className="size-3.5 text-orange-600 dark:text-orange-400" />}
+          {statusLabels[invite.status]}
+        </span>
+      )}
+      {message && (
+        <p className={`w-full text-right text-[11px] font-semibold ${message.type === "error" ? "text-red-700 dark:text-red-300" : "text-emerald-700 dark:text-emerald-300"}`}>
+          {message.text}
+        </p>
+      )}
     </div>
   );
 }
@@ -477,9 +630,6 @@ function StaffActions({
       </details>
 
       <div className="flex flex-wrap justify-end gap-2">
-        {user.invite_status === "pending" && user.email && (
-          <ResendInviteForm profileId={user.id} />
-        )}
         {user.is_active ? (
           <form action={deactivateUserAction}>
             <input type="hidden" name="profileId" value={user.id} />
@@ -502,32 +652,5 @@ function StaffActions({
         )}
       </div>
     </div>
-  );
-}
-
-function ResendInviteForm({ profileId }: { profileId: string }) {
-  const [state, action, pending] = useActionState(resendInviteAction, initialState);
-
-  return (
-    <form action={action} className="space-y-1">
-      <input type="hidden" name="profileId" value={profileId} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="min-h-9 rounded-md border border-blue-200 px-3 text-xs font-bold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-950/20"
-      >
-        {pending ? "Sending..." : "Resend invite"}
-      </button>
-      {state.error && (
-        <p className="max-w-64 text-[11px] font-semibold leading-4 text-red-700 dark:text-red-300">
-          {state.error}
-        </p>
-      )}
-      {state.success && (
-        <p className="max-w-64 text-[11px] font-semibold leading-4 text-emerald-700 dark:text-emerald-300">
-          {state.success}
-        </p>
-      )}
-    </form>
   );
 }

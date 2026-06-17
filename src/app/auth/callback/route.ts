@@ -135,6 +135,9 @@ export async function GET(request: NextRequest) {
   inviteUrl.searchParams.set("next", isSafeRedirectPath(next) ? next! : "/dashboard");
 
   if (type === "invite" && tokenHash) {
+    // Preserve the app's invitation token if the callback URL included one.
+    const appToken = url.searchParams.get("token");
+    if (appToken) inviteUrl.searchParams.set("token", appToken);
     inviteUrl.searchParams.set("token_hash", tokenHash);
     inviteUrl.searchParams.set("type", "invite");
     return NextResponse.redirect(inviteUrl);
