@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
@@ -629,7 +630,15 @@ export async function acceptStaffInviteAction(
     return { ok: false, error: recaptchaResult.error ?? "Security check failed." };
   }
 
-  // 3. Ensure a Supabase auth user exists for this email. The invite email should
+  // 3. If the caller is signed in, enforce that their session email matches the
+  // invite email. The client also checks this, but this is the server-side guard.
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user.email && session.user.email.toLowerCase() !== invite.email.toLowerCase()) {
+    return { ok: false, error: "Please sign in with the email address this invitation was sent to." };
+  }
+
+  // 4. Ensure a Supabase auth user exists for this email. The invite email should
   // have created one, but if it was already an existing auth user we handle it.
   let authUserId = invite.invited_auth_user_id;
   let authUser: User | null = null;
