@@ -1,48 +1,18 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { EmailOtpType } from "@supabase/supabase-js";
-import { AlertTriangle, CheckCircle, Loader2, MailCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, MailCheck, Building2, UserCircle, ShieldCheck, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { recordStaffInviteAcceptedAction } from "./actions";
+import { Recaptcha } from "@/components/auth/recaptcha";
+import {
+  acceptStaffInviteAction,
+  declineStaffInviteAction,
+  getStaffInviteByTokenAction,
+  type StaffInvitation,
+} from "@/app/users/invite-actions";
 
-type InviteStatus = "loading" | "success" | "error";
-
-type InviteView = {
-  status: InviteStatus;
-  title: string;
-  message: string;
-};
-
-const EXPIRED_INVITE_MESSAGE =
-  "This invite link has expired. Ask the shop owner to resend the invite.";
-
-function isSafeRedirectPath(value: string | null): value is string {
-  return Boolean(value && /^\/(?!\/)[a-zA-Z0-9/._-]*$/.test(value));
-}
-
-function friendlyInviteError(message: string | null | undefined): InviteView {
-  const lower = (message ?? "").toLowerCase();
-  if (
-    lower.includes("expired") ||
-    lower.includes("invalid") ||
-    lower.includes("otp") ||
-    lower.includes("token") ||
-    lower.includes("link")
-  ) {
-    return {
-      status: "error",
-      title: "Invite link expired",
-      message: EXPIRED_INVITE_MESSAGE,
-    };
-  }
-  return {
-    status: "error",
-    title: "Invite could not be opened",
-    message: "We could not accept this invite. Ask the shop owner to resend it.",
-  };
-}
+type InvitePageStatus = "loading" | "view" | "accepting" | "accepted" | "declined" | "error";
 
 function hashParams(): URLSearchParams {
   if (typeof window === "undefined") return new URLSearchParams();
@@ -54,41 +24,20 @@ function clearInviteHash() {
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
 }
 
-function decodeJwtSubject(token: string | null): string | null {
-  if (!token || typeof window === "undefined") return null;
-  const [, payload] = token.split(".");
-  if (!payload) return null;
-
-  try {
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    const decoded = JSON.parse(window.atob(padded)) as { sub?: unknown };
-    return typeof decoded.sub === "string" ? decoded.sub : null;
-  } catch {
-    return null;
-  }
-}
-
-async function currentSessionUserId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.user.id ?? null;
-}
-
 function InviteCard({
   status,
   title,
   message,
-  onBackToLogin,
+  children,
 }: {
-  status: InviteStatus;
+  status: InvitePageStatus;
   title: string;
   message: string;
-  onBackToLogin: () => void;
+  children?: React.ReactNode;
 }) {
-  const isLoading = status === "loading";
-  const isSuccess = status === "success";
+  const isLoading = status === "loading" || status === "accepting";
+  const isSuccess = status === "accepted";
+  const isError = status === "error";
 
   return (
     <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-6 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
@@ -98,206 +47,372 @@ function InviteCard({
             ? "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
             : isSuccess
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-              : "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+              : isError
+                ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+                : "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
         }`}
       >
         {isLoading ? (
           <Loader2 className="size-7 animate-spin" />
         ) : isSuccess ? (
           <CheckCircle className="size-7" />
-        ) : (
+        ) : isError ? (
           <AlertTriangle className="size-7" />
+        ) : (
+          <MailCheck className="size-7" />
         )}
       </div>
 
       <div className="mt-5 space-y-2">
-        <h1 className="text-xl font-black text-slate-950 dark:text-white">
-          {title}
-        </h1>
-        <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
-          {message}
-        </p>
+        <h1 className="text-xl font-black text-slate-950 dark:text-white">{title}</h1>
+        <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">{message}</p>
       </div>
 
-      {status === "error" && (
-        <button
-          type="button"
-          onClick={onBackToLogin}
-          className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
-        >
-          Back to sign in
-        </button>
-      )}
+      {children && <div className="mt-6 space-y-4">{children}</div>}
     </div>
+  );
+}
+
+function PermissionSummary({ role }: { role: StaffInvitation["role"] }) {
+  const summaries: Record<StaffInvitation["role"], string> = {
+    owner: "Full shop access. Can manage staff, settings, billing, and all data.",
+    admin: "Can manage staff, settings, and most shop data. Cannot remove the owner.",
+    manager: "Can sell, manage stock, view reports, and process returns within assigned branch.",
+    cashier: "Can make sales and process basic transactions within assigned branch.",
+    technician: "Can view and update repair jobs assigned to them.",
+  };
+  return <p className="text-sm text-slate-600 dark:text-slate-400">{summaries[role] ?? "Shop access based on role and branch."}</p>;
+}
+
+function AcceptForm({
+  onAccepted,
+  onError,
+}: {
+  onAccepted: () => void;
+  onError: (message: string) => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaResetRef = useRef<(() => void) | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (!token) {
+      onError("Invite link is missing. Ask the shop owner to resend the invite.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await acceptStaffInviteAction(token, {
+        password,
+        confirmPassword,
+        recaptchaToken: captchaToken,
+      });
+      if (result.ok) {
+        onAccepted();
+      } else {
+        onError(result.error);
+        recaptchaResetRef.current?.();
+        setCaptchaToken(null);
+      }
+    } catch {
+      onError("Something went wrong. Please try again.");
+      recaptchaResetRef.current?.();
+      setCaptchaToken(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 space-y-4 text-left">
+      <div className="space-y-2">
+        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Create password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={8}
+          className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 dark:focus:border-blue-500"
+          placeholder="Enter a secure password"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Confirm password</label>
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+          minLength={8}
+          className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 dark:focus:border-blue-500"
+          placeholder="Re-enter your password"
+        />
+      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+      </p>
+      <div className="flex justify-center py-2">
+        <Recaptcha onChange={setCaptchaToken} resetRef={recaptchaResetRef} />
+      </div>
+      <button
+        type="submit"
+        disabled={isSubmitting || !captchaToken}
+        className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-60"
+      >
+        {isSubmitting ? "Accepting..." : "Accept invitation & create account"}
+      </button>
+    </form>
   );
 }
 
 function InviteAcceptContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const processedRef = useRef(false);
-  const code = searchParams.get("code");
-  const tokenHash = searchParams.get("token_hash");
-  const type = searchParams.get("type");
-  const nextPath = useMemo(
-    () => (isSafeRedirectPath(searchParams.get("next")) ? searchParams.get("next")! : "/dashboard"),
-    [searchParams],
-  );
-  const [view, setView] = useState<InviteView>({
-    status: "loading",
-    title: "Accepting invite...",
-    message: "Please wait while SaleDock verifies this staff invite.",
-  });
+  const token = searchParams.get("token");
+
+  const [status, setStatus] = useState<InvitePageStatus>("loading");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [invite, setInvite] = useState<StaffInvitation | null>(null);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const settledRef = useRef(false);
 
   useEffect(() => {
-    if (processedRef.current) return;
-    processedRef.current = true;
+    if (settledRef.current) return;
 
-    let active = true;
+    const abortController = new AbortController();
+    const signal = abortController.signal;
 
-    const showView = (nextView: InviteView) => {
-      if (!active) return;
-      setView(nextView);
-    };
-
-    const showFriendlyError = (message: string | null | undefined) => {
-      showView(friendlyInviteError(message));
-    };
-
-    const finishAcceptedInvite = async (successMessage: string) => {
-      const result = await recordStaffInviteAcceptedAction();
-      if (!result.ok) {
-        showView({
-          status: "error",
-          title: "Invite needs help",
-          message: result.message,
-        });
+    async function load() {
+      if (!token) {
+        if (!signal.aborted) {
+          settledRef.current = true;
+          setStatus("error");
+          setErrorMessage("This invite link is missing its token. Ask the shop owner to resend the invite.");
+        }
         return;
       }
 
-      showView({
-        status: "success",
-        title: "Invite accepted",
-        message: successMessage,
-      });
-      window.setTimeout(() => {
-        if (active) router.replace(nextPath);
-      }, 700);
-    };
-
-    async function acceptInvite() {
+      // If Supabase appended session tokens in the hash (from invite email), set session first.
       const hash = hashParams();
-      const errorMessage =
-        searchParams.get("error_description") ??
-        searchParams.get("error") ??
-        hash.get("error_description") ??
-        hash.get("error");
-
-      if (errorMessage) {
-        showFriendlyError(errorMessage);
-        return;
-      }
-
       const hashAccessToken = hash.get("access_token");
       const hashRefreshToken = hash.get("refresh_token");
       const hashType = hash.get("type");
-      const hashUserId = decodeJwtSubject(hashAccessToken);
       const hasInviteHashTokens = Boolean(hashAccessToken && hashRefreshToken);
       if (hasInviteHashTokens) clearInviteHash();
+
       const supabase = createClient();
-
-      try {
-        let authError: { message: string } | null = null;
-
-        if (code) {
-          const result = await supabase.auth.exchangeCodeForSession(code);
-          authError = result.error;
-        } else if (tokenHash) {
-          if (type && type !== "invite") {
-            authError = { message: "This is not a staff invite link." };
-          } else {
-            const result = await supabase.auth.verifyOtp({
-              token_hash: tokenHash,
-              type: "invite" as EmailOtpType,
-            });
-            authError = result.error;
+      if (hasInviteHashTokens) {
+        if (hashType && hashType !== "invite") {
+          if (!signal.aborted) {
+            settledRef.current = true;
+            setStatus("error");
+            setErrorMessage("This is not a staff invite link.");
           }
-        } else if (hashAccessToken && hashRefreshToken) {
-          if (hashType && hashType !== "invite") {
-            authError = { message: "This is not a staff invite link." };
-          } else if (!hashUserId) {
-            authError = { message: "The invite link has an invalid token." };
-          } else if (hashUserId && (await currentSessionUserId(supabase)) === hashUserId) {
-            await finishAcceptedInvite("Your staff invite has been accepted. Opening the shop dashboard now.");
-            return;
-          } else {
-            const result = await supabase.auth.setSession({
-              access_token: hashAccessToken,
-              refresh_token: hashRefreshToken,
-            });
-            authError = result.error;
-          }
-        } else {
-          const existingUserId = await currentSessionUserId(supabase);
-          if (existingUserId) {
-            await finishAcceptedInvite("You are already signed in. Opening the shop dashboard now.");
-            return;
-          }
-          showView({
-            status: "error",
-            title: "Invite already used",
-            message: "This invite may have already been used. Please sign in, or ask the shop owner to resend it.",
-          });
           return;
         }
-
-        if (authError) {
-          if (hashUserId && (await currentSessionUserId(supabase)) === hashUserId) {
-            await finishAcceptedInvite("Your staff invite has been accepted. Opening the shop dashboard now.");
-            return;
-          }
-          showFriendlyError(authError.message);
-          return;
-        }
-
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError || !user) {
-          showView({
-            status: "error",
-            title: "Invite needs help",
-            message: "The invite was verified, but SaleDock could not start a signed-in session. Please ask the shop owner to resend the invite.",
-          });
-          return;
-        }
-
-        await finishAcceptedInvite("Your staff invite has been accepted. Opening the shop dashboard now.");
-      } catch {
-        showView({
-          status: "error",
-          title: "Invite link expired",
-          message: EXPIRED_INVITE_MESSAGE,
+        const { error } = await supabase.auth.setSession({
+          access_token: hashAccessToken!,
+          refresh_token: hashRefreshToken!,
         });
+        if (error && !signal.aborted) {
+          settledRef.current = true;
+          setStatus("error");
+          setErrorMessage("The invite session could not be started. Ask the shop owner to resend the invite.");
+          return;
+        }
       }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user.email && !signal.aborted) {
+        setSessionEmail(session.user.email);
+      }
+
+      const result = await getStaffInviteByTokenAction(token);
+      if (signal.aborted) return;
+
+      if (!result.ok) {
+        settledRef.current = true;
+        setStatus("error");
+        setErrorMessage(result.error);
+        return;
+      }
+
+      setInvite(result.invite);
+      settledRef.current = true;
+      setStatus("view");
     }
 
-    acceptInvite();
+    load();
 
     return () => {
-      active = false;
+      abortController.abort();
     };
-  }, [code, nextPath, router, searchParams, tokenHash, type]);
+  }, [token]);
+
+  const handleDecline = async () => {
+    if (!token || !invite) return;
+    setStatus("accepting");
+    const result = await declineStaffInviteAction(token);
+    if (result.ok) {
+      setStatus("declined");
+    } else {
+      setStatus("error");
+      setErrorMessage(result.error);
+    }
+  };
+
+  const handleAccepted = () => {
+    setStatus("accepted");
+    window.setTimeout(() => {
+      router.replace("/login?invite_accepted=1");
+    }, 1200);
+  };
+
+  const emailMismatch = Boolean(sessionEmail && invite && sessionEmail.toLowerCase() !== invite.email.toLowerCase());
+
+  if (status === "loading" || status === "accepting") {
+    return (
+      <InviteCard
+        status={status}
+        title="Opening invite..."
+        message="Please wait while SaleDock verifies this staff invitation."
+      />
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <InviteCard status={status} title="Invite could not be opened" message={errorMessage}>
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+        >
+          Back to sign in
+        </button>
+      </InviteCard>
+    );
+  }
+
+  if (status === "declined") {
+    return (
+      <InviteCard
+        status={status}
+        title="Invitation declined"
+        message="You declined this invitation. Ask the shop owner to send a new invite if this was a mistake."
+      >
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+        >
+          Back to sign in
+        </button>
+      </InviteCard>
+    );
+  }
+
+  if (status === "accepted") {
+    return (
+      <InviteCard
+        status={status}
+        title="Welcome to the team"
+        message="Your staff invitation has been accepted. Opening the shop dashboard now."
+      />
+    );
+  }
+
+  if (!invite) {
+    return (
+      <InviteCard
+        status="error"
+        title="Invite could not be opened"
+        message="We could not load this invitation. Ask the shop owner to resend the invite."
+      />
+    );
+  }
 
   return (
-    <InviteCard
-      status={view.status}
-      title={view.title}
-      message={view.message}
-      onBackToLogin={() => router.push("/login")}
-    />
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-6 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
+      <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400">
+        <Building2 className="size-7" />
+      </div>
+
+      <div className="mt-5 space-y-2">
+        <h1 className="text-xl font-black text-slate-950 dark:text-white">Accept staff invitation</h1>
+        <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
+          You have been invited to join:
+        </p>
+        <p className="text-lg font-bold text-slate-950 dark:text-white">{invite.organization_name}</p>
+      </div>
+
+      <div className="mt-6 space-y-3 text-left">
+        <div className="flex items-start gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+          <UserCircle className="size-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Invited by</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{invite.invited_by_name ?? "Shop owner"}</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+          <ShieldCheck className="size-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Role</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 capitalize">{invite.role}</p>
+            <PermissionSummary role={invite.role} />
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+          <MapPin className="size-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Branch</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{invite.branch_name ?? "Main branch / all branches"}</p>
+          </div>
+        </div>
+      </div>
+
+      {emailMismatch && (
+        <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+          You are signed in as {sessionEmail}, but this invite is for {invite.email}. Please sign out and open the invite link while signed in as {invite.email}, or ask the owner to resend the invite to {sessionEmail}.
+        </div>
+      )}
+
+      <div className="mt-6 space-y-3">
+        {!emailMismatch && (
+          <>
+            <AcceptForm onAccepted={handleAccepted} onError={(msg) => { setStatus("error"); setErrorMessage(msg); }} />
+            <hr className="border-slate-200 dark:border-slate-800" />
+            <button
+              type="button"
+              onClick={handleDecline}
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm font-bold text-slate-700 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Decline invitation
+            </button>
+          </>
+        )}
+        {emailMismatch && (
+          <button
+            type="button"
+            onClick={() => router.push("/login")}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+          >
+            Go to sign in
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -305,9 +420,8 @@ function InviteLoadingFallback() {
   return (
     <InviteCard
       status="loading"
-      title="Accepting invite..."
-      message="Please wait while SaleDock verifies this staff invite."
-      onBackToLogin={() => undefined}
+      title="Opening invite..."
+      message="Please wait while SaleDock verifies this staff invitation."
     />
   );
 }

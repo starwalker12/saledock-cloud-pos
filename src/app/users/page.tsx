@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ShieldCheck, UserCheck, UserCog, UserX } from "lucide-react";
+import { ShieldCheck, UserCheck, UserCog, UserX, Mail } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentContext } from "@/lib/auth/session";
@@ -64,7 +64,7 @@ export default async function UsersPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-5">
           <StatCard
             label="Active users"
             value={formatNumber(data.stats.activeUsers)}
@@ -89,15 +89,22 @@ export default async function UsersPage() {
             detail="Profiles currently blocked."
             icon={<UserX className="size-5" />}
           />
+          <StatCard
+            label="Pending invites"
+            value={formatNumber(data.stats.pendingInvites)}
+            detail="Invitations waiting for acceptance."
+            icon={<Mail className="size-5" />}
+          />
         </div>
 
         <div className="rounded-2xl border border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm leading-6 text-blue-950 dark:text-blue-300">
           Staff can join only from invite emails. A new staff member stays Pending
-          until they accept the email invite and sign in.
+          until they open the email and click Accept on the invite page.
         </div>
 
         <UserManagementClient
           users={data.users}
+          invitations={data.invitations}
           branches={data.branches}
           currentProfileId={profile.id}
         />
