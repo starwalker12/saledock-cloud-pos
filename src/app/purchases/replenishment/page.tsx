@@ -5,7 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canViewReplenishment } from "@/lib/permissions";
 import { env } from "@/lib/env";
-import { getReplenishmentSuggestions } from "@/lib/data/replenishment";
+import { getReplenishmentSuggestions, getActiveSuppliers } from "@/lib/data/replenishment";
 import { ReplenishmentUI } from "./replenishment-ui";
 
 export default async function ReplenishmentPage() {
@@ -17,8 +17,13 @@ export default async function ReplenishmentPage() {
 
   const orgId = profile.organization_id;
   const currency = organization?.currency_code ?? "PKR";
+  const shopName = organization?.name ?? null;
+  const preparedBy = profile.full_name ?? "";
 
-  const summary = await getReplenishmentSuggestions(orgId);
+  const [summary, allSuppliers] = await Promise.all([
+    getReplenishmentSuggestions(orgId),
+    getActiveSuppliers(orgId),
+  ]);
 
   return (
     <AppShell pageTitle="Replenishment">
@@ -40,7 +45,14 @@ export default async function ReplenishmentPage() {
           </div>
         </div>
 
-        <ReplenishmentUI summary={summary} currency={currency} />
+        <ReplenishmentUI
+          summary={summary}
+          currency={currency}
+          shopName={shopName}
+          preparedBy={preparedBy}
+          createSupplierHref="/products"
+          allSuppliers={allSuppliers}
+        />
         <div className="h-20 md:hidden" />
       </div>
     </AppShell>
