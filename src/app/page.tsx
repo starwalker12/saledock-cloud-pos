@@ -1,7 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
+import MetaPixel from "@/components/meta-pixel";
 
 export const metadata: Metadata = {
   title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
@@ -331,8 +333,13 @@ export default async function HomePage() {
     }
   }
 
+  const nonce = (await headers()).get("x-nonce") || undefined;
+
   return (
     <div className="flex min-h-screen flex-col bg-[#fff] dark:bg-[#050c1a]">
+      {/* Public marketing page only. Dormant unless NEXT_PUBLIC_META_PIXEL_ID is
+          set AND marketing consent is granted (see src/components/meta-pixel.tsx). */}
+      <MetaPixel nonce={nonce} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

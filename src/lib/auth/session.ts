@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProfileRow = {
@@ -47,7 +48,18 @@ export async function getCurrentSession() {
   return { supabase, user };
 }
 
-export async function getCurrentContext() {
+// Wrapped in React's `cache()` so the auth + profile + organization + branch
+// reads are de-duplicated WITHIN a single server request. A page render calls
+// this from the page itself plus the layout chrome (topbar, sidebar, mobile
+// drawer), which previously each repeated the same Supabase round-trips.
+//
+// Safety: `cache()` is scoped to one server request only — it never persists
+// across requests or users, so it cannot serve stale or cross-user data. The
+// auth check (`auth.getUser()`) still runs once per request and permission
+// decisions are computed from that same fresh read; behavior is unchanged.
+// Verified that no server action re-reads context after mutating its own
+// profile/org within the same call, so there is no staleness risk.
+export const getCurrentContext = cache(async function getCurrentContext() {
   const { supabase, user } = await getCurrentSession();
   if (!user) {
     return { user: null, profile: null, organization: null, branch: null };
@@ -91,7 +103,7 @@ export async function getCurrentContext() {
   }
 
   return { user, profile, organization, branch };
-}
+});
 
 type CacheEntry = {
   url: string;
