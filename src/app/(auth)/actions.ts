@@ -27,7 +27,7 @@ const credentialsSchema = z.object({
 });
 
 const signUpSchema = credentialsSchema.extend({
-  fullName: z.string().min(2, "Enter your full name."),
+  fullName: z.string().min(2, "Enter your first name (at least 2 characters)."),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",

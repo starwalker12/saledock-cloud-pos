@@ -98,7 +98,8 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const [emailVal, setEmailVal] = useState("");
-  const [fullNameVal, setFullNameVal] = useState("");
+  const [firstNameVal, setFirstNameVal] = useState("");
+  const [lastNameVal, setLastNameVal] = useState("");
   const [passwordVal, setPasswordVal] = useState("");
   const [confirmPasswordVal, setConfirmPasswordVal] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -168,7 +169,8 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
     setMode(newMode);
     setRecaptchaToken(null);
     setEmailVal("");
-    setFullNameVal("");
+    setFirstNameVal("");
+    setLastNameVal("");
     setPasswordVal("");
     setConfirmPasswordVal("");
     recaptchaResetRef.current?.();
@@ -473,18 +475,46 @@ export function LoginForm({ callbackError, publicSignupEnabled = true, initialMo
 
       <form ref={formRef} action={formAction} onSubmit={handleFormSubmit} className="space-y-3">
         {activeMode === "sign-up" && (
-          <label className="block">
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{t("fullName", "Full name")}</span>
+          <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                  {t("firstName", "First name")} <span className="text-red-500">*</span>
+                </span>
+                <input
+                  required
+                  minLength={2}
+                  name="firstName"
+                  type="text"
+                  autoComplete="given-name"
+                  placeholder={t("firstNamePlaceholder", "e.g. John")}
+                  value={firstNameVal}
+                  onChange={(e) => setFirstNameVal(e.target.value)}
+                  className="mt-1 h-[42px] w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                  {t("lastName", "Last name")} <span className="text-slate-400">({t("optional", "optional")})</span>
+                </span>
+                <input
+                  name="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  placeholder={t("lastNamePlaceholder", "e.g. Doe")}
+                  value={lastNameVal}
+                  onChange={(e) => setLastNameVal(e.target.value)}
+                  className="mt-1 h-[42px] w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                />
+              </label>
+            </div>
+            {/* Server still receives fullName for backwards compatibility */}
             <input
-              required
+              type="hidden"
               name="fullName"
-              type="text"
-              placeholder={t("ownerName", "Owner full name")}
-              value={fullNameVal}
-              onChange={(e) => setFullNameVal(e.target.value)}
-              className="mt-1 h-[42px] w-full rounded-xl border border-slate-200 px-4 outline-none transition focus:border-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              value={`${firstNameVal.trim()} ${lastNameVal.trim()}`.trim()}
             />
-          </label>
+          </>
         )}
         <label className="block">
           <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{t("email", "Email")}</span>

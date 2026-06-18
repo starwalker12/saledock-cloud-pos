@@ -1,7 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
-import { ThemeImage } from "@/components/theme-image";
 
 export const metadata: Metadata = {
   title: "Sign In — SaleDock Cloud POS",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getPublicPlatformSetting } from "@/lib/platform/admin";
-import { signOutAction } from "@/app/(auth)/actions";
+import { signOutAction, restartSetupAction } from "@/app/(auth)/actions";
 import { ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
 import { PublicPageHeader } from "@/components/layout/public-page-header";
 import { getServerDict } from "@/lib/i18n/server";
@@ -98,13 +98,14 @@ export default async function LoginPage({
                   <ArrowRight className="size-4" />
                   {t("continueSetup", "Continue setup")}
                 </Link>
-                <form action="/api/restart-setup" method="POST">
+                <form
+                  action={async () => {
+                    "use server";
+                    await restartSetupAction();
+                  }}
+                >
                   <button
-                    type="button"
-                    onClick={async () => {
-                      const { restartSetupAction } = await import("@/app/(auth)/actions");
-                      await restartSetupAction();
-                    }}
+                    type="submit"
                     className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                   >
                     {t("restartSetup", "Restart setup")}
@@ -179,39 +180,36 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-slate-950 sm:p-6 md:p-8 lg:p-12">
       <div className="flex w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-[#fff] shadow-2xl dark:border-slate-800 dark:bg-slate-900 flex-col lg:flex-row min-h-[600px] lg:h-[650px]">
-        {/* Left Column - Abstract Visual Banner */}
-        <div className="relative hidden w-full bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-8 text-white lg:flex lg:w-[45%] flex-col justify-between overflow-hidden border-r border-slate-200 dark:border-slate-800">
-          {/* Subtle design grid/accents in background */}
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,var(--color-blue-500),transparent_60%)] pointer-events-none" />
+        {/* Left Column — integrated dark ecosystem visual */}
+        <div className="relative hidden w-full bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white lg:flex lg:w-[45%] flex-col overflow-hidden">
+          {/* Ambient radial glow + grid texture */}
+          <div className="absolute inset-0 opacity-25 bg-[radial-gradient(circle_at_top_right,var(--color-blue-500),transparent_60%)] pointer-events-none" />
           <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
 
-          {/* Banner content */}
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            {/* Top brand space (badge removed) */}
-            <div className="h-4" />
+          {/* Soft halo behind illustration */}
+          <div
+            aria-hidden="true"
+            className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 size-[460px] rounded-full bg-blue-500/25 blur-3xl pointer-events-none"
+          />
 
-            {/* Onboarding-themed illustration */}
-            <div className="my-auto py-6 flex items-center justify-center">
-              <ThemeImage
-                lightSrc="/onboarding-ecosystem-light.png"
-                darkSrc="/onboarding-ecosystem-dark.png"
-                lightWidth={533}
-                lightHeight={800}
-                darkWidth={640}
-                darkHeight={800}
-                alt="Shop setup with checklist, location pin, branding, and secure login"
-                className="w-full max-w-[320px] h-auto drop-shadow-2xl"
-                priority
-              />
-            </div>
+          {/* Illustration fills the panel — no border, no card frame */}
+          <div className="absolute inset-x-0 top-0 bottom-[140px] flex items-center justify-center px-4">
+            <Image
+              src="/onboarding-ecosystem-dark.png"
+              alt="Shop setup with checklist, location pin, branding, and secure login"
+              width={640}
+              height={800}
+              priority
+              className="h-full w-auto max-w-full object-contain drop-shadow-[0_24px_48px_rgba(0,0,0,0.45)]"
+            />
+          </div>
 
-            {/* Bottom info section */}
-            <div className="space-y-2">
-              <h4 className="text-base font-bold text-white">Set up your shop in minutes</h4>
-              <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
-                Create your shop profile, set your location, add your branding, and start selling securely from any device.
-              </p>
-            </div>
+          {/* Bottom caption with gradient scrim for readability */}
+          <div className="absolute inset-x-0 bottom-0 z-10 px-8 pb-8 pt-16 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent">
+            <h4 className="text-base font-bold text-white">Set up your shop in minutes</h4>
+            <p className="mt-1.5 text-xs text-slate-300 leading-relaxed max-w-sm">
+              Create your shop profile, set your location, add your branding, and start selling securely from any device.
+            </p>
           </div>
         </div>
 

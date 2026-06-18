@@ -617,7 +617,6 @@ function ProfileStep({
 
       <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20">
         <ImageUpload
-          key={data.profilePictureUrl || "no-profile-picture"}
           bucket="profile-pictures"
           folderPath={`users/${userId}/profile-picture`}
           currentUrl={data.profilePictureUrl || null}
@@ -1339,7 +1338,6 @@ function BrandingStep({
       <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20 space-y-3">
         <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Shop Identity</span>
         <ImageUpload
-          key={data.logoUrl || "no-logo"}
           bucket="public-branding"
           folderPath={`temp/${userId}/logo`}
           currentUrl={data.logoUrl || null}
