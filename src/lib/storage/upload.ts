@@ -50,6 +50,19 @@ async function uploadViaServerAction(
   return uploadImageAction(bucket, folderPath, file);
 }
 
+export async function resolveImagePreviewUrl(
+  bucket: "profile-pictures" | "public-branding",
+  storedUrl: string,
+): Promise<{ previewUrl: string | null; error: string | null }> {
+  try {
+    const { resolveImagePreviewUrlAction } = await import("./upload-action");
+    return resolveImagePreviewUrlAction(bucket, storedUrl);
+  } catch (err) {
+    console.error("[resolveImagePreviewUrl]", err);
+    return { previewUrl: null, error: null };
+  }
+}
+
 export async function removeImage(
   bucket: "profile-pictures" | "public-branding",
   path: string,

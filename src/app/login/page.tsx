@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
 
@@ -10,8 +11,8 @@ export const metadata: Metadata = {
 import { env } from "@/lib/env";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getPublicPlatformSetting } from "@/lib/platform/admin";
-import { signOutAction, restartSetupAction } from "@/app/(auth)/actions";
-import { ArrowRight, DoorOpen, LayoutDashboard } from "lucide-react";
+import { signOutAction } from "@/app/(auth)/actions";
+import { DoorOpen, LayoutDashboard } from "lucide-react";
 import { PublicPageHeader } from "@/components/layout/public-page-header";
 import { getServerDict } from "@/lib/i18n/server";
 import { Logo } from "@/components/logo";
@@ -41,16 +42,21 @@ export default async function LoginPage({
   const maintenanceRaw = await getPublicPlatformSetting("maintenance_mode_enabled");
   const maintenanceMode = maintenanceRaw === true || maintenanceRaw === "true";
 
-  let signedInUser: { name: string; email: string; needsOnboarding: boolean } | null = null;
+  let signedInUser: { name: string; email: string } | null = null;
 
   if (env.isSupabaseConfigured) {
     const { user, profile, organization } = await getCurrentContext();
     if (user) {
       const needsOnboarding = !profile?.organization_id || !profile?.onboarding_completed || !organization?.onboarding_completed;
+      // Unfinished setup is handled entirely on /onboarding. Send the user there
+      // directly instead of asking continue/restart twice (once here and again
+      // on the onboarding resume card).
+      if (needsOnboarding) {
+        redirect("/onboarding");
+      }
       signedInUser = {
         name: profile?.full_name ?? user.email ?? "User",
         email: user.email ?? "",
-        needsOnboarding,
       };
     }
   }
@@ -60,7 +66,7 @@ export default async function LoginPage({
       {/* Logo */}
       <div className="mb-3.5 text-center">
         <Link
-          href={signedInUser ? (signedInUser.needsOnboarding ? "/onboarding" : "/dashboard") : "/"}
+          href={signedInUser ? "/dashboard" : "/"}
           className="inline-block"
         >
           <Logo className="mx-auto mb-1.5 h-9 w-auto max-w-[150px]" />
@@ -68,7 +74,8 @@ export default async function LoginPage({
       </div>
 
       {signedInUser ? (
-        /* Signed-in card — no redirect, user can choose */
+        /* Signed-in card for a user whose shop setup is already complete.
+           Unfinished-setup users are redirected to /onboarding before this renders. */
         <div className="space-y-5">
           <div className="rounded-xl bg-blue-50 px-4 py-4 text-center dark:bg-blue-950/30">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -77,50 +84,18 @@ export default async function LoginPage({
             <p className="mt-0.5 text-xs text-slate-500">{signedInUser.email}</p>
           </div>
 
-          {signedInUser.needsOnboarding ? (
-            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-              <p className="font-semibold">{t("needsOnboarding", "Your shop setup is not complete")}</p>
-              <p className="mt-1 text-xs">{t("needsOnboardingDesc", "You started setting up SaleDock but did not finish. You can continue where you left off or restart setup.")}</p>
-            </div>
-          ) : (
-            <div className="text-center text-sm text-slate-500">
-              {t("alreadyReady", "You are already signed in and your shop is ready.")}
-            </div>
-          )}
+          <div className="text-center text-sm text-slate-500">
+            {t("alreadyReady", "You are already signed in and your shop is ready.")}
+          </div>
 
           <div className="flex flex-col gap-2">
-            {signedInUser.needsOnboarding ? (
-              <>
-                <Link
-                  href="/onboarding"
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
-                >
-                  <ArrowRight className="size-4" />
-                  {t("continueSetup", "Continue setup")}
-                </Link>
-                <form
-                  action={async () => {
-                    "use server";
-                    await restartSetupAction();
-                  }}
-                >
-                  <button
-                    type="submit"
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                  >
-                    {t("restartSetup", "Restart setup")}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <Link
-                href="/dashboard"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
-              >
-                <LayoutDashboard className="size-4" />
-                {t("goToDashboard", "Go to dashboard")}
-              </Link>
-            )}
+            <Link
+              href="/dashboard"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+            >
+              <LayoutDashboard className="size-4" />
+              {t("goToDashboard", "Go to dashboard")}
+            </Link>
 
             <form action={signOutAction}>
               <button
