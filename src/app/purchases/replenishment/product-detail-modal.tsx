@@ -85,17 +85,19 @@ export function ProductDetailModal({
     };
   }, [onClose]);
 
-  const currentSupplierName = useMemo(() => {
-    if (!currentSupplierId) return s.supplierName ?? null;
-    return suppliers.find((x) => x.id === currentSupplierId)?.name ?? s.supplierName ?? null;
-  }, [currentSupplierId, suppliers, s.supplierName]);
-
-  const supplierContact = currentSupplierId
-    ? (() => {
-        const sup = suppliers.find((x) => x.id === currentSupplierId);
-        return [sup?.company ?? s.supplierCompany, sup?.phone ?? s.supplierPhone, sup?.email ?? s.supplierEmail].filter(Boolean) as string[];
-      })()
-    : [];
+  // Resolve the currently-saved supplier's display details. When the supplier is
+  // cleared (currentSupplierId === null) we show "Unassigned" with NO contact —
+  // we never fall back to the original suggestion's supplier name/contact. The
+  // suggestion fields are only used when the saved supplier is still the original
+  // one (e.g. an inactive original not present in the active suppliers list).
+  const currentSup = currentSupplierId ? suppliers.find((x) => x.id === currentSupplierId) ?? null : null;
+  const isOriginalSupplier = currentSupplierId !== null && currentSupplierId === s.supplierId;
+  const currentSupplierName =
+    currentSupplierId === null ? null : currentSup?.name ?? (isOriginalSupplier ? s.supplierName : null);
+  const cCompany = currentSupplierId === null ? null : currentSup?.company ?? (isOriginalSupplier ? s.supplierCompany : null);
+  const cPhone = currentSupplierId === null ? null : currentSup?.phone ?? (isOriginalSupplier ? s.supplierPhone : null);
+  const cEmail = currentSupplierId === null ? null : currentSup?.email ?? (isOriginalSupplier ? s.supplierEmail : null);
+  const hasContact = Boolean(cCompany || cPhone || cEmail);
 
   const dirty = (assignSel === UNASSIGNED ? null : assignSel) !== currentSupplierId;
 
@@ -195,11 +197,11 @@ export function ProductDetailModal({
           <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:border-white/10 dark:bg-white/[0.02]">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Supplier</p>
             <p className="mt-0.5 text-base font-bold text-slate-900 dark:text-slate-100">{currentSupplierName ?? "Unassigned"}</p>
-            {supplierContact.length > 0 && (
+            {hasContact && (
               <div className="mt-1 flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
-                {supplierContact[0] && <span className="inline-flex items-center gap-1.5"><Building2 className="size-3" />{supplierContact[0]}</span>}
-                {currentSupplierId && suppliers.find((x) => x.id === currentSupplierId)?.phone && <span className="inline-flex items-center gap-1.5"><Phone className="size-3" />{suppliers.find((x) => x.id === currentSupplierId)?.phone}</span>}
-                {currentSupplierId && suppliers.find((x) => x.id === currentSupplierId)?.email && <span className="inline-flex items-center gap-1.5"><Mail className="size-3" />{suppliers.find((x) => x.id === currentSupplierId)?.email}</span>}
+                {cCompany && <span className="inline-flex items-center gap-1.5"><Building2 className="size-3" />{cCompany}</span>}
+                {cPhone && <span className="inline-flex items-center gap-1.5"><Phone className="size-3" />{cPhone}</span>}
+                {cEmail && <span className="inline-flex items-center gap-1.5"><Mail className="size-3" />{cEmail}</span>}
               </div>
             )}
 
