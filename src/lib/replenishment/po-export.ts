@@ -4,8 +4,13 @@
  * These are pure formatting/download utilities. They do NOT touch the database,
  * stock, suppliers, purchases, dues, payments, or any business records. A
  * purchase order produced here is a draft/export document only — nothing is
- * saved. Costs are included only when explicitly requested (cost toggle ON) and
- * are always "last known cost / estimate only".
+ * saved.
+ *
+ * Price handling depends on the caller:
+ *  - Main replenishment table export: prices appear only when the "Show
+ *    previous cost prices" toggle is ON, labelled "last known cost / estimate".
+ *  - Purchase-order draft export: prices are per-row and fully editable, blank
+ *    by default, and labelled "quoted / draft only".
  */
 
 export type ExportColumn = {
