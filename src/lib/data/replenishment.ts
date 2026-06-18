@@ -33,6 +33,40 @@ export type ReplenishmentSummary = {
   supplierGroups: SupplierGroup[];
 };
 
+export type ActiveSupplier = {
+  id: string;
+  name: string;
+  company: string | null;
+  phone: string | null;
+  email: string | null;
+};
+
+/**
+ * Read-only list of all active suppliers in the organization (for the PO planner
+ * supplier dropdown). Organization-scoped via the user's RLS session — no
+ * service-role use, no writes.
+ */
+export async function getActiveSuppliers(organizationId: string): Promise<ActiveSupplier[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("id, name, company, phone, email")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+  if (error) {
+    console.error("[replenishment] active suppliers load failed:", error.message);
+    return [];
+  }
+  return (data ?? []).map((s) => ({
+    id: s.id as string,
+    name: s.name as string,
+    company: (s.company as string | null) ?? null,
+    phone: (s.phone as string | null) ?? null,
+    email: (s.email as string | null) ?? null,
+  }));
+}
+
 export type SupplierGroup = {
   supplierId: string | null;
   supplierName: string | null;

@@ -22,18 +22,26 @@ export type ExportColumn = {
 
 export type ExportRow = Record<string, string | number | null | undefined>;
 
+/** Optional [label, value] metadata rows written above the table (PO header info). */
+export type MetaPair = [string, string];
+
 export type PoMeta = {
   shopName?: string | null;
+  title: string;
+  reference?: string | null;
   supplierLabel: string;
   supplierCompany?: string | null;
   supplierPhone?: string | null;
   supplierEmail?: string | null;
-  priorities: string; // e.g. "Critical, High"
+  contactPerson?: string | null;
+  priorities: string;
   preparedBy?: string | null;
   expectedDate?: string | null;
+  deliveryNote?: string | null;
+  paymentTerms?: string | null;
   notes?: string | null;
-  showCosts: boolean;
-  dateLabel: string; // human date for the document
+  quotedTotalLabel?: string | null; // pre-formatted "PKR 1,234" of priced rows, or null
+  dateLabel: string;
 };
 
 function csvEscape(value: string | number | null | undefined): string {
@@ -44,13 +52,18 @@ function csvEscape(value: string | number | null | undefined): string {
   return s;
 }
 
-export function buildCsv(columns: ExportColumn[], rows: ExportRow[]): string {
-  const head = columns.map((c) => csvEscape(c.header)).join(",");
-  const body = rows
-    .map((row) => columns.map((c) => csvEscape(row[c.key])).join(","))
-    .join("\r\n");
+export function buildCsv(columns: ExportColumn[], rows: ExportRow[], metaPairs: MetaPair[] = []): string {
+  const lines: string[] = [];
+  for (const [label, value] of metaPairs) {
+    lines.push(`${csvEscape(label)},${csvEscape(value)}`);
+  }
+  if (metaPairs.length > 0) lines.push("");
+  lines.push(columns.map((c) => csvEscape(c.header)).join(","));
+  for (const row of rows) {
+    lines.push(columns.map((c) => csvEscape(row[c.key])).join(","));
+  }
   // Prepend a UTF-8 BOM so Excel opens it with correct encoding.
-  return `﻿${head}\r\n${body}`;
+  return `﻿${lines.join("\r\n")}`;
 }
 
 function xmlEscape(value: string | number | null | undefined): string {
@@ -74,37 +87,50 @@ function columnLetter(index: number): string {
   return letter;
 }
 
+type SheetCell = { numeric: boolean; value: string | number };
+
 /**
  * Build a minimal but valid .xlsx (single sheet, inline strings) using the
- * already-present `jszip` dependency. No new package is added. Numbers are
- * written as numeric cells; everything else as inline strings.
+ * already-present `jszip` dependency. No new package is added. Optional metadata
+ * pairs are written as label/value rows above the table.
  */
-export async function buildXlsxBlob(columns: ExportColumn[], rows: ExportRow[]): Promise<Blob> {
+export async function buildXlsxBlob(
+  columns: ExportColumn[],
+  rows: ExportRow[],
+  metaPairs: MetaPair[] = [],
+): Promise<Blob> {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
 
-  const allRows: ExportRow[] = [
-    Object.fromEntries(columns.map((c) => [c.key, c.header])),
-    ...rows,
-  ];
+  const sheetRows: SheetCell[][] = [];
+  for (const [label, value] of metaPairs) {
+    sheetRows.push([
+      { numeric: false, value: label },
+      { numeric: false, value },
+    ]);
+  }
+  if (metaPairs.length > 0) sheetRows.push([]);
+  sheetRows.push(columns.map((c) => ({ numeric: false, value: c.header })));
+  for (const row of rows) {
+    sheetRows.push(
+      columns.map((c) => {
+        const raw = row[c.key];
+        const numeric = c.type === "number" && raw !== null && raw !== undefined && raw !== "" && !Number.isNaN(Number(raw));
+        return numeric ? { numeric: true, value: Number(raw) } : { numeric: false, value: raw === null || raw === undefined ? "" : String(raw) };
+      }),
+    );
+  }
 
-  const sheetRowsXml = allRows
-    .map((row, rowIdx) => {
-      const cells = columns
-        .map((col, colIdx) => {
+  const sheetRowsXml = sheetRows
+    .map((cells, rowIdx) => {
+      const cellsXml = cells
+        .map((cell, colIdx) => {
           const ref = `${columnLetter(colIdx)}${rowIdx + 1}`;
-          const raw = row[col.key];
-          const isHeaderRow = rowIdx === 0;
-          const numeric =
-            !isHeaderRow && col.type === "number" && raw !== null && raw !== undefined && raw !== "" && !Number.isNaN(Number(raw));
-          if (numeric) {
-            return `<c r="${ref}"><v>${Number(raw)}</v></c>`;
-          }
-          const text = raw === null || raw === undefined ? "" : String(raw);
-          return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(text)}</t></is></c>`;
+          if (cell.numeric) return `<c r="${ref}"><v>${Number(cell.value)}</v></c>`;
+          return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(cell.value))}</t></is></c>`;
         })
         .join("");
-      return `<row r="${rowIdx + 1}">${cells}</row>`;
+      return `<row r="${rowIdx + 1}">${cellsXml}</row>`;
     })
     .join("");
 
@@ -117,7 +143,7 @@ export async function buildXlsxBlob(columns: ExportColumn[], rows: ExportRow[]):
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ` +
     `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-    `<sheets><sheet name="Replenishment" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+    `<sheets><sheet name="Purchase Order" sheetId="1" r:id="rId1"/></sheets></workbook>`;
 
   const workbookRels =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -160,16 +186,15 @@ export function triggerDownload(blob: Blob, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Revoke on the next tick so the download has time to start.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function downloadCsv(filename: string, columns: ExportColumn[], rows: ExportRow[]) {
-  triggerDownload(new Blob([buildCsv(columns, rows)], { type: "text/csv;charset=utf-8" }), filename);
+export function downloadCsv(filename: string, columns: ExportColumn[], rows: ExportRow[], metaPairs: MetaPair[] = []) {
+  triggerDownload(new Blob([buildCsv(columns, rows, metaPairs)], { type: "text/csv;charset=utf-8" }), filename);
 }
 
-export async function downloadXlsx(filename: string, columns: ExportColumn[], rows: ExportRow[]) {
-  const blob = await buildXlsxBlob(columns, rows);
+export async function downloadXlsx(filename: string, columns: ExportColumn[], rows: ExportRow[], metaPairs: MetaPair[] = []) {
+  const blob = await buildXlsxBlob(columns, rows, metaPairs);
   triggerDownload(blob, filename);
 }
 
@@ -181,12 +206,11 @@ export function exportDateStamp(d = new Date()): string {
 }
 
 /**
- * Build a clean, self-contained printable HTML document for a purchase-order
- * draft / replenishment export and open it in a new window for the browser's
- * native Print / Save-as-PDF. No PDF library is used.
+ * Build a clean, SaleDock-branded printable purchase-order draft / replenishment
+ * export and open it for the browser's native Print / Save-as-PDF. No PDF
+ * library is used.
  */
 export function openPrintablePo(
-  title: string,
   meta: PoMeta,
   columns: ExportColumn[],
   rows: ExportRow[],
@@ -206,55 +230,81 @@ export function openPrintablePo(
     )
     .join("");
 
-  const metaLines: string[] = [];
-  if (meta.shopName) metaLines.push(`<div class="shop">${xmlEscape(meta.shopName)}</div>`);
-  metaLines.push(`<div class="sub">Purchase order draft &middot; ${xmlEscape(meta.dateLabel)}</div>`);
   const supLines: string[] = [`<strong>Supplier:</strong> ${xmlEscape(meta.supplierLabel)}`];
+  if (meta.contactPerson) supLines.push(`Contact: ${xmlEscape(meta.contactPerson)}`);
   if (meta.supplierCompany) supLines.push(`Company: ${xmlEscape(meta.supplierCompany)}`);
   if (meta.supplierPhone) supLines.push(`Phone: ${xmlEscape(meta.supplierPhone)}`);
   if (meta.supplierEmail) supLines.push(`Email: ${xmlEscape(meta.supplierEmail)}`);
+
   const detailLines: string[] = [`<div><strong>Priorities:</strong> ${xmlEscape(meta.priorities)}</div>`];
+  if (meta.reference) detailLines.push(`<div><strong>Reference:</strong> ${xmlEscape(meta.reference)}</div>`);
   if (meta.preparedBy) detailLines.push(`<div><strong>Prepared by:</strong> ${xmlEscape(meta.preparedBy)}</div>`);
   if (meta.expectedDate) detailLines.push(`<div><strong>Expected date:</strong> ${xmlEscape(meta.expectedDate)}</div>`);
 
+  const extraBlocks: string[] = [];
+  if (meta.deliveryNote) extraBlocks.push(`<div class="block"><strong>Delivery / location:</strong> ${xmlEscape(meta.deliveryNote)}</div>`);
+  if (meta.paymentTerms) extraBlocks.push(`<div class="block"><strong>Payment / terms:</strong> ${xmlEscape(meta.paymentTerms)}</div>`);
+  if (meta.notes) extraBlocks.push(`<div class="block"><strong>Notes:</strong> ${xmlEscape(meta.notes)}</div>`);
+
   const doc = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><title>${xmlEscape(title)}</title>
+<html lang="en"><head><meta charset="UTF-8"><title>${xmlEscape(meta.title)}</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif; color: #0f172a; margin: 24px; }
-  .shop { font-size: 20px; font-weight: 800; }
-  .sub { color: #64748b; font-size: 12px; margin-top: 2px; }
-  .title { font-size: 16px; font-weight: 800; margin: 16px 0 4px; }
-  .grid { display: flex; flex-wrap: wrap; gap: 24px; margin: 12px 0 16px; font-size: 12px; }
+  body { font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif; color: #0f172a; margin: 0; }
+  .wrap { margin: 24px; }
+  .brandbar { background: linear-gradient(90deg, #0b2f6f 0%, #0d3b8a 55%, #0d9488 100%); color: #fff; padding: 18px 24px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .brandbar .shop { font-size: 20px; font-weight: 800; letter-spacing: .2px; }
+  .brandbar .tag { font-size: 11px; opacity: .85; margin-top: 2px; }
+  .brandbar .doc { text-align: right; }
+  .brandbar .doc .t { font-size: 15px; font-weight: 800; }
+  .brandbar .doc .r { font-size: 11px; opacity: .9; margin-top: 2px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 24px; margin: 18px 0 12px; font-size: 12px; }
   .grid .box { line-height: 1.6; }
-  .notice { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 11px; color: #475569; margin: 8px 0 16px; }
+  .block { font-size: 12px; line-height: 1.6; margin-top: 4px; }
+  .notice { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 11px; color: #475569; margin: 12px 0 14px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
-  th { background: #f8fafc; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: .03em; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #0b2f6f; color: #fff; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: .03em; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .notes { margin-top: 16px; font-size: 12px; }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  .total { margin-top: 12px; text-align: right; font-size: 13px; font-weight: 800; color: #0b2f6f; }
   .foot { margin-top: 24px; color: #94a3b8; font-size: 10px; }
-  @media print { body { margin: 12mm; } .noprint { display: none; } }
-  .btn { display:inline-block; margin: 0 6px 16px 0; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background:#fff; font-size: 13px; cursor: pointer; }
+  @media print { .wrap { margin: 12mm; } .noprint { display: none; } }
+  .btn { display:inline-block; margin: 16px 6px 0 0; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background:#fff; font-size: 13px; cursor: pointer; }
   .btn.primary { background:#0b2f6f; color:#fff; border-color:#0b2f6f; }
 </style></head>
 <body>
-  <div class="noprint">
-    <button class="btn primary" onclick="window.print()">Print / Save as PDF</button>
-    <button class="btn" onclick="window.close()">Close</button>
+  <div class="wrap">
+    <div class="brandbar">
+      <div>
+        <div class="shop">${xmlEscape(meta.shopName || "SaleDock")}</div>
+        <div class="tag">Powered by SaleDock Cloud POS</div>
+      </div>
+      <div class="doc">
+        <div class="t">${xmlEscape(meta.title)}</div>
+        <div class="r">${meta.reference ? xmlEscape(meta.reference) + " &middot; " : ""}${xmlEscape(meta.dateLabel)}</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="box">${supLines.join("<br>")}</div>
+      <div class="box">${detailLines.join("")}</div>
+    </div>
+    ${extraBlocks.join("")}
+
+    <div class="notice">
+      Draft purchase order. Prices are quoted / draft only. Confirm rates and availability with the supplier. This is not a payment or stock record.
+    </div>
+
+    <table><thead><tr>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>
+    ${meta.quotedTotalLabel ? `<div class="total">Quoted total (priced rows only): ${xmlEscape(meta.quotedTotalLabel)}</div>` : ""}
+
+    <div class="noprint">
+      <button class="btn primary" onclick="window.print()">Print / Save as PDF</button>
+      <button class="btn" onclick="window.close()">Close</button>
+    </div>
+    <div class="foot">Generated by SaleDock &middot; ${xmlEscape(meta.dateLabel)} &middot; Draft document, not a payment record.</div>
   </div>
-  ${metaLines.join("")}
-  <div class="title">${xmlEscape(title)}</div>
-  <div class="grid">
-    <div class="box">${supLines.join("<br>")}</div>
-    <div class="box">${detailLines.join("")}</div>
-  </div>
-  <div class="notice">
-    Purchase order draft. No stock will change. Prices shown are draft / quoted only${meta.showCosts ? " (some may be last known cost estimates)" : ""}. Confirm rates and availability with the supplier. This export is for ordering, not payment.
-  </div>
-  <table><thead><tr>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>
-  ${meta.notes ? `<div class="notes"><strong>Notes:</strong> ${xmlEscape(meta.notes)}</div>` : ""}
-  <div class="foot">Generated by SaleDock &middot; ${xmlEscape(meta.dateLabel)} &middot; Draft document, not a payment record.</div>
 </body></html>`;
 
   win.document.open();

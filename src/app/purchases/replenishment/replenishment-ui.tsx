@@ -18,7 +18,7 @@ import {
   Mail,
   Building2,
 } from "lucide-react";
-import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriority, SupplierGroup } from "@/lib/data/replenishment";
+import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriority, SupplierGroup, ActiveSupplier } from "@/lib/data/replenishment";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { AppSelect } from "@/components/ui/app-select";
 import { PoPlannerModal, type PoPrefill } from "./po-planner-modal";
@@ -130,12 +130,14 @@ export function ReplenishmentUI({
   shopName,
   preparedBy,
   createSupplierHref,
+  allSuppliers,
 }: {
   summary: ReplenishmentSummary;
   currency: string;
   shopName: string | null;
   preparedBy: string;
   createSupplierHref: string;
+  allSuppliers: ActiveSupplier[];
 }) {
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<ReplenishmentPriority | "all">("all");
@@ -171,15 +173,6 @@ export function ReplenishmentUI({
     }
     return opts;
   }, [summary.supplierGroups]);
-
-  // Supplier options for the PO modal (named suppliers only).
-  const poSupplierOptions = useMemo(
-    () =>
-      supplierFilterOptions
-        .filter((o) => o.value !== "all" && o.value !== "__unassigned__")
-        .map((o) => ({ value: o.value, label: o.label })),
-    [supplierFilterOptions],
-  );
 
   const filtered = useMemo(() => {
     let groups = summary.supplierGroups;
@@ -278,9 +271,9 @@ export function ReplenishmentUI({
     setExportError(null);
     const columns = buildExportColumns(showCosts, currency);
     const ok = openPrintablePo(
-      "Replenishment Worksheet",
       {
         shopName,
+        title: "Replenishment Worksheet",
         supplierLabel:
           supplierFilter === "all"
             ? "All suppliers"
@@ -289,7 +282,6 @@ export function ReplenishmentUI({
             : supplierFilterOptions.find((o) => o.value === supplierFilter)?.label ?? "Supplier",
         priorities: priorityFilter === "all" ? "All" : priorityLabel[priorityFilter],
         preparedBy: preparedBy || null,
-        showCosts,
         dateLabel: new Date().toLocaleDateString(),
       },
       columns,
@@ -442,7 +434,7 @@ export function ReplenishmentUI({
         <PoPlannerModal
           key={poModal.key}
           suggestions={summary.suggestions}
-          supplierOptions={poSupplierOptions}
+          allSuppliers={allSuppliers}
           currency={currency}
           shopName={shopName}
           preparedByDefault={preparedBy}
