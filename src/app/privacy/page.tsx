@@ -185,8 +185,9 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>Supabase Inc.</strong> — authentication, database, and storage services</li>
             <li><strong>Vercel Inc.</strong> — hosting and deployment infrastructure</li>
-            <li><strong>Google LLC</strong> — optional OAuth login (where enabled by the user)</li>
-            <li><strong>Meta Platforms, Inc.</strong> — optional OAuth login (where enabled by the user)</li>
+            <li><strong>Google LLC</strong> — optional OAuth login (where enabled by the user) and Google Analytics 4 (only if you accept analytics cookies)</li>
+            <li><strong>Meta Platforms, Inc.</strong> — Meta Pixel / Meta Business Tools (only if configured and you accept marketing cookies)</li>
+            <li><strong>Microsoft Corporation</strong> — Microsoft Clarity (only if you accept analytics cookies)</li>
           </ul>
 
           <h2 className="text-lg font-bold text-slate-950 dark:text-white">11. International Transfers</h2>
@@ -226,7 +227,27 @@ export default function PrivacyPage() {
             fardan.aatir@outlook.com
           </p>
 
-          <h2 className="text-lg font-bold text-slate-950 dark:text-white">16. Analytics</h2>
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">16. Cookies and Tracking</h2>
+          <p>
+            SaleDock groups cookies into three categories, which you can control from the cookie
+            banner and Cookie settings:
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Necessary cookies</strong> — required for sign-in, security, and core
+              features. These are always active so the platform can work.
+            </li>
+            <li>
+              <strong>Analytics cookies</strong> — Google Analytics 4 and Microsoft Clarity, loaded
+              only after you accept analytics cookies.
+            </li>
+            <li>
+              <strong>Marketing / Advertising cookies</strong> — advertising tools such as Meta
+              Pixel, loaded only after you accept marketing cookies (see below).
+            </li>
+          </ul>
+
+          <h3 className="font-semibold text-slate-950 dark:text-white">Analytics</h3>
           <p>
             SaleDock can use Google Analytics 4 and Microsoft Clarity to understand how visitors use
             the platform, but these analytics tools load only after you accept analytics cookies.
@@ -242,6 +263,27 @@ export default function PrivacyPage() {
             You can change your choice later through Cookie settings. You can also limit analytics
             collection through your browser settings or by installing the{" "}
             <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline dark:text-blue-400">Google Analytics opt-out add-on</a>.
+          </p>
+
+          <h3 className="font-semibold text-slate-950 dark:text-white">Marketing / Advertising (Meta Pixel)</h3>
+          <p>
+            If you accept marketing cookies, SaleDock may use Meta Pixel and related Meta Business
+            Tools on its public marketing pages. Meta Pixel may collect page-visit information and
+            general browser/device information for advertising measurement and remarketing.
+          </p>
+          <p>
+            SaleDock does <strong>not</strong> send POS checkout, invoice, payment, customer, stock,
+            report, ledger, supplier, cash drawer, or other business-sensitive data to Meta. Meta
+            Pixel is never loaded on signed-in app or point-of-sale pages.
+          </p>
+          <p>
+            You can reject marketing cookies, and you can withdraw your consent at any time from
+            Cookie settings. Where data is processed by Meta, it is handled according to Meta&apos;s
+            own privacy policy and business-tools terms.
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Marketing/advertising tracking is only active if it has been configured by SaleDock and
+            you have accepted marketing cookies; otherwise it does not run.
           </p>
 
           {/* Footer links */}

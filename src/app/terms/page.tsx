@@ -118,7 +118,19 @@ export default function TermsPage() {
             <Link href="/privacy" className="text-blue-700 underline dark:text-blue-400"> Privacy Policy</Link>.
           </p>
 
-          <h2 className="text-lg font-bold text-slate-950 dark:text-white">11. Contact</h2>
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">11. Third-Party Services</h2>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>SaleDock may use third-party analytics and marketing tools (for example, Google Analytics 4, Microsoft Clarity, and Meta Pixel) to operate and improve the platform.</li>
+            <li>These tools are provided by third parties and are governed by their own terms of service and privacy policies.</li>
+            <li>Marketing/advertising tools are loaded only where you have given the required consent through Cookie settings, and only on public pages — not on signed-in point-of-sale pages.</li>
+            <li>You must not use SaleDock or any third-party integration to send unlawful, sensitive, or unauthorized personal or business data, or to process data without a lawful basis.</li>
+          </ul>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            This section is general information and not legal advice. Please have the owner or a
+            qualified legal advisor review these terms and the Privacy Policy before relying on them.
+          </p>
+
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">12. Contact</h2>
           <p>For questions about these Terms, contact:</p>
           <p className="font-semibold text-blue-700 dark:text-blue-400">
             fardan.aatir@outlook.com

@@ -9,9 +9,11 @@ import { saveSidebarPreferences } from "@/lib/use-ui-preferences";
 
 const STORAGE_KEY = "analytics-consent";
 const LEGACY_NOTICE_STORAGE_KEY = "analytics-notice-dismissed";
+const PREFERENCES_STORAGE_KEY = "saledock-sidebar-preferences-v1";
 const CONSENT_VERSION = "2026-06-analytics-v1";
 const OPEN_COOKIE_SETTINGS_EVENT = "saledock:open-cookie-settings";
 const COOKIE_CONSENT_CHANGED_EVENT = "saledock:cookie-consent-changed";
+const PREFERENCES_CHANGED_EVENT = "saledock-sidebar-preferences-changed";
 
 type ConsentValue = "accepted" | "rejected";
 
@@ -75,7 +77,44 @@ function writeStoredConsent(value: ConsentValue): StoredConsent {
   return nextConsent;
 }
 
-function clearAnalyticsCookies() {
+// Read the marketing/advertising decision. Stored in the shared preferences
+// object for every visitor so the (public-only) Meta Pixel helper can read it.
+function readMarketingDecision(): ConsentValue | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { marketingConsent?: unknown };
+    if (parsed?.marketingConsent === "accepted" || parsed?.marketingConsent === "rejected") {
+      return parsed.marketingConsent;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeMarketingDecision(value: ConsentValue) {
+  if (typeof window === "undefined") return;
+  let existing: Record<string, unknown> = {};
+  try {
+    const raw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
+    if (raw) existing = JSON.parse(raw);
+  } catch {
+    // ignore parse errors and start fresh
+  }
+  const nextPrefs = {
+    ...existing,
+    marketingConsent: value,
+    updatedAt: new Date().toISOString(),
+  };
+  // saveSidebarPreferences writes localStorage + dispatches the change event,
+  // and (only for signed-in users) persists to the database, fail-open.
+  saveSidebarPreferences(nextPrefs);
+  window.dispatchEvent(new Event(COOKIE_CONSENT_CHANGED_EVENT));
+}
+
+function clearTrackingCookies(options: { analytics: boolean; marketing: boolean }) {
   if (typeof document === "undefined") return;
 
   const existingCookieNames = document.cookie
@@ -83,12 +122,21 @@ function clearAnalyticsCookies() {
     .map((cookie) => cookie.split("=")[0]?.trim())
     .filter((name): name is string => Boolean(name));
 
-  const namesToClear = new Set(["_ga", "_clck", "_clsk"]);
-  for (const name of existingCookieNames) {
-    if (name.startsWith("_ga_")) {
-      namesToClear.add(name);
+  const namesToClear = new Set<string>();
+  if (options.analytics) {
+    namesToClear.add("_ga");
+    namesToClear.add("_clck");
+    namesToClear.add("_clsk");
+    for (const name of existingCookieNames) {
+      if (name.startsWith("_ga_")) namesToClear.add(name);
     }
   }
+  if (options.marketing) {
+    // Meta Pixel cookies (only present if the pixel was ever active).
+    namesToClear.add("_fbp");
+    namesToClear.add("_fbc");
+  }
+  if (namesToClear.size === 0) return;
 
   const hostname = window.location.hostname;
   const isIpAddress = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
@@ -177,24 +225,31 @@ export default function AnalyticsNotice({
   clarityProjectId,
   nonce,
 }: AnalyticsNoticeProps) {
+  // Analytics scripts exist only if configured; the marketing category is always
+  // offered so visitors can make a clear, separate advertising-cookie choice.
   const hasAnalytics = Boolean(gaMeasurementId || clarityProjectId);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dbChecked, setDbChecked] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [consentTrigger, setConsentTrigger] = useState(0);
 
-  // Listen to storage changes
+  // Draft toggle state used while the visitor is customizing choices.
+  const [draftAnalytics, setDraftAnalytics] = useState(false);
+  const [draftMarketing, setDraftMarketing] = useState(false);
+
+  // Listen to storage / preference changes
   useEffect(() => {
     const handleStorageChange = () => {
       setConsentTrigger((prev) => prev + 1);
     };
     window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("saledock-sidebar-preferences-changed", handleStorageChange);
+    window.addEventListener(PREFERENCES_CHANGED_EVENT, handleStorageChange);
     window.addEventListener(COOKIE_CONSENT_CHANGED_EVENT, handleStorageChange);
     return () => {
       window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("saledock-sidebar-preferences-changed", handleStorageChange);
+      window.removeEventListener(PREFERENCES_CHANGED_EVENT, handleStorageChange);
       window.removeEventListener(COOKIE_CONSENT_CHANGED_EVENT, handleStorageChange);
     };
   }, []);
@@ -203,6 +258,7 @@ export default function AnalyticsNotice({
   useEffect(() => {
     function handleOpenCookieSettings() {
       setBannerOpen(true);
+      setShowDetails(true);
     }
 
     window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenCookieSettings);
@@ -253,17 +309,22 @@ export default function AnalyticsNotice({
           if (!active) return;
           if (data?.sidebar_preferences) {
             const parsed = data.sidebar_preferences as Record<string, unknown>;
-            if (parsed?.analyticsConsent === "accepted" || parsed?.analyticsConsent === "rejected") {
+            const hasAnalyticsPref =
+              parsed?.analyticsConsent === "accepted" || parsed?.analyticsConsent === "rejected";
+            const hasMarketingPref =
+              parsed?.marketingConsent === "accepted" || parsed?.marketingConsent === "rejected";
+            if (hasAnalyticsPref || hasMarketingPref) {
               try {
-                const rawLocal = localStorage.getItem("saledock-sidebar-preferences-v1");
+                const rawLocal = localStorage.getItem(PREFERENCES_STORAGE_KEY);
                 const localParsed = rawLocal ? JSON.parse(rawLocal) : {};
-                const nextPrefs = {
+                const nextPrefs: Record<string, unknown> = {
                   ...localParsed,
-                  analyticsConsent: parsed.analyticsConsent,
                   updatedAt: new Date().toISOString(),
                 };
-                localStorage.setItem("saledock-sidebar-preferences-v1", JSON.stringify(nextPrefs));
-                window.dispatchEvent(new Event("saledock-sidebar-preferences-changed"));
+                if (hasAnalyticsPref) nextPrefs.analyticsConsent = parsed.analyticsConsent;
+                if (hasMarketingPref) nextPrefs.marketingConsent = parsed.marketingConsent;
+                localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(nextPrefs));
+                window.dispatchEvent(new Event(PREFERENCES_CHANGED_EVENT));
               } catch {}
             }
           }
@@ -279,38 +340,41 @@ export default function AnalyticsNotice({
     };
   }, [user, authLoading]);
 
-  // Read current consent settings
-  const getConsentValues = () => {
-    if (typeof window === "undefined") return { local: null, account: null };
+  // Read current consent decisions (re-reads when consentTrigger changes).
+  const getDecisions = () => {
+    if (typeof window === "undefined") return { analytics: null, marketing: null };
 
-    // Trigger re-read on state updates
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     consentTrigger;
 
-    const rawLocal = localStorage.getItem(STORAGE_KEY);
-    const local = parseStoredConsent(rawLocal);
-
-    let account: ConsentValue | null = null;
-    const rawSidebar = localStorage.getItem("saledock-sidebar-preferences-v1");
+    let analytics: ConsentValue | null = null;
+    const rawSidebar = localStorage.getItem(PREFERENCES_STORAGE_KEY);
+    let sidebar: Record<string, unknown> = {};
     if (rawSidebar) {
       try {
-        const parsed = JSON.parse(rawSidebar);
-        if (parsed.analyticsConsent === "accepted" || parsed.analyticsConsent === "rejected") {
-          account = parsed.analyticsConsent;
-        }
+        sidebar = JSON.parse(rawSidebar);
       } catch {}
     }
 
-    return { local, account };
+    if (user) {
+      if (sidebar.analyticsConsent === "accepted" || sidebar.analyticsConsent === "rejected") {
+        analytics = sidebar.analyticsConsent;
+      }
+    } else {
+      analytics = parseStoredConsent(localStorage.getItem(STORAGE_KEY))?.value ?? null;
+    }
+
+    const marketing = readMarketingDecision();
+    return { analytics, marketing };
   };
 
-  const { local: parsedConsent, account: accountConsent } = getConsentValues();
+  const { analytics: analyticsDecision, marketing: marketingDecision } = getDecisions();
 
-  const saveAccountConsent = (value: ConsentValue) => {
+  const saveAnalyticsAccountConsent = (value: ConsentValue) => {
     if (typeof window === "undefined") return;
 
     let existing: Record<string, unknown> = {};
-    const rawSidebar = localStorage.getItem("saledock-sidebar-preferences-v1");
+    const rawSidebar = localStorage.getItem(PREFERENCES_STORAGE_KEY);
     if (rawSidebar) {
       try {
         existing = JSON.parse(rawSidebar);
@@ -323,53 +387,73 @@ export default function AnalyticsNotice({
       updatedAt: new Date().toISOString(),
     };
 
-    localStorage.setItem("saledock-sidebar-preferences-v1", JSON.stringify(nextPrefs));
-    window.dispatchEvent(new Event("saledock-sidebar-preferences-changed"));
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(nextPrefs));
+    window.dispatchEvent(new Event(PREFERENCES_CHANGED_EVENT));
     saveSidebarPreferences(nextPrefs);
   };
 
-  function handleAccept() {
+  const setAnalyticsDecision = (value: ConsentValue) => {
     if (user) {
-      saveAccountConsent("accepted");
+      saveAnalyticsAccountConsent(value);
     } else {
-      writeStoredConsent("accepted");
+      writeStoredConsent(value);
     }
+  };
+
+  // Apply a full set of choices. Reloads only when analytics goes accepted -> rejected
+  // so already-loaded GA/Clarity tags stop (preserves prior behavior).
+  function applyChoices(nextAnalytics: ConsentValue, nextMarketing: ConsentValue) {
+    const analyticsWasAccepted = analyticsDecision === "accepted";
+
+    setAnalyticsDecision(nextAnalytics);
+    writeMarketingDecision(nextMarketing);
+
+    clearTrackingCookies({
+      analytics: nextAnalytics === "rejected",
+      marketing: nextMarketing === "rejected",
+    });
+
     setBannerOpen(false);
-  }
+    setShowDetails(false);
 
-  function handleReject() {
-    const wasAccepted = user
-      ? accountConsent === "accepted"
-      : parsedConsent?.value === "accepted";
-
-    if (user) {
-      saveAccountConsent("rejected");
-    } else {
-      writeStoredConsent("rejected");
-    }
-
-    clearAnalyticsCookies();
-    setBannerOpen(false);
-
-    if (wasAccepted) {
+    if (analyticsWasAccepted && nextAnalytics === "rejected") {
       window.setTimeout(() => window.location.reload(), 50);
     }
+  }
+
+  function handleAcceptAll() {
+    applyChoices("accepted", "accepted");
+  }
+
+  function handleRejectAll() {
+    applyChoices("rejected", "rejected");
+  }
+
+  function handleSaveChoices() {
+    applyChoices(draftAnalytics ? "accepted" : "rejected", draftMarketing ? "accepted" : "rejected");
+  }
+
+  function handleOpenDetails() {
+    // Seed the toggles from current decisions (undecided defaults to off).
+    setDraftAnalytics(analyticsDecision === "accepted");
+    setDraftMarketing(marketingDecision === "accepted");
+    setShowDetails(true);
   }
 
   if (!hasAnalytics) return null;
   if (authLoading || (user && !dbChecked)) return null;
 
-  const analyticsAccepted = user
-    ? accountConsent === "accepted"
-    : parsedConsent?.value === "accepted";
+  const analyticsAccepted = analyticsDecision === "accepted";
 
-  const shouldShowBanner = user
-    ? bannerOpen || accountConsent === null
-    : bannerOpen || parsedConsent === null;
+  // Show the banner until BOTH categories have an explicit decision (or when the
+  // visitor reopens Cookie settings). Adding the marketing category means people
+  // who previously only decided analytics will be asked once about marketing.
+  const shouldShowBanner =
+    bannerOpen || analyticsDecision === null || marketingDecision === null;
 
   return (
     <>
-      {analyticsAccepted && (
+      {hasAnalytics && analyticsAccepted && (
         <AnalyticsScripts
           gaMeasurementId={gaMeasurementId}
           clarityProjectId={clarityProjectId}
@@ -383,10 +467,12 @@ export default function AnalyticsNotice({
           aria-label="Cookie consent"
           className="fixed inset-x-3 bottom-3 z-30 rounded-xl border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm text-[#0f172a] shadow-lg dark:border-[#475569] dark:bg-[#0f172a] dark:text-[#e2e8f0] sm:left-1/2 sm:right-auto sm:w-[min(760px,calc(100%-2rem))] sm:-translate-x-1/2"
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3">
             <p className="leading-6">
-              SaleDock uses Google Analytics 4 and Microsoft Clarity only if you accept
-              analytics cookies. You can reject them and still use the site.{" "}
+              SaleDock uses cookies. <strong>Necessary</strong> cookies are always on so the site works.
+              You can separately allow <strong>Analytics</strong> cookies (Google Analytics 4 and Microsoft
+              Clarity) and <strong>Marketing</strong> cookies (advertising tools such as Meta Pixel). You can
+              reject the optional ones and still use the site.{" "}
               <Link
                 href="/privacy"
                 className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#1e40af] dark:text-[#93c5fd] dark:hover:text-[#bfdbfe]"
@@ -394,23 +480,83 @@ export default function AnalyticsNotice({
                 Privacy Policy
               </Link>
             </p>
-            <div className="flex shrink-0 gap-2">
+
+            {showDetails && (
+              <div className="flex flex-col gap-2 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 dark:border-[#334155] dark:bg-[#1e293b]">
+                <label className="flex items-start gap-2 opacity-70">
+                  <input type="checkbox" checked disabled aria-label="Necessary cookies (always on)" className="mt-1" />
+                  <span>
+                    <span className="font-semibold">Necessary</span> — required for sign-in, security, and core
+                    features. Always active.
+                  </span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={draftAnalytics}
+                    onChange={(e) => setDraftAnalytics(e.target.checked)}
+                    aria-label="Analytics cookies"
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-semibold">Analytics</span> — Google Analytics 4 and Microsoft Clarity,
+                    to understand how the site is used.
+                  </span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={draftMarketing}
+                    onChange={(e) => setDraftMarketing(e.target.checked)}
+                    aria-label="Marketing and advertising cookies"
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-semibold">Marketing / Advertising</span> — advertising tools such as
+                    Meta Pixel, used for advertising measurement and remarketing on public pages only.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {!showDetails && (
+                <button
+                  type="button"
+                  onClick={handleOpenDetails}
+                  aria-label="Customize cookie choices"
+                  className="mr-auto rounded-lg px-3 py-2 text-sm font-bold text-[#1d4ed8] underline underline-offset-2 hover:text-[#1e40af] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] dark:text-[#93c5fd] dark:hover:text-[#bfdbfe]"
+                >
+                  Cookie settings
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleReject}
-                aria-label="Reject analytics cookies"
+                onClick={handleRejectAll}
+                aria-label="Reject optional cookies"
                 className="rounded-lg border border-[#cbd5e1] bg-[#e2e8f0] px-4 py-2 text-sm font-bold text-[#0f172a] transition hover:bg-[#cbd5e1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] dark:border-[#64748b] dark:bg-[#334155] dark:text-[#f8fafc] dark:hover:bg-[#475569]"
               >
-                Reject
+                Reject all
               </button>
-              <button
-                type="button"
-                onClick={handleAccept}
-                aria-label="Accept analytics cookies"
-                className="rounded-lg border border-[#1d4ed8] bg-[#2563eb] px-4 py-2 text-sm font-bold text-[#ffffff] transition hover:bg-[#1d4ed8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] dark:border-[#93c5fd] dark:bg-[#60a5fa] dark:text-[#082f49] dark:hover:bg-[#93c5fd]"
-              >
-                Accept
-              </button>
+              {showDetails ? (
+                <button
+                  type="button"
+                  onClick={handleSaveChoices}
+                  aria-label="Save cookie choices"
+                  className="rounded-lg border border-[#1d4ed8] bg-[#2563eb] px-4 py-2 text-sm font-bold text-[#ffffff] transition hover:bg-[#1d4ed8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] dark:border-[#93c5fd] dark:bg-[#60a5fa] dark:text-[#082f49] dark:hover:bg-[#93c5fd]"
+                >
+                  Save choices
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAcceptAll}
+                  aria-label="Accept all cookies"
+                  className="rounded-lg border border-[#1d4ed8] bg-[#2563eb] px-4 py-2 text-sm font-bold text-[#ffffff] transition hover:bg-[#1d4ed8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] dark:border-[#93c5fd] dark:bg-[#60a5fa] dark:text-[#082f49] dark:hover:bg-[#93c5fd]"
+                >
+                  Accept all
+                </button>
+              )}
             </div>
           </div>
         </div>
