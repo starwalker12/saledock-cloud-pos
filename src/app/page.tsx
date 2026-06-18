@@ -18,10 +18,10 @@ export const metadata: Metadata = {
     siteName: "SaleDock Cloud POS",
     images: [
       {
-        url: "https://saledock.site/saledock-logo-full.png",
-        width: 488,
-        height: 178,
-        alt: "SaleDock Logo",
+        url: "https://saledock.site/og.png",
+        width: 1200,
+        height: 630,
+        alt: "SaleDock Cloud POS",
       },
     ],
     locale: "en_US",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
     description: "SaleDock is a cloud POS platform for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports. Modern, fast, and secure.",
-    images: ["https://saledock.site/saledock-logo-full.png"],
+    images: ["https://saledock.site/og.png"],
   },
 };
 import { env } from "@/lib/env";
