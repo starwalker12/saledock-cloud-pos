@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, type PointerEvent } from "react";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
-import { validateImageFile, uploadImage, type UploadResult } from "@/lib/storage/upload";
+import { validateImageFile, uploadImage, resolveImagePreviewUrl, type UploadResult } from "@/lib/storage/upload";
 import { createClient } from "@/lib/supabase/client";
 
 type ImageUploadProps = {
@@ -107,7 +107,16 @@ export function ImageUpload({
   removeLabel,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
+  // `preview` tracks the logically-selected image: a local blob during upload,
+  // or the canonical stored URL after upload/resume, or null. It is NOT used
+  // directly as the <img> source because the profile-pictures bucket is private
+  // and its canonical URL is not directly loadable.
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
+  // For private buckets we resolve a short-lived signed URL to actually render.
+  // `signedUrl` holds that result and `signedFor` records which `preview` value
+  // it corresponds to, so we can tell when it is stale.
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [signedFor, setSignedFor] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -115,6 +124,9 @@ export function ImageUpload({
   const [cropProcessing, setCropProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cropDragRef = useRef<CropDragState | null>(null);
+  // Holds the current local blob preview URL so we can revoke it only when it is
+  // replaced or the component unmounts — never while it is still on screen.
+  const objectUrlRef = useRef<string | null>(null);
 
   // Track currentUrl during render so preview re-syncs whenever the parent
   // changes it (draft resume, server URL arriving after first paint, remove).
@@ -128,6 +140,47 @@ export function ImageUpload({
     setPreview((prev) => (prev?.startsWith("blob:") ? prev : normalizedCurrentUrl));
     setImgError(false);
   }
+
+  // Derive how to display `preview` (computed during render — no effect setState):
+  // - blob URL or public-branding (public bucket): loadable as-is.
+  // - profile-pictures (private bucket): needs an async signed URL.
+  const isBlobPreview = preview?.startsWith("blob:") ?? false;
+  const isPublicBucket = bucket === "public-branding";
+  const directlyLoadable = preview && (isBlobPreview || isPublicBucket) ? preview : null;
+  const needsSignedUrl = Boolean(preview) && !isBlobPreview && !isPublicBucket;
+  const signedReady = needsSignedUrl && signedFor === preview ? signedUrl : null;
+  const displaySrc = directlyLoadable ?? signedReady;
+  const resolving = needsSignedUrl && signedFor !== preview && !imgError;
+
+  // Fetch the signed URL for a private-bucket preview. setState only happens in
+  // the async callback, never synchronously in the effect body.
+  useEffect(() => {
+    if (!needsSignedUrl || !preview || signedFor === preview) return;
+    let cancelled = false;
+    resolveImagePreviewUrl(bucket, preview).then((res) => {
+      if (cancelled) return;
+      setSignedFor(preview);
+      if (res.previewUrl) {
+        setSignedUrl(res.previewUrl);
+      } else {
+        setSignedUrl(null);
+        setImgError(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsSignedUrl, preview, bucket, signedFor]);
+
+  // Revoke the tracked blob preview when the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     async function checkAuth() {
@@ -184,7 +237,10 @@ export function ImageUpload({
   }
 
   async function uploadPreparedFile(file: File) {
+    // Replace any previous tracked blob, then show this one immediately.
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const localPreview = URL.createObjectURL(file);
+    objectUrlRef.current = localPreview;
     setPreview(localPreview);
     setUploading(true);
 
@@ -197,7 +253,6 @@ export function ImageUpload({
       setImgError(false);
       setUploadError("Upload could not complete. Please try again.");
       setPreview(currentUrl ?? null);
-      URL.revokeObjectURL(localPreview);
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
@@ -208,17 +263,17 @@ export function ImageUpload({
       setUploadError(result.error);
       setImgError(false);
       setPreview(currentUrl ?? null);
-      URL.revokeObjectURL(localPreview);
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
     if (result.publicUrl) {
       setUploadError(null);
+      // Store the canonical URL; the resolve effect turns it into a loadable
+      // (signed) display URL. The tracked blob stays alive until then.
       setPreview(result.publicUrl);
       onUploadComplete(result.publicUrl);
     }
-    URL.revokeObjectURL(localPreview);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -298,8 +353,9 @@ export function ImageUpload({
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  const showImage = preview && !imgError;
-  const showErrorState = preview && imgError;
+  const isBusy = uploading || resolving;
+  const showImage = !isBusy && Boolean(displaySrc) && !imgError;
+  const showErrorState = !isBusy && Boolean(preview) && imgError;
 
   return (
     <div className="space-y-2">
@@ -313,17 +369,17 @@ export function ImageUpload({
         <div
           className={`relative flex w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-200 bg-slate-50 sm:w-24 ${aspectClasses[aspectRatio]}`}
         >
-          {uploading ? (
+          {isBusy ? (
             <div className="flex flex-col items-center gap-1 py-3 sm:py-0">
               <Loader2 className="size-5 animate-spin text-slate-400" />
-              <span className="text-[10px] text-slate-400">{uploadingText}</span>
+              {uploading && <span className="text-[10px] text-slate-400">{uploadingText}</span>}
             </div>
           ) : showImage ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                key={preview}
-                src={preview}
+                key={displaySrc ?? undefined}
+                src={displaySrc ?? undefined}
                 alt="Preview"
                 className="h-full w-full object-cover"
                 onError={() => setImgError(true)}
@@ -343,7 +399,7 @@ export function ImageUpload({
             <div className="flex flex-col items-center gap-1 p-2">
               <ImageIcon className="size-6 text-slate-300" aria-hidden="true" />
               <span className="text-[10px] text-center leading-tight text-slate-400">
-                Preview unavailable
+                Couldn&apos;t preview
               </span>
             </div>
           ) : (
@@ -383,9 +439,9 @@ export function ImageUpload({
             ) : (
               <Upload className="size-3.5 shrink-0" />
             )}
-            <span>{!authReady ? "Preparing…" : preview ? "Change" : "Upload"}</span>
+            <span>{!authReady ? "Preparing…" : showImage ? "Change" : "Upload"}</span>
           </button>
-          {(preview || showErrorState) && onRemove && (
+          {preview && onRemove && (
             <button
               type="button"
               onClick={handleRemove}
@@ -398,9 +454,9 @@ export function ImageUpload({
           <p className="text-[10px] text-slate-400 leading-relaxed">
             PNG, JPG or WebP. Max 5 MB.
           </p>
-          {showErrorState && !preview?.startsWith("blob:") && (
+          {showErrorState && (
             <p className="text-[10px] text-slate-400 leading-relaxed">
-              Preview unavailable. Upload a new image or remove it.
+              Image could not be previewed. Upload again or remove it.
             </p>
           )}
         </div>

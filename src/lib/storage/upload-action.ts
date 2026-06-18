@@ -56,6 +56,85 @@ export async function uploadImageAction(
   }
 }
 
+/**
+ * Extract the storage object path from a stored image URL (or accept a bare path).
+ * The app stores profile pictures as a "public-format" URL even though the bucket
+ * is private, so we strip the `/object/public/<bucket>/` (or signed) prefix to get
+ * the path we can sign or re-resolve.
+ */
+function extractStoragePath(
+  urlOrPath: string,
+  bucket: "profile-pictures" | "public-branding",
+): string | null {
+  if (!urlOrPath) return null;
+  // Bare path (no scheme, no leading slash) — use as-is.
+  if (!urlOrPath.includes("://") && !urlOrPath.startsWith("/")) {
+    return urlOrPath.replace(/^\/+/, "");
+  }
+  const markers = [
+    `/storage/v1/object/public/${bucket}/`,
+    `/storage/v1/object/sign/${bucket}/`,
+    `/object/public/${bucket}/`,
+    `/object/sign/${bucket}/`,
+  ];
+  for (const marker of markers) {
+    const index = urlOrPath.indexOf(marker);
+    if (index !== -1) {
+      let path = urlOrPath.substring(index + marker.length);
+      const queryIndex = path.indexOf("?");
+      if (queryIndex !== -1) path = path.substring(0, queryIndex);
+      try {
+        return decodeURIComponent(path);
+      } catch {
+        return path;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve a loadable preview URL for a stored image.
+ * - public-branding (public bucket): returns the public URL (already loadable).
+ * - profile-pictures (private bucket): returns a short-lived signed URL so the
+ *   preview can render without exposing a permanent/public link.
+ * The canonical stored value is never changed by this — it only produces a URL
+ * suitable for an <img> tag.
+ */
+export async function resolveImagePreviewUrlAction(
+  bucket: "profile-pictures" | "public-branding",
+  storedUrl: string,
+): Promise<{ previewUrl: string | null; error: string | null }> {
+  try {
+    if (!storedUrl) return { previewUrl: null, error: null };
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { previewUrl: null, error: "You must be signed in to preview images." };
+    }
+
+    const path = extractStoragePath(storedUrl, bucket);
+    if (!path) return { previewUrl: null, error: null };
+
+    if (bucket === "public-branding") {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      return { previewUrl: data?.publicUrl ?? null, error: null };
+    }
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      return { previewUrl: null, error: null };
+    }
+    return { previewUrl: data.signedUrl, error: null };
+  } catch (err) {
+    console.error("[resolveImagePreviewUrlAction]", err);
+    return { previewUrl: null, error: null };
+  }
+}
+
 export async function removeImageAction(
   bucket: "profile-pictures" | "public-branding",
   path: string,
