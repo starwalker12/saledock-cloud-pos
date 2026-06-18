@@ -18,7 +18,7 @@ import {
   Mail,
   Building2,
 } from "lucide-react";
-import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriority, SupplierGroup, ActiveSupplier } from "@/lib/data/replenishment";
+import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriority, SupplierGroup, ActiveSupplier, ActiveProduct } from "@/lib/data/replenishment";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { AppSelect } from "@/components/ui/app-select";
 import { PoPlannerModal, type PoPrefill } from "./po-planner-modal";
@@ -132,6 +132,7 @@ export function ReplenishmentUI({
   preparedBy,
   createSupplierHref,
   allSuppliers,
+  allProducts,
 }: {
   summary: ReplenishmentSummary;
   currency: string;
@@ -139,6 +140,7 @@ export function ReplenishmentUI({
   preparedBy: string;
   createSupplierHref: string;
   allSuppliers: ActiveSupplier[];
+  allProducts: ActiveProduct[];
 }) {
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<ReplenishmentPriority | "all">("all");
@@ -453,6 +455,7 @@ export function ReplenishmentUI({
           key={poModal.key}
           suggestions={summary.suggestions}
           allSuppliers={allSuppliers}
+          allProducts={allProducts}
           currency={currency}
           shopName={shopName}
           preparedByDefault={preparedBy}
@@ -652,12 +655,12 @@ function ProductMobileRow({
   onOpenDetails: (s: ReplenishmentSuggestion) => void;
 }) {
   return (
-    <div className="border-b border-slate-50 px-4 py-2.5 text-xs last:border-b-0 dark:border-slate-800">
+    <div className="border-b border-slate-50 px-4 py-3 text-xs transition-colors last:border-b-0 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-white/[0.03]">
       <div className="min-w-0">
         <button
           type="button"
           onClick={() => onOpenDetails(suggestion)}
-          className="block max-w-full truncate text-left font-semibold text-blue-700 hover:underline dark:text-blue-300"
+          className="block max-w-full truncate text-left text-sm font-semibold text-blue-700 hover:underline dark:text-blue-300"
         >
           {suggestion.productName}
         </button>
@@ -720,7 +723,7 @@ function ProductDesktopRow({
   onOpenDetails: (s: ReplenishmentSuggestion) => void;
 }) {
   return (
-    <div className={`${gridClass} border-b border-slate-50 px-4 py-2.5 text-xs last:border-b-0 dark:border-slate-800`}>
+    <div className={`${gridClass} border-b border-slate-50 px-4 py-2.5 text-xs transition-colors last:border-b-0 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-white/[0.03]`}>
       <div className="min-w-0">
         <button
           type="button"

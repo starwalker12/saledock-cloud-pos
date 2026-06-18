@@ -67,6 +67,49 @@ export async function getActiveSuppliers(organizationId: string): Promise<Active
   }));
 }
 
+export type ActiveProduct = {
+  id: string;
+  name: string;
+  sku: string | null;
+  supplierId: string | null;
+  supplierName: string | null;
+  currentStock: number;
+  purchasePrice: number;
+};
+
+/**
+ * Read-only list of active saved products (for the PO planner's "Add saved
+ * product" picker). Organization-scoped via the user's RLS session — no
+ * service-role use, no writes, no money/report data.
+ */
+export async function getActiveProducts(organizationId: string): Promise<ActiveProduct[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, sku, supplier_id, suppliers(name), stock_quantity, purchase_price")
+    .eq("organization_id", organizationId)
+    .eq("type", "product")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+  if (error) {
+    console.error("[replenishment] active products load failed:", error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => {
+    const supsRaw = r.suppliers as { name?: string } | { name?: string }[] | null;
+    const sup = Array.isArray(supsRaw) ? supsRaw[0] ?? null : supsRaw;
+    return {
+      id: r.id as string,
+      name: r.name as string,
+      sku: (r.sku as string | null) ?? null,
+      supplierId: (r.supplier_id as string | null) ?? null,
+      supplierName: sup?.name ?? null,
+      currentStock: Number(r.stock_quantity ?? 0),
+      purchasePrice: Number(r.purchase_price ?? 0),
+    };
+  });
+}
+
 export type SupplierGroup = {
   supplierId: string | null;
   supplierName: string | null;
