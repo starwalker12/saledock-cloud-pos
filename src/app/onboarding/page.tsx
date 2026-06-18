@@ -5,7 +5,6 @@ import { env } from "@/lib/env";
 import { signOutAction } from "@/app/(auth)/actions";
 import { getOnboardingDraftForUser } from "./actions";
 import { OnboardingWizard } from "./onboarding-wizard";
-import { ThemeImage } from "@/components/theme-image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 
@@ -34,18 +33,6 @@ export default async function OnboardingPage() {
           <Link href="/onboarding" className="inline-block">
             <Logo className="mx-auto mb-4 h-14 w-auto max-w-[220px]" />
           </Link>
-          <div className="flex justify-center py-2">
-            <ThemeImage
-              lightSrc="/onboarding-ecosystem-light.png"
-              darkSrc="/onboarding-ecosystem-dark.png"
-              lightWidth={533}
-              lightHeight={800}
-              darkWidth={640}
-              darkHeight={800}
-              alt="Shop setup ecosystem illustration"
-              className="w-full max-w-[200px] h-auto"
-            />
-          </div>
           <h1 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl dark:text-white">Set up your shop</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
             Complete the steps below to create your organization and start selling.

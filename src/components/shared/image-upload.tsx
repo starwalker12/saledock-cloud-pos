@@ -116,6 +116,19 @@ export function ImageUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const cropDragRef = useRef<CropDragState | null>(null);
 
+  // Track currentUrl during render so preview re-syncs whenever the parent
+  // changes it (draft resume, server URL arriving after first paint, remove).
+  // This is the official React pattern for adjusting state from a prop change
+  // without an effect.
+  const normalizedCurrentUrl = currentUrl ?? null;
+  const [lastSyncedUrl, setLastSyncedUrl] = useState(normalizedCurrentUrl);
+  if (normalizedCurrentUrl !== lastSyncedUrl) {
+    setLastSyncedUrl(normalizedCurrentUrl);
+    // Keep an in-flight blob preview visible during upload; otherwise mirror the prop.
+    setPreview((prev) => (prev?.startsWith("blob:") ? prev : normalizedCurrentUrl));
+    setImgError(false);
+  }
+
   useEffect(() => {
     async function checkAuth() {
       const supabase = createClient();
