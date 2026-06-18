@@ -82,4 +82,76 @@ export function mapItemsToRows(items: ExportItem[], showCosts: boolean): ExportR
   });
 }
 
+/**
+ * A fully-edited purchase-order draft row. `price` is null when the user left it
+ * blank (then unit price and line total are exported blank). This is a
+ * draft/export shape only — it never maps back to product or supplier records.
+ */
+export type PoDraftItem = {
+  name: string;
+  sku: string | null;
+  supplierName: string | null;
+  supplierCompany: string | null;
+  supplierPhone: string | null;
+  supplierEmail: string | null;
+  currentStock: number | null;
+  minimumStock: number | null;
+  targetStock: number | null;
+  quantity: number;
+  price: number | null;
+  note: string;
+  priority: ReplenishmentPriority | null;
+  reason: string;
+};
+
+/**
+ * Columns for an editable purchase-order draft. Unit price and line total are
+ * always present (the per-row price is optional/blank), with explicit
+ * "quoted/draft" wording. Stock/min/target/priority/reason are planning context
+ * and are left blank for custom items.
+ */
+export function buildPoColumns(currency: string): ExportColumn[] {
+  return [
+    { key: "product", header: "Product", type: "text" },
+    { key: "sku", header: "SKU", type: "text" },
+    { key: "supplier", header: "Supplier", type: "text" },
+    { key: "company", header: "Company", type: "text" },
+    { key: "phone", header: "Phone", type: "text" },
+    { key: "email", header: "Email", type: "text" },
+    { key: "currentStock", header: "Current stock", type: "number" },
+    { key: "minimumStock", header: "Min stock", type: "number" },
+    { key: "targetStock", header: "Target stock", type: "number" },
+    { key: "quantity", header: "Order qty", type: "number" },
+    { key: "priority", header: "Priority", type: "text" },
+    { key: "reason", header: "Reason", type: "text" },
+    { key: "unitPrice", header: `Unit price (${currency}, quoted/draft)`, type: "number" },
+    { key: "lineTotal", header: `Line total (${currency}, quoted/draft)`, type: "number" },
+    { key: "note", header: "Notes", type: "text" },
+  ];
+}
+
+export function mapPoDraftRows(items: PoDraftItem[]): ExportRow[] {
+  return items.map((it) => {
+    const hasPrice = it.price !== null && it.price >= 0;
+    const lineTotal = hasPrice ? round2(it.quantity * (it.price as number)) : "";
+    return {
+      product: it.name,
+      sku: it.sku ?? "",
+      supplier: it.supplierName ?? (it.priority === null ? "" : "Unassigned"),
+      company: it.supplierCompany ?? "",
+      phone: it.supplierPhone ?? "",
+      email: it.supplierEmail ?? "",
+      currentStock: it.currentStock ?? "",
+      minimumStock: it.minimumStock ?? "",
+      targetStock: it.targetStock ?? "",
+      quantity: it.quantity,
+      priority: it.priority ? PRIORITY_LABEL[it.priority] : "",
+      reason: it.reason,
+      unitPrice: hasPrice ? round2(it.price as number) : "",
+      lineTotal,
+      note: it.note,
+    };
+  });
+}
+
 export { PRIORITY_LABEL };

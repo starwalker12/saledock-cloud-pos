@@ -245,7 +245,7 @@ export function openPrintablePo(
     <div class="box">${detailLines.join("")}</div>
   </div>
   <div class="notice">
-    Purchase order draft. No stock will change. Prices are not final${meta.showCosts ? " — last known cost / estimate only" : ""}. Confirm rates and availability with the supplier. This export is for ordering, not payment.
+    Purchase order draft. No stock will change. Prices shown are draft / quoted only${meta.showCosts ? " (some may be last known cost estimates)" : ""}. Confirm rates and availability with the supplier. This export is for ordering, not payment.
   </div>
   <table><thead><tr>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>
   ${meta.notes ? `<div class="notes"><strong>Notes:</strong> ${xmlEscape(meta.notes)}</div>` : ""}
