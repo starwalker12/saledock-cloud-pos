@@ -20,10 +20,10 @@ export async function proxy(request: NextRequest) {
     // Construct the Content Security Policy directives
     const directives = [
       "default-src 'self'",
-      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""} https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://*.clarity.ms`,
+      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""} https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://*.clarity.ms https://connect.facebook.net`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://bvxyxrdskjryepwjmsvc.supabase.co https://www.google-analytics.com https://www.google.com https://*.clarity.ms",
-      "connect-src 'self' https://bvxyxrdskjryepwjmsvc.supabase.co wss://bvxyxrdskjryepwjmsvc.supabase.co https://accounts.google.com https://www.google-analytics.com https://stats.g.doubleclick.net https://*.clarity.ms https://*.bing.com",
+      "img-src 'self' blob: data: https://bvxyxrdskjryepwjmsvc.supabase.co https://www.google-analytics.com https://www.google.com https://*.clarity.ms https://www.facebook.com",
+      "connect-src 'self' https://bvxyxrdskjryepwjmsvc.supabase.co wss://bvxyxrdskjryepwjmsvc.supabase.co https://accounts.google.com https://www.google-analytics.com https://stats.g.doubleclick.net https://*.clarity.ms https://*.bing.com https://www.facebook.com",
       "frame-src 'self' https://www.google.com https://recaptcha.google.com",
       "frame-ancestors 'self'",
       "base-uri 'self'",
