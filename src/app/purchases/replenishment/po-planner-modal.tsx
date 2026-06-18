@@ -336,19 +336,19 @@ export function PoPlannerModal({
     pairs.push(["Document", poTitle.trim() || "Purchase Order Draft"]);
     if (poReference.trim()) pairs.push(["Reference", poReference.trim()]);
     if (shopName) pairs.push(["Shop", shopName]);
+    pairs.push(["Date", new Date().toLocaleDateString()]);
     pairs.push(["Supplier", supplierLabel]);
-    if (contactPerson.trim()) pairs.push(["Contact person", contactPerson.trim()]);
-    if (selectedSupplier?.company) pairs.push(["Company", selectedSupplier.company]);
-    if (selectedSupplier?.phone) pairs.push(["Phone", selectedSupplier.phone]);
-    if (selectedSupplier?.email) pairs.push(["Email", selectedSupplier.email]);
-    pairs.push(["Priorities", priorities.map((p) => PRIORITY_TEXT[p]).join(", ")]);
+    const contact = [contactPerson.trim(), selectedSupplier?.company, selectedSupplier?.phone, selectedSupplier?.email]
+      .filter(Boolean)
+      .join(" · ");
+    if (contact) pairs.push(["Supplier contact", contact]);
     if (preparedBy.trim()) pairs.push(["Prepared by", preparedBy.trim()]);
     if (expectedDate) pairs.push(["Expected date", expectedDate]);
     if (deliveryNote.trim()) pairs.push(["Delivery / location", deliveryNote.trim()]);
     if (paymentTerms.trim()) pairs.push(["Payment / terms", paymentTerms.trim()]);
-    if (notes.trim()) pairs.push(["PO notes", notes.trim()]);
+    if (notes.trim()) pairs.push(["Notes", notes.trim()]);
     if (quotedTotalLabel) pairs.push(["Quoted total (priced rows only)", quotedTotalLabel]);
-    pairs.push(["Note", "Draft purchase order — prices are quoted/draft only. Confirm with supplier. Not a payment or stock record."]);
+    pairs.push(["Note", "Draft only — prices are quoted, confirm with supplier. Not a payment or stock record."]);
     return pairs;
   }
 
@@ -406,7 +406,7 @@ export function PoPlannerModal({
   }
 
   const inputClass =
-    "h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-400 focus:outline-none dark:border-white/10 dark:bg-white/[0.04] dark:text-white";
+    "h-11 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm text-slate-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-white";
 
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#020617]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
@@ -415,7 +415,7 @@ export function PoPlannerModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="po-planner-title"
-        className="relative flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-[#fff] shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:rounded-3xl"
+        className="relative flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-[#fff] shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-3xl"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-white/[0.06] sm:px-5">

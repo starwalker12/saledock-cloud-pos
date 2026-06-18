@@ -137,7 +137,11 @@ export async function buildXlsxBlob(
   const sheetXml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-    `<sheetData>${sheetRowsXml}</sheetData></worksheet>`;
+    `<sheetData>${sheetRowsXml}</sheetData>` +
+    // Page setup so Excel prints on A4 (paperSize 9 = A4).
+    `<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
+    `<pageSetup paperSize="9" orientation="portrait"/>` +
+    `</worksheet>`;
 
   const workbookXml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -206,18 +210,70 @@ export function exportDateStamp(d = new Date()): string {
 }
 
 /**
- * Build a clean, SaleDock-branded printable purchase-order draft / replenishment
- * export and open it for the browser's native Print / Save-as-PDF. No PDF
- * library is used.
+ * Render a self-contained HTML document into a hidden same-document iframe and
+ * trigger the browser's native Print / Save-as-PDF on it.
+ *
+ * This replaces the previous `window.open("", ..., "noopener")` approach, which
+ * returned null / opened an unwritable about:blank window (so the document was
+ * never written and the user saw a blank window). An iframe avoids popup
+ * blockers entirely, works with client-generated/edited content, and reliably
+ * shows the content before printing. Returns false only if the iframe cannot be
+ * created (so the caller can show an inline error).
+ */
+export function printHtmlDocument(html: string): boolean {
+  try {
+    if (typeof document === "undefined" || !document.body) return false;
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      iframe.remove();
+      return false;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    let printed = false;
+    const printOnce = () => {
+      if (printed) return;
+      printed = true;
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        // ignore — the iframe is removed below regardless
+      }
+      window.setTimeout(() => iframe.remove(), 1500);
+    };
+
+    iframe.onload = () => window.setTimeout(printOnce, 150);
+    // Fallback in case onload already fired for the written document.
+    window.setTimeout(printOnce, 600);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Build a clean, SaleDock-branded, A4 printable purchase-order draft /
+ * replenishment export and trigger Print / Save-as-PDF. No PDF library is used.
  */
 export function openPrintablePo(
   meta: PoMeta,
   columns: ExportColumn[],
   rows: ExportRow[],
 ): boolean {
-  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=1000");
-  if (!win) return false;
-
   const headCells = columns
     .map((c) => `<th class="${c.type === "number" ? "num" : ""}">${xmlEscape(c.header)}</th>`)
     .join("");
@@ -249,9 +305,11 @@ export function openPrintablePo(
   const doc = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>${xmlEscape(meta.title)}</title>
 <style>
+  @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif; color: #0f172a; margin: 0; }
-  .wrap { margin: 24px; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif; color: #0f172a; font-size: 12px; }
+  .wrap { margin: 16px; }
   .brandbar { background: linear-gradient(90deg, #0b2f6f 0%, #0d3b8a 55%, #0d9488 100%); color: #fff; padding: 18px 24px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
   .brandbar .shop { font-size: 20px; font-weight: 800; letter-spacing: .2px; }
   .brandbar .tag { font-size: 11px; opacity: .85; margin-top: 2px; }
@@ -269,9 +327,7 @@ export function openPrintablePo(
   tbody tr:nth-child(even) { background: #f8fafc; }
   .total { margin-top: 12px; text-align: right; font-size: 13px; font-weight: 800; color: #0b2f6f; }
   .foot { margin-top: 24px; color: #94a3b8; font-size: 10px; }
-  @media print { .wrap { margin: 12mm; } .noprint { display: none; } }
-  .btn { display:inline-block; margin: 16px 6px 0 0; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background:#fff; font-size: 13px; cursor: pointer; }
-  .btn.primary { background:#0b2f6f; color:#fff; border-color:#0b2f6f; }
+  @media print { .wrap { margin: 0; } }
 </style></head>
 <body>
   <div class="wrap">
@@ -299,16 +355,9 @@ export function openPrintablePo(
     <table><thead><tr>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>
     ${meta.quotedTotalLabel ? `<div class="total">Quoted total (priced rows only): ${xmlEscape(meta.quotedTotalLabel)}</div>` : ""}
 
-    <div class="noprint">
-      <button class="btn primary" onclick="window.print()">Print / Save as PDF</button>
-      <button class="btn" onclick="window.close()">Close</button>
-    </div>
     <div class="foot">Generated by SaleDock &middot; ${xmlEscape(meta.dateLabel)} &middot; Draft document, not a payment record.</div>
   </div>
 </body></html>`;
 
-  win.document.open();
-  win.document.write(doc);
-  win.document.close();
-  return true;
+  return printHtmlDocument(doc);
 }

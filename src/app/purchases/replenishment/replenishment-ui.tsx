@@ -22,6 +22,7 @@ import type { ReplenishmentSummary, ReplenishmentSuggestion, ReplenishmentPriori
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { AppSelect } from "@/components/ui/app-select";
 import { PoPlannerModal, type PoPrefill } from "./po-planner-modal";
+import { ProductDetailModal } from "./product-detail-modal";
 import {
   downloadCsv,
   downloadXlsx,
@@ -148,6 +149,7 @@ export function ReplenishmentUI({
   const [exportError, setExportError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [poModal, setPoModal] = useState<{ key: number; prefill: PoPrefill } | null>(null);
+  const [productModal, setProductModal] = useState<ReplenishmentSuggestion | null>(null);
 
   const handleSort = (key: string) => {
     if (sortBy === key) {
@@ -425,9 +427,25 @@ export function ReplenishmentUI({
                   priorities: ["critical", "high"],
                 })
               }
+              onOpenDetails={setProductModal}
             />
           ))}
         </div>
+      )}
+
+      {productModal && (
+        <ProductDetailModal
+          suggestion={productModal}
+          currency={currency}
+          showCosts={showCosts}
+          onCreatePo={() =>
+            openPo({
+              supplier: productModal.supplierId ?? "__unassigned__",
+              priorities: ["critical", "high", "medium"],
+            })
+          }
+          onClose={() => setProductModal(null)}
+        />
       )}
 
       {poModal && (
@@ -466,6 +484,7 @@ function SupplierGroupCard({
   showCosts,
   onSort,
   onCreatePo,
+  onOpenDetails,
 }: {
   group: SupplierGroup;
   currency: string;
@@ -474,6 +493,7 @@ function SupplierGroupCard({
   showCosts: boolean;
   onSort: (key: string) => void;
   onCreatePo: () => void;
+  onOpenDetails: (s: ReplenishmentSuggestion) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -582,14 +602,14 @@ function SupplierGroupCard({
                 </p>
               )}
               {sortedSuggestions.map((s) => (
-                <ProductDesktopRow key={s.productId} suggestion={s} currency={currency} showCosts={showCosts} gridClass={gridClass} />
+                <ProductDesktopRow key={s.productId} suggestion={s} currency={currency} showCosts={showCosts} gridClass={gridClass} onOpenDetails={onOpenDetails} />
               ))}
             </div>
           </div>
 
           <div className="sm:hidden">
             {sortedSuggestions.map((s) => (
-              <ProductMobileRow key={s.productId} suggestion={s} currency={currency} showCosts={showCosts} />
+              <ProductMobileRow key={s.productId} suggestion={s} currency={currency} showCosts={showCosts} onOpenDetails={onOpenDetails} />
             ))}
           </div>
         </div>
@@ -624,15 +644,23 @@ function ProductMobileRow({
   suggestion,
   currency,
   showCosts,
+  onOpenDetails,
 }: {
   suggestion: ReplenishmentSuggestion;
   currency: string;
   showCosts: boolean;
+  onOpenDetails: (s: ReplenishmentSuggestion) => void;
 }) {
   return (
     <div className="border-b border-slate-50 px-4 py-2.5 text-xs last:border-b-0 dark:border-slate-800">
       <div className="min-w-0">
-        <p className="font-semibold text-slate-950 dark:text-white truncate">{suggestion.productName}</p>
+        <button
+          type="button"
+          onClick={() => onOpenDetails(suggestion)}
+          className="block max-w-full truncate text-left font-semibold text-blue-700 hover:underline dark:text-blue-300"
+        >
+          {suggestion.productName}
+        </button>
         {suggestion.sku && (
           <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">SKU: {suggestion.sku}</p>
         )}
@@ -683,16 +711,24 @@ function ProductDesktopRow({
   currency,
   showCosts,
   gridClass,
+  onOpenDetails,
 }: {
   suggestion: ReplenishmentSuggestion;
   currency: string;
   showCosts: boolean;
   gridClass: string;
+  onOpenDetails: (s: ReplenishmentSuggestion) => void;
 }) {
   return (
     <div className={`${gridClass} border-b border-slate-50 px-4 py-2.5 text-xs last:border-b-0 dark:border-slate-800`}>
       <div className="min-w-0">
-        <p className="truncate font-semibold text-slate-950 dark:text-white">{suggestion.productName}</p>
+        <button
+          type="button"
+          onClick={() => onOpenDetails(suggestion)}
+          className="block max-w-full truncate text-left font-semibold text-blue-700 hover:underline dark:text-blue-300"
+        >
+          {suggestion.productName}
+        </button>
         {suggestion.sku && (
           <p className="truncate text-[10px] text-slate-400 dark:text-slate-500">SKU: {suggestion.sku}</p>
         )}
