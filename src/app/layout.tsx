@@ -137,12 +137,37 @@ const notoNastaliqUrdu = Noto_Nastaliq_Urdu({
   weight: ["400", "700"],
 });
 
+const SITE_TITLE = "SaleDock Cloud POS";
+const SITE_DESCRIPTION =
+  "SaleDock is a cloud POS platform for shops to manage sales, inventory, repairs, invoices, expenses, and reports.";
+
 export const metadata: Metadata = {
-  title: "SaleDock Cloud POS",
-  description:
-    "SaleDock is a cloud POS platform for shops to manage sales, inventory, repairs, invoices, expenses, and reports.",
+  metadataBase: new URL("https://saledock.site"),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   verification: {
     google: "4yFsod3SEer6gpo9UjvizFLcwif5c9ZcG1nOZ-2mUcQ",
+  },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "https://saledock.site",
+    siteName: SITE_TITLE,
+    type: "website",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "SaleDock Cloud POS",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/og.png"],
   },
   other: {
     ...(env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
