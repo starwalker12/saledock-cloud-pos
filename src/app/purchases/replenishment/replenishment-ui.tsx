@@ -438,6 +438,7 @@ export function ReplenishmentUI({
       {productModal && (
         <ProductDetailModal
           suggestion={productModal}
+          allSuppliers={allSuppliers}
           currency={currency}
           showCosts={showCosts}
           onCreatePo={() =>
@@ -470,9 +471,12 @@ export function ReplenishmentUI({
 
 function SummaryCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-[#fff] p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-      <p className="text-[10px] font-semibold tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-bold text-slate-950 dark:text-white" style={{ color }}>
+    <div className="rounded-2xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.03]">
+      <div className="flex items-center gap-2">
+        <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+      </div>
+      <p className="mt-2 text-2xl font-black tabular-nums text-slate-950 dark:text-white" style={{ color }}>
         {value}
       </p>
     </div>
@@ -498,10 +502,9 @@ function SupplierGroupCard({
   onCreatePo: () => void;
   onOpenDetails: (s: ReplenishmentSuggestion) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
-
   const criticalCount = group.suggestions.filter((s) => s.priority === "critical").length;
   const highCount = group.suggestions.filter((s) => s.priority === "high").length;
+  const mediumCount = group.suggestions.filter((s) => s.priority === "medium").length;
 
   const sortedSuggestions = useMemo(() => {
     const sorted = [...group.suggestions];
@@ -536,56 +539,60 @@ function SupplierGroupCard({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-white/[0.03]">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50 dark:border-white/[0.06] dark:hover:bg-white/[0.05] md:px-4 md:py-3"
-      >
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5 md:gap-3">
-            <Truck className="size-4 shrink-0 text-slate-400" />
-            <span className="truncate text-xs font-bold text-slate-950 dark:text-white md:text-sm">
+      <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-white/[0.06] md:px-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
+            <Truck className="size-5 shrink-0 text-slate-400" />
+            <span className="truncate text-base font-black text-slate-950 dark:text-white">
               {group.supplierName ?? "Unassigned"}
             </span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-white/[0.06] dark:text-slate-300">
+              {group.productCount} {group.productCount === 1 ? "item" : "items"}
+            </span>
             {criticalCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 md:px-2 md:text-[10px]">
-                <AlertTriangle className="size-2.5" />
-                {criticalCount} crit
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 dark:bg-rose-900/20 dark:text-rose-300">
+                <AlertTriangle className="size-3" />
+                {criticalCount} Critical
               </span>
             )}
             {highCount > 0 && (
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 md:px-2 md:text-[10px]">
-                {highCount} high
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                {highCount} High
+              </span>
+            )}
+            {mediumCount > 0 && (
+              <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                {mediumCount} Medium
               </span>
             )}
           </div>
           {(group.supplierCompany || group.supplierPhone || group.supplierEmail) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-6 text-[10px] text-slate-400 dark:text-slate-500">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-slate-400 dark:text-slate-500">
               {group.supplierCompany && (
-                <span className="inline-flex items-center gap-1"><Building2 className="size-2.5" />{group.supplierCompany}</span>
+                <span className="inline-flex items-center gap-1"><Building2 className="size-3" />{group.supplierCompany}</span>
               )}
               {group.supplierPhone && (
-                <span className="inline-flex items-center gap-1"><Phone className="size-2.5" />{group.supplierPhone}</span>
+                <span className="inline-flex items-center gap-1"><Phone className="size-3" />{group.supplierPhone}</span>
               )}
               {group.supplierEmail && (
-                <span className="inline-flex items-center gap-1"><Mail className="size-2.5" />{group.supplierEmail}</span>
+                <span className="inline-flex items-center gap-1"><Mail className="size-3" />{group.supplierEmail}</span>
               )}
             </div>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 md:gap-4 md:text-xs">
-          <span>{group.productCount} items</span>
-          {showCosts && (
-            <span className="font-bold text-slate-700 dark:text-slate-300">{formatCurrency(group.estimatedCost, currency)}</span>
-          )}
-          <ArrowUpDown className={`size-3 transition ${expanded ? "rotate-180" : ""}`} />
-        </div>
-      </button>
+        {showCosts && (
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Est. cost</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(group.estimatedCost, currency)}</p>
+          </div>
+        )}
+      </div>
 
-      {expanded && (
+      {(
         <div>
           <div className="hidden overflow-x-auto sm:block">
             <div className={minWidth}>
-              <div className={`${gridClass} border-b border-slate-100 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:border-white/[0.06] dark:text-slate-500`}>
+              <div className={`${gridClass} sticky top-0 z-[1] border-b border-slate-200 bg-slate-50 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400`}>
                 <ReplenishmentHeader label="Product" columnKey="productName" currentSortKey={sortBy} direction={sortDir} onSort={onSort} />
                 <ReplenishmentHeader label="Stock" columnKey="currentStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
                 <ReplenishmentHeader label="Min" columnKey="minimumStock" currentSortKey={sortBy} direction={sortDir} onSort={onSort} align="right" />
@@ -618,27 +625,25 @@ function SupplierGroupCard({
         </div>
       )}
 
-      {expanded && (
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
-          {group.supplierId && (
-            <Link
-              href={`/suppliers/purchases/new?supplier_id=${group.supplierId}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-200"
-            >
-              <Truck className="size-3.5" />
-              Record purchase
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={onCreatePo}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#0b2f6f] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.02] md:px-5">
+        {group.supplierId && (
+          <Link
+            href={`/suppliers/purchases/new?supplier_id=${group.supplierId}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-[#fff] px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-200"
           >
-            <ClipboardList className="size-3.5" />
-            {group.supplierId ? "Create PO for this supplier" : "Create PO without supplier"}
-          </button>
-        </div>
-      )}
+            <Truck className="size-4" />
+            Record purchase
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={onCreatePo}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#0b2f6f] px-3.5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+        >
+          <ClipboardList className="size-4" />
+          {group.supplierId ? "Create PO for this supplier" : "Create PO without supplier"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -723,12 +728,12 @@ function ProductDesktopRow({
   onOpenDetails: (s: ReplenishmentSuggestion) => void;
 }) {
   return (
-    <div className={`${gridClass} border-b border-slate-50 px-4 py-2.5 text-xs transition-colors last:border-b-0 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-white/[0.03]`}>
+    <div className={`${gridClass} border-b border-slate-100 px-5 py-3.5 text-sm transition-colors last:border-b-0 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-white/[0.03]`}>
       <div className="min-w-0">
         <button
           type="button"
           onClick={() => onOpenDetails(suggestion)}
-          className="block max-w-full truncate text-left font-semibold text-blue-700 hover:underline dark:text-blue-300"
+          className="block max-w-full truncate text-left text-sm font-bold text-blue-700 hover:underline dark:text-blue-300"
         >
           {suggestion.productName}
         </button>

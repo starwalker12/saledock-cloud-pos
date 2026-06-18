@@ -206,6 +206,16 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
     return pathname === href || pathname.startsWith(href + "/");
   };
 
+  // Keep the active nav item visible after navigation. Some layouts reset the
+  // sidebar scroll to the top on route change, which can hide the selected tab.
+  // `block: "nearest"` only scrolls when the item is off-screen (no jump if it
+  // is already visible, no layout shift on unrelated renders) and never steals
+  // keyboard focus.
+  useEffect(() => {
+    const el = navListRef.current?.querySelector<HTMLElement>('[data-sidebar-active="true"]');
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [pathname]);
+
   useEffect(() => {
     if (!archiveOpen) return;
 
@@ -581,6 +591,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
               <li
                 key={item.href}
                 data-sidebar-nav-href={item.href}
+                data-sidebar-active={active ? "true" : undefined}
                 onPointerLeave={() => {
                   if (isConfirmingArchive) {
                     setPendingArchiveHref((current) => (current === item.href ? null : current));
