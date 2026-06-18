@@ -17,6 +17,7 @@ import {
 import type { StaffBranch, StaffUser, StaffInvitation } from "@/lib/data/users";
 import { STAFF_ROLES, type StaffRole } from "@/lib/validation/users";
 import { AppSelect } from "@/components/ui/app-select";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const initialInviteState: StaffInviteActionState = { error: null, success: null };
 
@@ -534,6 +535,7 @@ export function UserManagementClient({
 function InvitationActions({ invite }: { invite: StaffInvitation }) {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const confirm = useConfirmDialog();
 
   const handleResend = () => {
     setMessage(null);
@@ -543,8 +545,15 @@ function InvitationActions({ invite }: { invite: StaffInvitation }) {
     });
   };
 
-  const handleRevoke = () => {
-    if (!confirm("Are you sure you want to revoke this invite? The link will stop working.")) return;
+  const handleRevoke = async () => {
+    const confirmed = await confirm({
+      title: "Revoke invite?",
+      message: "Are you sure you want to revoke this invite? The link will stop working.",
+      confirmLabel: "Revoke invite",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage(null);
     startTransition(async () => {
       const result = await revokeStaffInviteAction(invite.id);

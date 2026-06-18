@@ -35,6 +35,16 @@
   --primary-accent-hover: #1D4ED8;
   --primary-accent-text: #FFFFFF;
   --primary-accent-soft: rgba(37,99,235,0.10);
+
+  /* Motion system — shared timing + easing tokens. The .animate-* and .motion-*
+     utilities below all read from these so the whole app shares one feel.
+     fast = micro-interactions, normal = most enter/exit, slow = large surfaces. */
+  --motion-fast: 150ms;
+  --motion-normal: 210ms;
+  --motion-slow: 320ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);     /* entrances settle gently */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);          /* exits accelerate away */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);  /* soft spring, no overshoot */
 }
 
 :root[data-color-theme="ocean"] {
@@ -357,6 +367,75 @@ body {
   animation: logo-glow-pulse 4s ease-in-out infinite;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Shared motion foundation
+   Central, reusable utilities for app-wide fluid motion. Transform/opacity
+   only (never width/height) so they stay smooth on the GPU and never shift
+   layout. Durations/easings come from the --motion-* / --ease-* tokens above.
+   Every utility here is disabled or greatly reduced under prefers-reduced-motion
+   (see the media query lower in this file).
+   ───────────────────────────────────────────────────────────────────────── */
+@keyframes motion-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes motion-scale-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes motion-dropdown-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes motion-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Overlay / generic content fade. Also defines a previously-undefined
+   .animate-fade-in already referenced by several modal overlays. */
+.animate-fade-in {
+  animation: motion-fade-in var(--motion-normal) var(--ease-out) both;
+}
+/* Modal / dialog / sheet panels: gentle rise + scale. `backwards` fill applies
+   the start frame immediately (no flash) and reverts to transform:none when the
+   entrance ends, so the panel never leaves a residual transform that could
+   become a containing block for sticky/fixed descendants. */
+.animate-scale-in {
+  animation: motion-scale-in var(--motion-normal) var(--ease-spring) backwards;
+}
+/* Dropdowns / selects / popovers / menus: quick open from the top edge. */
+.animate-dropdown-in {
+  transform-origin: top;
+  animation: motion-dropdown-in var(--motion-fast) var(--ease-out) backwards;
+}
+/* List / table row entrance. Opt-in per surface so rows don't re-animate
+   on every filter/sort keystroke. */
+.animate-row-in {
+  animation: motion-row-in var(--motion-normal) var(--ease-out) backwards;
+}
+
+/* Card / tile hover lift — transform + shadow on one transition. */
+.motion-lift {
+  transition: transform var(--motion-fast) var(--ease-out),
+              box-shadow var(--motion-fast) var(--ease-out);
+}
+.motion-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -12px rgba(15, 23, 42, 0.30);
+}
+.dark .motion-lift:hover {
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.55);
+}
+
+/* Button / interactive press feedback. */
+.motion-press {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+.motion-press:active {
+  transform: scale(0.97);
+}
+
 .dashboard-widget-card {
   --widget-chart-color: #334155;
 }
@@ -467,6 +546,26 @@ body {
   .dashboard-3d:hover {
     transform: none !important;
     transition: none !important;
+  }
+  /* Shared motion foundation — disabled so elements simply appear in their
+     final, visible state. Focus states and the UI stay fully usable. */
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-dropdown-in,
+  .animate-row-in {
+    animation: none !important;
+  }
+  .motion-lift,
+  .motion-press {
+    transition: none !important;
+  }
+  .motion-lift:hover,
+  .motion-press:active {
+    transform: none !important;
+    box-shadow: none !important;
   }
 }
 

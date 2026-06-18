@@ -102,7 +102,7 @@ export function UserMenu({ name, email, role, profilePictureUrl, isPlatformAdmin
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200 bg-[#fff] shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900">
+          <div className="animate-dropdown-in absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200 bg-[#fff] shadow-xl shadow-black/5 dark:border-slate-700 dark:bg-slate-900">
             <div className="rounded-t-2xl border-b border-slate-100 px-4 py-3 dark:border-slate-800">
               <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
                 {name}

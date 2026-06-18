@@ -503,13 +503,13 @@ export function PoPlannerModal({
   const sectionTitle = "mb-3 text-sm font-black text-slate-950 dark:text-white";
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#020617]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="animate-fade-in fixed inset-0 z-[90] flex items-end justify-center bg-[#020617]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <button type="button" aria-label="Close purchase order planner" className="absolute inset-0 cursor-default" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="po-planner-title"
-        className="relative flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-slate-50 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-3xl"
+        className="animate-scale-in relative flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-slate-50 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-3xl"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-[#fff] px-4 py-3 dark:border-white/[0.06] dark:bg-slate-900 sm:px-5">

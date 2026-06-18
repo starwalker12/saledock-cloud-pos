@@ -211,7 +211,7 @@ export function AppSelect({
 
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 top-full z-[95] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-2xl shadow-slate-900/15 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 ${menuClassName}`}
+          className={`animate-dropdown-in absolute left-0 right-0 top-full z-[95] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-2xl shadow-slate-900/15 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 ${menuClassName}`}
         >
           {shouldSearch && (
             <div className="border-b border-slate-100 p-2.5 dark:border-slate-800">

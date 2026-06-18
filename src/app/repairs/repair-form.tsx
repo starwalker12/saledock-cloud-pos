@@ -82,7 +82,7 @@ export function RepairForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full h-full sm:h-auto sm:max-w-2xl rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 bg-[#fff] dark:bg-slate-900 p-4 sm:p-6 shadow-2xl overflow-y-auto max-h-full sm:max-h-[90vh]">
+      <div className="animate-scale-in relative w-full h-full sm:h-auto sm:max-w-2xl rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 bg-[#fff] dark:bg-slate-900 p-4 sm:p-6 shadow-2xl overflow-y-auto max-h-full sm:max-h-[90vh]">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
           <div>
             <h3 className="text-lg font-black text-slate-950 dark:text-slate-50">
