@@ -10,6 +10,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
+import { rateLimit } from "@/lib/cache/rate-limit";
 import { z } from "zod";
 import { STAFF_ROLES, inviteUserSchema, type StaffRole } from "@/lib/validation/users";
 import { type StaffInvitation as BaseStaffInvitation } from "@/lib/data/users";
@@ -17,6 +18,24 @@ import { type StaffInvitation as BaseStaffInvitation } from "@/lib/data/users";
 const INVITE_TOKEN_BYTES = 32;
 const INVITE_LIFETIME_DAYS = 7;
 const INVITE_REDIRECT_PATH = "/auth/invite";
+
+// Best-effort cooldown so a manager cannot accidentally (or maliciously) spam
+// invite emails. Backed by Redis if configured, otherwise an in-memory fallback.
+// Fails open — a cache problem never blocks a legitimate invite.
+const INVITE_RATE_LIMIT_MAX = 12;
+const INVITE_RATE_LIMIT_WINDOW_SECONDS = 10 * 60;
+
+// Safe, plain-English messages shown in the Users page. Raw Supabase/Auth/
+// Postgres errors must never reach the UI.
+const INVITE_MESSAGES = {
+  alreadyInShop: "This person is already in this shop. You can update their role from Staff accounts.",
+  pendingInvite: "This email already has a pending invite. Resend or revoke the existing invite.",
+  otherShop: "This email cannot be invited to this shop. Ask the person to use a different email or contact support.",
+  rateLimited: "Too many invite attempts. Please wait a little before trying again.",
+  unexpected: "We could not send this invite right now. Please try again.",
+  newInvitationSent: "New invitation sent.",
+  invitationSent: "Invitation sent. The staff member will get an email to accept and join this shop.",
+} as const;
 
 export type StaffInviteFormValues = {
   fullName: string;
@@ -152,6 +171,7 @@ export async function inviteStaffAction(
     branchId: formData.get("branchId"),
   });
   if (!parsed.success) {
+    // The schema already produces "Enter a valid email address." for bad emails.
     return inviteError(parsed.error.issues[0]?.message ?? "Invalid staff invite.", submittedValues);
   }
 
@@ -159,7 +179,26 @@ export async function inviteStaffAction(
   const organizationId = profile.organization_id;
   const values = parsed.data;
 
-  // 1. Same-shop staff block: a profile already attached to this organization.
+  // 0. Best-effort invite cooldown per manager (fails open).
+  const rate = await rateLimit(
+    `invite:${organizationId}:${profile.id}`,
+    INVITE_RATE_LIMIT_MAX,
+    INVITE_RATE_LIMIT_WINDOW_SECONDS,
+  );
+  if (!rate.allowed) {
+    logAudit({
+      module: "users",
+      action: "users.invite_rate_limited",
+      details: "Invite attempt blocked by cooldown",
+      metadata: { email: values.email, role: values.role },
+    });
+    return inviteError(INVITE_MESSAGES.rateLimited, submittedValues);
+  }
+
+  // 1. Same-shop staff block: a profile already attached to this organization
+  //    (Rule A / D — already staff). Another shop is blocked safely (Rule E).
+  //    An unfinished owner-signup account with no org falls through and is
+  //    allowed to be invited (Rule F — preserved from PR #238/#239).
   const { user: existingAuthUser } = await findAuthUserByEmail(values.email);
   if (existingAuthUser) {
     const { profile: existingProfile } = await findProfileByAuthUserId(existingAuthUser.id);
@@ -170,10 +209,7 @@ export async function inviteStaffAction(
         details: `Blocked duplicate staff invite: ${values.email} already on this staff list`,
         metadata: { email: values.email, role: values.role, status: existingProfile.is_active ? "active" : "inactive" },
       });
-      return inviteError(
-        `That email is already on this staff list (${existingProfile.is_active ? "active" : "inactive"}). Edit the existing staff member instead.`,
-        submittedValues,
-      );
+      return inviteError(INVITE_MESSAGES.alreadyInShop, submittedValues);
     }
     if (existingProfile?.organization_id && existingProfile.organization_id !== organizationId) {
       logAudit({
@@ -182,11 +218,15 @@ export async function inviteStaffAction(
         details: `Blocked invite: ${values.email} already belongs to another shop`,
         metadata: { email: values.email, role: values.role, target_organization_id: existingProfile.organization_id },
       });
-      return inviteError("This email is already connected to another shop. Use a different email for staff access.", submittedValues);
+      return inviteError(INVITE_MESSAGES.otherShop, submittedValues);
     }
   }
 
-  // 2. Existing accepted invite block.
+  // 2. Existing-invitation handling (one row per org+email, enforced by a unique
+  //    index). Decide based on the current status:
+  //    - accepted  → already staff (Rule D) → block with already-in-shop message.
+  //    - pending   → duplicate pending (Rule B) → block, point to Resend/Revoke.
+  //    - revoked / declined / expired → reusable (Rule C) → refresh the row below.
   const { invite: existingInvite } = await findExistingInvite(organizationId, values.email);
   if (existingInvite?.status === "accepted") {
     logAudit({
@@ -195,17 +235,32 @@ export async function inviteStaffAction(
       details: `Blocked duplicate invite: ${values.email} already accepted an invite`,
       metadata: { email: values.email, role: values.role, invitation_id: existingInvite.id },
     });
-    return inviteError("This email has already accepted an invite to this shop.", submittedValues);
+    return inviteError(INVITE_MESSAGES.alreadyInShop, submittedValues);
+  }
+  if (existingInvite?.status === "pending") {
+    logAudit({
+      module: "users",
+      action: "users.invite_blocked_duplicate_pending",
+      details: `Blocked duplicate invite: ${values.email} already has a pending invite`,
+      metadata: { email: values.email, role: values.role, invitation_id: existingInvite.id },
+    });
+    return inviteError(INVITE_MESSAGES.pendingInvite, submittedValues);
   }
 
-  // 3. Create or reactivate invitation row.
+  const isReusableInvite =
+    existingInvite?.status === "revoked" ||
+    existingInvite?.status === "declined" ||
+    existingInvite?.status === "expired";
+
+  // 3. Create or refresh the invitation row.
   const rawToken = generateInviteToken();
   const tokenHash = hashInviteToken(rawToken);
   const expiresAt = new Date(Date.now() + INVITE_LIFETIME_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   let invitationId: string;
-  if (existingInvite) {
-    // Reactivate a declined/revoked/expired invite as a fresh pending invite.
+  if (existingInvite && isReusableInvite) {
+    // Refresh a revoked / declined / expired invite as a fresh pending invite,
+    // reusing the same row (the org+email unique index forbids a second row).
     const { error: reactivateError } = await admin
       .from("staff_invitations")
       .update({
@@ -230,7 +285,7 @@ export async function inviteStaffAction(
         details: `Failed to reactivate invitation for ${values.email}`,
         metadata: { email: values.email, role: values.role, invitation_id: existingInvite.id, error: reactivateError.message },
       });
-      return inviteError("We could not prepare the staff invitation. Please try again.", submittedValues);
+      return inviteError(INVITE_MESSAGES.unexpected, submittedValues);
     }
     invitationId = existingInvite.id;
   } else {
@@ -258,7 +313,7 @@ export async function inviteStaffAction(
         details: `Failed to create staff invitation record for ${values.email}`,
         metadata: { email: values.email, role: values.role, error: insertError?.message },
       });
-      return inviteError("We could not create the staff invitation. Please try again.", submittedValues);
+      return inviteError(INVITE_MESSAGES.unexpected, submittedValues);
     }
     invitationId = invitation.id;
   }
@@ -280,7 +335,7 @@ export async function inviteStaffAction(
       details: `Failed to send Supabase invite email to ${values.email}`,
       metadata: { email: values.email, role: values.role, invitation_id: invitationId, error: inviteResult.error?.message },
     });
-    return inviteError("Invite could not be sent. Check the email address and try again.", submittedValues);
+    return inviteError(INVITE_MESSAGES.unexpected, submittedValues);
   }
 
   // 5. Record the Supabase auth user id and sent timestamp.
@@ -318,7 +373,7 @@ export async function inviteStaffAction(
   });
 
   revalidatePath("/users");
-  return inviteSuccess("Invite email sent. The staff member must open the email and click Accept to join.");
+  return inviteSuccess(existingInvite ? INVITE_MESSAGES.newInvitationSent : INVITE_MESSAGES.invitationSent);
 }
 
 export async function resendStaffInviteAction(invitationId: string): Promise<StaffInviteActionState> {

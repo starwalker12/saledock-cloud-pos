@@ -1,8 +1,8 @@
 # Current Production State
 
 ## Production Configuration
-* **Current production main SHA:** `0fb887a20c9256340643e27c9eba8ac87f36f591`
-* **Immediate previous safe rollback point (undo PR #226 only):** `fa3f125357348e13b333b2719b695643b6acd37f`
+* **Current production main SHA:** `9f2224f9fd30a993f73f5865b35a4e6fff524c15` (after PR #240)
+* **In-progress (review-first, NOT merged):** branch `fix/staff-invite-rules-permissions-cache` — staff invite messages/rules, permission audit, safe invite rate-limit.
 * **Live URLs:**
   * https://saledock.site
   * https://saledock-cloud-pos.vercel.app
@@ -29,6 +29,9 @@
 16. **PR #224 (merged):** Fixed visible POS hover and table filters. Replenishment alignment improvements. Supplier Purchases filter spacing.
 17. **PR #225 (merged):** Improved public navbar (removed SaleDock word and white logo pill), settings dirty-save behavior, image cropping UX.
 18. **PR #226 (merged):** Added Vercel Analytics and Speed Insights. Removed SD mark from public top bar. Supplier Purchases dropdowns are now app-themed (not browser-default). Logged-in theme control moved into the user dropdown. Theme removed from standalone topbar and mobile drawer. Login "Back to Home" fixed to go directly to `/`. Cropper polished with drag-to-position, zoom, circular profile guide, and rectangular logo guide.
+19. **PR #239 (merged):** Login left panel uses only the dark ecosystem image integrated into the blue block; onboarding hero image removed; signup uses First name (required) + Last name (optional); fixed the unfinished-onboarding `/login` crash (a client onClick on a server component); image preview state syncs from `currentUrl`.
+20. **PR #240 (merged):** Unfinished signed-in users are redirected from `/login` straight to `/onboarding` (single continue/start-over screen). Image preview root cause fixed: the `profile-pictures` bucket is private, so previews now use a short-lived signed URL; `public-branding` logo still uses the public URL. Stored canonical URL is unchanged.
+21. **Branch `fix/staff-invite-rules-permissions-cache` (review-first, NOT merged):** Staff invite error messages rewritten to safe, specific plain English. Invite eligibility rules formalized (already-in-shop, pending block, revoked/declined/expired reuse, other-shop block, unfinished-owner allowed, fresh allowed). Added a safe invite rate-limit (Redis-optional, in-memory fallback, fail-open). Permission audit completed (no gaps fixed — system was already sound). No SQL/RLS/RPC/package changes.
 
 ## SaleDock UI Rules
 * **Dropdown / Select Rule:** All dropdowns, selects, menus, and option pickers should use app-themed components. Avoid raw browser-default `<select>` UI for visible customer-facing controls unless there is a strong accessibility or technical reason.
