@@ -17,6 +17,8 @@ export default async function ReplenishmentPage() {
 
   const orgId = profile.organization_id;
   const currency = organization?.currency_code ?? "PKR";
+  const shopName = organization?.name ?? null;
+  const preparedBy = profile.full_name ?? "";
 
   const summary = await getReplenishmentSuggestions(orgId);
 
@@ -40,7 +42,13 @@ export default async function ReplenishmentPage() {
           </div>
         </div>
 
-        <ReplenishmentUI summary={summary} currency={currency} />
+        <ReplenishmentUI
+          summary={summary}
+          currency={currency}
+          shopName={shopName}
+          preparedBy={preparedBy}
+          createSupplierHref="/products"
+        />
         <div className="h-20 md:hidden" />
       </div>
     </AppShell>

@@ -15,6 +15,9 @@ export type ReplenishmentSuggestion = {
   estimatedCost: number | null;
   supplierId: string | null;
   supplierName: string | null;
+  supplierCompany: string | null;
+  supplierPhone: string | null;
+  supplierEmail: string | null;
   priority: ReplenishmentPriority;
   reason: string;
 };
@@ -33,6 +36,9 @@ export type ReplenishmentSummary = {
 export type SupplierGroup = {
   supplierId: string | null;
   supplierName: string | null;
+  supplierCompany: string | null;
+  supplierPhone: string | null;
+  supplierEmail: string | null;
   productCount: number;
   estimatedCost: number;
   suggestions: ReplenishmentSuggestion[];
@@ -68,7 +74,7 @@ export async function getReplenishmentSuggestions(
     .from("products")
     .select(
       `id, name, sku, purchase_price, stock_quantity, minimum_stock, supplier_id,
-       suppliers(name), is_active, type`,
+       suppliers(name, company, phone, email), is_active, type`,
     )
     .eq("organization_id", organizationId)
     .eq("type", "product")
@@ -91,8 +97,13 @@ export async function getReplenishmentSuggestions(
     const purchasePrice = Number(row.purchase_price ?? 0);
     const estimatedCost = purchasePrice > 0 ? suggestedQuantity * purchasePrice : null;
 
-    const sups = row.suppliers as { name?: string } | { name?: string }[] | null;
-    const supplierName = Array.isArray(sups) ? sups[0]?.name ?? null : sups?.name ?? null;
+    type SupplierJoin = { name?: string; company?: string | null; phone?: string | null; email?: string | null };
+    const supsRaw = row.suppliers as SupplierJoin | SupplierJoin[] | null;
+    const sup = Array.isArray(supsRaw) ? supsRaw[0] ?? null : supsRaw;
+    const supplierName = sup?.name ?? null;
+    const supplierCompany = sup?.company ?? null;
+    const supplierPhone = sup?.phone ?? null;
+    const supplierEmail = sup?.email ?? null;
 
     allSuggestions.push({
       productId: row.id,
@@ -106,6 +117,9 @@ export async function getReplenishmentSuggestions(
       estimatedCost,
       supplierId: row.supplier_id,
       supplierName,
+      supplierCompany,
+      supplierPhone,
+      supplierEmail,
       priority,
       reason,
     });
@@ -150,6 +164,9 @@ export async function getReplenishmentSuggestions(
       group = {
         supplierId: s.supplierId,
         supplierName: s.supplierName,
+        supplierCompany: s.supplierCompany,
+        supplierPhone: s.supplierPhone,
+        supplierEmail: s.supplierEmail,
         productCount: 0,
         estimatedCost: 0,
         suggestions: [],
