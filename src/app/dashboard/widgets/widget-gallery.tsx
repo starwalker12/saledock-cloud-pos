@@ -90,7 +90,9 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-base font-black text-slate-950 dark:text-white">Add Widget</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Choose a widget to add to your board</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Add any widget more than once. For chart widgets, pick the view (bar, line, donut…) from the widget&apos;s settings after adding.
+            </p>
           </div>
           <button
             type="button"

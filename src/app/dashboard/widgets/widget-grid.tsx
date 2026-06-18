@@ -11,7 +11,10 @@ import {
   WidgetFillStyle,
   WidgetSize,
   WidgetTextColor,
+  ChartType,
+  CHART_TYPE_LABELS,
   getWidgetColorMeta,
+  getChartTypesForWidget,
   renderWidgetContent,
 } from "./widget-registry";
 
@@ -189,6 +192,7 @@ type WidgetInstance = {
   color: WidgetColor;
   fillStyle?: WidgetFillStyle;
   textColor?: WidgetTextColor;
+  chartType?: ChartType;
   x: number;
   y: number;
   w: number;
@@ -214,6 +218,7 @@ function WidgetSettingsControls({
   onUpdateColor,
   onUpdateFillStyle,
   onUpdateTextColor,
+  onUpdateChartType,
   onRemove,
 }: {
   widget: WidgetInstance;
@@ -224,10 +229,46 @@ function WidgetSettingsControls({
   onUpdateColor: (id: string, color: WidgetColor) => void;
   onUpdateFillStyle: (id: string, fillStyle: WidgetFillStyle) => void;
   onUpdateTextColor: (id: string, textColor: WidgetTextColor) => void;
+  onUpdateChartType: (id: string, chartType: ChartType) => void;
   onRemove: (id: string) => void;
 }) {
+  const chartTypes = getChartTypesForWidget(widget.type);
+  const activeChartType: ChartType =
+    chartTypes.length > 0 && widget.chartType && chartTypes.includes(widget.chartType)
+      ? widget.chartType
+      : chartTypes[0];
+
   return (
     <div className="space-y-2">
+      {chartTypes.length > 0 && (
+        <div>
+          <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            View
+          </p>
+          <div className="grid grid-cols-3 gap-1">
+            {chartTypes.map((ct) => (
+              <button
+                key={ct}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateChartType(widget.id, ct);
+                }}
+                aria-pressed={activeChartType === ct}
+                aria-label={`Show as ${CHART_TYPE_LABELS[ct]}`}
+                className={`h-8 rounded-lg px-2 text-[11px] font-black transition active:scale-95 ${
+                  activeChartType === ct
+                    ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] shadow-sm"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+              >
+                {CHART_TYPE_LABELS[ct]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
           {labels?.cardSize ?? "Size"}
@@ -589,6 +630,17 @@ export function WidgetGrid({
     );
   };
 
+  const handleUpdateWidgetChartType = (id: string, chartType: ChartType) => {
+    onChangeWidgets(
+      widgets.map((w) => {
+        if (w.id === id) {
+          return { ...w, chartType };
+        }
+        return w;
+      })
+    );
+  };
+
   return (
     <div className={`dashboard-widget-grid relative ${editing ? "edit-mode-active" : ""}`}>
       {editing && (
@@ -687,10 +739,10 @@ export function WidgetGrid({
               <div className="widget-card-content relative min-h-0 flex-1 overflow-visible">
                 {hasLink && !editing ? (
                   <Link href={href} className="block h-full hover:opacity-85 transition">
-                    {renderWidgetContent(widget.type, renderSize, state)}
+                    {renderWidgetContent(widget.type, renderSize, state, widget.chartType)}
                   </Link>
                 ) : (
-                  renderWidgetContent(widget.type, renderSize, state)
+                  renderWidgetContent(widget.type, renderSize, state, widget.chartType)
                 )}
               </div>
 
@@ -733,6 +785,7 @@ export function WidgetGrid({
                         onUpdateColor={handleUpdateWidgetColor}
                         onUpdateFillStyle={handleUpdateWidgetFillStyle}
                         onUpdateTextColor={handleUpdateWidgetTextColor}
+                        onUpdateChartType={handleUpdateWidgetChartType}
                         onRemove={(id) => {
                           setOpenSettingsId(null);
                           handleRemoveWidget(id);
@@ -787,6 +840,7 @@ export function WidgetGrid({
               onUpdateColor={handleUpdateWidgetColor}
               onUpdateFillStyle={handleUpdateWidgetFillStyle}
               onUpdateTextColor={handleUpdateWidgetTextColor}
+              onUpdateChartType={handleUpdateWidgetChartType}
               onRemove={(id) => {
                 setOpenSettingsId(null);
                 handleRemoveWidget(id);

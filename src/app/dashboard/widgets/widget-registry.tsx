@@ -17,6 +17,16 @@ import {
   Percent,
 } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import {
+  VerticalBars,
+  HorizontalBars,
+  TrendLine,
+  Sparkline,
+  PieDonut,
+  RankingList,
+  ChartEmpty,
+  type ChartPoint,
+} from "./widget-charts";
 
 // Approved widget colors that are readable in both light and dark modes
 export type WidgetColor = "neutral" | "info" | "success" | "warning" | "danger";
@@ -96,6 +106,53 @@ export function getWidgetColorMeta(color: WidgetColor) {
   return WIDGET_COLORS.find((c) => c.value === color) ?? WIDGET_COLORS[0];
 }
 
+// ── Chart-type system ──────────────────────────────────────────────────────
+// Chartable widgets can be viewed in several ways for the SAME underlying
+// metric. The view is purely presentational — the numbers are identical
+// across views; only the rendering changes.
+export type ChartType = "card" | "bar" | "line" | "area" | "pie" | "donut" | "sparkline" | "table";
+
+export const CHART_TYPE_LABELS: Record<ChartType, string> = {
+  card: "Card",
+  bar: "Bar",
+  line: "Line",
+  area: "Area",
+  pie: "Pie",
+  donut: "Donut",
+  sparkline: "Trend",
+  table: "Table",
+};
+
+type ChartableConfig = { types: ChartType[]; defaultType: ChartType };
+
+// Which widgets are chartable, the views they support, and their default view.
+// For ranked metrics, "bar" renders horizontal bars (long product names stay
+// readable); for trend metrics, "bar" renders vertical bars.
+export const CHARTABLE_WIDGETS: Record<string, ChartableConfig> = {
+  "weekly-sales": { types: ["bar", "line", "area", "sparkline", "card"], defaultType: "bar" },
+  "monthly-sales": { types: ["bar", "line", "area", "card"], defaultType: "bar" },
+  "top-selling-products": { types: ["table", "bar", "donut", "pie", "card"], defaultType: "table" },
+  "top-products-revenue": { types: ["bar", "table", "donut", "pie", "card"], defaultType: "bar" },
+  "dues-overview": { types: ["bar", "donut", "table", "card"], defaultType: "bar" },
+};
+
+export function isChartable(type: string): boolean {
+  return Object.prototype.hasOwnProperty.call(CHARTABLE_WIDGETS, type);
+}
+
+export function getChartTypesForWidget(type: string): ChartType[] {
+  return CHARTABLE_WIDGETS[type]?.types ?? [];
+}
+
+export function resolveChartType(type: string, chartType?: string): ChartType {
+  const config = CHARTABLE_WIDGETS[type];
+  if (!config) return "card";
+  if (chartType && config.types.includes(chartType as ChartType)) {
+    return chartType as ChartType;
+  }
+  return config.defaultType;
+}
+
 export type WidgetSize = "S" | "M" | "L" | "XL";
 
 export type WidgetDef = {
@@ -120,7 +177,9 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: "customer-dues", type: "customer-dues", category: "customers", title: "Customer Dues", description: "Outstanding credit owed to the shop by customers", defaultSize: "S", defaultColor: "warning", icon: Users },
   { id: "weekly-sales", type: "weekly-sales", category: "sales", title: "Weekly Sales Trend", description: "Sales total over the last 7 operating days", defaultSize: "M", defaultColor: "info", icon: TrendingUp },
   { id: "monthly-sales", type: "monthly-sales", category: "sales", title: "Monthly Sales Trend", description: "Sales total over the current calendar month", defaultSize: "M", defaultColor: "info", icon: TrendingUp },
-  { id: "top-selling-products", type: "top-selling-products", category: "sales", title: "Top Products", description: "Best-selling inventory items by volume and revenue", defaultSize: "L", defaultColor: "neutral", icon: Boxes },
+  { id: "top-selling-products", type: "top-selling-products", category: "sales", title: "Top Products by Quantity", description: "Best-selling items by units sold — view as table, bars, donut, or pie", defaultSize: "L", defaultColor: "neutral", icon: Boxes },
+  { id: "top-products-revenue", type: "top-products-revenue", category: "sales", title: "Top Products by Revenue", description: "Highest-earning items by sales value — view as bars, donut, pie, or table", defaultSize: "L", defaultColor: "info", icon: TrendingUp },
+  { id: "dues-overview", type: "dues-overview", category: "money", title: "Dues Overview", description: "Money owed to you (customers) vs money you owe (suppliers), side by side", defaultSize: "M", defaultColor: "warning", icon: Users },
   { id: "recent-activity", type: "recent-activity", category: "activity", title: "Recent Activity", description: "Live audit logs of recent system activities", defaultSize: "L", defaultColor: "neutral", icon: Clock },
   { id: "credit-collected-today", type: "credit-collected-today", category: "money", title: "Credit Collected", description: "Credit settlements collected from customers today", defaultSize: "S", defaultColor: "success", icon: CreditCard },
   { id: "today-net", type: "today-net", category: "money", title: "Today's Net Cash", description: "Net operational cash flow (sales minus expenses)", defaultSize: "S", defaultColor: "success", icon: Wallet },
@@ -133,43 +192,60 @@ export const WIDGET_CATALOG: WidgetDef[] = [
 const subtitleClass = "truncate text-[13px] font-semibold leading-tight text-slate-600 dark:text-slate-300";
 const tinyMutedClass = "truncate text-[11px] leading-tight text-slate-500 dark:text-slate-400";
 
-function TrendBarChart({
-  bars,
-  maxValue,
-  heightClass,
-  label,
+// Shared chart frame: an optional headline value and a flexible plot area that
+// fills the remaining card height. The widget card header already shows the
+// title, so the frame does not repeat it — that keeps charts vertically
+// justified and prevents the "cut off" plots the owner reported (Part B). The
+// `title` is passed through as an aria-label only.
+function ChartFrame({
+  title,
+  value,
+  sub,
+  children,
 }: {
-  bars: { key: string | number; label: string; value: number; title: string }[];
-  maxValue: number;
-  heightClass: string;
-  label: string;
+  title: string;
+  value?: string;
+  sub?: string;
+  children: React.ReactNode;
 }) {
-  const safeMax = Math.max(maxValue, 1);
-
   return (
-    <div className={`flex items-end gap-1 ${heightClass}`} role="img" aria-label={label}>
-      {bars.map((bar) => {
-        const value = Number(bar.value ?? 0);
-        const pct = (value / safeMax) * 100;
-        const height = value > 0 ? Math.max(pct, 8) : 2;
-
-        return (
-          <div key={bar.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
-            <div className="flex h-full w-full items-end">
-              <div
-                className="w-full rounded-t-sm bg-[var(--widget-chart-color)] transition-colors"
-                style={{ height: `${height}%`, opacity: value > 0 ? 0.88 : 0.28 }}
-                title={bar.title}
-              />
-            </div>
-            <span className="truncate text-[11px] font-bold leading-none text-slate-500 dark:text-slate-400">
-              {bar.label}
-            </span>
-          </div>
-        );
-      })}
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-1" aria-label={title}>
+      {value && (
+        <p className="shrink-0 truncate text-lg font-black leading-tight text-slate-900 dark:text-white">{value}</p>
+      )}
+      <div className="flex min-h-0 flex-1 flex-col justify-end">{children}</div>
+      {sub && (
+        <p className="shrink-0 truncate border-t border-slate-200/50 pt-1 text-[11px] font-medium text-slate-500 dark:border-slate-700/50 dark:text-slate-400">
+          {sub}
+        </p>
+      )}
     </div>
   );
+}
+
+// Dispatch a time-series metric (weekly / monthly sales) to the chosen view.
+function renderTrendChart(view: ChartType, points: ChartPoint[]) {
+  if (view === "sparkline") {
+    return (
+      <div className="flex h-full items-center">
+        <Sparkline points={points} />
+      </div>
+    );
+  }
+  if (view === "line" || view === "area") {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="min-h-0 flex-1">
+          <TrendLine points={points} heightClass="h-full min-h-[2.5rem]" area={view === "area"} />
+        </div>
+        <div className="mt-1 flex shrink-0 justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+          <span className="truncate">{points[0]?.label}</span>
+          <span className="truncate">{points[points.length - 1]?.label}</span>
+        </div>
+      </div>
+    );
+  }
+  return <VerticalBars points={points} heightClass="h-full min-h-[2.5rem]" />;
 }
 
 export function renderWidgetContent(
@@ -189,9 +265,11 @@ export function renderWidgetContent(
     currency: string;
     labels: any;
     isPrivileged: boolean;
-  }
+  },
+  chartType?: string,
 ) {
   const currency = state.currency;
+  const view = resolveChartType(type, chartType);
 
   switch (type) {
     case "today-profit": {
@@ -514,156 +592,210 @@ export function renderWidgetContent(
     }
 
     case "weekly-sales": {
-      const maxVal = Math.max(...state.weekSales.map((w) => w.total), 1);
       const weeklyTotal = state.weekSales.reduce((acc, w) => acc + w.total, 0);
       const highDay = state.weekSales.reduce((best, current) => current.total > (best?.total ?? -1) ? current : best, null as any);
-      const chartBars = state.weekSales.map((bar, idx) => ({
+      const points: ChartPoint[] = state.weekSales.map((bar, idx) => ({
         key: `${bar.date}-${idx}`,
         label: bar.label,
         value: Number(bar.total ?? 0),
         title: `${bar.date}: ${formatCurrency(bar.total, currency)}`,
       }));
-      return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
-          <div>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
-              Last 7 Days Sales
-            </p>
-          </div>
-          {size === "S" && (
+
+      if (state.weekSales.length === 0) {
+        return (
+          <ChartFrame title="Weekly Sales (7 days)">
+            <ChartEmpty message="No sales in the last 7 days" />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "card") {
+        return (
+          <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
             <div>
-              <p className="truncate text-lg font-bold leading-tight text-slate-900 dark:text-white">
+              <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
                 {formatCurrency(weeklyTotal, currency)}
               </p>
-              <p className={subtitleClass}>7-day total</p>
             </div>
-          )}
-          {size !== "S" && state.weekSales.length > 0 && (
-            <TrendBarChart
-              bars={chartBars}
-              maxValue={maxVal}
-              heightClass={size === "M" ? "h-10 my-1.5" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
-              label="Weekly sales bar chart"
-            />
-          )}
-          {(size === "L" || size === "XL") && (
-            <div className="text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
-              Total weekly revenue: <strong className="text-slate-900 dark:text-white">
-                {formatCurrency(weeklyTotal, currency)}
-              </strong>
-              {size === "XL" && highDay && (
-                <p className="mt-1 font-semibold text-slate-600 dark:text-slate-300">
-                  Best day: {highDay.label} at {formatCurrency(highDay.total, currency)}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+            <p className={subtitleClass}>7-day total{highDay ? ` · Best ${highDay.label}` : ""}</p>
+          </div>
+        );
+      }
+
+      return (
+        <ChartFrame
+          title="Weekly Sales (7 days)"
+          value={formatCurrency(weeklyTotal, currency)}
+          sub={(size === "L" || size === "XL") && highDay ? `Best day: ${highDay.label} · ${formatCurrency(highDay.total, currency)}` : undefined}
+        >
+          {renderTrendChart(view, points)}
+        </ChartFrame>
       );
     }
 
     case "monthly-sales": {
-      const maxVal = Math.max(...state.monthSales.map((m) => m.total), 1);
       const totalMonth = state.monthSales.reduce((acc, m) => acc + m.total, 0);
       const bestDay = state.monthSales.reduce((best, current) => current.total > (best?.total ?? -1) ? current : best, null as any);
-      const chartBars = state.monthSales.map((bar) => ({
+      const points: ChartPoint[] = state.monthSales.map((bar) => ({
         key: bar.day,
         label: size === "XL" || bar.day % 5 === 1 ? String(bar.day) : "",
         value: Number(bar.total ?? 0),
         title: `Day ${bar.day}: ${formatCurrency(bar.total, currency)}`,
       }));
-      return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
-          <div>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
-              Monthly Sales Trend
-            </p>
-          </div>
-          {size === "S" && (
+
+      if (state.monthSales.length === 0) {
+        return (
+          <ChartFrame title="Monthly Sales Trend">
+            <ChartEmpty message="No sales recorded this month" />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "card") {
+        return (
+          <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
             <div>
-              <p className="truncate text-lg font-bold leading-tight text-slate-900 dark:text-white">
+              <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
                 {formatCurrency(totalMonth, currency)}
               </p>
-              <p className={subtitleClass}>Month to date</p>
             </div>
-          )}
-          {size !== "S" && state.monthSales.length > 0 && (
-            <TrendBarChart
-              bars={chartBars}
-              maxValue={maxVal}
-              heightClass={size === "M" ? "h-10 my-1.5" : size === "L" ? "h-20 my-2" : "h-28 my-2"}
-              label="Monthly sales bar chart"
-            />
-          )}
-          {(size === "L" || size === "XL") && (
-            <div className="text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
-              Total month-to-date: <strong className="text-slate-900 dark:text-white">{formatCurrency(totalMonth, currency)}</strong>
-              {size === "XL" && bestDay && (
-                <p className="mt-1 font-semibold text-slate-600 dark:text-slate-300">
-                  Best day: {bestDay.day} at {formatCurrency(bestDay.total, currency)}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+            <p className={subtitleClass}>Month to date</p>
+          </div>
+        );
+      }
+
+      return (
+        <ChartFrame
+          title="Monthly Sales Trend"
+          value={formatCurrency(totalMonth, currency)}
+          sub={(size === "L" || size === "XL") && bestDay ? `Best day: ${bestDay.day} · ${formatCurrency(bestDay.total, currency)}` : undefined}
+        >
+          {renderTrendChart(view, points)}
+        </ChartFrame>
       );
     }
 
-    case "top-selling-products": {
-      const products = state.dashSummary.topSellingProducts || [];
-      return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
-          <div>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
-              Top Selling Products
+    case "top-selling-products":
+    case "top-products-revenue": {
+      const byRevenue = type === "top-products-revenue";
+      const base = state.dashSummary.topSellingProducts || [];
+      // Sort by revenue for the revenue variant. This only re-orders values that
+      // the server already computed — no money figures are recalculated here.
+      const products = byRevenue
+        ? [...base].sort((a: any, b: any) => Number(b.revenue ?? 0) - Number(a.revenue ?? 0))
+        : base;
+      const title = byRevenue ? "Top Products by Revenue" : "Top Products by Quantity";
+      const valueOf = (p: any) => (byRevenue ? Number(p.revenue ?? 0) : Number(p.quantity ?? 0));
+      const fmt = byRevenue
+        ? (v: number) => formatCurrency(v, currency)
+        : (v: number) => formatNumber(v);
+      const subOf = (p: any) =>
+        byRevenue ? `${formatNumber(p.quantity)} sold` : formatCurrency(p.revenue, currency);
+
+      if (products.length === 0) {
+        return (
+          <ChartFrame title={title}>
+            <ChartEmpty message="No sales recorded yet" />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "card") {
+        const top = products[0];
+        return (
+          <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
+            <div>
+              <p className="truncate text-base font-black leading-tight text-slate-900 dark:text-white">
+                #1 {top.productName}
+              </p>
+            </div>
+            <p className={subtitleClass}>
+              {fmt(valueOf(top))}{byRevenue ? "" : " units"} · {subOf(top)}
             </p>
           </div>
-          {products.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">No sales recorded yet</p>
-          ) : (
-            <div className="space-y-1 mt-1 flex-1">
-              {size === "S" && (
-                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                  #1: {products[0]?.productName} ({products[0]?.quantity} sold)
-                </p>
-              )}
-              {size === "M" && (
-                <div className="space-y-1 text-xs">
-                  {products.slice(0, 3).map((p: any, idx: number) => (
-                    <div key={p.productName} className="flex justify-between text-slate-700 dark:text-slate-300">
-                      <span className="truncate max-w-[120px]">{idx + 1}. {p.productName}</span>
-                      <span className="font-bold">{p.quantity} units</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {(size === "L" || size === "XL") && (
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400">
-                      <th className="pb-1">Product</th>
-                      <th className="pb-1 text-right">Qty</th>
-                      <th className="pb-1 text-right">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.slice(0, size === "XL" ? 10 : 5).map((p: any, idx: number) => (
-                      <tr key={p.productName} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                        <td className="py-1 font-medium text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
-                          {idx + 1}. {p.productName}
-                        </td>
-                        <td className="py-1 text-right text-slate-700 dark:text-slate-300">{p.quantity}</td>
-                        <td className="py-1 text-right font-bold text-slate-900 dark:text-white">
-                          {formatCurrency(p.revenue, currency)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+        );
+      }
+
+      if (view === "donut" || view === "pie") {
+        const slices = products.slice(0, 6).map((p: any) => ({ label: p.productName, value: valueOf(p) }));
+        return (
+          <ChartFrame title={title}>
+            <PieDonut slices={slices} formatValue={fmt} donut={view === "donut"} />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "bar") {
+        const rows = products.slice(0, 6).map((p: any) => ({ label: p.productName, value: valueOf(p), sub: subOf(p) }));
+        return (
+          <ChartFrame title={title}>
+            <HorizontalBars rows={rows} formatValue={fmt} />
+          </ChartFrame>
+        );
+      }
+
+      // table / list (default for the quantity variant)
+      const limit = size === "XL" ? 10 : size === "L" ? 6 : 4;
+      const rows = products.slice(0, limit).map((p: any) => ({ label: p.productName, value: valueOf(p), sub: subOf(p) }));
+      return (
+        <ChartFrame title={title}>
+          <RankingList rows={rows} formatValue={fmt} />
+        </ChartFrame>
+      );
+    }
+
+    case "dues-overview": {
+      const receivable = Number(state.dashSummary.customerDuesTotal ?? 0);
+      const payable = Number(state.dashSummary.supplierDuesTotal ?? 0);
+      const fmt = (v: number) => formatCurrency(v, currency);
+      const rows = [
+        { label: "Receivable (customers)", value: receivable },
+        { label: "Payable (suppliers)", value: payable },
+      ];
+
+      if (receivable <= 0 && payable <= 0) {
+        return (
+          <ChartFrame title="Dues Overview">
+            <ChartEmpty message="No outstanding dues" />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "card") {
+        return (
+          <div className="flex h-full min-h-0 min-w-0 flex-col justify-center gap-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Receivable:</span>
+              <span className="font-black text-slate-900 dark:text-white">{fmt(receivable)}</span>
             </div>
-          )}
-        </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Payable:</span>
+              <span className="font-black text-slate-900 dark:text-white">{fmt(payable)}</span>
+            </div>
+          </div>
+        );
+      }
+
+      if (view === "donut") {
+        return (
+          <ChartFrame title="Dues Overview">
+            <PieDonut slices={rows} formatValue={fmt} donut />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "table") {
+        return (
+          <ChartFrame title="Dues Overview">
+            <RankingList rows={rows} formatValue={fmt} />
+          </ChartFrame>
+        );
+      }
+
+      return (
+        <ChartFrame title="Dues Overview">
+          <HorizontalBars rows={rows} formatValue={fmt} colored />
+        </ChartFrame>
       );
     }
 
