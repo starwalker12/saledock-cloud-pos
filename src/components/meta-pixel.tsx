@@ -1,38 +1,32 @@
 "use client";
 
 import Script from "next/script";
-import { usePathname } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
- * Meta (Facebook) Pixel — DORMANT, double-gated, PageView only.
+ * Meta (Facebook) Pixel — off by default, double-gated, PageView only.
  *
- * This helper is intentionally inert in production today. It loads the pixel
- * ONLY when BOTH of these are true:
+ * It loads ONLY when ALL of these are true:
  *   1. `NEXT_PUBLIC_META_PIXEL_ID` is configured (owner sets it in Vercel), and
- *   2. The visitor has granted *marketing/advertising* consent.
+ *   2. The visitor has granted *marketing / advertising* consent, and
+ *   3. It is rendered on the public landing/marketing page (it is mounted only
+ *      there — never on signed-in app or point-of-sale pages).
  *
- * The current cookie banner only collects a single "analytics" consent (for
- * Google Analytics and Microsoft Clarity). It does NOT yet offer a separate
- * marketing/ads consent category, which an advertising pixel legally requires.
- * Until a follow-up PR adds that category to the banner + Privacy Policy, the
- * marketing-consent value below is never set, so this component renders null
- * and the pixel never fires. This is deliberate — do not gate Meta Pixel on the
- * analytics toggle.
+ * The cookie banner now offers a dedicated "Marketing / Advertising" consent
+ * category, separate from the "Analytics" category (Google Analytics + Microsoft
+ * Clarity). This component reads that marketing decision from the shared
+ * preferences store (`marketingConsent: "accepted"`). It is deliberately NOT
+ * gated on the analytics toggle. With no Pixel ID configured, or without
+ * marketing consent, it renders null and nothing loads.
  *
- * It only ever sends a standard PageView. It never receives invoice, customer,
- * stock, payment, report, or any shop/business data, and it is only mounted on
- * public marketing pages (never on logged-in POS/app pages).
+ * It only ever sends a single standard PageView (fired once by the base script
+ * on load). It never receives invoice, customer, stock, payment, report, or any
+ * shop/business data. There is no server-side Conversions API.
  *
- * To enable later (separate, review-first PR):
- *   - Add a "marketing/advertising" consent category to the cookie banner and
- *     persist it as `marketingConsent: "accepted"` in the preferences store.
- *   - Set `NEXT_PUBLIC_META_PIXEL_ID` in Vercel (do not hard-code it).
- *   - Add the Meta domains to the CSP in src/proxy.ts:
- *       script-src  https://connect.facebook.net
- *       img-src     https://www.facebook.com
- *       connect-src https://www.facebook.com
- *     (CSP is currently report-only; keep it report-only.)
+ * To enable: set `NEXT_PUBLIC_META_PIXEL_ID` in Vercel (do not hard-code it) and
+ * add the Meta domains to the CSP in src/proxy.ts (script-src
+ * connect.facebook.net; img-src/connect-src www.facebook.com). CSP stays
+ * report-only.
  */
 
 const PREFERENCES_STORAGE_KEY = "saledock-sidebar-preferences-v1";
@@ -69,7 +63,6 @@ type MetaPixelProps = {
 
 export default function MetaPixel({ nonce }: MetaPixelProps) {
   const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
-  const pathname = usePathname();
   // Subscribe to marketing-consent changes without setState-in-effect.
   const marketingConsent = useSyncExternalStore(
     subscribeConsent,
@@ -79,15 +72,9 @@ export default function MetaPixel({ nonce }: MetaPixelProps) {
 
   const enabled = Boolean(pixelId) && marketingConsent;
 
-  // Fire a PageView on SPA navigation once the pixel is active.
-  useEffect(() => {
-    if (!enabled) return;
-    const fbq = (window as unknown as { fbq?: (...args: unknown[]) => void }).fbq;
-    if (typeof fbq === "function") {
-      fbq("track", "PageView");
-    }
-  }, [enabled, pathname]);
-
+  // Exactly one PageView is sent — by the base script below on load. We do not
+  // add a route-change PageView effect, because this component is mounted only
+  // on the public landing page and a second call would duplicate the PageView.
   if (!enabled) return null;
 
   return (

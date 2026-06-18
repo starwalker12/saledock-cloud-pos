@@ -186,7 +186,7 @@ export default function PrivacyPage() {
             <li><strong>Supabase Inc.</strong> — authentication, database, and storage services</li>
             <li><strong>Vercel Inc.</strong> — hosting and deployment infrastructure</li>
             <li><strong>Google LLC</strong> — optional OAuth login (where enabled by the user) and Google Analytics 4 (only if you accept analytics cookies)</li>
-            <li><strong>Meta Platforms, Inc.</strong> — optional OAuth login (where enabled by the user) and Meta Pixel / Meta Business Tools (only if configured and you accept marketing cookies)</li>
+            <li><strong>Meta Platforms, Inc.</strong> — Meta Pixel / Meta Business Tools (only if configured and you accept marketing cookies)</li>
             <li><strong>Microsoft Corporation</strong> — Microsoft Clarity (only if you accept analytics cookies)</li>
           </ul>
 
