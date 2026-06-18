@@ -185,7 +185,7 @@ export function ConfirmDialogProvider({
             aria-modal="true"
             aria-labelledby="confirm-dialog-title"
             aria-describedby="confirm-dialog-message"
-            className="w-full max-w-md rounded-2xl border border-[#cbd5e1] bg-[#f8fafc] p-5 text-[#0f172a] shadow-2xl dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e2e8f0] sm:p-6"
+            className="animate-scale-in w-full max-w-md rounded-2xl border border-[#cbd5e1] bg-[#f8fafc] p-5 text-[#0f172a] shadow-2xl dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e2e8f0] sm:p-6"
           >
             <div className="flex items-start gap-4">
               <span
@@ -220,7 +220,7 @@ export function ConfirmDialogProvider({
                     ref={cancelButtonRef}
                     type="button"
                     onClick={() => closeDialog(false)}
-                    className="rounded-xl border border-[#cbd5e1] bg-[#e2e8f0] px-4 py-2 text-sm font-bold text-[#0f172a] transition hover:bg-[#cbd5e1] focus:outline-none focus:ring-2 focus:ring-[var(--primary-accent-bg)] focus:ring-offset-2 focus:ring-offset-[#f8fafc] dark:border-[#334155] dark:bg-[#1e293b] dark:text-[#e2e8f0] dark:hover:bg-[#334155] dark:focus:ring-offset-[#0f172a]"
+                    className="motion-press rounded-xl border border-[#cbd5e1] bg-[#e2e8f0] px-4 py-2 text-sm font-bold text-[#0f172a] transition hover:bg-[#cbd5e1] focus:outline-none focus:ring-2 focus:ring-[var(--primary-accent-bg)] focus:ring-offset-2 focus:ring-offset-[#f8fafc] dark:border-[#334155] dark:bg-[#1e293b] dark:text-[#e2e8f0] dark:hover:bg-[#334155] dark:focus:ring-offset-[#0f172a]"
                   >
                     {pendingConfirm.cancelLabel ?? mergedLabels.cancel}
                   </button>
@@ -228,7 +228,7 @@ export function ConfirmDialogProvider({
                     ref={confirmButtonRef}
                     type="button"
                     onClick={() => closeDialog(true)}
-                    className={`rounded-xl px-4 py-2 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#f8fafc] dark:focus:ring-offset-[#0f172a] ${
+                    className={`motion-press rounded-xl px-4 py-2 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#f8fafc] dark:focus:ring-offset-[#0f172a] ${
                       isDestructive
                         ? "bg-[#dc2626] text-white hover:bg-[#b91c1c] focus:ring-[#fca5a5]"
                         : "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] hover:bg-[var(--primary-accent-hover)] focus:ring-[var(--primary-accent-bg)]"

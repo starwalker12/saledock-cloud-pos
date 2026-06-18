@@ -26,7 +26,7 @@ export function AppShell({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <Topbar pageTitle={pageTitle} />
             <main className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${mainClassName}`}>
-              <div className={`mx-auto w-full min-w-0 space-y-4 md:space-y-6 ${contentClassName}`}>
+              <div className={`animate-fade-in mx-auto w-full min-w-0 space-y-4 md:space-y-6 ${contentClassName}`}>
                 {children}
               </div>
             </main>

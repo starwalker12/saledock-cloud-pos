@@ -58,7 +58,7 @@ export function NotificationPopover({ compact = false }: { compact?: boolean }) 
           id={popoverId}
           role="dialog"
           aria-label={title}
-          className="absolute right-0 top-full z-[90] mt-2 w-[min(calc(100vw-1.5rem),20rem)] overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] text-slate-900 shadow-2xl shadow-slate-900/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          className="animate-dropdown-in absolute right-0 top-full z-[90] mt-2 w-[min(calc(100vw-1.5rem),20rem)] overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] text-slate-900 shadow-2xl shadow-slate-900/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         >
           <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
             <p className="text-sm font-black">{title}</p>

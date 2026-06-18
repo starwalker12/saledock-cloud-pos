@@ -278,7 +278,7 @@ export function ConnectedAccounts({
             <div
               role="dialog"
               aria-modal="true"
-              className="w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-5 text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:p-6 text-center space-y-4"
+              className="animate-scale-in w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-5 text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:p-6 text-center space-y-4"
             >
               <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                 <CheckCircle className="size-6" />

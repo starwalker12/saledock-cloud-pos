@@ -95,7 +95,7 @@ function BackupOperationOverlay({
           aria-modal="true"
           aria-labelledby="backup-operation-title"
           aria-describedby="backup-operation-description"
-          className="w-full max-w-lg rounded-2xl border border-[#cbd5e1] bg-[#f8fafc] p-5 text-[#0f172a] shadow-2xl dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e2e8f0] sm:p-6"
+          className="animate-scale-in w-full max-w-lg rounded-2xl border border-[#cbd5e1] bg-[#f8fafc] p-5 text-[#0f172a] shadow-2xl dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e2e8f0] sm:p-6"
         >
           <div className="flex items-start gap-4">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--primary-accent-soft)] text-[var(--primary-accent-bg)]">
@@ -2418,8 +2418,8 @@ export function BackupTab({
       {/* Factory Reset Modal Overlay */}
       {isResetModalOpen && (
         <ClientPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="animate-scale-in w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <header className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-rose-50/50">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="size-5 text-rose-600 animate-pulse" />

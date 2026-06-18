@@ -62,7 +62,7 @@ export function StatCard({
   const toneStyles = tone ? STAT_CARD_TONE_STYLES[tone] : null;
 
   return (
-    <div className={`rounded-xl border p-3 shadow-sm md:rounded-2xl md:p-5 ${toneStyles?.card ?? "border-slate-200 bg-[#fff] dark:bg-[#0b1220]"}`}>
+    <div className={`motion-lift rounded-xl border p-3 shadow-sm md:rounded-2xl md:p-5 ${toneStyles?.card ?? "border-slate-200 bg-[#fff] dark:bg-[#0b1220]"}`}>
       <div className="flex min-w-0 items-start justify-between gap-2 md:gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
