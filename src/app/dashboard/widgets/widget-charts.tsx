@@ -104,13 +104,17 @@ export function HorizontalBars({
   rows,
   formatValue,
   colored = false,
+  moreCount = 0,
+  animate: animateProp = true,
 }: {
   rows: { label: string; value: number; sub?: string }[];
   formatValue: (value: number) => string;
   colored?: boolean;
+  moreCount?: number;
+  animate?: boolean;
 }) {
   const safeMax = Math.max(...rows.map((r) => Number(r.value) || 0), 1);
-  const animate = !reducedMotion();
+  const animate = animateProp && !reducedMotion();
 
   return (
     <div className="flex w-full flex-1 flex-col justify-center gap-2">
@@ -141,6 +145,11 @@ export function HorizontalBars({
           </div>
         );
       })}
+      {moreCount > 0 && (
+        <p className="widget-chart-muted truncate text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          + {moreCount} more
+        </p>
+      )}
     </div>
   );
 }
@@ -153,10 +162,12 @@ export function TrendLine({
   points,
   heightClass,
   area = false,
+  animate: animateProp = true,
 }: {
   points: ChartPoint[];
   heightClass: string;
   area?: boolean;
+  animate?: boolean;
 }) {
   const values = points.map((p) => Number(p.value) || 0);
   const safeMax = Math.max(...values, 1);
@@ -174,7 +185,7 @@ export function TrendLine({
   });
   const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(2)},${c.y.toFixed(2)}`).join(" ");
   const areaPath = `${linePath} L${coords[coords.length - 1].x.toFixed(2)},${H} L${coords[0].x.toFixed(2)},${H} Z`;
-  const animate = !reducedMotion();
+  const animate = animateProp && !reducedMotion();
   const gradId = React.useId();
 
   return (
@@ -232,12 +243,16 @@ export function PieDonut({
   donut = true,
   centerLabel,
   centerValue,
+  moreCount = 0,
+  animate: animateProp = true,
 }: {
   slices: ChartSlice[];
   formatValue: (value: number) => string;
   donut?: boolean;
   centerLabel?: string;
   centerValue?: string;
+  moreCount?: number;
+  animate?: boolean;
 }) {
   const total = slices.reduce((s, x) => s + (Number(x.value) || 0), 0);
   if (total <= 0) {
@@ -251,7 +266,7 @@ export function PieDonut({
   const SW = donut ? 4.5 : 18;
   const circumference = 2 * Math.PI * R;
   const gap = slices.length > 1 ? circumference * 0.02 : 0;
-  const animate = !reducedMotion();
+  const animate = animateProp && !reducedMotion();
 
   // Cumulative offset per slice computed without mutation (n is tiny — max ~6).
   const arcs = slices.map((slice, idx) => {
@@ -307,6 +322,11 @@ export function PieDonut({
             <span className="widget-chart-strong max-w-[45%] shrink-0 truncate font-black text-slate-900 dark:text-white tabular-nums">{formatValue(arc.value)}</span>
           </li>
         ))}
+        {moreCount > 0 && (
+          <li className="widget-chart-muted truncate pl-3.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+            + {moreCount} more
+          </li>
+        )}
       </ul>
     </div>
   );
@@ -319,9 +339,11 @@ export function PieDonut({
 export function RankingList({
   rows,
   formatValue,
+  moreCount = 0,
 }: {
   rows: { label: string; value: number; sub?: string }[];
   formatValue: (value: number) => string;
+  moreCount?: number;
 }) {
   const safeMax = Math.max(...rows.map((r) => Number(r.value) || 0), 1);
   return (
@@ -343,6 +365,11 @@ export function RankingList({
           </div>
         );
       })}
+      {moreCount > 0 && (
+        <p className="widget-chart-muted truncate px-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          + {moreCount} more
+        </p>
+      )}
     </div>
   );
 }
