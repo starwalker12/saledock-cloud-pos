@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import { Trash2, GripHorizontal, Check, Settings2 } from "lucide-react";
@@ -803,7 +804,7 @@ export function WidgetGrid({
           );
         })}
       </ResponsiveGridLayout>
-      {editing && isMobileLayout && openSettingsWidget && (
+      {editing && isMobileLayout && openSettingsWidget && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-[120] flex items-end bg-slate-950/60 px-0 pt-[calc(2.5rem+env(safe-area-inset-top))] backdrop-blur-sm md:hidden"
           role="dialog"
@@ -839,7 +840,7 @@ export function WidgetGrid({
             </div>
 
             {/* Scrollable body content */}
-            <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] space-y-4">
               <WidgetSettingsControls
                 widget={openSettingsWidget}
                 renderSize={getWidgetSizeFromDims(openSettingsWidget.w, openSettingsWidget.h)}
@@ -857,7 +858,8 @@ export function WidgetGrid({
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
