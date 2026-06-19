@@ -6,7 +6,7 @@ import Link from "next/link";
 import { LayoutGrid, Check, RotateCcw, Plus, ShoppingCart, Loader2 } from "lucide-react";
 import { WidgetGrid, getWidgetDimsFromSize, getWidgetSizeFromDims } from "./widgets/widget-grid";
 import { WidgetGallery } from "./widgets/widget-gallery";
-import { BoardFillStyle, WIDGET_CATALOG, WidgetColor, WidgetFillStyle, WidgetSize, WidgetTextColor } from "./widgets/widget-registry";
+import { BoardFillStyle, WIDGET_CATALOG, WidgetColor, WidgetFillStyle, WidgetSize, WidgetTextColor, ChartType, getChartTypesForWidget, resolveChartType, isChartable } from "./widgets/widget-registry";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DASHBOARD_KEY,
@@ -43,6 +43,7 @@ type WidgetInstance = {
   color: WidgetColor;
   fillStyle?: WidgetFillStyle;
   textColor?: WidgetTextColor;
+  chartType?: ChartType;
   x: number;
   y: number;
   w: number;
@@ -111,6 +112,10 @@ function normalizeWidgets(value: unknown): WidgetInstance[] {
       const textColor = widgetTextColors.has(item.textColor as WidgetTextColor)
         ? (item.textColor as WidgetTextColor)
         : undefined;
+      const allowedChartTypes = getChartTypesForWidget(catalog.type);
+      const chartType = allowedChartTypes.includes(item.chartType as ChartType)
+        ? (item.chartType as ChartType)
+        : undefined;
 
       const id = seenIds.has(item.id) ? `${item.id}-${index}` : item.id;
       seenIds.add(id);
@@ -131,6 +136,9 @@ function normalizeWidgets(value: unknown): WidgetInstance[] {
       }
       if (textColor) {
         normalizedWidget.textColor = textColor;
+      }
+      if (chartType) {
+        normalizedWidget.chartType = chartType;
       }
 
       return normalizedWidget;
@@ -271,6 +279,10 @@ export function DashboardStatLayout({
       w: dims.w,
       h: dims.h,
     };
+
+    if (isChartable(type)) {
+      newWidget.chartType = resolveChartType(type);
+    }
 
     const shiftedWidgets = widgets.map((widget) => ({
       ...widget,

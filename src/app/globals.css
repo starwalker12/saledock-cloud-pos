@@ -351,6 +351,24 @@ body {
 .animate-bar-grow {
   animation: bar-grow 0.6s ease-out both;
 }
+
+/* Dashboard chart motion — horizontal bar grow + line draw-in. Transform /
+   stroke only, disabled under prefers-reduced-motion (see media query below). */
+@keyframes widget-bar-grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes widget-line-draw {
+  from { stroke-dashoffset: 240; }
+  to { stroke-dashoffset: 0; }
+}
+.animate-widget-bar-x {
+  transform-origin: left center;
+  animation: widget-bar-grow-x var(--motion-slow) var(--ease-out) backwards;
+}
+.animate-widget-line {
+  animation: widget-line-draw var(--motion-slow) var(--ease-out) backwards;
+}
 .animate-dashboard-widget-highlight {
   animation: dashboard-widget-highlight 1.45s ease-out both;
 }
@@ -500,6 +518,25 @@ body {
   border-color: rgba(255, 255, 255, 0.28) !important;
 }
 
+/* Dashboard chart text — guarantee strong, readable contrast in DARK mode on
+   non-solid (gradient/auto) cards. The chart components carry these marker
+   classes alongside their normal slate classes:
+     .widget-chart-strong → values, product names (near-white)
+     .widget-chart-label  → legend labels, axis-adjacent labels (slate-200)
+     .widget-chart-muted  → secondary/muted text (slate-300, not faint)
+   Scoped with `.dark` (light mode untouched) and `:not([data-widget-fill="solid"])`
+   so SOLID cards keep their designed --widget-text colours. The specificity here
+   intentionally beats the broad `.dark .text-slate-*` safety net above. */
+.dark .dashboard-widget-card:not([data-widget-fill="solid"]) .widget-card-content .widget-chart-strong {
+  color: #f8fafc !important;
+}
+.dark .dashboard-widget-card:not([data-widget-fill="solid"]) .widget-card-content .widget-chart-label {
+  color: #e2e8f0 !important;
+}
+.dark .dashboard-widget-card:not([data-widget-fill="solid"]) .widget-card-content .widget-chart-muted {
+  color: #cbd5e1 !important;
+}
+
 /* Urdu font: Noto Nastaliq Urdu for Nastaliq-style Urdu script */
 [data-lang="ur"] {
   font-family: var(--font-urdu), "Noto Naskh Arabic", "Traditional Arabic", serif;
@@ -555,7 +592,9 @@ body {
   .animate-fade-in,
   .animate-scale-in,
   .animate-dropdown-in,
-  .animate-row-in {
+  .animate-row-in,
+  .animate-widget-bar-x,
+  .animate-widget-line {
     animation: none !important;
   }
   .motion-lift,
