@@ -235,14 +235,21 @@ function renderTrendChart(view: ChartType, points: ChartPoint[]) {
     );
   }
   if (view === "line" || view === "area") {
+    // A line/area trend needs at least two non-zero points to be meaningful.
+    // With fewer, a single spike over a flat baseline reads as a broken chart,
+    // so show an honest compact note instead (the card still shows the total).
+    const nonZeroCount = points.filter((p) => (Number(p.value) || 0) > 0).length;
+    if (nonZeroCount < 2) {
+      return <ChartEmpty message="Not enough activity yet for a trend" />;
+    }
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="min-h-0 flex-1">
           <TrendLine points={points} heightClass="h-full min-h-[2.5rem]" area={view === "area"} />
         </div>
-        <div className="widget-chart-muted mt-1 flex shrink-0 justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
-          <span className="truncate">{points[0]?.label}</span>
-          <span className="truncate">{points[points.length - 1]?.label}</span>
+        <div className="widget-chart-muted mt-1 flex shrink-0 justify-between gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+          <span className="min-w-0 truncate">{points[0]?.label}</span>
+          <span className="min-w-0 truncate text-right">{points[points.length - 1]?.label}</span>
         </div>
       </div>
     );
@@ -718,8 +725,12 @@ export function renderWidgetContent(
         );
       }
 
+      // Cap row/slice counts by card size so smaller cards never overflow.
+      const sliceLimit = size === "S" ? 4 : size === "M" ? 5 : 6;
+      const barLimit = size === "S" ? 3 : size === "M" ? 4 : 6;
+
       if (view === "donut" || view === "pie") {
-        const slices = products.slice(0, 6).map((p: any) => ({ label: p.productName, value: valueOf(p) }));
+        const slices = products.slice(0, sliceLimit).map((p: any) => ({ label: p.productName, value: valueOf(p) }));
         return (
           <ChartFrame title={title}>
             <PieDonut slices={slices} formatValue={fmt} donut={view === "donut"} />
@@ -728,7 +739,7 @@ export function renderWidgetContent(
       }
 
       if (view === "bar") {
-        const rows = products.slice(0, 6).map((p: any) => ({ label: p.productName, value: valueOf(p), sub: subOf(p) }));
+        const rows = products.slice(0, barLimit).map((p: any) => ({ label: p.productName, value: valueOf(p), sub: subOf(p) }));
         return (
           <ChartFrame title={title}>
             <HorizontalBars rows={rows} formatValue={fmt} />

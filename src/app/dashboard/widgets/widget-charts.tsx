@@ -124,7 +124,7 @@ export function HorizontalBars({
               <span className="widget-chart-label min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
                 {row.label}
               </span>
-              <span className="widget-chart-strong shrink-0 text-[11px] font-black text-slate-900 dark:text-white tabular-nums">
+              <span className="widget-chart-strong max-w-[55%] shrink-0 truncate text-[11px] font-black text-slate-900 dark:text-white tabular-nums">
                 {formatValue(value)}
               </span>
             </div>
@@ -163,21 +163,23 @@ export function TrendLine({
   const n = points.length;
   const W = 100;
   const H = 40;
-  const padY = 3;
+  const padY = 4; // vertical headroom so the peak never touches the top edge
+  const padX = 1.5; // horizontal inset so end points/round caps stay in bounds
+  const innerW = W - padX * 2;
   const coords = points.map((p, i) => {
-    const x = n <= 1 ? 0 : (i / (n - 1)) * W;
+    const x = n <= 1 ? W / 2 : padX + (i / (n - 1)) * innerW;
     const v = Number(p.value) || 0;
     const y = H - padY - (v / safeMax) * (H - padY * 2);
     return { x, y };
   });
   const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(2)},${c.y.toFixed(2)}`).join(" ");
-  const areaPath = `${linePath} L${W},${H} L0,${H} Z`;
+  const areaPath = `${linePath} L${coords[coords.length - 1].x.toFixed(2)},${H} L${coords[0].x.toFixed(2)},${H} Z`;
   const animate = !reducedMotion();
   const gradId = React.useId();
 
   return (
-    <div className={`w-full ${heightClass}`}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible" role="img" aria-label="Trend line chart">
+    <div className={`relative w-full overflow-hidden border-b border-slate-200/70 dark:border-slate-700/60 ${heightClass}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full overflow-hidden" role="img" aria-label="Trend line chart">
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={CHART_COLOR} stopOpacity="0.28" />
@@ -248,7 +250,7 @@ export function PieDonut({
   const R = donut ? 15.915 : 9; // donut radius gives circumference ≈ 100
   const SW = donut ? 4.5 : 18;
   const circumference = 2 * Math.PI * R;
-  const gap = slices.length > 1 ? circumference * 0.012 : 0;
+  const gap = slices.length > 1 ? circumference * 0.02 : 0;
   const animate = !reducedMotion();
 
   // Cumulative offset per slice computed without mutation (n is tiny — max ~6).
@@ -269,9 +271,13 @@ export function PieDonut({
   });
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-1 items-center gap-3">
-      <div className={`relative shrink-0 ${animate ? "animate-fade-in" : ""}`} style={{ width: 96, height: 96 }}>
-        <svg viewBox="0 0 36 36" className="h-24 w-24 -rotate-90">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-wrap content-center items-center justify-center gap-x-3 gap-y-2 overflow-hidden">
+      <div className={`relative shrink-0 ${animate ? "animate-fade-in" : ""}`} style={{ width: 92, height: 92 }}>
+        <svg viewBox="0 0 36 36" className="h-[92px] w-[92px] -rotate-90 overflow-hidden">
+          {/* Contrast separator ring: drawn in the card's high-contrast mark
+             colour so slice edges/gaps stay visible even when a slice colour
+             matches the card (e.g. a blue slice on a solid blue card). */}
+          <circle cx={C} cy={C} r={R} fill="none" stroke={CHART_COLOR} strokeWidth={SW + 1.4} opacity={0.9} />
           {arcs.map((arc, idx) => (
             <circle
               key={idx}
@@ -293,12 +299,12 @@ export function PieDonut({
           </div>
         )}
       </div>
-      <ul className="min-w-0 flex-1 space-y-1 overflow-hidden">
+      <ul className="min-w-[7rem] flex-1 space-y-1 overflow-hidden">
         {arcs.map((arc, idx) => (
           <li key={idx} className="flex min-w-0 items-center gap-1.5 text-[11px]">
             <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: arc.color }} aria-hidden="true" />
             <span className="widget-chart-label min-w-0 flex-1 truncate font-semibold text-slate-700 dark:text-slate-200">{arc.label}</span>
-            <span className="widget-chart-strong shrink-0 font-black text-slate-900 dark:text-white tabular-nums">{formatValue(arc.value)}</span>
+            <span className="widget-chart-strong max-w-[45%] shrink-0 truncate font-black text-slate-900 dark:text-white tabular-nums">{formatValue(arc.value)}</span>
           </li>
         ))}
       </ul>
@@ -331,8 +337,8 @@ export function RankingList({
                 {idx + 1}
               </span>
               <span className="widget-chart-strong min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-800 dark:text-slate-100">{row.label}</span>
-              {row.sub && <span className="widget-chart-muted shrink-0 text-[10px] font-medium text-slate-500 dark:text-slate-400">{row.sub}</span>}
-              <span className="widget-chart-strong shrink-0 text-[11px] font-black text-slate-900 dark:text-white tabular-nums">{formatValue(value)}</span>
+              {row.sub && <span className="widget-chart-muted hidden max-w-[30%] shrink-0 truncate text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:inline">{row.sub}</span>}
+              <span className="widget-chart-strong max-w-[45%] shrink-0 truncate text-[11px] font-black text-slate-900 dark:text-white tabular-nums">{formatValue(value)}</span>
             </div>
           </div>
         );
