@@ -44,7 +44,7 @@ function reducedMotion() {
 export function ChartEmpty({ message }: { message: string }) {
   return (
     <div className="flex h-full min-h-[60px] flex-1 items-center justify-center px-2 text-center">
-      <p className="text-xs font-semibold italic text-slate-400 dark:text-slate-500">{message}</p>
+      <p className="widget-chart-muted text-xs font-semibold italic text-slate-500 dark:text-slate-400">{message}</p>
     </div>
   );
 }
@@ -86,7 +86,7 @@ export function VerticalBars({
                 title={bar.title}
               />
             </div>
-            <span className="h-3 truncate text-[10px] font-bold leading-none text-slate-500 dark:text-slate-400">
+            <span className="widget-chart-muted h-3 truncate text-[10px] font-bold leading-none text-slate-500 dark:text-slate-400">
               {bar.label}
             </span>
           </div>
@@ -121,10 +121,10 @@ export function HorizontalBars({
         return (
           <div key={`${row.label}-${idx}`} className="min-w-0">
             <div className="mb-0.5 flex items-baseline justify-between gap-2">
-              <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+              <span className="widget-chart-label min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
                 {row.label}
               </span>
-              <span className="shrink-0 text-[11px] font-black text-slate-900 dark:text-white tabular-nums">
+              <span className="widget-chart-strong shrink-0 text-[11px] font-black text-slate-900 dark:text-white tabular-nums">
                 {formatValue(value)}
               </span>
             </div>
@@ -288,8 +288,8 @@ export function PieDonut({
         </svg>
         {donut && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-            {centerValue && <span className="text-xs font-black leading-none text-slate-900 dark:text-white">{centerValue}</span>}
-            {centerLabel && <span className="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{centerLabel}</span>}
+            {centerValue && <span className="widget-chart-strong text-xs font-black leading-none text-slate-900 dark:text-white">{centerValue}</span>}
+            {centerLabel && <span className="widget-chart-muted mt-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{centerLabel}</span>}
           </div>
         )}
       </div>
@@ -297,8 +297,8 @@ export function PieDonut({
         {arcs.map((arc, idx) => (
           <li key={idx} className="flex min-w-0 items-center gap-1.5 text-[11px]">
             <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: arc.color }} aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate font-semibold text-slate-700 dark:text-slate-200">{arc.label}</span>
-            <span className="shrink-0 font-black text-slate-900 dark:text-white tabular-nums">{formatValue(arc.value)}</span>
+            <span className="widget-chart-label min-w-0 flex-1 truncate font-semibold text-slate-700 dark:text-slate-200">{arc.label}</span>
+            <span className="widget-chart-strong shrink-0 font-black text-slate-900 dark:text-white tabular-nums">{formatValue(arc.value)}</span>
           </li>
         ))}
       </ul>
@@ -327,12 +327,12 @@ export function RankingList({
           <div key={`${row.label}-${idx}`} className="relative overflow-hidden rounded-lg">
             <div className="absolute inset-y-0 left-0 rounded-lg bg-[var(--widget-chart-color)] opacity-[0.12]" style={{ width: `${pct}%` }} aria-hidden="true" />
             <div className="relative flex items-center gap-2 px-2 py-1">
-              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[9px] font-black text-slate-600 dark:bg-slate-700/70 dark:text-slate-200">
+              <span className="widget-chart-label flex size-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[9px] font-black text-slate-600 dark:bg-slate-700/70 dark:text-slate-200">
                 {idx + 1}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-800 dark:text-slate-100">{row.label}</span>
-              {row.sub && <span className="shrink-0 text-[10px] font-medium text-slate-400">{row.sub}</span>}
-              <span className="shrink-0 text-[11px] font-black text-slate-900 dark:text-white tabular-nums">{formatValue(value)}</span>
+              <span className="widget-chart-strong min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-800 dark:text-slate-100">{row.label}</span>
+              {row.sub && <span className="widget-chart-muted shrink-0 text-[10px] font-medium text-slate-500 dark:text-slate-400">{row.sub}</span>}
+              <span className="widget-chart-strong shrink-0 text-[11px] font-black text-slate-900 dark:text-white tabular-nums">{formatValue(value)}</span>
             </div>
           </div>
         );

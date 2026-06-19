@@ -134,6 +134,7 @@ export const CHARTABLE_WIDGETS: Record<string, ChartableConfig> = {
   "top-selling-products": { types: ["table", "bar", "donut", "pie", "card"], defaultType: "table" },
   "top-products-revenue": { types: ["bar", "table", "donut", "pie", "card"], defaultType: "bar" },
   "dues-overview": { types: ["bar", "donut", "table", "card"], defaultType: "bar" },
+  "sales-vs-expenses": { types: ["bar", "donut", "table", "card"], defaultType: "bar" },
 };
 
 export function isChartable(type: string): boolean {
@@ -180,6 +181,7 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: "top-selling-products", type: "top-selling-products", category: "sales", title: "Top Products by Quantity", description: "Best-selling items by units sold — view as table, bars, donut, or pie", defaultSize: "L", defaultColor: "neutral", icon: Boxes },
   { id: "top-products-revenue", type: "top-products-revenue", category: "sales", title: "Top Products by Revenue", description: "Highest-earning items by sales value — view as bars, donut, pie, or table", defaultSize: "L", defaultColor: "info", icon: TrendingUp },
   { id: "dues-overview", type: "dues-overview", category: "money", title: "Dues Overview", description: "Money owed to you (customers) vs money you owe (suppliers), side by side", defaultSize: "M", defaultColor: "warning", icon: Users },
+  { id: "sales-vs-expenses", type: "sales-vs-expenses", category: "money", title: "Sales vs Expenses", description: "Today's gross sales next to today's expenses — view as bar, donut, or table", defaultSize: "M", defaultColor: "info", icon: ShoppingCart },
   { id: "recent-activity", type: "recent-activity", category: "activity", title: "Recent Activity", description: "Live audit logs of recent system activities", defaultSize: "L", defaultColor: "neutral", icon: Clock },
   { id: "credit-collected-today", type: "credit-collected-today", category: "money", title: "Credit Collected", description: "Credit settlements collected from customers today", defaultSize: "S", defaultColor: "success", icon: CreditCard },
   { id: "today-net", type: "today-net", category: "money", title: "Today's Net Cash", description: "Net operational cash flow (sales minus expenses)", defaultSize: "S", defaultColor: "success", icon: Wallet },
@@ -211,11 +213,11 @@ function ChartFrame({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-1" aria-label={title}>
       {value && (
-        <p className="shrink-0 truncate text-lg font-black leading-tight text-slate-900 dark:text-white">{value}</p>
+        <p className="widget-chart-strong shrink-0 truncate text-lg font-black leading-tight text-slate-900 dark:text-white">{value}</p>
       )}
       <div className="flex min-h-0 flex-1 flex-col justify-end">{children}</div>
       {sub && (
-        <p className="shrink-0 truncate border-t border-slate-200/50 pt-1 text-[11px] font-medium text-slate-500 dark:border-slate-700/50 dark:text-slate-400">
+        <p className="widget-chart-muted shrink-0 truncate border-t border-slate-200/50 pt-1 text-[11px] font-medium text-slate-500 dark:border-slate-700/50 dark:text-slate-400">
           {sub}
         </p>
       )}
@@ -238,7 +240,7 @@ function renderTrendChart(view: ChartType, points: ChartPoint[]) {
         <div className="min-h-0 flex-1">
           <TrendLine points={points} heightClass="h-full min-h-[2.5rem]" area={view === "area"} />
         </div>
-        <div className="mt-1 flex shrink-0 justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+        <div className="widget-chart-muted mt-1 flex shrink-0 justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
           <span className="truncate">{points[0]?.label}</span>
           <span className="truncate">{points[points.length - 1]?.label}</span>
         </div>
@@ -794,6 +796,63 @@ export function renderWidgetContent(
 
       return (
         <ChartFrame title="Dues Overview">
+          <HorizontalBars rows={rows} formatValue={fmt} colored />
+        </ChartFrame>
+      );
+    }
+
+    case "sales-vs-expenses": {
+      // Both values are already computed by the server (getDashboardSummary);
+      // this widget only displays them side by side — no new calculation.
+      const sales = Number(state.dashSummary.grossSales ?? 0);
+      const expensesTotal = Number(state.dashSummary.expensesTotal ?? 0);
+      const fmt = (v: number) => formatCurrency(v, currency);
+      const rows = [
+        { label: "Sales (today)", value: sales },
+        { label: "Expenses (today)", value: expensesTotal },
+      ];
+
+      if (sales <= 0 && expensesTotal <= 0) {
+        return (
+          <ChartFrame title="Sales vs Expenses">
+            <ChartEmpty message="No sales or expenses today yet" />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "card") {
+        return (
+          <div className="flex h-full min-h-0 min-w-0 flex-col justify-center gap-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="widget-chart-muted text-slate-500 dark:text-slate-400">Sales:</span>
+              <span className="widget-chart-strong font-black text-slate-900 dark:text-white">{fmt(sales)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="widget-chart-muted text-slate-500 dark:text-slate-400">Expenses:</span>
+              <span className="widget-chart-strong font-black text-slate-900 dark:text-white">{fmt(expensesTotal)}</span>
+            </div>
+          </div>
+        );
+      }
+
+      if (view === "donut") {
+        return (
+          <ChartFrame title="Sales vs Expenses">
+            <PieDonut slices={rows} formatValue={fmt} donut />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "table") {
+        return (
+          <ChartFrame title="Sales vs Expenses">
+            <RankingList rows={rows} formatValue={fmt} />
+          </ChartFrame>
+        );
+      }
+
+      return (
+        <ChartFrame title="Sales vs Expenses">
           <HorizontalBars rows={rows} formatValue={fmt} colored />
         </ChartFrame>
       );
