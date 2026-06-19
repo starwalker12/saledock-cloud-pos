@@ -671,7 +671,7 @@ export function PoPlannerModal({
         </div>
 
         {/* E. Export footer */}
-        <div className="border-t border-slate-200 bg-[#fff] px-4 py-3 dark:border-white/[0.06] dark:bg-slate-900 sm:px-5">
+        <div className="border-t border-slate-200 bg-[#fff] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] dark:border-white/[0.06] dark:bg-slate-900 sm:px-5 sm:pb-3">
           {topError && <p className="mb-2 text-xs font-semibold text-rose-600 dark:text-rose-300">{topError}</p>}
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 bg-[#fff] px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">Close</button>

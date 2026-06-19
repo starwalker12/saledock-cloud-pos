@@ -253,7 +253,7 @@ export function ProductDetailModal({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.02] sm:px-5">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] dark:border-white/[0.06] dark:bg-white/[0.02] sm:px-5 sm:pb-3">
           <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 bg-[#fff] px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">Close</button>
           <button type="button" onClick={() => { onClose(); onCreatePo(); }} className="inline-flex items-center gap-1.5 rounded-lg bg-[#0b2f6f] px-3 py-2 text-sm font-bold text-white transition hover:opacity-90">
             <ClipboardList className="size-4" />
