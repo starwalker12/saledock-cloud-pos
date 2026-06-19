@@ -293,7 +293,7 @@ export function PieDonut({
   const isSmallHeight = size === "S" || size === "M";
 
   // Donut/Pie visual diameter
-  let donutSizeClass = "w-[120px] h-[120px] sm:w-[136px] sm:h-[136px]";
+  let donutSizeClass = "w-[128px] h-[128px] sm:w-[140px] sm:h-[140px]";
   let centerValClass = "widget-chart-strong text-base sm:text-lg font-black leading-none text-slate-900 dark:text-white";
   let centerLabClass = "widget-chart-muted text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-1";
 
@@ -337,7 +337,7 @@ export function PieDonut({
             />
           ))}
         </svg>
-        {donut && (
+        {donut && !isSmallHeight && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-1">
             {centerValue && <span className={centerValClass}>{centerValue}</span>}
             {centerLabel && <span className={centerLabClass}>{centerLabel}</span>}
@@ -353,7 +353,10 @@ export function PieDonut({
               <span className="size-1.5 sm:size-2 shrink-0 rounded-full" style={{ backgroundColor: arc.color }} aria-hidden="true" />
               <span className="widget-chart-label min-w-0 flex-1 truncate font-semibold">{arc.label}</span>
             </span>
-            <span className="widget-chart-strong shrink-0 font-black text-slate-900 dark:text-white tabular-nums">
+            <span
+              className="widget-chart-strong max-w-[45%] shrink-0 truncate font-black text-slate-900 dark:text-white tabular-nums text-right"
+              title={`${formatValue(arc.value)}${!isSmallHeight ? ` (${arc.percentage}%)` : ""}`}
+            >
               {formatValue(arc.value)}
               {!isSmallHeight && (
                 <span className="widget-chart-muted ml-1 text-[9px] font-normal text-slate-500 dark:text-slate-400">

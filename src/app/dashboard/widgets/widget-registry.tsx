@@ -322,7 +322,7 @@ function renderDistribution(opts: {
     );
   }
 
-  const sliceLimit = size === "S" ? 4 : size === "M" ? 5 : 6;
+  const sliceLimit = size === "S" ? 3 : size === "M" ? 4 : size === "L" ? 5 : 6;
   const barLimit = size === "S" ? 3 : size === "M" ? 4 : 6;
   const tableLimit = size === "XL" ? 10 : size === "L" ? 6 : 4;
 
@@ -834,7 +834,7 @@ export function renderWidgetContent(
       }
 
       // Cap row/slice counts by card size so smaller cards never overflow.
-      const sliceLimit = size === "S" ? 4 : size === "M" ? 5 : 6;
+      const sliceLimit = size === "S" ? 3 : size === "M" ? 4 : size === "L" ? 5 : 6;
       const barLimit = size === "S" ? 3 : size === "M" ? 4 : 6;
 
       if (view === "donut" || view === "pie") {
