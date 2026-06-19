@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Plus, ArrowLeft } from "lucide-react";
 import { WIDGET_CATALOG, WidgetDef } from "./widget-registry";
 
@@ -59,7 +60,7 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
     };
   }, [handleClose, isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === "undefined") return null;
 
   // Group widgets by category
   const groupedWidgets = WIDGET_CATALOG.reduce((acc, widget) => {
@@ -70,7 +71,10 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
     return acc;
   }, {} as Record<string, WidgetDef[]>);
 
-  return (
+  // Rendered through a portal on <body> so the fixed panel is positioned
+  // relative to the viewport — not a transformed/scrolled dashboard ancestor —
+  // which is what was pushing the header off the top of the screen on mobile.
+  return createPortal(
     <div className={`fixed inset-0 z-[80] flex justify-end bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200 motion-reduce:transition-none ${
       visible ? "opacity-100" : "opacity-0"
     }`}>
@@ -83,47 +87,43 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
       />
 
       {/* Slide out panel */}
-      <div className={`h-full w-full max-w-md border-l border-slate-200 bg-[#fff] shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none dark:border-slate-800 dark:bg-[#0b1220] ${
+      <div className={`flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-[#fff] shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none dark:border-slate-800 dark:bg-[#0b1220] ${
         visible ? "translate-x-0" : "translate-x-full"
-      } flex flex-col`}>
-        {/* Header */}
-        <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top))] border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2 shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="lg:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition"
-                aria-label="Back to dashboard"
-              >
-                <ArrowLeft className="size-5" />
-              </button>
-              <h2 className="text-base font-black text-slate-950 dark:text-white">Add Widget</h2>
-            </div>
+      }`}>
+        {/* Sticky header — pinned above the scroll body, with top safe-area
+           padding so the back control clears the status bar / notch. */}
+        <div className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-[#fff]/95 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-slate-800 dark:bg-[#0b1220]/95">
+          {/* Back to dashboard (mobile) */}
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex w-full items-center gap-2 px-4 pt-3 text-sm font-bold text-slate-700 transition hover:text-slate-950 dark:text-slate-200 dark:hover:text-white lg:hidden"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeft className="size-5 shrink-0" />
+            Back to dashboard
+          </button>
 
+          {/* Title row */}
+          <div className="flex items-center justify-between gap-2 p-4">
+            <h2 className="text-base font-black text-slate-950 dark:text-white">Add widget</h2>
             <button
               type="button"
               onClick={handleClose}
-              className="hidden lg:flex p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition"
+              className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
               aria-label="Close gallery"
             >
               <X className="size-5" />
             </button>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="lg:hidden text-xs font-bold text-blue-600 dark:text-blue-400 px-2 py-1.5 rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition"
-            >
-              Back to dashboard
-            </button>
           </div>
+        </div>
+
+        {/* Scrollable list (starts below the sticky header). Bottom padding
+           clears the mobile bottom navigation + iPhone home indicator. */}
+        <div className="flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] space-y-5">
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Add any widget more than once. For chart widgets, pick the view (bar, line, donut…) from the widget&apos;s settings after adding.
           </p>
-        </div>
-
-        {/* Scrollable list */}
-        <div className="flex-1 overflow-y-auto p-4 pb-24 sm:pb-32 lg:pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-6">
           {Object.entries(groupedWidgets).map(([category, widgets]) => (
             <div key={category} className="space-y-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -182,6 +182,7 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
