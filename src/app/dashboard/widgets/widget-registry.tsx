@@ -135,6 +135,14 @@ export const CHARTABLE_WIDGETS: Record<string, ChartableConfig> = {
   "top-products-revenue": { types: ["bar", "table", "donut", "pie", "card"], defaultType: "bar" },
   "dues-overview": { types: ["bar", "donut", "table", "card"], defaultType: "bar" },
   "sales-vs-expenses": { types: ["bar", "donut", "table", "card"], defaultType: "bar" },
+  // Phase 2 analytics widgets
+  "invoice-status": { types: ["donut", "pie", "bar", "table", "card"], defaultType: "donut" },
+  "payment-method-split": { types: ["donut", "pie", "bar", "table", "card"], defaultType: "donut" },
+  "expense-category-breakdown": { types: ["donut", "pie", "bar", "table", "card"], defaultType: "donut" },
+  "repair-status-breakdown": { types: ["donut", "pie", "bar", "table", "card"], defaultType: "donut" },
+  "sales-by-weekday": { types: ["bar", "donut", "table", "card"], defaultType: "bar" },
+  "stock-by-category": { types: ["bar", "donut", "table", "card"], defaultType: "bar" },
+  "top-customer-dues": { types: ["bar", "table", "card"], defaultType: "bar" },
 };
 
 export function isChartable(type: string): boolean {
@@ -182,6 +190,15 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: "top-products-revenue", type: "top-products-revenue", category: "sales", title: "Top Products by Revenue", description: "Highest-earning items by sales value — view as bars, donut, pie, or table", defaultSize: "L", defaultColor: "info", icon: TrendingUp },
   { id: "dues-overview", type: "dues-overview", category: "money", title: "Dues Overview", description: "Money owed to you (customers) vs money you owe (suppliers), side by side", defaultSize: "M", defaultColor: "warning", icon: Users },
   { id: "sales-vs-expenses", type: "sales-vs-expenses", category: "money", title: "Sales vs Expenses", description: "Today's gross sales next to today's expenses — view as bar, donut, or table", defaultSize: "M", defaultColor: "info", icon: ShoppingCart },
+  // Phase 2 analytics widgets (read-only, this-month / current snapshots)
+  { id: "invoice-status", type: "invoice-status", category: "sales", title: "Invoice Status", description: "Paid / partial / unpaid invoices this month — view as donut, pie, bar, or table", defaultSize: "M", defaultColor: "info", icon: CreditCard },
+  { id: "payment-method-split", type: "payment-method-split", category: "money", title: "Payment Methods", description: "How customers paid this month (cash, card, bank…) — view as donut, pie, bar, or table", defaultSize: "M", defaultColor: "info", icon: CreditCard },
+  { id: "expense-category-breakdown", type: "expense-category-breakdown", category: "money", title: "Expense Categories", description: "This month's expenses grouped by category — view as donut, pie, bar, or table", defaultSize: "M", defaultColor: "danger", icon: Wallet },
+  { id: "repair-status-breakdown", type: "repair-status-breakdown", category: "repairs", title: "Repair Status", description: "Repairs by status over the last 90 days — view as donut, pie, bar, or table", defaultSize: "M", defaultColor: "warning", icon: Wrench },
+  { id: "sales-by-weekday", type: "sales-by-weekday", category: "sales", title: "Sales by Day of Week", description: "Which weekdays sell best (last 8 weeks) — view as bar, donut, or table", defaultSize: "M", defaultColor: "info", icon: CalendarCheck },
+  { id: "stock-by-category", type: "stock-by-category", category: "inventory", title: "Stock by Category", description: "Units in stock grouped by product category — view as bar, donut, or table", defaultSize: "M", defaultColor: "neutral", icon: Boxes },
+  { id: "top-customer-dues", type: "top-customer-dues", category: "customers", title: "Top Customer Dues", description: "Customers ranked by outstanding balance — view as bar, table, or card", defaultSize: "L", defaultColor: "warning", icon: Users },
+  { id: "avg-order-value", type: "avg-order-value", category: "sales", title: "Average Order Value", description: "Average invoice value this month", defaultSize: "S", defaultColor: "success", icon: Percent },
   { id: "recent-activity", type: "recent-activity", category: "activity", title: "Recent Activity", description: "Live audit logs of recent system activities", defaultSize: "L", defaultColor: "neutral", icon: Clock },
   { id: "credit-collected-today", type: "credit-collected-today", category: "money", title: "Credit Collected", description: "Credit settlements collected from customers today", defaultSize: "S", defaultColor: "success", icon: CreditCard },
   { id: "today-net", type: "today-net", category: "money", title: "Today's Net Cash", description: "Net operational cash flow (sales minus expenses)", defaultSize: "S", defaultColor: "success", icon: Wallet },
@@ -226,7 +243,7 @@ function ChartFrame({
 }
 
 // Dispatch a time-series metric (weekly / monthly sales) to the chosen view.
-function renderTrendChart(view: ChartType, points: ChartPoint[]) {
+function renderTrendChart(view: ChartType, points: ChartPoint[], animate: boolean) {
   if (view === "sparkline") {
     return (
       <div className="flex h-full items-center">
@@ -235,17 +252,17 @@ function renderTrendChart(view: ChartType, points: ChartPoint[]) {
     );
   }
   if (view === "line" || view === "area") {
-    // A line/area trend needs at least two non-zero points to be meaningful.
-    // With fewer, a single spike over a flat baseline reads as a broken chart,
-    // so show an honest compact note instead (the card still shows the total).
+    // A line/area trend needs at least three non-zero points to read as a trend.
+    // With fewer, a single spike over a flat baseline looks broken, so show an
+    // honest note and point the owner to Bar view (the card still shows the total).
     const nonZeroCount = points.filter((p) => (Number(p.value) || 0) > 0).length;
-    if (nonZeroCount < 2) {
-      return <ChartEmpty message="Not enough activity yet for a trend" />;
+    if (nonZeroCount < 3) {
+      return <ChartEmpty message="Not enough activity yet for a trend — try the Bar view" />;
     }
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="min-h-0 flex-1">
-          <TrendLine points={points} heightClass="h-full min-h-[2.5rem]" area={view === "area"} />
+          <TrendLine points={points} heightClass="h-full min-h-[2.5rem]" area={view === "area"} animate={animate} />
         </div>
         <div className="widget-chart-muted mt-1 flex shrink-0 justify-between gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
           <span className="min-w-0 truncate">{points[0]?.label}</span>
@@ -254,7 +271,84 @@ function renderTrendChart(view: ChartType, points: ChartPoint[]) {
       </div>
     );
   }
-  return <VerticalBars points={points} heightClass="h-full min-h-[2.5rem]" />;
+  return <VerticalBars points={points} heightClass="h-full min-h-[2.5rem]" animate={animate} />;
+}
+
+type LabelledDatum = { label: string; value: number };
+
+// Humanise raw enum/method values like "bank_transfer" → "Bank Transfer".
+function prettyLabel(raw: string): string {
+  return String(raw)
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Shared renderer for distribution / ranked widgets (status, method, category,
+// dues, stock…). Picks the view, caps rows/slices by card size, shows "+ X more"
+// when capped, and keeps a clean empty state. Purely presentational.
+function renderDistribution(opts: {
+  view: ChartType;
+  title: string;
+  data: LabelledDatum[];
+  size: WidgetSize;
+  fmt: (value: number) => string;
+  animate: boolean;
+  emptyMessage: string;
+  colored?: boolean;
+}) {
+  const { view, title, data, size, fmt, animate, emptyMessage, colored = false } = opts;
+  const usable = data.filter((d) => Number(d.value) > 0);
+
+  if (usable.length === 0) {
+    return (
+      <ChartFrame title={title}>
+        <ChartEmpty message={emptyMessage} />
+      </ChartFrame>
+    );
+  }
+
+  if (view === "card") {
+    const top = usable[0];
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
+        <div>
+          <p className="widget-chart-strong truncate text-base font-black leading-tight text-slate-900 dark:text-white">
+            {top.label}
+          </p>
+        </div>
+        <p className={subtitleClass}>{fmt(top.value)} · {usable.length} total</p>
+      </div>
+    );
+  }
+
+  const sliceLimit = size === "S" ? 4 : size === "M" ? 5 : 6;
+  const barLimit = size === "S" ? 3 : size === "M" ? 4 : 6;
+  const tableLimit = size === "XL" ? 10 : size === "L" ? 6 : 4;
+
+  if (view === "donut" || view === "pie") {
+    const slices = usable.slice(0, sliceLimit).map((d) => ({ label: d.label, value: d.value }));
+    return (
+      <ChartFrame title={title}>
+        <PieDonut slices={slices} formatValue={fmt} donut={view === "donut"} moreCount={Math.max(usable.length - sliceLimit, 0)} animate={animate} />
+      </ChartFrame>
+    );
+  }
+
+  if (view === "table") {
+    const rows = usable.slice(0, tableLimit).map((d) => ({ label: d.label, value: d.value }));
+    return (
+      <ChartFrame title={title}>
+        <RankingList rows={rows} formatValue={fmt} moreCount={Math.max(usable.length - tableLimit, 0)} />
+      </ChartFrame>
+    );
+  }
+
+  const rows = usable.slice(0, barLimit).map((d) => ({ label: d.label, value: d.value }));
+  return (
+    <ChartFrame title={title}>
+      <HorizontalBars rows={rows} formatValue={fmt} colored={colored} moreCount={Math.max(usable.length - barLimit, 0)} animate={animate} />
+    </ChartFrame>
+  );
 }
 
 export function renderWidgetContent(
@@ -271,14 +365,17 @@ export function renderWidgetContent(
     monthSales: any[];
     dashSummary: any;
     potentialProfit: any;
+    analytics: any;
     currency: string;
     labels: any;
     isPrivileged: boolean;
+    editing?: boolean;
   },
   chartType?: string,
 ) {
   const currency = state.currency;
   const view = resolveChartType(type, chartType);
+  const animate = !state.editing;
 
   switch (type) {
     case "today-profit": {
@@ -637,7 +734,7 @@ export function renderWidgetContent(
           value={formatCurrency(weeklyTotal, currency)}
           sub={(size === "L" || size === "XL") && highDay ? `Best day: ${highDay.label} · ${formatCurrency(highDay.total, currency)}` : undefined}
         >
-          {renderTrendChart(view, points)}
+          {renderTrendChart(view, points, animate)}
         </ChartFrame>
       );
     }
@@ -679,7 +776,7 @@ export function renderWidgetContent(
           value={formatCurrency(totalMonth, currency)}
           sub={(size === "L" || size === "XL") && bestDay ? `Best day: ${bestDay.day} · ${formatCurrency(bestDay.total, currency)}` : undefined}
         >
-          {renderTrendChart(view, points)}
+          {renderTrendChart(view, points, animate)}
         </ChartFrame>
       );
     }
@@ -733,7 +830,7 @@ export function renderWidgetContent(
         const slices = products.slice(0, sliceLimit).map((p: any) => ({ label: p.productName, value: valueOf(p) }));
         return (
           <ChartFrame title={title}>
-            <PieDonut slices={slices} formatValue={fmt} donut={view === "donut"} />
+            <PieDonut slices={slices} formatValue={fmt} donut={view === "donut"} moreCount={Math.max(products.length - sliceLimit, 0)} animate={animate} />
           </ChartFrame>
         );
       }
@@ -742,7 +839,7 @@ export function renderWidgetContent(
         const rows = products.slice(0, barLimit).map((p: any) => ({ label: p.productName, value: valueOf(p), sub: subOf(p) }));
         return (
           <ChartFrame title={title}>
-            <HorizontalBars rows={rows} formatValue={fmt} />
+            <HorizontalBars rows={rows} formatValue={fmt} moreCount={Math.max(products.length - barLimit, 0)} animate={animate} />
           </ChartFrame>
         );
       }
@@ -792,7 +889,7 @@ export function renderWidgetContent(
       if (view === "donut") {
         return (
           <ChartFrame title="Dues Overview">
-            <PieDonut slices={rows} formatValue={fmt} donut />
+            <PieDonut slices={rows} formatValue={fmt} donut animate={animate} />
           </ChartFrame>
         );
       }
@@ -807,7 +904,7 @@ export function renderWidgetContent(
 
       return (
         <ChartFrame title="Dues Overview">
-          <HorizontalBars rows={rows} formatValue={fmt} colored />
+          <HorizontalBars rows={rows} formatValue={fmt} colored animate={animate} />
         </ChartFrame>
       );
     }
@@ -849,7 +946,7 @@ export function renderWidgetContent(
       if (view === "donut") {
         return (
           <ChartFrame title="Sales vs Expenses">
-            <PieDonut slices={rows} formatValue={fmt} donut />
+            <PieDonut slices={rows} formatValue={fmt} donut animate={animate} />
           </ChartFrame>
         );
       }
@@ -864,7 +961,7 @@ export function renderWidgetContent(
 
       return (
         <ChartFrame title="Sales vs Expenses">
-          <HorizontalBars rows={rows} formatValue={fmt} colored />
+          <HorizontalBars rows={rows} formatValue={fmt} colored animate={animate} />
         </ChartFrame>
       );
     }
@@ -1159,6 +1256,163 @@ export function renderWidgetContent(
                   Sale value minus FIFO stock cost for currently active inventory.
                 </p>
               )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "invoice-status": {
+      const s = state.analytics?.invoiceStatus ?? { paid: 0, partial: 0, unpaid: 0 };
+      const data: LabelledDatum[] = [
+        { label: "Paid", value: Number(s.paid ?? 0) },
+        { label: "Partial", value: Number(s.partial ?? 0) },
+        { label: "Unpaid", value: Number(s.unpaid ?? 0) },
+      ];
+      return renderDistribution({
+        view, title: "Invoice Status (this month)", data, size, animate,
+        fmt: (v) => formatNumber(v), colored: true,
+        emptyMessage: "No invoices yet this month",
+      });
+    }
+
+    case "payment-method-split": {
+      const data: LabelledDatum[] = (state.analytics?.paymentMethods ?? []).map((d: LabelledDatum) => ({
+        label: prettyLabel(d.label), value: Number(d.value ?? 0),
+      }));
+      return renderDistribution({
+        view, title: "Payment Methods (this month)", data, size, animate,
+        fmt: (v) => formatCurrency(v, currency), colored: true,
+        emptyMessage: "No payments recorded yet this month",
+      });
+    }
+
+    case "expense-category-breakdown": {
+      const data: LabelledDatum[] = (state.analytics?.expenseCategories ?? []).map((d: LabelledDatum) => ({
+        label: prettyLabel(d.label), value: Number(d.value ?? 0),
+      }));
+      return renderDistribution({
+        view, title: "Expense Categories (this month)", data, size, animate,
+        fmt: (v) => formatCurrency(v, currency), colored: true,
+        emptyMessage: "No expenses logged yet this month",
+      });
+    }
+
+    case "repair-status-breakdown": {
+      const data: LabelledDatum[] = (state.analytics?.repairStatuses ?? []).map((d: LabelledDatum) => ({
+        label: prettyLabel(d.label), value: Number(d.value ?? 0),
+      }));
+      return renderDistribution({
+        view, title: "Repair Status (last 90 days)", data, size, animate,
+        fmt: (v) => formatNumber(v), colored: true,
+        emptyMessage: "No repairs in the last 90 days",
+      });
+    }
+
+    case "stock-by-category": {
+      const data: LabelledDatum[] = (state.analytics?.stockByCategory ?? []).map((d: LabelledDatum) => ({
+        label: d.label, value: Number(d.value ?? 0),
+      }));
+      return renderDistribution({
+        view, title: "Stock by Category", data, size, animate,
+        fmt: (v) => formatNumber(v), colored: true,
+        emptyMessage: "No stock on hand yet",
+      });
+    }
+
+    case "top-customer-dues": {
+      const data: LabelledDatum[] = (state.analytics?.topCustomerDues ?? []).map((d: LabelledDatum) => ({
+        label: d.label, value: Number(d.value ?? 0),
+      }));
+      return renderDistribution({
+        view, title: "Top Customer Dues", data, size, animate,
+        fmt: (v) => formatCurrency(v, currency), colored: false,
+        emptyMessage: "No outstanding customer dues",
+      });
+    }
+
+    case "sales-by-weekday": {
+      const series: LabelledDatum[] = state.analytics?.salesByWeekday ?? [];
+      const total = series.reduce((sum, d) => sum + Number(d.value ?? 0), 0);
+      const best = series.reduce((b, d) => (Number(d.value ?? 0) > (b?.value ?? -1) ? d : b), null as LabelledDatum | null);
+
+      if (total <= 0) {
+        return (
+          <ChartFrame title="Sales by Day of Week">
+            <ChartEmpty message="No sales in the last 8 weeks" />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "card") {
+        return (
+          <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
+            <div>
+              <p className="widget-chart-strong truncate text-base font-black leading-tight text-slate-900 dark:text-white">
+                {best ? best.label : "—"}
+              </p>
+            </div>
+            <p className={subtitleClass}>Best weekday{best ? ` · ${formatCurrency(best.value, currency)}` : ""}</p>
+          </div>
+        );
+      }
+
+      if (view === "donut") {
+        return (
+          <ChartFrame title="Sales by Day of Week">
+            <PieDonut slices={series} formatValue={(v) => formatCurrency(v, currency)} donut animate={animate} />
+          </ChartFrame>
+        );
+      }
+
+      if (view === "table") {
+        return (
+          <ChartFrame title="Sales by Day of Week">
+            <RankingList rows={series} formatValue={(v) => formatCurrency(v, currency)} />
+          </ChartFrame>
+        );
+      }
+
+      const points: ChartPoint[] = series.map((d, idx) => ({
+        key: `${d.label}-${idx}`,
+        label: d.label,
+        value: Number(d.value ?? 0),
+        title: `${d.label}: ${formatCurrency(d.value, currency)}`,
+      }));
+      return (
+        <ChartFrame
+          title="Sales by Day of Week"
+          sub={(size === "L" || size === "XL") && best ? `Best: ${best.label} · ${formatCurrency(best.value, currency)}` : undefined}
+        >
+          <VerticalBars points={points} heightClass="h-full min-h-[2.5rem]" animate={animate} />
+        </ChartFrame>
+      );
+    }
+
+    case "avg-order-value": {
+      const aov = state.analytics?.avgOrderValue ?? { total: 0, count: 0, average: 0 };
+      return (
+        <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
+          <div>
+            <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
+              {formatCurrency(Number(aov.average ?? 0), currency)}
+            </p>
+          </div>
+          {size === "S" && (
+            <p className="truncate text-[13px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
+              Avg invoice this month
+            </p>
+          )}
+          {size !== "S" && (
+            <div className="mt-1 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Invoices:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{formatNumber(Number(aov.count ?? 0))}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Total sales:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(Number(aov.total ?? 0), currency)}</span>
+              </div>
             </div>
           )}
         </div>

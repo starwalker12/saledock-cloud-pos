@@ -742,10 +742,10 @@ export function WidgetGrid({
               <div className="widget-card-content relative min-h-0 min-w-0 flex-1 overflow-hidden">
                 {hasLink && !editing ? (
                   <Link href={href} className="block h-full hover:opacity-85 transition">
-                    {renderWidgetContent(widget.type, renderSize, state, widget.chartType)}
+                    {renderWidgetContent(widget.type, renderSize, { ...state, editing }, widget.chartType)}
                   </Link>
                 ) : (
-                  renderWidgetContent(widget.type, renderSize, state, widget.chartType)
+                  renderWidgetContent(widget.type, renderSize, { ...state, editing }, widget.chartType)
                 )}
               </div>
 

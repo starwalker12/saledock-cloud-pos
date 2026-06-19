@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { invoiceCounts } from "@/lib/data/invoices";
 import { expenseCounts } from "@/lib/data/expenses";
 import { getClosing, getDayActivity, todayLocalDate } from "@/lib/data/daily-closing";
-import { getDashboardSummary } from "@/lib/data/dashboard";
+import { getDashboardSummary, getDashboardAnalytics } from "@/lib/data/dashboard";
 import { getPotentialProfitInStock } from "@/lib/data/reports";
 import { formatNumber } from "@/lib/formatters";
 import { getServerDict } from "@/lib/i18n/server";
@@ -190,7 +190,7 @@ export default async function DashboardPage() {
   const branchId = profile.branch_id ?? null;
   const currency = organization?.currency_code ?? "PKR";
 
-  const [invoices, stockValue, expenses, todayActivity, todayClosing, weekSales, activity, monthSales, dashSummary, potentialProfit] = await Promise.all([
+  const [invoices, stockValue, expenses, todayActivity, todayClosing, weekSales, activity, monthSales, dashSummary, potentialProfit, analytics] = await Promise.all([
     invoiceCounts(orgId),
     stockValueStats(orgId),
     expenseCounts(orgId),
@@ -201,6 +201,7 @@ export default async function DashboardPage() {
     monthlySales(orgId, branchId),
     getDashboardSummary(orgId, branchId),
     getPotentialProfitInStock(orgId),
+    getDashboardAnalytics(orgId, branchId),
   ]);
 
   const { dict } = await getServerDict();
@@ -261,6 +262,7 @@ export default async function DashboardPage() {
               monthSales,
               dashSummary,
               potentialProfit,
+              analytics,
               currency,
               isPrivileged,
             }}
