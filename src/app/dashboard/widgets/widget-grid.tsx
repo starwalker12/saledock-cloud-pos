@@ -735,8 +735,11 @@ export function WidgetGrid({
                 </span>
               </div>
 
-              {/* Main Content Area */}
-              <div className="widget-card-content relative min-h-0 flex-1 overflow-visible">
+              {/* Main Content Area — clipped so chart bars/lines/text can never
+                 paint outside the card or over the edit toolbar. The drag handle
+                 and settings popover live in a sibling node below, so they still
+                 escape the card via its own overflow-visible. */}
+              <div className="widget-card-content relative min-h-0 min-w-0 flex-1 overflow-hidden">
                 {hasLink && !editing ? (
                   <Link href={href} className="block h-full hover:opacity-85 transition">
                     {renderWidgetContent(widget.type, renderSize, state, widget.chartType)}
