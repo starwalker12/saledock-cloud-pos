@@ -245,6 +245,7 @@ export function PieDonut({
   centerValue,
   moreCount = 0,
   animate: animateProp = true,
+  size = "M",
 }: {
   slices: ChartSlice[];
   formatValue: (value: number) => string;
@@ -253,22 +254,23 @@ export function PieDonut({
   centerValue?: string;
   moreCount?: number;
   animate?: boolean;
+  size?: "S" | "M" | "L" | "XL";
 }) {
   const total = slices.reduce((s, x) => s + (Number(x.value) || 0), 0);
   if (total <= 0) {
     return <ChartEmpty message="No data to chart yet" />;
   }
 
-  // Donut uses a thin ring; pie uses a thick ring whose inner radius reaches the
-  // centre. Both fit inside the 36×36 viewBox so nothing is clipped.
+  // ViewBox coordinates
   const C = 18;
-  const R = donut ? 15.915 : 9; // donut radius gives circumference ≈ 100
-  const SW = donut ? 4.5 : 18;
+  const R = donut ? 15.0 : 8.5; // donut/pie radius adjusted to prevent clipping
+  const SW = donut ? 3.8 : 17;   // ring thickness polished
+  const separatorSW = donut ? SW + 1.2 : SW + 1.0;
   const circumference = 2 * Math.PI * R;
-  const gap = slices.length > 1 ? circumference * 0.02 : 0;
+  const gap = slices.length > 1 ? circumference * 0.025 : 0; // clear gaps between slices
   const animate = animateProp && !reducedMotion();
 
-  // Cumulative offset per slice computed without mutation (n is tiny — max ~6).
+  // Cumulative offset per slice
   const arcs = slices.map((slice, idx) => {
     const value = Number(slice.value) || 0;
     const frac = value / total;
@@ -276,23 +278,47 @@ export function PieDonut({
       .slice(0, idx)
       .reduce((sum, s) => sum + (Number(s.value) || 0) / total, 0);
     const len = Math.max(frac * circumference - gap, 0);
+    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
     return {
       color: CHART_PALETTE[idx % CHART_PALETTE.length],
       dasharray: `${len} ${circumference - len}`,
       dashoffset: -(precedingFrac * circumference),
       label: slice.label,
       value,
+      percentage,
     };
   });
 
+  // Dynamic layout & sizes based on card size
+  const isSmallHeight = size === "S" || size === "M";
+
+  // Donut/Pie visual diameter
+  let donutSizeClass = "w-[128px] h-[128px] sm:w-[140px] sm:h-[140px]";
+  let centerValClass = "widget-chart-strong text-base sm:text-lg font-black leading-none text-slate-900 dark:text-white";
+  let centerLabClass = "widget-chart-muted text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-1";
+
+  if (isSmallHeight) {
+    donutSizeClass = "w-[64px] h-[64px] sm:w-[76px] sm:h-[76px]";
+    centerValClass = "widget-chart-strong text-[10px] sm:text-xs font-black leading-none text-slate-900 dark:text-white";
+    centerLabClass = "widget-chart-muted text-[6px] sm:text-[7px] font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400 mt-0.5";
+  }
+
+  // Container classes
+  const containerClass = isSmallHeight
+    ? "flex h-full w-full min-w-0 items-center justify-between gap-3 px-1.5 overflow-hidden"
+    : "flex h-full w-full min-w-0 flex-col sm:flex-row items-center justify-center gap-x-6 gap-y-4 px-3 py-1 overflow-hidden";
+
+  const legendClass = isSmallHeight
+    ? "flex-1 space-y-0.5 overflow-hidden text-left"
+    : "w-full sm:flex-1 space-y-1.5 overflow-hidden text-left sm:max-h-[180px] overflow-y-auto pr-1";
+
   return (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-wrap content-center items-center justify-center gap-x-3 gap-y-2 overflow-hidden">
-      <div className={`relative shrink-0 ${animate ? "animate-fade-in" : ""}`} style={{ width: 92, height: 92 }}>
-        <svg viewBox="0 0 36 36" className="h-[92px] w-[92px] -rotate-90 overflow-hidden">
-          {/* Contrast separator ring: drawn in the card's high-contrast mark
-             colour so slice edges/gaps stay visible even when a slice colour
-             matches the card (e.g. a blue slice on a solid blue card). */}
-          <circle cx={C} cy={C} r={R} fill="none" stroke={CHART_COLOR} strokeWidth={SW + 1.4} opacity={0.9} />
+    <div className={containerClass}>
+      {/* Chart wrapper */}
+      <div className={`relative shrink-0 ${donutSizeClass} ${animate ? "animate-fade-in" : ""}`}>
+        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90 overflow-hidden">
+          {/* Contrast separator ring: outlines the gaps cleanly */}
+          <circle cx={C} cy={C} r={R} fill="none" stroke={CHART_COLOR} strokeWidth={separatorSW} opacity={0.85} style={{ stroke: "var(--widget-chart-color)", opacity: "var(--widget-chart-sep-opacity, 0.25)" }} />
           {arcs.map((arc, idx) => (
             <circle
               key={idx}
@@ -304,26 +330,44 @@ export function PieDonut({
               strokeWidth={SW}
               strokeDasharray={arc.dasharray}
               strokeDashoffset={arc.dashoffset}
+              className={animate ? "transition-[stroke-dashoffset] duration-500 ease-out" : ""}
+              style={{
+                strokeDashoffset: animate ? undefined : arc.dashoffset,
+              }}
             />
           ))}
         </svg>
-        {donut && (
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-            {centerValue && <span className="widget-chart-strong text-xs font-black leading-none text-slate-900 dark:text-white">{centerValue}</span>}
-            {centerLabel && <span className="widget-chart-muted mt-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{centerLabel}</span>}
+        {donut && !isSmallHeight && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-1">
+            {centerValue && <span className={centerValClass}>{centerValue}</span>}
+            {centerLabel && <span className={centerLabClass}>{centerLabel}</span>}
           </div>
         )}
       </div>
-      <ul className="min-w-[7rem] flex-1 space-y-1 overflow-hidden">
+
+      {/* Legend */}
+      <ul className={legendClass}>
         {arcs.map((arc, idx) => (
-          <li key={idx} className="flex min-w-0 items-center gap-1.5 text-[11px]">
-            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: arc.color }} aria-hidden="true" />
-            <span className="widget-chart-label min-w-0 flex-1 truncate font-semibold text-slate-700 dark:text-slate-200">{arc.label}</span>
-            <span className="widget-chart-strong max-w-[45%] shrink-0 truncate font-black text-slate-900 dark:text-white tabular-nums">{formatValue(arc.value)}</span>
+          <li key={idx} className="flex min-w-0 items-center justify-between gap-2 text-[10px] sm:text-[11px] leading-tight">
+            <span className="flex min-w-0 items-center gap-1.5 text-slate-700 dark:text-slate-200">
+              <span className="size-1.5 sm:size-2 shrink-0 rounded-full" style={{ backgroundColor: arc.color }} aria-hidden="true" />
+              <span className="widget-chart-label min-w-0 flex-1 truncate font-semibold">{arc.label}</span>
+            </span>
+            <span
+              className="widget-chart-strong max-w-[45%] shrink-0 truncate font-black text-slate-900 dark:text-white tabular-nums text-right"
+              title={`${formatValue(arc.value)}${!isSmallHeight ? ` (${arc.percentage}%)` : ""}`}
+            >
+              {formatValue(arc.value)}
+              {!isSmallHeight && (
+                <span className="widget-chart-muted ml-1 text-[9px] font-normal text-slate-500 dark:text-slate-400">
+                  ({arc.percentage}%)
+                </span>
+              )}
+            </span>
           </li>
         ))}
         {moreCount > 0 && (
-          <li className="widget-chart-muted truncate pl-3.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          <li className="widget-chart-muted truncate pl-3 sm:pl-3.5 text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400">
             + {moreCount} more
           </li>
         )}

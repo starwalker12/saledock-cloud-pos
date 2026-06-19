@@ -456,10 +456,16 @@ body {
 
 .dashboard-widget-card {
   --widget-chart-color: #334155;
+  --widget-chart-sep-opacity: 0.15;
 }
 
 .dark .dashboard-widget-card {
   --widget-chart-color: #e2e8f0;
+  --widget-chart-sep-opacity: 0.2;
+}
+
+.dashboard-widget-card[data-widget-fill="solid"] {
+  --widget-chart-sep-opacity: 0.8;
 }
 
 .dashboard-widget-card .widget-card-content,
