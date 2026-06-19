@@ -295,8 +295,9 @@ function renderDistribution(opts: {
   animate: boolean;
   emptyMessage: string;
   colored?: boolean;
+  centerLabel?: string;
 }) {
-  const { view, title, data, size, fmt, animate, emptyMessage, colored = false } = opts;
+  const { view, title, data, size, fmt, animate, emptyMessage, colored = false, centerLabel = "Total" } = opts;
   const usable = data.filter((d) => Number(d.value) > 0);
 
   if (usable.length === 0) {
@@ -327,9 +328,19 @@ function renderDistribution(opts: {
 
   if (view === "donut" || view === "pie") {
     const slices = usable.slice(0, sliceLimit).map((d) => ({ label: d.label, value: d.value }));
+    const overallTotal = data.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
     return (
       <ChartFrame title={title}>
-        <PieDonut slices={slices} formatValue={fmt} donut={view === "donut"} moreCount={Math.max(usable.length - sliceLimit, 0)} animate={animate} />
+        <PieDonut
+          slices={slices}
+          formatValue={fmt}
+          donut={view === "donut"}
+          moreCount={Math.max(usable.length - sliceLimit, 0)}
+          animate={animate}
+          size={size}
+          centerValue={fmt(overallTotal)}
+          centerLabel={centerLabel}
+        />
       </ChartFrame>
     );
   }
@@ -828,9 +839,19 @@ export function renderWidgetContent(
 
       if (view === "donut" || view === "pie") {
         const slices = products.slice(0, sliceLimit).map((p: any) => ({ label: p.productName, value: valueOf(p) }));
+        const overallTotal = products.reduce((sum: number, p: any) => sum + (Number(valueOf(p)) || 0), 0);
         return (
           <ChartFrame title={title}>
-            <PieDonut slices={slices} formatValue={fmt} donut={view === "donut"} moreCount={Math.max(products.length - sliceLimit, 0)} animate={animate} />
+            <PieDonut
+              slices={slices}
+              formatValue={fmt}
+              donut={view === "donut"}
+              moreCount={Math.max(products.length - sliceLimit, 0)}
+              animate={animate}
+              size={size}
+              centerValue={fmt(overallTotal)}
+              centerLabel={byRevenue ? "Revenue" : "Units"}
+            />
           </ChartFrame>
         );
       }
@@ -889,7 +910,15 @@ export function renderWidgetContent(
       if (view === "donut") {
         return (
           <ChartFrame title="Dues Overview">
-            <PieDonut slices={rows} formatValue={fmt} donut animate={animate} />
+            <PieDonut
+              slices={rows}
+              formatValue={fmt}
+              donut
+              animate={animate}
+              size={size}
+              centerValue={fmt(receivable - payable)}
+              centerLabel="Net Dues"
+            />
           </ChartFrame>
         );
       }
@@ -946,7 +975,15 @@ export function renderWidgetContent(
       if (view === "donut") {
         return (
           <ChartFrame title="Sales vs Expenses">
-            <PieDonut slices={rows} formatValue={fmt} donut animate={animate} />
+            <PieDonut
+              slices={rows}
+              formatValue={fmt}
+              donut
+              animate={animate}
+              size={size}
+              centerValue={fmt(sales - expensesTotal)}
+              centerLabel="Net Cash"
+            />
           </ChartFrame>
         );
       }
@@ -1360,7 +1397,15 @@ export function renderWidgetContent(
       if (view === "donut") {
         return (
           <ChartFrame title="Sales by Day of Week">
-            <PieDonut slices={series} formatValue={(v) => formatCurrency(v, currency)} donut animate={animate} />
+            <PieDonut
+              slices={series}
+              formatValue={(v) => formatCurrency(v, currency)}
+              donut
+              animate={animate}
+              size={size}
+              centerValue={formatCurrency(total, currency)}
+              centerLabel="Sales"
+            />
           </ChartFrame>
         );
       }
