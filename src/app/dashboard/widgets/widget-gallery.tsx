@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, ArrowLeft } from "lucide-react";
 import { WIDGET_CATALOG, WidgetDef } from "./widget-registry";
 
 type WidgetGalleryProps = {
@@ -87,25 +87,43 @@ export function WidgetGallery({ isOpen, onClose, onAddWidget, widgetCounts }: Wi
         visible ? "translate-x-0" : "translate-x-full"
       } flex flex-col`}>
         {/* Header */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-black text-slate-950 dark:text-white">Add Widget</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Add any widget more than once. For chart widgets, pick the view (bar, line, donut…) from the widget&apos;s settings after adding.
-            </p>
+        <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top))] border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="lg:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition"
+                aria-label="Back to dashboard"
+              >
+                <ArrowLeft className="size-5" />
+              </button>
+              <h2 className="text-base font-black text-slate-950 dark:text-white">Add Widget</h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleClose}
+              className="hidden lg:flex p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition"
+              aria-label="Close gallery"
+            >
+              <X className="size-5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="lg:hidden text-xs font-bold text-blue-600 dark:text-blue-400 px-2 py-1.5 rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition"
+            >
+              Back to dashboard
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition"
-            aria-label="Close gallery"
-          >
-            <X className="size-5" />
-          </button>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Add any widget more than once. For chart widgets, pick the view (bar, line, donut…) from the widget&apos;s settings after adding.
+          </p>
         </div>
 
         {/* Scrollable list */}
-        <div className="flex-1 overflow-y-auto p-4 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 pb-24 sm:pb-32 lg:pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-6">
           {Object.entries(groupedWidgets).map(([category, widgets]) => (
             <div key={category} className="space-y-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">

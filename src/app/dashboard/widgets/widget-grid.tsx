@@ -256,7 +256,7 @@ function WidgetSettingsControls({
                 }}
                 aria-pressed={activeChartType === ct}
                 aria-label={`Show as ${CHART_TYPE_LABELS[ct]}`}
-                className={`h-8 rounded-lg px-2 text-[11px] font-black transition active:scale-95 ${
+                className={`h-10 md:h-8 rounded-lg px-2 text-xs md:text-[11px] font-black transition active:scale-95 ${
                   activeChartType === ct
                     ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] shadow-sm"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -284,7 +284,7 @@ function WidgetSettingsControls({
               }}
               aria-pressed={renderSize === sz}
               aria-label={`Set widget size to ${sz}`}
-              className={`h-8 rounded-lg text-xs font-black transition active:scale-95 ${
+              className={`h-10 md:h-8 rounded-lg text-xs md:text-[11px] font-black transition active:scale-95 ${
                 renderSize === sz
                   ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] shadow-sm"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -311,7 +311,7 @@ function WidgetSettingsControls({
                   e.stopPropagation();
                   onUpdateColor(widget.id, c.value);
                 }}
-                className={`flex h-8 items-center justify-center rounded-lg border transition active:scale-95 ${
+                className={`flex h-10 md:h-8 items-center justify-center rounded-lg border transition active:scale-95 ${
                   isSelected
                     ? "border-slate-900 bg-slate-900/10 dark:border-white dark:bg-white/10"
                     : "border-slate-200 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800"
@@ -345,7 +345,7 @@ function WidgetSettingsControls({
                   e.stopPropagation();
                   onUpdateFillStyle(widget.id, fill);
                 }}
-                className={`h-8 rounded-lg px-2 text-[11px] font-black transition active:scale-95 ${
+                className={`h-10 md:h-8 rounded-lg px-2 text-xs md:text-[11px] font-black transition active:scale-95 ${
                   isSelected
                     ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] shadow-sm ring-2 ring-[var(--primary-accent-soft)]"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -382,7 +382,7 @@ function WidgetSettingsControls({
                   e.stopPropagation();
                   onUpdateTextColor(widget.id, option);
                 }}
-                className={`h-8 rounded-lg px-2 text-[11px] font-black transition active:scale-95 ${
+                className={`h-10 md:h-8 rounded-lg px-2 text-xs md:text-[11px] font-black transition active:scale-95 ${
                   isSelected
                     ? "bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)] shadow-sm ring-2 ring-[var(--primary-accent-soft)]"
                     : option === "white"
@@ -407,7 +407,7 @@ function WidgetSettingsControls({
           e.stopPropagation();
           onRemove(widget.id);
         }}
-        className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-xs font-black text-red-700 transition hover:bg-red-100 active:scale-95 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/70"
+        className="flex h-11 md:h-9 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-xs font-black text-red-700 transition hover:bg-red-100 active:scale-95 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/70"
         aria-label="Delete widget"
       >
         <Trash2 className="size-3.5" />
@@ -817,38 +817,45 @@ export function WidgetGrid({
             onClick={() => setOpenSettingsId(null)}
             aria-label="Close widget settings"
           />
-          <div className="animate-dashboard-sheet relative w-full max-h-[82dvh] overflow-y-auto rounded-t-3xl border border-slate-200 bg-[#fff] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-slate-900 shadow-2xl shadow-slate-950/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-            <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-300 dark:bg-slate-700" />
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2
-                id={`widget-settings-title-${openSettingsWidget.id}`}
-                className="min-w-0 truncate text-sm font-black text-slate-950 dark:text-white"
-              >
-                {WIDGET_CATALOG.find((cat) => cat.type === openSettingsWidget.type)?.title || openSettingsWidget.type}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setOpenSettingsId(null)}
-                className="min-h-[44px] rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition active:scale-95 dark:bg-slate-800 dark:text-slate-200"
-              >
-                {state.labels?.done ?? "Done"}
-              </button>
+          <div className="animate-dashboard-sheet relative w-full max-h-[85dvh] flex flex-col rounded-t-3xl border border-slate-200 bg-[#fff] text-slate-900 shadow-2xl shadow-slate-950/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+            {/* Sticky Header inside the bottom sheet */}
+            <div className="shrink-0 p-4 pb-2 border-b border-slate-100 dark:border-slate-900">
+              <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-300 dark:bg-slate-700" />
+              <div className="flex items-center justify-between gap-3">
+                <h2
+                  id={`widget-settings-title-${openSettingsWidget.id}`}
+                  className="min-w-0 truncate text-sm font-black text-slate-950 dark:text-white"
+                >
+                  {WIDGET_CATALOG.find((cat) => cat.type === openSettingsWidget.type)?.title || openSettingsWidget.type}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setOpenSettingsId(null)}
+                  className="min-h-[44px] rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-black text-slate-700 transition active:scale-95 dark:bg-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                >
+                  {state.labels?.done ?? "Done"}
+                </button>
+              </div>
             </div>
-            <WidgetSettingsControls
-              widget={openSettingsWidget}
-              renderSize={getWidgetSizeFromDims(openSettingsWidget.w, openSettingsWidget.h)}
-              textColor={openSettingsWidget.textColor ?? "auto"}
-              labels={state.labels}
-              onUpdateSize={handleUpdateWidgetSize}
-              onUpdateColor={handleUpdateWidgetColor}
-              onUpdateFillStyle={handleUpdateWidgetFillStyle}
-              onUpdateTextColor={handleUpdateWidgetTextColor}
-              onUpdateChartType={handleUpdateWidgetChartType}
-              onRemove={(id) => {
-                setOpenSettingsId(null);
-                handleRemoveWidget(id);
-              }}
-            />
+
+            {/* Scrollable body content */}
+            <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-4">
+              <WidgetSettingsControls
+                widget={openSettingsWidget}
+                renderSize={getWidgetSizeFromDims(openSettingsWidget.w, openSettingsWidget.h)}
+                textColor={openSettingsWidget.textColor ?? "auto"}
+                labels={state.labels}
+                onUpdateSize={handleUpdateWidgetSize}
+                onUpdateColor={handleUpdateWidgetColor}
+                onUpdateFillStyle={handleUpdateWidgetFillStyle}
+                onUpdateTextColor={handleUpdateWidgetTextColor}
+                onUpdateChartType={handleUpdateWidgetChartType}
+                onRemove={(id) => {
+                  setOpenSettingsId(null);
+                  handleRemoveWidget(id);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
