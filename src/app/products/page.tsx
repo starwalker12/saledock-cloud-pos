@@ -346,7 +346,7 @@ async function ProductsTab({
         />
       ) : (
         <>
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 <tr>
@@ -375,7 +375,7 @@ async function ProductsTab({
               </tbody>
             </table>
           </div>
-          <div className="space-y-3 md:hidden">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
             {sortedProducts.map((p) => (
               <ProductCard key={p.id} p={p} currency={currency} canWrite={canWrite} suppliers={suppliers} />
             ))}
@@ -621,7 +621,7 @@ function CategoriesTab({
         />
       ) : (
         <>
-        <div className="hidden overflow-x-auto md:block">
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <tr>
@@ -679,7 +679,7 @@ function CategoriesTab({
             </tbody>
           </table>
         </div>
-        <div className="space-y-3 md:hidden">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
           {sortedCategories.map((c) => (
             <CategoryCard key={c.id} category={c} canWrite={canWrite} />
           ))}
@@ -799,7 +799,7 @@ function SuppliersTab({
         />
       ) : (
         <>
-        <div className="hidden overflow-x-auto md:block">
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <tr>
@@ -861,7 +861,7 @@ function SuppliersTab({
             </tbody>
           </table>
         </div>
-        <div className="space-y-3 md:hidden">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
           {sortedSuppliers.map((s) => (
             <SupplierCard key={s.id} supplier={s} canWrite={canWrite} />
           ))}

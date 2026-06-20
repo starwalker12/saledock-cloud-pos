@@ -304,7 +304,7 @@ export default async function RepairsPage({
         ) : (
           <div>
             {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-left text-sm min-w-[900px]">
                 <thead className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <tr>
@@ -370,8 +370,8 @@ export default async function RepairsPage({
               </table>
             </div>
 
-            {/* Mobile Card List View */}
-            <div className="block md:hidden p-4 space-y-3">
+            {/* Mobile / tablet card list view (desktop table shows at lg+) */}
+            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:hidden">
               {sortedRepairs.map((r) => {
                 const balance = Math.max(r.estimated_cost - r.advance_paid, 0);
 
@@ -447,7 +447,7 @@ export default async function RepairsPage({
           }}
         />
       )}
-      <div className="h-20 md:hidden" />
+      <div className="h-20 lg:hidden" />
     </AppShell>
   );
 }

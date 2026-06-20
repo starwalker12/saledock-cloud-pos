@@ -387,7 +387,7 @@ export default async function ExpensesPage({
             />
           ) : (
             <>
-              <div className="hidden overflow-x-auto md:block">
+              <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full min-w-[820px] text-left text-sm">
                   <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -419,7 +419,7 @@ export default async function ExpensesPage({
                   </tbody>
                 </table>
               </div>
-              <ul className="space-y-3 md:hidden pb-[calc(4rem+env(safe-area-inset-bottom))]">
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden pb-[calc(4rem+env(safe-area-inset-bottom))]">
                 {sortedExpenses.map((e) => (
                   <li key={e.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-start justify-between gap-3">
@@ -446,7 +446,7 @@ export default async function ExpensesPage({
           )}
         </div>
       </div>
-      <div className="h-20 md:hidden" />
+      <div className="h-20 lg:hidden" />
     </AppShell>
   );
 }

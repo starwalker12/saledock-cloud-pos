@@ -342,7 +342,7 @@ export default async function DailyClosingPage({
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="text-base font-black text-slate-950">Payment method breakdown</h2>
           <p className="text-xs text-slate-500">Live totals from the payments table for this day.</p>
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <table className="mt-3 w-full text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
@@ -368,7 +368,7 @@ export default async function DailyClosingPage({
               </tbody>
             </table>
           </div>
-          <div className="mt-3 space-y-2 md:hidden">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
             {PAYMENT_METHOD_ORDER.map((m: PaymentMethodKey) => {
               const recv = activity.paymentsByMethod[m];
               const ref = activity.refundsByMethod[m];
@@ -456,7 +456,7 @@ export default async function DailyClosingPage({
           <div className="p-8 text-center text-sm text-slate-500">No closings recorded yet.</div>
         ) : (
           <>
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
@@ -515,7 +515,7 @@ export default async function DailyClosingPage({
               </tbody>
             </table>
           </div>
-          <div className="space-y-3 md:hidden">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
             {sortedRecent.map((r) => (
               <div key={r.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-start justify-between gap-3">
@@ -653,7 +653,7 @@ export default async function DailyClosingPage({
           currency={currency}
         />
       )}
-      <div className="h-20 md:hidden" />
+      <div className="h-20 lg:hidden" />
     </AppShell>
   );
 }

@@ -96,7 +96,7 @@ export default async function SupplierDuesPage({
           </div>
         ) : (
           <>
-          <div className="hidden overflow-x-auto p-5 sm:p-6 md:block">
+          <div className="hidden overflow-x-auto p-5 sm:p-6 lg:block">
             <table className="w-full min-w-[600px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800">
                 <tr>
@@ -138,7 +138,7 @@ export default async function SupplierDuesPage({
               </tbody>
             </table>
           </div>
-          <div className="space-y-3 p-5 sm:p-6 md:hidden">
+          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 sm:p-6 lg:hidden">
             {/* Mobile Sort Controls */}
             <div className="flex flex-wrap items-center gap-2 pb-3 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
               <span className="shrink-0">Sort by:</span>
@@ -207,7 +207,7 @@ export default async function SupplierDuesPage({
           </>
         )}
       </div>
-      <div className="h-20 md:hidden" />
+      <div className="h-20 lg:hidden" />
     </AppShell>
   );
 }

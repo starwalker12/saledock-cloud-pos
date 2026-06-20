@@ -89,7 +89,7 @@ export default async function InvoicesPage({
           </div>
         ) : (
           <>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/[0.07] dark:bg-white/[0.02] dark:text-slate-400">
                   <tr>
@@ -130,7 +130,7 @@ export default async function InvoicesPage({
                 </tbody>
               </table>
             </div>
-            <ul className="space-y-2 p-2 pb-[calc(1rem+env(safe-area-inset-bottom))] md:hidden">
+            <ul className="grid grid-cols-1 gap-2 p-2 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:grid-cols-2 lg:hidden">
               {sortedInvoices.map((inv) => (
                 <li key={inv.id} className="rounded-xl border border-slate-200 bg-[#fff] p-3 shadow-sm dark:border-white/[0.07] dark:bg-slate-950">
                   <div className="flex items-start justify-between gap-2">

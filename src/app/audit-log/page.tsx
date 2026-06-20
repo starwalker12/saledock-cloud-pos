@@ -372,7 +372,7 @@ export default async function AuditLogPage({
         ) : (
           <div>
             {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-left text-sm min-w-[860px]">
                 <thead className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <tr>
@@ -432,7 +432,7 @@ export default async function AuditLogPage({
             </div>
 
             {/* Mobile Card List */}
-            <div className="block md:hidden divide-y divide-slate-100 p-3 space-y-3 dark:divide-slate-800">
+            <div className="block lg:hidden divide-y divide-slate-100 p-3 space-y-3 dark:divide-slate-800">
               {sortedLogs.map((log) => {
                 const severity = actionSeverity(log.action);
                 return (
@@ -489,7 +489,7 @@ export default async function AuditLogPage({
           </div>
         )}
       </div>
-      <div className="h-20 md:hidden" />
+      <div className="h-20 lg:hidden" />
     </AppShell>
   );
 }

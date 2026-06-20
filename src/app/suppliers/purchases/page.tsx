@@ -304,7 +304,7 @@ export default async function SupplierPurchasesPage({
             </div>
           ) : (
             <>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
                   <tr>
@@ -349,7 +349,7 @@ export default async function SupplierPurchasesPage({
                 </tbody>
               </table>
             </div>
-            <div className="space-y-3 md:hidden">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
               {/* Mobile Sort Controls */}
               <div className="flex flex-nowrap overflow-x-auto items-center gap-2 pb-3 text-xs font-semibold text-slate-500 border-b border-slate-100 dark:border-slate-800 scrollbar-none">
                 <span className="shrink-0">Sort by:</span>
@@ -441,7 +441,7 @@ export default async function SupplierPurchasesPage({
             <h3 className="text-base font-black text-slate-950">Supplier dues</h3>
             <p className="text-xs text-slate-500">Outstanding amounts owed to your suppliers.</p>
           </div>
-          <div className="hidden overflow-x-auto p-5 sm:p-6 md:block">
+          <div className="hidden overflow-x-auto p-5 sm:p-6 lg:block">
             <table className="w-full min-w-[600px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
@@ -478,7 +478,7 @@ export default async function SupplierPurchasesPage({
               </tbody>
             </table>
           </div>
-          <div className="space-y-3 p-5 sm:p-6 md:hidden">
+          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 sm:p-6 lg:hidden">
             {suppliers
               .filter((s) => s.outstanding_balance > 0)
               .sort((a, b) => b.outstanding_balance - a.outstanding_balance)
@@ -507,7 +507,7 @@ export default async function SupplierPurchasesPage({
           </div>
         </div>
       )}
-      <div className="h-20 md:hidden" />
+      <div className="h-20 lg:hidden" />
     </AppShell>
   );
 }
