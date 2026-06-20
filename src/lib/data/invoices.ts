@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getKarachiDayStartIso, getKarachiTodayDateString } from "@/lib/datetime";
 
 export type InvoiceListRow = {
   id: string;
@@ -236,8 +237,8 @@ export async function getInvoiceDetail(
 
 export async function invoiceCounts(organizationId: string) {
   const supabase = await createClient();
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  // "Today" = the shop's Asia/Karachi calendar day (server-tz independent).
+  const todayStart = getKarachiDayStartIso(getKarachiTodayDateString());
 
   const [total, todayInvoices, openInvoices] = await Promise.all([
     supabase
@@ -248,7 +249,7 @@ export async function invoiceCounts(organizationId: string) {
       .from("invoices")
       .select("grand_total")
       .eq("organization_id", organizationId)
-      .gte("invoice_date", todayStart.toISOString()),
+      .gte("invoice_date", todayStart),
     supabase
       .from("invoices")
       .select("id", { count: "exact", head: true })

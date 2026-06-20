@@ -26,6 +26,13 @@ import {
   listSuppliersWithBalances,
   supplierPurchaseCounts,
 } from "@/lib/data/supplier-purchases";
+import {
+  addKarachiDays,
+  getKarachiMonthEndDate,
+  getKarachiMonthStartDate,
+  getKarachiTodayDateString,
+  getKarachiWeekday,
+} from "@/lib/datetime";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { PrintButton } from "./print-button";
 
@@ -44,48 +51,40 @@ function fmtDay(d: string) {
 }
 
 function getRangeDates(range: string, customStart?: string, customEnd?: string) {
-  const today = new Date();
+  // All presets are computed on the shop's Asia/Karachi calendar (server-tz
+  // independent). Dates are YYYY-MM-DD strings; getReportsData converts them to
+  // Karachi day boundaries.
+  const today = getKarachiTodayDateString();
 
-  const formatLocal = (d: Date) => {
-    const tz = d.getTimezoneOffset() * 60_000;
-    return new Date(d.getTime() - tz).toISOString().slice(0, 10);
-  };
-
-  let start = formatLocal(today);
-  let end = formatLocal(today);
+  let start = today;
+  let end = today;
 
   switch (range) {
     case "today":
-      start = formatLocal(today);
-      end = formatLocal(today);
+      start = today;
+      end = today;
       break;
     case "yesterday": {
-      const yesterday = new Date(today);
-      yesterday.setDate(today.getDate() - 1);
-      start = formatLocal(yesterday);
-      end = formatLocal(yesterday);
+      const yesterday = addKarachiDays(today, -1);
+      start = yesterday;
+      end = yesterday;
       break;
     }
     case "this_week": {
-      const dayOfWeek = today.getDay();
-      const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-      const monday = new Date(today);
-      monday.setDate(diff);
-      start = formatLocal(monday);
-      end = formatLocal(today);
+      const sinceMonday = (getKarachiWeekday(today) + 6) % 7; // 0 = Sun..6 = Sat → days since Monday
+      start = addKarachiDays(today, -sinceMonday);
+      end = today;
       break;
     }
     case "this_month": {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      start = formatLocal(firstDay);
-      end = formatLocal(today);
+      start = getKarachiMonthStartDate(today);
+      end = today;
       break;
     }
     case "last_month": {
-      const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-      start = formatLocal(firstDayLastMonth);
-      end = formatLocal(lastDayLastMonth);
+      const lastDayPrevMonth = addKarachiDays(getKarachiMonthStartDate(today), -1);
+      start = getKarachiMonthStartDate(lastDayPrevMonth);
+      end = getKarachiMonthEndDate(lastDayPrevMonth);
       break;
     }
     case "custom":
@@ -93,9 +92,8 @@ function getRangeDates(range: string, customStart?: string, customEnd?: string) 
       if (customEnd) end = customEnd;
       break;
     default: {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      start = formatLocal(firstDay);
-      end = formatLocal(today);
+      start = getKarachiMonthStartDate(today);
+      end = today;
       break;
     }
   }

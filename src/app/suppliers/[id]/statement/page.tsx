@@ -10,6 +10,12 @@ import {
 } from "@/lib/data/supplier-purchases";
 import { getBrandingSettings } from "@/lib/data/settings";
 import { createClient } from "@/lib/supabase/server";
+import {
+  addKarachiDays,
+  getKarachiDayEndIso,
+  getKarachiDayStartIso,
+  getKarachiTodayDateString,
+} from "@/lib/datetime";
 import { formatCurrency } from "@/lib/formatters";
 import { PrintButton } from "./print-button";
 
@@ -38,13 +44,11 @@ function whatsappLink(phone: string | null | undefined, message: string) {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return getKarachiTodayDateString();
 }
 
 function ninetyDaysAgoISO() {
-  const d = new Date();
-  d.setDate(d.getDate() - 90);
-  return d.toISOString().slice(0, 10);
+  return addKarachiDays(getKarachiTodayDateString(), -90);
 }
 
 type SearchParams = {
@@ -96,8 +100,8 @@ export default async function SupplierStatementPage({
 
   const fromDate = sp.from || ninetyDaysAgoISO();
   const toDate = sp.to || todayISO();
-  const fromStr = `${fromDate}T00:00:00`;
-  const toStr = `${toDate}T23:59:59`;
+  const fromStr = getKarachiDayStartIso(fromDate);
+  const toStr = getKarachiDayEndIso(toDate);
 
   const [allEntries, openingBalance] = await Promise.all([
     listSupplierLedger(orgId, id, { from: fromStr, to: toStr }),

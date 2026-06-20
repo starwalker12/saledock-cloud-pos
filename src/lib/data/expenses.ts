@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { escapeLike } from "@/lib/security/sanitize";
+import { getKarachiDayStartIso, getKarachiMonthStartDate, getKarachiTodayDateString } from "@/lib/datetime";
 
 export type ExpenseRow = {
   id: string;
@@ -102,10 +103,10 @@ export type ExpenseCounts = {
 
 export async function expenseCounts(organizationId: string): Promise<ExpenseCounts> {
   const supabase = await createClient();
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // "Today" / "this month" use the shop's Asia/Karachi calendar (server-tz independent).
+  const todayDate = getKarachiTodayDateString();
+  const todayStart = new Date(getKarachiDayStartIso(todayDate));
+  const monthStart = new Date(getKarachiDayStartIso(getKarachiMonthStartDate(todayDate)));
 
   const { data, error } = await supabase
     .from("expenses")
