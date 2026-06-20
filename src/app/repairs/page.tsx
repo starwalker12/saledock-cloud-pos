@@ -107,7 +107,7 @@ export default async function RepairsPage({
   return (
     <AppShell pageTitle="Repairs">
       {/* Dynamic Summary Cards */}
-      <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <StatCard
           label="Open repair jobs"
           value={formatNumber(stats.openCount)}

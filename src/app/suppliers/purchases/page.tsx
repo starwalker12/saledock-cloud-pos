@@ -113,7 +113,7 @@ export default async function SupplierPurchasesPage({
 
   return (
     <AppShell pageTitle="Supplier Purchases">
-      <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <StatCard
           label="Purchases this month"
           value={formatCurrency(counts.monthTotal, currency)}
