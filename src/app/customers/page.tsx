@@ -240,7 +240,7 @@ export default async function CustomersPage({
               </div>
 
               {/* Mobile Card View */}
-              <div className="space-y-2 lg:hidden">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
                 {sortedCustomers.map((c) => (
                   <div key={c.id} className="rounded-xl border border-slate-200 dark:border-white/[0.07] bg-[#fff] dark:bg-[#060f20] p-3 shadow-sm hover:border-slate-300 dark:hover:border-slate-700">
                     <div className="flex items-start justify-between gap-2">

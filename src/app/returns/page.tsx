@@ -82,7 +82,7 @@ export default async function ReturnsPage({
         </section>
       ) : (
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-white/[0.02] dark:text-slate-400">
                 <tr>
@@ -124,7 +124,7 @@ export default async function ReturnsPage({
             </table>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-white/[0.05] md:hidden">
+          <div className="divide-y divide-slate-100 dark:divide-white/[0.05] lg:hidden">
             {sortedReturns.map((ret) => (
               <article key={ret.id} className="p-4 bg-white dark:bg-[#060f20]">
                 <div className="flex items-start justify-between gap-3">

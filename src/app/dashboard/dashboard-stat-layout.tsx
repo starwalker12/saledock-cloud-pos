@@ -342,7 +342,7 @@ export function DashboardStatLayout({
       {/* Dashboard Welcome Header */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-lg font-black text-slate-950 dark:text-white">
+          <h1 className="text-lg font-black text-slate-950 dark:text-white sm:text-xl lg:text-2xl">
             Welcome, {firstName}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -354,19 +354,19 @@ export function DashboardStatLayout({
           </p>
         </div>
         {!editing && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <button
               type="button"
               onClick={() => setEditing(true)}
               aria-pressed={false}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-[#f8fafc] px-3 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-[#eef2f7] focus:outline-none dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-[#f8fafc] px-3 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-[#eef2f7] focus:outline-none dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08] sm:h-9 sm:flex-none"
             >
               <LayoutGrid className="size-3.5" aria-hidden="true" />
               {labels.editLayout}
             </button>
             <Link
               href="/pos"
-              className="hidden h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-4 text-xs font-bold text-white shadow-sm transition hover:opacity-90 active:scale-95 sm:inline-flex"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-4 text-xs font-bold text-white shadow-sm transition hover:opacity-90 active:scale-95 sm:h-9 sm:flex-none"
             >
               <ShoppingCart className="size-3.5" aria-hidden="true" />
               New sale
