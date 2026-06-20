@@ -106,6 +106,9 @@ export const checkoutSchema = z
     amount_paid: z.coerce.number().min(0).default(0),
     payment_reference: z.string().trim().max(120).optional().nullable(),
     note: z.string().trim().max(500).optional().nullable(),
+    // Per-attempt idempotency key (client-generated UUID). Optional for
+    // backward compatibility; the POS client always sends one.
+    idempotency_key: z.string().uuid().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.payment_method === "customer_credit") {

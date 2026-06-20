@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useRef } from "react";
+import { useEffect, useMemo, useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Search, Trash2, UserPlus2 } from "lucide-react";
@@ -101,6 +101,15 @@ export function PosClient({ products: initialProducts, customers: initialCustome
   const [mobileTab, setMobileTab] = useState<"products" | "cart">("products");
   const [pending, startTransition] = useTransition();
   const [scanResult, setScanResult] = useState<{ barcode: string } | null>(null);
+
+  // Server-side checkout idempotency: one key per checkout attempt. The same key
+  // is reused while the cart is unchanged (so a retry after a network/timeout
+  // failure returns the original invoice instead of creating a duplicate), and
+  // is cleared on success or when the cart changes (a new sale gets a new key).
+  const idempotencyKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    idempotencyKeyRef.current = null;
+  }, [cart]);
 
   function handleBarcodeScan(value: string) {
     const trimmed = value.trim();
@@ -291,6 +300,9 @@ export function PosClient({ products: initialProducts, customers: initialCustome
     }
     setError(null);
     setSuccess(null);
+    // Reuse the current attempt's key if it exists (retry); otherwise start one.
+    if (!idempotencyKeyRef.current) idempotencyKeyRef.current = crypto.randomUUID();
+    const idempotencyKey = idempotencyKeyRef.current;
     const input: CheckoutInput = {
       cart: cart.map((l) => {
         const base = {
@@ -321,6 +333,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       amount_paid: paymentMethod === "customer_credit" ? 0 : tendered,
       payment_reference: paymentRef || null,
       note: note || null,
+      idempotency_key: idempotencyKey,
     };
 
     startTransition(async () => {
@@ -329,6 +342,8 @@ export function PosClient({ products: initialProducts, customers: initialCustome
         setError(res.error ?? "Checkout failed.");
         return;
       }
+      // Successful sale → next checkout must use a fresh key.
+      idempotencyKeyRef.current = null;
       // Decrement stock locally for immediate UI feedback before navigation.
       setProducts((prev) =>
         prev.map((p) => {

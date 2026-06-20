@@ -85,6 +85,7 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     p_payment_ref: parsed.data.payment_reference ?? null,
     p_note: parsed.data.note ?? null,
     p_allow_loss_override: allowLossOverride,
+    p_idempotency_key: parsed.data.idempotency_key ?? null,
   });
 
   if (error) {
