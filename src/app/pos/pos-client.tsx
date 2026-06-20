@@ -821,7 +821,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       </div>
 
       {cart.length > 0 && mobileTab === "products" && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-[#fff]/95 p-3 shadow-[0_-12px_28px_rgba(15,23,42,0.12)] backdrop-blur xl:hidden">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-slate-200 bg-[#fff]/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-12px_28px_rgba(15,23,42,0.12)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:bottom-0 xl:hidden">
           <button
             type="button"
             onClick={() => setMobileTab("cart")}
