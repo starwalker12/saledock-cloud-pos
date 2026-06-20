@@ -83,7 +83,7 @@ export default async function CustomersPage({
   return (
     <AppShell pageTitle="Customers">
       {/* Dynamic Stat Cards */}
-      <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <StatCard
           label="Total customers"
           value={formatNumber(totalCount)}

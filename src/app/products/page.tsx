@@ -79,7 +79,7 @@ export default async function ProductsPage({
 
   return (
     <AppShell pageTitle="Catalog">
-      <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <StatCard
           label="Active products"
           value={formatNumber(counts.productsActive)}

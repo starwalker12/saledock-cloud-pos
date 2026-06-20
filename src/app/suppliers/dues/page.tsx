@@ -48,7 +48,7 @@ export default async function SupplierDuesPage({
 
   return (
     <AppShell pageTitle="Supplier Dues">
-      <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <StatCard
           label="Total supplier dues"
           value={formatCurrency(totalOwed, currency)}
