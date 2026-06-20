@@ -1,6 +1,14 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { FINALIZED_INVOICE_STATUSES } from "./daily-closing";
+import {
+  addKarachiDays,
+  getKarachiDayRange,
+  getKarachiMonthEndDate,
+  getKarachiMonthStartDate,
+  getKarachiTodayDateString,
+  getKarachiWeekday,
+} from "@/lib/datetime";
 
 export type TopProduct = {
   productName: string;
@@ -22,22 +30,17 @@ export type DashboardSummary = {
 };
 
 function todayBounds(): { start: string; end: string } {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  const localDate = new Date(d.getTime() - tz).toISOString().slice(0, 10);
-  const start = new Date(`${localDate}T00:00:00`);
-  const end = new Date(`${localDate}T23:59:59.999`);
-  return { start: start.toISOString(), end: end.toISOString() };
+  // The shop's "today" is its Asia/Karachi calendar day (server-tz independent).
+  return getKarachiDayRange(getKarachiTodayDateString());
 }
 
 function last7DaysBounds(): { start: string; end: string } {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  const localDate = new Date(d.getTime() - tz).toISOString().slice(0, 10);
-  const start = new Date(`${localDate}T00:00:00`);
-  start.setDate(start.getDate() - 6);
-  const end = new Date(`${localDate}T23:59:59.999`);
-  return { start: start.toISOString(), end: end.toISOString() };
+  // Last 7 Karachi calendar days (today and the 6 days before it).
+  const today = getKarachiTodayDateString();
+  return {
+    start: getKarachiDayRange(addKarachiDays(today, -6)).start,
+    end: getKarachiDayRange(today).end,
+  };
 }
 
 export async function getDashboardSummary(
@@ -291,15 +294,12 @@ export async function getDashboardAnalytics(
   branchId: string | null,
 ): Promise<DashboardAnalytics> {
   const supabase = await createClient();
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).toISOString();
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
-  const repairsSince = new Date(now);
-  repairsSince.setDate(repairsSince.getDate() - 90);
-  repairsSince.setHours(0, 0, 0, 0);
-  const weekdaySince = new Date(now);
-  weekdaySince.setDate(weekdaySince.getDate() - 55); // ~8 weeks
-  weekdaySince.setHours(0, 0, 0, 0);
+  // All windows below are Asia/Karachi calendar boundaries (server-tz independent).
+  const today = getKarachiTodayDateString();
+  const monthStart = getKarachiDayRange(getKarachiMonthStartDate(today)).start;
+  const monthEnd = getKarachiDayRange(getKarachiMonthEndDate(today)).end;
+  const repairsSince = getKarachiDayRange(addKarachiDays(today, -90)).start;
+  const weekdaySince = getKarachiDayRange(addKarachiDays(today, -55)).start; // ~8 weeks
 
   // Finalized, non-void invoices this month → status breakdown + average order value.
   let invoicesQuery = supabase
@@ -333,7 +333,7 @@ export async function getDashboardAnalytics(
     .from("repairs")
     .select("status")
     .eq("organization_id", organizationId)
-    .gte("created_at", repairsSince.toISOString());
+    .gte("created_at", repairsSince);
   if (branchId) repairsQuery = repairsQuery.eq("branch_id", branchId);
 
   // Customer dues are an org-wide current snapshot (matches the existing
@@ -355,8 +355,8 @@ export async function getDashboardAnalytics(
   const salesByDayQuery = supabase.rpc("get_sales_by_day", {
     p_org_id: organizationId,
     p_branch_id: branchId ?? null,
-    p_start_date: weekdaySince.toISOString(),
-    p_end_date: now.toISOString(),
+    p_start_date: weekdaySince,
+    p_end_date: getKarachiDayRange(today).end,
   });
 
   const [invRes, payRes, expRes, repRes, custRes, prodRes, sbdRes] = await Promise.all([
@@ -409,7 +409,7 @@ export async function getDashboardAnalytics(
   const weekdayTotals = new Array(7).fill(0) as number[];
   for (const row of (sbdRes.data ?? []) as { date: string; net: number | null }[]) {
     if (!row.date) continue;
-    const jsDay = new Date(`${row.date}T00:00:00`).getDay(); // 0 = Sun
+    const jsDay = getKarachiWeekday(row.date); // 0 = Sun, server-tz independent
     const idx = (jsDay + 6) % 7; // 0 = Mon
     weekdayTotals[idx] += Number(row.net ?? 0);
   }

@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { addKarachiDays, getKarachiRangeIso } from "@/lib/datetime";
 
 export type InvoiceItemReportRow = {
   invoice_id: string;
@@ -126,10 +127,9 @@ export type LossPreventionReport = {
 };
 
 function dayBounds(startDate: string, endDate: string): { start: string; end: string } {
-  // Treat the local dates as calendar bounds and convert to ISO strings
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T23:59:59.999`);
-  return { start: start.toISOString(), end: end.toISOString() };
+  // Treat the selected dates as the shop's (Asia/Karachi) calendar days and
+  // convert to UTC ISO bounds, independent of the server timezone.
+  return getKarachiRangeIso(startDate, endDate);
 }
 
 export async function getReportsData(
@@ -599,14 +599,12 @@ export async function getReportsData(
   const closedDaysCount = dailyClosings.filter((c) => c.finalized_by !== null).length;
   const totalCashDifference = dailyClosings.reduce((sum, c) => sum + Number(c.cash_difference ?? 0), 0);
 
-  // Calculate unclosed days
+  // Calculate unclosed days. Iterate calendar dates as strings (Asia/Karachi),
+  // independent of the server timezone.
   const closedDatesSet = new Set(dailyClosings.filter((c) => c.finalized_by !== null).map((c) => c.closing_date));
-  const startDay = new Date(startDateStr);
-  const endDay = new Date(endDateStr);
   let openDaysCount = 0;
 
-  for (let d = new Date(startDay); d <= endDay; d.setDate(d.getDate() + 1)) {
-    const dayStr = d.toISOString().slice(0, 10);
+  for (let dayStr = startDateStr; dayStr <= endDateStr; dayStr = addKarachiDays(dayStr, 1)) {
     if (!closedDatesSet.has(dayStr)) {
       openDaysCount++;
     }

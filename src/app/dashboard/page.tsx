@@ -8,6 +8,15 @@ import { expenseCounts } from "@/lib/data/expenses";
 import { getClosing, getDayActivity, todayLocalDate } from "@/lib/data/daily-closing";
 import { getDashboardSummary, getDashboardAnalytics } from "@/lib/data/dashboard";
 import { getPotentialProfitInStock } from "@/lib/data/reports";
+import {
+  addKarachiDays,
+  getKarachiBusinessDate,
+  getKarachiDayStartIso,
+  getKarachiMonthEndDate,
+  getKarachiMonthStartDate,
+  getKarachiTodayDateString,
+  getKarachiWeekday,
+} from "@/lib/datetime";
 import { formatNumber } from "@/lib/formatters";
 import { getServerDict } from "@/lib/i18n/server";
 import { DashboardStatLayout, type DashboardLayoutLabels } from "./dashboard-stat-layout";
@@ -26,11 +35,9 @@ async function stockValueStats(organizationId: string) {
 
 async function weeklySales(organizationId: string, branchId: string | null) {
   const supabase = await createClient();
-  const today = new Date();
-  const dayAgo = new Date(today);
-  dayAgo.setDate(dayAgo.getDate() - 6);
-  dayAgo.setHours(0, 0, 0, 0);
-  const startStr = dayAgo.toISOString();
+  // Last 7 Asia/Karachi calendar days (server-tz independent).
+  const todayDate = getKarachiTodayDateString();
+  const startStr = getKarachiDayStartIso(addKarachiDays(todayDate, -6));
 
   let query = supabase
     .from("invoices")
@@ -49,20 +56,19 @@ async function weeklySales(organizationId: string, branchId: string | null) {
 
   const dayTotals = new Map<string, number>();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    dayTotals.set(d.toISOString().split("T")[0], 0);
+    dayTotals.set(addKarachiDays(todayDate, -i), 0);
   }
 
   for (const row of data) {
-    const dateStr = row.invoice_date?.split("T")[0];
+    // Attribute each sale to its Asia/Karachi business date, not the UTC date.
+    const dateStr = row.invoice_date ? getKarachiBusinessDate(new Date(row.invoice_date)) : undefined;
     if (dateStr && dayTotals.has(dateStr)) {
       dayTotals.set(dateStr, dayTotals.get(dateStr)! + Number(row.grand_total ?? 0));
     }
   }
 
   const labels = ["S", "M", "T", "W", "T", "F", "S"];
-  const dayOfWeek = today.getDay();
+  const dayOfWeek = getKarachiWeekday(todayDate);
   const orderedLabels = [...labels.slice(dayOfWeek + 1), ...labels.slice(0, dayOfWeek + 1)];
 
   return Array.from(dayTotals.entries()).map(([dateStr, total], i) => ({
@@ -74,10 +80,9 @@ async function weeklySales(organizationId: string, branchId: string | null) {
 
 async function monthlySales(organizationId: string, branchId: string | null) {
   const supabase = await createClient();
-  const today = new Date();
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  startOfMonth.setHours(0, 0, 0, 0);
-  const startStr = startOfMonth.toISOString();
+  // Current Asia/Karachi calendar month (server-tz independent).
+  const todayDate = getKarachiTodayDateString();
+  const startStr = getKarachiDayStartIso(getKarachiMonthStartDate(todayDate));
 
   let query = supabase
     .from("invoices")
@@ -96,12 +101,12 @@ async function monthlySales(organizationId: string, branchId: string | null) {
 
   const dayTotals = new Map<number, number>();
   for (const row of data) {
-    const d = new Date(row.invoice_date);
-    const day = d.getDate();
+    // Day-of-month in Asia/Karachi for each sale (not the server/UTC day).
+    const day = Number(getKarachiBusinessDate(new Date(row.invoice_date)).slice(8, 10));
     dayTotals.set(day, (dayTotals.get(day) ?? 0) + Number(row.grand_total ?? 0));
   }
 
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const daysInMonth = Number(getKarachiMonthEndDate(todayDate).slice(8, 10));
   const result: { day: number; total: number }[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
     result.push({ day: d, total: dayTotals.get(d) ?? 0 });

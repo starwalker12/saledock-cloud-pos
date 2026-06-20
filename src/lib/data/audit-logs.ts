@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { escapeLike } from "@/lib/security/sanitize";
+import { getKarachiDayEndIso, getKarachiDayStartIso } from "@/lib/datetime";
 
 export type AuditLogRow = {
   id: string;
@@ -59,10 +60,10 @@ export async function listAuditLogs(
   }
 
   if (filters?.startDate) {
-    query = query.gte("created_at", `${filters.startDate}T00:00:00Z`);
+    query = query.gte("created_at", getKarachiDayStartIso(filters.startDate));
   }
   if (filters?.endDate) {
-    query = query.lte("created_at", `${filters.endDate}T23:59:59Z`);
+    query = query.lte("created_at", getKarachiDayEndIso(filters.endDate));
   }
 
   if (filters?.before) {

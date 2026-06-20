@@ -14,6 +14,7 @@ import {
   type ExpenseFilters,
 } from "@/lib/data/expenses";
 import { EXPENSE_PAYMENT_METHODS } from "@/lib/validation/expenses";
+import { getKarachiDayEndIso, getKarachiDayStartIso } from "@/lib/datetime";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { ExpenseForm } from "./expense-form";
@@ -87,8 +88,8 @@ export default async function ExpensesPage({
     search: params.q,
     category: params.category,
     payment_method: params.payment_method,
-    from: params.from ? new Date(params.from).toISOString() : undefined,
-    to: params.to ? new Date(`${params.to}T23:59:59.999`).toISOString() : undefined,
+    from: params.from ? getKarachiDayStartIso(params.from) : undefined,
+    to: params.to ? getKarachiDayEndIso(params.to) : undefined,
     includeArchived: params.archived === "1",
   };
 

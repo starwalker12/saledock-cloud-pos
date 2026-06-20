@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { InvoiceStatus } from "@/lib/types";
+import { getKarachiDayRange, getKarachiTodayDateString } from "@/lib/datetime";
 
 /** Invoice statuses that represent real completed/finalized sales. */
 export const FINALIZED_INVOICE_STATUSES: InvoiceStatus[] = ["paid", "partial", "unpaid"];
@@ -81,10 +82,9 @@ export type DailyClosingRow = {
 };
 
 function dayBounds(date: string): { start: string; end: string } {
-  // Treat the date as the local calendar day; convert to UTC ISO bounds.
-  const start = new Date(`${date}T00:00:00`);
-  const end = new Date(`${date}T23:59:59.999`);
-  return { start: start.toISOString(), end: end.toISOString() };
+  // Treat the date as the shop's (Asia/Karachi) calendar day; convert to UTC
+  // ISO bounds so it is correct regardless of the server timezone.
+  return getKarachiDayRange(date);
 }
 
 export function emptyMethodTotals(): MethodTotals {
@@ -355,7 +355,6 @@ export async function listRecentClosings(
 }
 
 export function todayLocalDate(): string {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+  // The shop's "today" is its Asia/Karachi calendar day, not the server's.
+  return getKarachiTodayDateString();
 }
