@@ -12,7 +12,8 @@
 --   (a) a nullable idempotency-key column on invoices + a partial unique index,
 --   (b) an early return of the original invoice when the same key is reused,
 --   (c) the invoice row stores the key,
---   (d) a unique_violation backstop that returns the original on a concurrent race.
+--   (d) a unique_violation backstop that returns the original on a concurrent race,
+--   (e) an idempotent_replay result flag so the app skips duplicate completion audits.
 --
 -- Concurrency: pos_checkout already serializes per organization via
 -- `perform 1 from organizations ... for update`. After that lock, a concurrent
@@ -22,7 +23,10 @@
 --
 -- Backward/deploy safe: p_idempotency_key defaults to null. A null key skips the
 -- guard entirely (identical to today's behavior), so the old client (9 args)
--- keeps working against the new function while the app deploy rolls out.
+-- keeps working against the new function while the app deploy rolls out. The
+-- additional result field is ignored by older clients that only read invoice_id
+-- and invoice_no. The pre-existing 8-arg overload remains a documented legacy,
+-- non-idempotent path and should be reviewed for removal in a separate change.
 
 -- 1. Idempotency-key column (nullable; null = no idempotency / non-POS / legacy).
 alter table public.invoices
@@ -55,7 +59,7 @@ create function public.pos_checkout(
   p_allow_loss_override boolean default false,
   p_idempotency_key text default null
 )
-returns table(invoice_id uuid, invoice_no text)
+returns table(invoice_id uuid, invoice_no text, idempotent_replay boolean)
 language plpgsql
 security invoker
 set search_path = public
@@ -130,7 +134,7 @@ begin
      where i.organization_id = v_org_id
        and i.checkout_idempotency_key = v_idem_key;
     if found then
-      return query select v_existing_id, v_existing_no;
+      return query select v_existing_id, v_existing_no, true;
       return;
     end if;
   end if;
@@ -256,7 +260,7 @@ begin
        where i.organization_id = v_org_id
          and i.checkout_idempotency_key = v_idem_key;
       if found then
-        return query select v_existing_id, v_existing_no;
+        return query select v_existing_id, v_existing_no, true;
         return;
       end if;
     end if;
@@ -435,11 +439,15 @@ begin
     );
   end if;
 
-  return query select v_invoice_id, v_invoice_no;
+  return query select v_invoice_id, v_invoice_no, false;
 end;
 $$;
 
--- 4. Preserve the hardened grant posture (matches migration 0012_rpc_execute_hardening).
+-- 4. Intentionally restore the hardened grant posture from migration
+--    0012_rpc_execute_hardening. Production's active 9-arg overload currently
+--    has anon EXECUTE even though auth.uid() rejects anonymous calls; replacing
+--    it is the opportunity to remove that unnecessary grant. This is deliberate
+--    permission hardening, not a checkout behavior change.
 revoke execute on function public.pos_checkout(
   uuid, uuid, jsonb, numeric, public.payment_method, numeric, text, text, boolean, text
 ) from public;

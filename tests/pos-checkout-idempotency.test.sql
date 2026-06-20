@@ -8,8 +8,9 @@
 --   PART B: a documented manual test for the full pos_checkout RPC, to run
 --           against a DISPOSABLE / staging database (it creates real rows).
 --
--- Run PART A with:  supabase db execute < tests/pos-checkout-idempotency.test.sql
--- or paste it into the Supabase SQL editor.
+-- Run PART A by pasting it into the Supabase SQL editor, with psql against a
+-- disposable database, or through the approved Supabase MCP SQL query path.
+-- Supabase CLI 2.101.0 does not provide a `supabase db execute` command.
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- PART A — Proof that the partial unique index prevents two invoices sharing
@@ -84,7 +85,7 @@ select 'PART A PASSED: (organization_id, checkout_idempotency_key) is unique whe
 --    select * from pos_checkout(null, null,
 --      jsonb_build_array(jsonb_build_object('product_id', :prod, 'quantity', 1, 'unit_price', 100)),
 --      0, 'cash', 100, null, null, false, :key1);
---    -- note the returned invoice_id / invoice_no.
+--    -- note the returned invoice_id / invoice_no; idempotent_replay = false.
 --    select count(*) from invoices  where checkout_idempotency_key = :key1;  -- expect 1
 --    select stock_quantity from products where id = :prod;                   -- note value
 --
@@ -92,7 +93,8 @@ select 'PART A PASSED: (organization_id, checkout_idempotency_key) is unique whe
 --    select * from pos_checkout(null, null,
 --      jsonb_build_array(jsonb_build_object('product_id', :prod, 'quantity', 1, 'unit_price', 100)),
 --      0, 'cash', 100, null, null, false, :key1);
---    -- expect the SAME invoice_id / invoice_no as step 1.
+--    -- expect the SAME invoice_id / invoice_no as step 1 and
+--    -- idempotent_replay = true.
 --    select count(*) from invoices  where checkout_idempotency_key = :key1;  -- expect 1 (no 2nd invoice)
 --    select count(*) from payments  where invoice_id = '<invoice from step 1>';  -- expect 1 (no 2nd payment)
 --    select stock_quantity from products where id = :prod;                   -- expect UNCHANGED vs step 1
@@ -106,4 +108,15 @@ select 'PART A PASSED: (organization_id, checkout_idempotency_key) is unique whe
 -- 4) Failed-before-invoice retry is allowed: call with an empty cart and :key1b
 --    (a brand-new key) → raises 'Cart is empty', NO invoice stored for that key;
 --    retrying with the same :key1b and a valid cart then succeeds (creates one).
+--
+-- 5) Invoice-number conflicts are not swallowed: in a disposable transaction,
+--    force an unrelated (organization_id, invoice_no) unique conflict while no
+--    invoice exists for the supplied idempotency key. Expect unique_violation;
+--    the handler must re-raise because its same-key lookup finds no invoice.
+--
+-- 6) Legacy compatibility: call the 10-arg function with only its original nine
+--    positional arguments. The default null key must preserve the old checkout
+--    behavior and return invoice_id, invoice_no, idempotent_replay = false.
+--    Also inventory the pre-existing 8-arg overload: it remains callable by
+--    authenticated clients but is non-idempotent and is not used by this app.
 -- ───────────────────────────────────────────────────────────────────────────

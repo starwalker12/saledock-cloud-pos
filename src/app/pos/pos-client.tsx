@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition, useRef } from "react";
+import { useMemo, useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Search, Trash2, UserPlus2 } from "lucide-react";
@@ -68,6 +68,44 @@ type CartLine = {
   service?: ServiceFields;
 };
 
+type CheckoutPayload = Omit<CheckoutInput, "idempotency_key">;
+type CheckoutAttempt = { key: string; fingerprint: string };
+
+function normalizedOptionalText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function checkoutPayloadFingerprint(payload: CheckoutPayload): string {
+  const normalizedCart = payload.cart
+    .map((item) => ({
+      product_id: item.product_id,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      discount: Number(item.discount ?? 0),
+      service_provider: normalizedOptionalText(item.service_provider),
+      service_direction: normalizedOptionalText(item.service_direction),
+      service_account_number: normalizedOptionalText(item.service_account_number),
+      service_receiver_account: normalizedOptionalText(item.service_receiver_account),
+      service_reference_no: normalizedOptionalText(item.service_reference_no),
+      service_transaction_amount: item.service_transaction_amount ?? null,
+      service_commission: item.service_commission ?? null,
+      service_total_charged: item.service_total_charged ?? null,
+      service_note: normalizedOptionalText(item.service_note),
+    }))
+    .sort((a, b) => a.product_id.localeCompare(b.product_id));
+
+  return JSON.stringify({
+    cart: normalizedCart,
+    customer_id: payload.customer_id ?? null,
+    discount_total: Number(payload.discount_total),
+    payment_method: payload.payment_method,
+    amount_paid: Number(payload.amount_paid),
+    payment_reference: normalizedOptionalText(payload.payment_reference),
+    note: normalizedOptionalText(payload.note),
+  });
+}
+
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cash: "Cash",
   card: "Card",
@@ -102,14 +140,10 @@ export function PosClient({ products: initialProducts, customers: initialCustome
   const [pending, startTransition] = useTransition();
   const [scanResult, setScanResult] = useState<{ barcode: string } | null>(null);
 
-  // Server-side checkout idempotency: one key per checkout attempt. The same key
-  // is reused while the cart is unchanged (so a retry after a network/timeout
-  // failure returns the original invoice instead of creating a duplicate), and
-  // is cleared on success or when the cart changes (a new sale gets a new key).
-  const idempotencyKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    idempotencyKeyRef.current = null;
-  }, [cart]);
+  // The key is reused only when the complete normalized checkout payload is
+  // identical. Any cart/customer/discount/payment/reference/note change starts
+  // a new attempt, while a true retry after a timeout keeps the original key.
+  const checkoutAttemptRef = useRef<CheckoutAttempt | null>(null);
 
   function handleBarcodeScan(value: string) {
     const trimmed = value.trim();
@@ -300,10 +334,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
     }
     setError(null);
     setSuccess(null);
-    // Reuse the current attempt's key if it exists (retry); otherwise start one.
-    if (!idempotencyKeyRef.current) idempotencyKeyRef.current = crypto.randomUUID();
-    const idempotencyKey = idempotencyKeyRef.current;
-    const input: CheckoutInput = {
+    const payload: CheckoutPayload = {
       cart: cart.map((l) => {
         const base = {
           product_id: l.product.id,
@@ -333,7 +364,15 @@ export function PosClient({ products: initialProducts, customers: initialCustome
       amount_paid: paymentMethod === "customer_credit" ? 0 : tendered,
       payment_reference: paymentRef || null,
       note: note || null,
-      idempotency_key: idempotencyKey,
+    };
+
+    const fingerprint = checkoutPayloadFingerprint(payload);
+    if (!checkoutAttemptRef.current || checkoutAttemptRef.current.fingerprint !== fingerprint) {
+      checkoutAttemptRef.current = { key: crypto.randomUUID(), fingerprint };
+    }
+    const input: CheckoutInput = {
+      ...payload,
+      idempotency_key: checkoutAttemptRef.current.key,
     };
 
     startTransition(async () => {
@@ -343,7 +382,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
         return;
       }
       // Successful sale → next checkout must use a fresh key.
-      idempotencyKeyRef.current = null;
+      checkoutAttemptRef.current = null;
       // Decrement stock locally for immediate UI feedback before navigation.
       setProducts((prev) =>
         prev.map((p) => {
