@@ -80,7 +80,6 @@ export async function updatePrivacyRequestStatusAction(
 
     return { error: null, success: "Request updated successfully." };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to update request.";
-    return { error: msg, success: null };
+    return { error: getSafeActionError(err, "We couldn't update this request. Please try again."), success: null };
   }
 }
