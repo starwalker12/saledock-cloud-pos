@@ -93,7 +93,7 @@ export async function startImportJobAction(
 
     if (profile.role !== "owner" && profile.role !== "admin") {
       logAudit({ module: "settings", action: "permission.denied", details: `Backup import start denied for role ${profile.role}` });
-      return { success: false, error: "Only Owners and Admins can export data." };
+      return { success: false, error: "Only Owners and Admins can import data." };
     }
 
     const orgId = profile.organization_id;

@@ -107,6 +107,7 @@ export default async function SettingsPage({
               backupGuardLabels={dict.backupGuard as Record<string, string>}
               hasPassword={linkedProviders.hasPassword}
               shopName={organization?.name || "SaleDock Cloud POS"}
+              isOwner={profile.role === "owner"}
             />
           ) : (
             <AccessDeniedView />
