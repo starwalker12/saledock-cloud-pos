@@ -2,7 +2,7 @@
 
 **Updated:** 2026-06-21
 
-**Baseline reviewed:** `a16d554` (`main`, through PR #268)
+**Baseline reviewed:** `1384f0d` (`main`, through PR #270)
 
 **Scope:** Source-level status of money, stock, permissions, privileged server access,
 backup/import safety, destructive actions, error handling, and deployment checks.
@@ -31,15 +31,18 @@ recorded.
 | Legacy 8-argument `pos_checkout` overload | Complete | PR #266, commit `090fac0` | The unused non-idempotent checkout path was removed. |
 | Factory-reset role alignment | Complete | PR #267, commit `afe05f7` | App action and database RPC both require the shop Owner. |
 | Destructive-action UI polish | Complete | PR #268, commit `a16d554` | Non-owners no longer see reset controls; import/reset wording is clearer. |
+| Privileged server-action safeguards | Complete | PR #269, commit `4d7556c` | Permission targets are verified inside the current organization, Owner/Admin overrides are blocked, and the remaining Admin API error is masked. |
+| Backup import safety feedback | Complete | PR #270, commit `1384f0d` | Job status updates repeat the Owner/Admin guard, invalid ZIPs are rejected before parsing, and row warnings no longer expose raw DB text. |
 
-## Audit follow-ups opened in this pass
+## Audit follow-ups completed in this pass
 
-These are draft PRs and are not live:
+Both follow-ups were independently reviewed, squash-merged, and deployed to
+production on 2026-06-21:
 
-| Draft | Scope | Why it remains review-first |
+| PR | Scope | Production result |
 |---|---|---|
-| PR #269 | Privileged server-action safeguards | Adds an explicit same-organization staff target check and masks one remaining Supabase Admin error. It changes no auth flow or permission model. |
-| PR #270 | Backup import safety feedback | Adds the missing role guard on import-job status updates, enforces the documented ZIP limit, and removes raw DB text from row warnings. It changes no import mapping or business formula. |
+| PR #269 | Privileged server-action safeguards | Live in `4d7556c`; no auth-flow or permission-model change. |
+| PR #270 | Backup import safety feedback | Live in `1384f0d`; no import mapping or business-formula change. |
 
 ## Current risk register
 
@@ -47,8 +50,8 @@ These are draft PRs and are not live:
 |---|---|---|---|
 | R1 | Resolved in code | Timezone/date grouping | Manually verify an after-midnight PKT transaction in dashboard, reports, and daily closing. |
 | R2 | Resolved in code/DB | POS duplicate checkout | Run a controlled normal checkout and double-submit/retry test; verify one invoice, payment, stock movement, and audit event. |
-| R3 | Resolved for audited core paths | Raw database errors | Review and merge drafts #269 and #270; continue using `getSafeActionError` for new actions. |
-| R4 | Audited; minor draft pending | Service-role Supabase usage | Review PR #269. Longer-term, reduce broad `auth.admin.listUsers()` reads when a narrower lookup is practical. |
+| R3 | Resolved for audited paths | Raw database errors | Continue using `getSafeActionError` for new actions and keep raw detail in server logs only. |
+| R4 | Audited; minor hardening live | Service-role Supabase usage | Longer-term, reduce broad `auth.admin.listUsers()` reads when a narrower lookup is practical. |
 | R5 | Open | Money/stock RPC proof | Add deterministic integration tests described in `docs/money-stock-test-coverage.md`. |
 | R6 | Code safeguards complete; operational check pending | Backup/reset recovery | Confirm backup retention and manually check Owner/Admin permission-denied copy. Never test reset against production data. |
 | R7 | Ongoing process rule | Auth/staff permissions | Keep every mutation guarded in the server action, even when the UI hides it. |
@@ -68,7 +71,7 @@ The detailed 2026-06-21 audit is in
   scoped; factory reset is Owner-only.
 - Backup import is additive and has no automatic rollback. It does not truncate,
   wipe, or delete existing business records.
-- Drafts #269 and #270 contain the small hardening gaps found by the audit.
+- PRs #269 and #270 closed the small hardening gaps found by the audit.
 
 ## Automated test status
 
@@ -110,8 +113,8 @@ customer, supplier, or inventory records for destructive or mutation tests.
       roles do not. Do not execute reset.
 - [ ] Import permission-denied copy: a lower role receives a friendly refusal;
       do not start a real import.
-- [ ] Backup import preview: reject non-ZIP, empty, and over-50-MB files after
-      PR #270 is approved; confirm no data is written during preview.
+- [ ] Backup import preview: verify non-ZIP, empty, and over-50-MB files are
+      rejected; confirm no data is written during preview.
 
 ## Rollback guidance
 
@@ -121,8 +124,8 @@ use `git revert <merge_commit_sha>`. Database rollback is separate from app-code
 rollback and must be reviewed against live rows before dropping a column, index,
 or function signature.
 
-For draft PRs #269 and #270, closing the draft or reverting its future merge
-commit is sufficient; neither draft adds a database migration.
+PRs #269 and #270 were squash merges and can be reverted independently with
+`git revert 4d7556c` or `git revert 1384f0d`. Neither added a database migration.
 
 ## Safety statement
 

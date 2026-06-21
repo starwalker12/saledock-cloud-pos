@@ -42,7 +42,7 @@ For a deep-dive into table mapping rules and dry-run validation mechanics, refer
 
 The system features an Owner-only **Factory Reset** danger zone under the Backup tab:
 - **Safety Snapshot Enforced**: Requires generating and downloading a pre-reset backup ZIP before confirmation triggers.
-- **Wasm/Server Integrity**: Wipes active business data cleanly across all 20 operational tables in cascading relational order while keeping tenant profiles and logins active.
+- **Wasm/Server Integrity**: Wipes the RPC's current organization-scoped operational datasets in foreign-key-safe order while keeping tenant profiles and logins active.
 - **Bulletproof Protections**: Re-authenticates user password against Supabase Auth, matches exact organization name, and requires verification phrase `RESTORE FACTORY DEFAULTS`.
 - **Full Traceability**: Details deleted count statistics in the final report and leaves a permanent `settings.factory_reset_completed` event in the system audit logs.
 

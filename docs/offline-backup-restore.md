@@ -37,7 +37,7 @@ graph TD
 Located under **Settings → Backup & Restore**:
 
 1. **Upload**: Drop-zone accept. Checks for `manifest.json`, online JSON payloads, and nested `data/gadgetzonepos.db` files.
-2. **Preview**: Scans metadata and showcases absolute row counts across all 17 supported tables.
+2. **Preview**: Scans metadata and shows row counts for every supported desktop table discovered in the backup.
 3. **Configuration**: Option to apply safe brand details (shop support phones, repair terms).
 4. **Dry Run**: Evaluates structural constraints, orphaned lots, invalid prices, and counts warnings before making database writes.
 5. **Confirmation**: Strict warning checklist + typing `IMPORT DESKTOP BACKUP` and checking risk acknowledgements.
