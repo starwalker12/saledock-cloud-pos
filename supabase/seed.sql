@@ -3,7 +3,7 @@ values (
   '00000000-0000-4000-8000-000000000001',
   'Gadget Zone',
   'Gadget Zone',
-  '+92 310 4666026',
+  '+923104666026',
   'demo@gadgetzone.example',
   'Demo Main Market Branch'
 )
@@ -14,7 +14,7 @@ values (
   '00000000-0000-4000-8000-000000000101',
   '00000000-0000-4000-8000-000000000001',
   'Main Branch',
-  '+92 310 4666026',
+  '+923104666026',
   'Demo Main Market Branch'
 )
 on conflict (id) do nothing;
@@ -33,7 +33,7 @@ values (
   '00000000-0000-4000-8000-000000000001',
   'Demo Wholesale Supplier',
   'Demo Mobile Accessories',
-  '+92 300 0000000'
+  '+923000000000'
 )
 on conflict (id) do nothing;
 
@@ -65,7 +65,7 @@ values (
   '00000000-0000-4000-8000-000000000001',
   '00000000-0000-4000-8000-000000000101',
   'Demo Walk-in Customer',
-  '+92 300 1111111',
+  '+923001111111',
   'Safe demo customer. Replace with real customers only in production.'
 )
 on conflict (id) do nothing;
@@ -86,7 +86,7 @@ values (
   '00000000-0000-4000-8000-000000000101',
   'Gadget Zone',
   'Mobile & Accessories Hub',
-  '+92 310 4666026',
+  '+923104666026',
   'demo@gadgetzone.example',
   'Demo Main Market Branch',
   'Thank you for shopping at Gadget Zone.',
