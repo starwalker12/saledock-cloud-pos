@@ -22,18 +22,20 @@ export function ProductThumbnail({
 
   return (
     <div
-      className={`relative shrink-0 overflow-hidden rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 ${className}`}
+      className={`relative shrink-0 overflow-hidden rounded-xl border border-slate-200/60 bg-slate-100 text-slate-500 dark:border-slate-700/50 dark:bg-slate-800 dark:text-slate-400 ${className}`}
     >
       {showImage ? (
-        <Image
-          src={imageUrl!}
-          alt=""
-          fill
-          sizes={sizes}
-          className="object-cover"
-          loading="lazy"
-          onError={() => setFailed(true)}
-        />
+        <div className="absolute inset-1">
+          <Image
+            src={imageUrl!}
+            alt=""
+            fill
+            sizes={sizes}
+            className="object-contain"
+            loading="lazy"
+            onError={() => setFailed(true)}
+          />
+        </div>
       ) : (
         <div
           className="flex h-full items-center justify-center"

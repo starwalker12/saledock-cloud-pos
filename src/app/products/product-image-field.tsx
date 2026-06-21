@@ -68,16 +68,18 @@ export function ProductImageField({
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative size-28 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+      <div className="relative size-28 shrink-0 overflow-hidden rounded-xl border border-slate-200/60 bg-slate-100 dark:border-slate-700/50 dark:bg-slate-800">
         {previewUrl ? (
-          <Image
-            src={previewUrl}
-            alt="Product image preview"
-            fill
-            sizes="112px"
-            className="object-cover"
-            unoptimized={previewUrl.startsWith("blob:")}
-          />
+          <div className="absolute inset-1">
+            <Image
+              src={previewUrl}
+              alt="Product image preview"
+              fill
+              sizes="112px"
+              className="object-contain"
+              unoptimized={previewUrl.startsWith("blob:")}
+            />
+          </div>
         ) : (
           <div className="flex h-full items-center justify-center text-slate-400 dark:text-slate-500">
             <ImageIcon className="size-8" aria-hidden="true" />

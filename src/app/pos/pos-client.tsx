@@ -550,7 +550,7 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                   <ProductThumbnail
                     imageUrl={p.image_url}
                     productName={p.name}
-                    className="mt-2 h-20 w-full"
+                    className="mt-2 aspect-square w-full"
                     sizes="(max-width: 379px) 100vw, (max-width: 639px) 50vw, (max-width: 1023px) 33vw, 25vw"
                   />
                   <p className="mt-2 line-clamp-2 break-words text-sm font-bold text-slate-900 dark:text-slate-100">{p.name}</p>
