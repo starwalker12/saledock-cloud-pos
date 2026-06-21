@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 const schema = z.object({
   organizationName: z.string().min(2, "Organization name is required."),
@@ -57,7 +58,7 @@ export async function completeSetupAction(
   const { count: orgCount, error: countError } = await admin
     .from("organizations")
     .select("id", { count: "exact", head: true });
-  if (countError) return { error: countError.message };
+  if (countError) return { error: getSafeActionError(countError, "We couldn't complete setup. Please try again.") };
   if ((orgCount ?? 0) > 0) {
     return {
       error:
@@ -70,7 +71,7 @@ export async function completeSetupAction(
     .insert({ name: parsed.data.organizationName })
     .select("id")
     .single();
-  if (orgErr || !org) return { error: orgErr?.message ?? "Failed to create organization." };
+  if (orgErr || !org) return { error: getSafeActionError(orgErr, "We couldn't create your organization. Please try again.") };
 
   const { data: branch, error: branchErr } = await admin
     .from("branches")
@@ -79,7 +80,7 @@ export async function completeSetupAction(
     .single();
   if (branchErr || !branch) {
     await admin.from("organizations").delete().eq("id", org.id);
-    return { error: branchErr?.message ?? "Failed to create branch." };
+    return { error: getSafeActionError(branchErr, "We couldn't create your branch. Please try again.") };
   }
 
   const { error: profileErr } = await admin.from("profiles").insert({
@@ -93,7 +94,7 @@ export async function completeSetupAction(
   if (profileErr) {
     await admin.from("branches").delete().eq("id", branch.id);
     await admin.from("organizations").delete().eq("id", org.id);
-    return { error: profileErr.message };
+    return { error: getSafeActionError(profileErr, "We couldn't finish setting up your profile. Please try again.") };
   }
 
   // Seed minimal app_settings for the new org/branch.

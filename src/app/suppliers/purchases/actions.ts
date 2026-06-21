@@ -12,6 +12,7 @@ import {
   type RecordPaymentInput,
 } from "@/lib/validation/supplier-purchases";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type CreatePurchaseResult =
   | { ok: true; purchase_id: string; purchase_no: string }
@@ -59,7 +60,7 @@ export async function createSupplierPurchaseAction(
     p_payment_ref: data.payment_ref ?? null,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: getSafeActionError(error, "We couldn't save this purchase. Please try again.") };
 
   const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
   if (!row?.purchase_id) return { ok: false, error: "Purchase RPC returned no row." };
@@ -113,7 +114,7 @@ export async function recordSupplierPaymentAction(
     p_note: data.note ?? null,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: getSafeActionError(error, "We couldn't record this payment. Please try again.") };
 
   const paymentId = typeof rpcData === "string" ? rpcData : null;
   if (!paymentId) return { ok: false, error: "Payment RPC returned no id." };
@@ -176,7 +177,7 @@ export async function recordSupplierWriteOffAction(
     p_reason: reason.trim(),
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: getSafeActionError(error, "We couldn't record this write-off. Please try again.") };
 
   logAudit({
     module: "purchases",

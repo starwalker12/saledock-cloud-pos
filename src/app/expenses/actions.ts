@@ -7,6 +7,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canManageExpenses } from "@/lib/permissions";
 import { expenseSchema } from "@/lib/validation/expenses";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -59,12 +60,12 @@ export async function saveExpenseAction(
       .update(payload)
       .eq("id", id)
       .eq("organization_id", w.ctx.profile!.organization_id!);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save this expense. Please try again."));
   } else {
     const { error } = await supabase
       .from("expenses")
       .insert({ ...payload, created_by: w.ctx.profile!.id, status: "active" });
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save this expense. Please try again."));
   }
 
   logAudit({

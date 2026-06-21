@@ -11,6 +11,7 @@ import {
 } from "@/lib/permissions";
 import { repairSchema, type RepairStatus } from "@/lib/validation/repairs";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ActionState = { error: string | null; success: string | null; id?: string };
 const ok = (msg: string, id?: string): ActionState => ({ error: null, success: msg, id });
@@ -74,7 +75,7 @@ export async function saveRepairAction(
       .single();
 
     if (custErr) {
-      return err(`Failed to create customer: ${custErr.message}`);
+      return err(getSafeActionError(custErr, "We couldn't create the customer for this repair. Please try again."));
     }
     finalCustomerId = newCust.id;
   }
@@ -112,7 +113,7 @@ export async function saveRepairAction(
       .eq("id", id)
       .eq("organization_id", orgId);
 
-    if (updateErr) return err(updateErr.message);
+    if (updateErr) return err(getSafeActionError(updateErr, "We couldn't save this repair. Please try again."));
   } else {
     // Intake Mode: Unique sequence generation RJ-XXXXXX with retry on conflict
     let attempts = 0;
@@ -127,7 +128,7 @@ export async function saveRepairAction(
         .select("job_no")
         .eq("organization_id", orgId);
 
-      if (listErr) return err(listErr.message);
+      if (listErr) return err(getSafeActionError(listErr, "We couldn't save this repair. Please try again."));
 
       const maxSeq = (currentRepairs ?? [])
         .map((r) => {
@@ -167,7 +168,7 @@ export async function saveRepairAction(
         // Unique index violation (race condition on job_no). Loop will retry.
         continue;
       } else {
-        return err(insertErr?.message ?? "Failed to save repair job.");
+        return err(getSafeActionError(insertErr, "We couldn't save this repair job. Please try again."));
       }
     }
 
@@ -240,7 +241,7 @@ export async function updateRepairStatusAction(
     .eq("id", id)
     .eq("organization_id", orgId);
 
-  if (updateErr) return err(updateErr.message);
+  if (updateErr) return err(getSafeActionError(updateErr, "We couldn't update the repair status. Please try again."));
 
   // Insert status history entry
   const { error: histErr } = await supabase.from("repair_status_history").insert({
@@ -252,7 +253,7 @@ export async function updateRepairStatusAction(
     changed_by: profile.id,
   });
 
-  if (histErr) return err(`Status updated, but failed to log history: ${histErr.message}`);
+  if (histErr) return err("The status was updated, but we couldn't save the history note.");
 
   revalidatePath("/repairs");
   revalidatePath(`/repairs/${id}`);
@@ -299,7 +300,7 @@ export async function saveDiagnosisAndNotesAction(
     .eq("id", id)
     .eq("organization_id", orgId);
 
-  if (error) return err(error.message);
+  if (error) return err(getSafeActionError(error, "We couldn't save this repair. Please try again."));
 
   revalidatePath(`/repairs/${id}`);
   return ok("Repair job details updated.");

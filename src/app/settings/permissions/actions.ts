@@ -6,6 +6,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canManageUsers } from "@/lib/permissions";
 import { PERMISSIONS } from "@/lib/staff-permissions-shared";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type PermissionActionState = {
   error: string | null;
@@ -73,7 +74,7 @@ export async function updateStaffPermissionsAction(
       .eq("id", existing.id);
     if (updateErr) {
       console.error("[permissions] Update failed:", updateErr);
-      return { error: updateErr.message, success: null };
+      return { error: getSafeActionError(updateErr, "We couldn't update permissions. Please try again."), success: null };
     }
   } else {
     const { error: insertErr } = await admin
@@ -81,7 +82,7 @@ export async function updateStaffPermissionsAction(
       .insert(payload);
     if (insertErr) {
       console.error("[permissions] Insert failed:", insertErr);
-      return { error: insertErr.message, success: null };
+      return { error: getSafeActionError(insertErr, "We couldn't update permissions. Please try again."), success: null };
     }
   }
 

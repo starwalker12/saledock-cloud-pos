@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import { revalidatePath } from "next/cache";
 import { getLinkedProviders } from "@/lib/auth/identities";
 
@@ -134,8 +135,7 @@ export async function startImportJobAction(
     return { success: true, jobId: data.id, counts: countsObj };
   } catch (err: unknown) {
     console.error("Failed to start import job:", err);
-    const msg = err instanceof Error ? err.message : "Unknown error.";
-    return { success: false, error: msg };
+    return { success: false, error: getSafeActionError(err, "We couldn't start the import. Please try again.") };
   }
 }
 
@@ -2184,8 +2184,7 @@ export async function importTableChunkAction(
     return { success: true, inserted, skipped, skippedOrphan, failed, warnings };
   } catch (err: unknown) {
     console.error(`Error importing chunk for ${tableName}:`, err);
-    const msg = err instanceof Error ? err.message : "Unknown error.";
-    return { success: false, inserted, skipped, skippedOrphan, failed: failed + rows.length, warnings, error: msg };
+    return { success: false, inserted, skipped, skippedOrphan, failed: failed + rows.length, warnings, error: getSafeActionError(err, "Some records couldn't be imported. Please try again.") };
   }
 }
 
@@ -2318,8 +2317,7 @@ export async function importOnlineTableChunkAction(
     return { success: true, inserted, skipped, failed, warnings };
   } catch (err: unknown) {
     console.error(`Error importing online chunk for ${tableName}:`, err);
-    const msg = err instanceof Error ? err.message : "Unknown error.";
-    return { success: false, inserted: 0, skipped: 0, failed: failed + rows.length, warnings, error: msg };
+    return { success: false, inserted: 0, skipped: 0, failed: failed + rows.length, warnings, error: getSafeActionError(err, "Some records couldn't be imported. Please try again.") };
   }
 }
 
@@ -2459,7 +2457,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
   } catch (error) {
     const err = error as Error;
     console.error("Backup export failed:", err);
-    return { success: false, error: err.message || "An unexpected error occurred during export data preparation." };
+    return { success: false, error: getSafeActionError(error, "We couldn't prepare your backup export. Please try again.") };
   }
 }
 
@@ -2554,8 +2552,7 @@ export async function previewFactoryResetAction(): Promise<{ success: boolean; c
     return { success: true, counts };
   } catch (err: unknown) {
     console.error("Preview factory reset failed:", err);
-    const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
-    return { success: false, error: msg };
+    return { success: false, error: getSafeActionError(err, "We couldn't preview the reset. Please try again.") };
   }
 }
 
@@ -2652,7 +2649,6 @@ export async function restoreFactoryDefaultsAction(
     return { success: true, counts: resetResult as Record<string, number> };
   } catch (err: unknown) {
     console.error("Factory reset failed:", err);
-    const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
-    return { success: false, error: msg };
+    return { success: false, error: getSafeActionError(err, "We couldn't complete the reset. Please try again.") };
   }
 }

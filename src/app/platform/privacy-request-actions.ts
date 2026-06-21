@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePlatformAdmin } from "@/lib/platform/admin";
 import { sanitizePlainText } from "@/lib/security/sanitize";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import { z } from "zod";
 
 const VALID_STATUSES = ["pending", "in_review", "completed", "rejected", "cancelled"] as const;
@@ -58,7 +59,7 @@ export async function updatePrivacyRequestStatusAction(
       .eq("id", requestId);
 
     if (error) {
-      return { error: error.message, success: null };
+      return { error: getSafeActionError(error, "We couldn't update this request. Please try again."), success: null };
     }
 
     await supabase
@@ -79,7 +80,6 @@ export async function updatePrivacyRequestStatusAction(
 
     return { error: null, success: "Request updated successfully." };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to update request.";
-    return { error: msg, success: null };
+    return { error: getSafeActionError(err, "We couldn't update this request. Please try again."), success: null };
   }
 }

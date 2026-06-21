@@ -13,6 +13,7 @@ import {
   type CreditPaymentMethod,
 } from "@/lib/validation/customers";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -87,10 +88,10 @@ export async function saveCustomerAction(
       .update(payload)
       .eq("id", id)
       .eq("organization_id", w.ctx.profile!.organization_id!);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save this customer. Please try again."));
   } else {
     const { error } = await supabase.from("customers").insert(payload);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save this customer. Please try again."));
   }
 
   revalidatePath("/customers");
@@ -206,7 +207,7 @@ export async function recordCreditPaymentAction(
   });
 
   if (error) {
-    return err(error.message);
+    return err(getSafeActionError(error, "We couldn't record this payment. Please try again."));
   }
 
   logAudit({
@@ -262,7 +263,7 @@ export async function recordWriteOffAction(
   });
 
   if (error) {
-    return err(error.message);
+    return err(getSafeActionError(error, "We couldn't record this write-off. Please try again."));
   }
 
   logAudit({

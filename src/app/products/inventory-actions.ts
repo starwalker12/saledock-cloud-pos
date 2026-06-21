@@ -9,6 +9,7 @@ import { canManageStockNew } from "@/lib/staff-permissions";
 import { stockLotSchema, stockAdjustmentSchema } from "@/lib/validation/inventory";
 import { listStockLots, listStockMovements, getProductStockSummary } from "@/lib/data/inventory";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -63,7 +64,7 @@ export async function addStockLotAction(
 
   if (error) {
     console.error("Error adding stock lot:", error);
-    return err(error.message);
+    return err(getSafeActionError(error, "We couldn't update the stock. Please refresh and try again."));
   }
 
   revalidatePath("/products");
@@ -107,7 +108,7 @@ export async function recordStockAdjustmentAction(
 
   if (error) {
     console.error("Error adjusting stock:", error);
-    return err(error.message);
+    return err(getSafeActionError(error, "We couldn't update the stock. Please refresh and try again."));
   }
 
   revalidatePath("/products");

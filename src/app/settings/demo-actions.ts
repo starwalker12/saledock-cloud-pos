@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 async function isDemoDataEnabled(): Promise<boolean> {
   try {
@@ -47,7 +48,8 @@ function formatDemoDataError(error: unknown): string {
   }
   if (lower.includes("not authenticated")) return "You must be signed in to load demo data.";
   if (lower.includes("permission") || lower.includes("not authorized")) return "You do not have permission to load demo data.";
-  return msg;
+  // Final fallback: never return the raw error message to the browser.
+  return getSafeActionError(error, "We couldn't complete the demo data operation. Please try again.");
 }
 
 export async function loadDemoDataAction(

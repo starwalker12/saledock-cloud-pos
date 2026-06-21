@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { sanitizePlainText } from "@/lib/security/sanitize";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import { z } from "zod";
 
 export type PrivacyRequestFormState = {
@@ -92,7 +93,7 @@ export async function createPrivacyRequestAction(
   });
 
   if (error) {
-    return { error: error.message, success: null };
+    return { error: getSafeActionError(error, "We couldn't submit your request. Please try again."), success: null };
   }
 
   await auditLog(profile?.organization_id ?? null, user.id, "privacy.request.created", `Privacy ${type} request submitted`);
@@ -142,7 +143,7 @@ export async function cancelPrivacyRequestAction(
     .eq("requester_user_id", user.id);
 
   if (updateError) {
-    return { error: updateError.message, success: null };
+    return { error: getSafeActionError(updateError, "We couldn't update your request. Please try again."), success: null };
   }
 
   // Get org for audit log

@@ -7,6 +7,7 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { canUsePos, canWriteCatalog } from "@/lib/permissions";
 import { canSellNew, canDiscountNew, canSellAtLossNew } from "@/lib/staff-permissions";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import {
   checkoutSchema,
   quickCustomerSchema,
@@ -89,7 +90,10 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
   });
 
   if (error) {
-    return { ok: false, error: error.message };
+    return {
+      ok: false,
+      error: getSafeActionError(error, "This sale could not be completed. Please refresh and try again."),
+    };
   }
 
   const row = Array.isArray(data)
@@ -151,7 +155,7 @@ export async function quickCreateCustomerAction(
     .select("id, name, phone")
     .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: getSafeActionError(error, "We couldn't save this customer. Please try again.") };
   revalidatePath("/customers");
   return { ok: true, error: null, customer: data as { id: string; name: string; phone: string | null } };
 }

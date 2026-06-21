@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin, setPlatformSetting } from "@/lib/platform/admin";
 import { sanitizeNullableText } from "@/lib/security/sanitize";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type PlatformSettingsState = {
   success: boolean;
@@ -54,7 +55,6 @@ export async function updatePlatformSettingsAction(
 
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to update settings";
-    return { success: false, error: msg };
+    return { success: false, error: getSafeActionError(err, "We couldn't save these settings. Please try again.") };
   }
 }

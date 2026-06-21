@@ -8,6 +8,7 @@ import { canOpenShift, canCloseShift } from "@/lib/permissions";
 import { openShiftSchema, closeShiftSchema } from "@/lib/validation/daily-closing";
 import { getShiftActivity } from "@/lib/data/shifts";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ShiftActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ShiftActionState => ({ error: null, success: msg });
@@ -47,7 +48,7 @@ export async function openShiftAction(
     if (insertErr.message?.includes("idx_cash_shifts_one_open_per_branch")) {
       return err("A shift is already open for this branch. Close it first.");
     }
-    return err(insertErr.message);
+    return err(getSafeActionError(insertErr, "We couldn't open the shift. Please try again."));
   }
 
   logAudit({
@@ -115,7 +116,7 @@ export async function closeShiftAction(
     })
     .eq("id", parsed.data.shift_id);
 
-  if (updateErr) return err(updateErr.message);
+  if (updateErr) return err(getSafeActionError(updateErr, "We couldn't update the shift. Please try again."));
 
   logAudit({
     module: "cash_shift",
