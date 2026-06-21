@@ -6,6 +6,7 @@ import { AppSelect } from "@/components/ui/app-select";
 import type { CategoryRow, ProductRow, SupplierRow } from "@/lib/data/catalog";
 import { saveProductAction, type ActionState } from "./actions";
 import { BarcodeScanner } from "./barcode-scanner";
+import { ProductImageField } from "./product-image-field";
 
 const initial: ActionState = { error: null, success: null };
 
@@ -97,6 +98,13 @@ export function ProductForm({
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <ProductImageField
+                currentUrl={initialValues?.image_url}
+                disabled={!canWrite || pending}
+                onDirty={() => onDirtyChange?.(true)}
+              />
+            </div>
             <label className="block md:col-span-2">
               <span className={labelClass}>
                 Name <span className="text-red-600">*</span>
