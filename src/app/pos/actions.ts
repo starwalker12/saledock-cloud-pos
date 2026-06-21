@@ -85,13 +85,20 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     p_payment_ref: parsed.data.payment_reference ?? null,
     p_note: parsed.data.note ?? null,
     p_allow_loss_override: allowLossOverride,
+    p_idempotency_key: parsed.data.idempotency_key,
   });
 
   if (error) {
     return { ok: false, error: error.message };
   }
 
-  const row = Array.isArray(data) ? data[0] : (data as { invoice_id: string; invoice_no: string } | null);
+  const row = Array.isArray(data)
+    ? data[0]
+    : (data as {
+        invoice_id: string;
+        invoice_no: string;
+        idempotent_replay?: boolean;
+      } | null);
   if (!row?.invoice_id) {
     return { ok: false, error: "Checkout returned no invoice." };
   }
@@ -101,12 +108,17 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
   revalidatePath("/dashboard");
   revalidatePath("/products");
 
-  logAudit({
-    module: "pos",
-    action: "pos.checkout_completed",
-    details: `Checkout completed: Invoice ${row.invoice_no}`,
-    metadata: { invoice_id: row.invoice_id, invoice_no: row.invoice_no, payment_method: parsed.data.payment_method, amount_tendered: parsed.data.amount_paid },
-  });
+  // The database reports same-key replays so retries do not create duplicate
+  // action-level "checkout completed" audit entries. Money/stock mutations are
+  // already skipped inside the RPC before this point.
+  if (row.idempotent_replay !== true) {
+    logAudit({
+      module: "pos",
+      action: "pos.checkout_completed",
+      details: `Checkout completed: Invoice ${row.invoice_no}`,
+      metadata: { invoice_id: row.invoice_id, invoice_no: row.invoice_no, payment_method: parsed.data.payment_method, amount_tendered: parsed.data.amount_paid },
+    });
+  }
 
   return { ok: true, error: null, invoice_id: row.invoice_id, invoice_no: row.invoice_no };
 }

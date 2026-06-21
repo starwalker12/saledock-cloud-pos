@@ -106,6 +106,10 @@ export const checkoutSchema = z
     amount_paid: z.coerce.number().min(0).default(0),
     payment_reference: z.string().trim().max(120).optional().nullable(),
     note: z.string().trim().max(500).optional().nullable(),
+    // Every request through the current server action must be idempotent.
+    // The database parameter remains nullable only for migration-first rollout
+    // and compatibility with older deployed clients.
+    idempotency_key: z.string().uuid("Checkout request ID is invalid."),
   })
   .superRefine((data, ctx) => {
     if (data.payment_method === "customer_credit") {
