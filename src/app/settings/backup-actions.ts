@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import { revalidatePath } from "next/cache";
 import { getLinkedProviders } from "@/lib/auth/identities";
 
@@ -2459,7 +2460,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
   } catch (error) {
     const err = error as Error;
     console.error("Backup export failed:", err);
-    return { success: false, error: err.message || "An unexpected error occurred during export data preparation." };
+    return { success: false, error: getSafeActionError(error, "We couldn't prepare your backup export. Please try again.") };
   }
 }
 

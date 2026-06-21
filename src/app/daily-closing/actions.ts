@@ -8,6 +8,7 @@ import { canCloseDay, canReopenDay } from "@/lib/permissions";
 import { closeDaySchema, reopenDaySchema } from "@/lib/validation/daily-closing";
 import { getDayActivity } from "@/lib/data/daily-closing";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -74,7 +75,7 @@ export async function closeDayAction(
       },
       { onConflict: "organization_id,branch_id,closing_date" },
     );
-  if (upsertErr) return err(upsertErr.message);
+  if (upsertErr) return err(getSafeActionError(upsertErr, "We couldn't save the cash drawer. Please try again."));
 
   logAudit({
     module: "daily_closing",
@@ -110,7 +111,7 @@ export async function reopenDayAction(
     .eq("organization_id", ctx.profile.organization_id)
     .eq("branch_id", ctx.profile.branch_id)
     .eq("closing_date", parsed.data.closing_date);
-  if (updErr) return err(updErr.message);
+  if (updErr) return err(getSafeActionError(updErr, "We couldn't finalize the daily closing. Please try again."));
 
   logAudit({
     module: "daily_closing",

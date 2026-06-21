@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { sanitizePlainText, sanitizeNullableText, normalizePhone, validateImageUrl, validateGoogleMapsUrl } from "@/lib/security/sanitize";
 import { z } from "zod";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type SettingsActionState = {
   error: string | null;
@@ -166,7 +167,7 @@ export async function updateSettingsAction(
           .from("organizations")
           .update({ name: safe.shopName, owner_name: safe.ownerName, phone: safe.phone, email: safe.email, address: safe.address })
           .eq("id", organizationId);
-        if (orgErr) return { error: orgErr.message, success: null };
+        if (orgErr) return { error: getSafeActionError(orgErr, "We couldn't save these settings. Please try again."), success: null };
 
         const { data: rows } = await db
           .from("app_settings")
@@ -233,7 +234,7 @@ export async function updateSettingsAction(
           .update({ name: safe.branchName, phone: safe.branchPhone, address: safe.branchAddress })
           .eq("organization_id", organizationId)
           .eq("id", branchId);
-        if (brErr) return { error: brErr.message, success: null };
+        if (brErr) return { error: getSafeActionError(brErr, "We couldn't save these settings. Please try again."), success: null };
 
         const { data: rows } = await db
           .from("app_settings")
@@ -268,7 +269,7 @@ export async function updateSettingsAction(
           .from("organizations")
           .update({ logo_url: safe.logoUrl || null })
           .eq("id", organizationId);
-        if (orgErr) return { error: orgErr.message, success: null };
+        if (orgErr) return { error: getSafeActionError(orgErr, "We couldn't save these settings. Please try again."), success: null };
 
         const { data: rows } = await db
           .from("app_settings")
@@ -308,7 +309,7 @@ export async function updateSettingsAction(
           .from("organizations")
           .update({ primary_color: v.primaryColor ?? null, accent_color: v.accentColor ?? null, default_theme: v.defaultTheme ?? null })
           .eq("id", organizationId);
-        if (orgErr) return { error: orgErr.message, success: null };
+        if (orgErr) return { error: getSafeActionError(orgErr, "We couldn't save these settings. Please try again."), success: null };
         logAudit({ module: "settings", action: "settings.updated", details: "Theme updated" });
         return { error: null, success: "Theme saved." };
       }
@@ -323,7 +324,7 @@ export async function updateSettingsAction(
           .from("organizations")
           .update({ currency_code: v.currencyCode, timezone: v.timezone })
           .eq("id", organizationId);
-        if (orgErr) return { error: orgErr.message, success: null };
+        if (orgErr) return { error: getSafeActionError(orgErr, "We couldn't save these settings. Please try again."), success: null };
 
         const { data: rows } = await db
           .from("app_settings")
@@ -357,7 +358,7 @@ export async function updateSettingsAction(
             show_map: v.showMap === "true",
           })
           .eq("id", organizationId);
-        if (orgErr) return { error: orgErr.message, success: null };
+        if (orgErr) return { error: getSafeActionError(orgErr, "We couldn't save these settings. Please try again."), success: null };
 
         const { data: rows } = await db
           .from("app_settings")
@@ -415,7 +416,7 @@ export async function updateProfilePictureAction(
       .eq("id", user.id);
 
     if (error) {
-      return { error: error.message, success: null };
+      return { error: getSafeActionError(error, "We couldn't save these settings. Please try again."), success: null };
     }
 
     revalidatePath("/settings");

@@ -8,6 +8,7 @@ import { canReturnNew } from "@/lib/staff-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createReturnSchema, type RefundMethod } from "@/lib/validation/returns";
 import { logAudit } from "@/lib/audit";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ReturnActionState = {
   error: string | null;
@@ -68,7 +69,7 @@ export async function createInvoiceReturnAction(
     p_notes: parsed.data.notes ?? null,
   });
 
-  if (error) return err(error.message);
+  if (error) return err(getSafeActionError(error, "We couldn't process this return. Please refresh and try again."));
 
   const row = Array.isArray(data) ? data[0] : data;
   revalidatePath(`/invoices/${parsed.data.invoice_id}`);

@@ -12,6 +12,7 @@ import {
   productSchema,
   supplierSchema,
 } from "@/lib/validation/catalog";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -73,10 +74,10 @@ export async function saveCategoryAction(
       .update(payload)
       .eq("id", id)
       .eq("organization_id", w.ctx.profile!.organization_id!);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
   } else {
     const { error } = await supabase.from("product_categories").insert(payload);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
   }
   revalidatePath("/products");
   revalidatePath("/dashboard");
@@ -183,10 +184,10 @@ export async function saveSupplierAction(
       .update(payload)
       .eq("id", id)
       .eq("organization_id", w.ctx.profile!.organization_id!);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
   } else {
     const { error } = await supabase.from("suppliers").insert(payload);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
   }
   revalidatePath("/products");
   revalidatePath("/dashboard");
@@ -328,7 +329,7 @@ export async function saveProductAction(
       .update(payload)
       .eq("id", id)
       .eq("organization_id", orgId);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
 
     if (oldProduct && !isService) {
       if (!oldProduct.allow_sell_at_loss && parsed.data.allow_sell_at_loss) {
@@ -360,7 +361,7 @@ export async function saveProductAction(
     }
   } else {
     const { error } = await supabase.from("products").insert(payload);
-    if (error) return err(error.message);
+    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
 
     if (parsed.data.allow_sell_at_loss && !isService) {
       logAudit({
