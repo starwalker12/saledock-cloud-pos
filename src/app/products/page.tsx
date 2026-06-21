@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Archive, AlertTriangle, Boxes, Package, Pencil, Plus, RotateCcw, Tag, Truck } from "lucide-react";
+import { Archive, AlertTriangle, Boxes, Pencil, Plus, RotateCcw, Tag, Truck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
@@ -34,6 +34,7 @@ import { SupplierForm } from "./supplier-form";
 import { InventorySection } from "./inventory-section";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
+import { ProductThumbnail } from "@/components/products/product-thumbnail";
 
 type Tab = "products" | "categories" | "suppliers";
 const TABS: { id: Tab; label: string }[] = [
@@ -458,9 +459,7 @@ function ProductRowDesktop({
     <tr className="border-b border-slate-100 align-middle hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-900/60">
       <td className="px-3 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            <Package className="size-5" aria-hidden="true" />
-          </div>
+          <ProductThumbnail imageUrl={p.image_url} productName={p.name} className="size-11" sizes="44px" />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100">
               <span className="break-words">{p.name}</span>
@@ -517,9 +516,7 @@ function ProductCard({
   return (
     <article className="rounded-xl border border-slate-200 bg-[#fff] p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div className="flex items-start gap-3">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-          <Package className="size-6" aria-hidden="true" />
-        </div>
+        <ProductThumbnail imageUrl={p.image_url} productName={p.name} className="size-14" sizes="56px" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5 font-bold leading-snug text-slate-900 dark:text-slate-100">
             <span className="min-w-0 break-words">{p.name}</span>

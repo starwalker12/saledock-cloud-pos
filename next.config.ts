@@ -2,6 +2,18 @@ import type { NextConfig } from "next";
 
 const projectRoot = process.cwd();
 
+function getSupabaseHostname() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+const supabaseHostname = getSupabaseHostname();
+
 const staticPublicAssetHeaders = [
   { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
 ];
@@ -22,6 +34,17 @@ const staticPublicAssetPaths = [
 ];
 
 const nextConfig: NextConfig = {
+  images: supabaseHostname
+    ? {
+        remotePatterns: [
+          {
+            protocol: "https",
+            hostname: supabaseHostname,
+            pathname: "/storage/v1/object/public/product-images/**",
+          },
+        ],
+      }
+    : undefined,
   turbopack: {
     root: projectRoot,
   },
