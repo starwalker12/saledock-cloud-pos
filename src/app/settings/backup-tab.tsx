@@ -202,12 +202,14 @@ export function BackupTab({
   backupGuardLabels,
   hasPassword = true,
   shopName = "SaleDock Cloud POS",
+  isOwner = false,
 }: {
   backupImportEnabled?: boolean;
   factoryResetEnabled?: boolean;
   backupGuardLabels?: Partial<BackupGuardLabels>;
   hasPassword?: boolean;
   shopName?: string;
+  isOwner?: boolean;
 }) {
   const guardLabels = useMemo(
     () => ({ ...DEFAULT_BACKUP_GUARD_LABELS, ...backupGuardLabels }),
@@ -1796,8 +1798,13 @@ export function BackupTab({
           </div>
         </div>
 
-        {/* Danger Zone: Factory Reset Card */}
-        {factoryResetEnabled ? (
+        {/* Danger Zone: Factory Reset Card — owner-only (matches the action + RPC owner guards) */}
+        {!isOwner ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm text-center dark:border-slate-800 dark:bg-slate-900">
+            <Lock className="mx-auto size-8 text-slate-300" />
+            <p className="mt-2 text-sm font-semibold text-slate-500">Only the shop Owner can access factory reset.</p>
+          </div>
+        ) : factoryResetEnabled ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50/30 p-5 shadow-sm space-y-4 dark:border-rose-900/50 dark:bg-rose-950/20">
             <div className="flex items-start gap-3">
               <AlertTriangle className="size-6 text-rose-600 shrink-0 mt-0.5" />
