@@ -15,9 +15,10 @@ type Props = {
   suppliers: SupplierRow[];
   currency: string;
   canWrite: boolean;
+  compact?: boolean;
 };
 
-export function InventorySection({ productId, productName, suppliers, currency, canWrite }: Props) {
+export function InventorySection({ productId, productName, suppliers, currency, canWrite, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -114,13 +115,16 @@ export function InventorySection({ productId, productName, suppliers, currency, 
   ];
 
   return (
-    <div className="mt-2 border-t border-slate-100 pt-2 md:mt-4 md:pt-3 dark:border-slate-800">
+    <div className={compact ? "" : "mt-2 border-t border-slate-100 pt-2 md:mt-4 md:pt-3 dark:border-slate-800"}>
       <button
+        type="button"
         onClick={handleToggle}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 text-xs font-bold text-blue-700 outline-none hover:bg-blue-100 md:bg-transparent md:px-0 md:uppercase md:tracking-wider md:hover:underline dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 md:dark:bg-transparent"
+        className={compact
+          ? "inline-flex min-h-9 items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 outline-none transition hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70"
+          : "inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 text-xs font-bold text-blue-700 outline-none hover:bg-blue-100 md:bg-transparent md:px-0 md:uppercase md:tracking-wider md:hover:underline dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 md:dark:bg-transparent"}
       >
         <ArrowUpDown className="size-3.5" />
-        {open ? "Hide Inventory Ledger" : (
+        {open ? "Hide Inventory Ledger" : compact ? "Stock & FIFO" : (
           <>
             <span className="md:hidden">Stock lots &amp; FIFO</span>
             <span className="hidden md:inline">Manage Stock lots &amp; FIFO Ledger</span>

@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { escapeLike } from "@/lib/security/sanitize";
 
@@ -95,6 +96,7 @@ export type ProductFilters = {
   categoryId?: string;
   lowStockOnly?: boolean;
   includeInactive?: boolean;
+  productId?: string;
 };
 
 export async function listProducts(
@@ -113,6 +115,7 @@ export async function listProducts(
     .order("name", { ascending: true });
 
   if (!filters.includeInactive) query = query.eq("is_active", true);
+  if (filters.productId) query = query.eq("id", filters.productId);
   if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
   if (filters.search) {
     const s = filters.search.replace(/[,()]/g, " ").trim();
@@ -155,6 +158,18 @@ export async function listProducts(
   }
 
   return rows;
+}
+
+export async function getProductById(
+  organizationId: string,
+  productId: string,
+): Promise<ProductRow | null> {
+  if (!z.string().uuid().safeParse(productId).success) return null;
+  const products = await listProducts(organizationId, {
+    includeInactive: true,
+    productId,
+  });
+  return products[0] ?? null;
 }
 
 export async function catalogCounts(organizationId: string) {
