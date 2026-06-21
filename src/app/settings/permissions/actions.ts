@@ -58,6 +58,32 @@ export async function updateStaffPermissionsAction(
   const admin = createAdminClient();
   const orgId = profile.organization_id;
 
+  // The service-role client bypasses RLS, so verify the target belongs to the
+  // manager's organization before reading or writing permission overrides.
+  const { data: targetProfile, error: targetError } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("organization_id", orgId)
+    .eq("id", profileId)
+    .maybeSingle<{ id: string; role: string }>();
+
+  if (targetError) {
+    console.error("[permissions] Target lookup failed:", targetError);
+    return {
+      error: getSafeActionError(
+        targetError,
+        "We couldn't verify this staff account. Please try again.",
+      ),
+      success: null,
+    };
+  }
+  if (!targetProfile) {
+    return { error: "This staff account could not be found in your shop.", success: null };
+  }
+  if (targetProfile.role === "owner" || targetProfile.role === "admin") {
+    return { error: "Owner and admin permissions are set by their role.", success: null };
+  }
+
   const { data: existing } = await admin
     .from("staff_permissions")
     .select("id")

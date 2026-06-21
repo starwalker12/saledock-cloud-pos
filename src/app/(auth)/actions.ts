@@ -13,6 +13,7 @@ import { checkRateLimit, recordAttempt, clearAttempts, extractClientIp } from "@
 import { setCaptchaPass, readCaptchaPass, decrementCaptchaPass, clearCaptchaPass } from "@/lib/auth/captcha-pass";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { getLinkedProviders } from "@/lib/auth/identities";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 const passwordSchema = z.string()
   .min(8, "Password must be at least 8 characters.")
@@ -748,7 +749,12 @@ export async function setPasswordAction(
         return { error: "Your new password must be different from your current password." };
       }
       console.error("[security] setPassword failed via admin client:", adminError.message);
-      return { error: adminError.message || "Could not update password. Please try again." };
+      return {
+        error: getSafeActionError(
+          adminError,
+          "Could not update password. Please try again.",
+        ),
+      };
     }
 
     // GoTrue invalidates active sessions on password change. Re-establish session:
