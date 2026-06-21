@@ -72,6 +72,11 @@ export type ChunkImportState = {
 
 export type OrphanPolicy = "drop" | "stop";
 
+function importRowWarning(subject: string, reference?: string): string {
+  const suffix = reference ? ` (${reference})` : "";
+  return `${subject} could not be imported${suffix}. Review the source backup and try again.`;
+}
+
 // Start an Import Job
 export async function startImportJobAction(
   sourceApp: string,
@@ -150,6 +155,14 @@ export async function updateImportJobStatusAction(
     if (!user || !profile || !profile.organization_id) {
       return { success: false };
     }
+    if (profile.role !== "owner" && profile.role !== "admin") {
+      logAudit({
+        module: "settings",
+        action: "permission.denied",
+        details: `Import job status update denied for role ${profile.role}`,
+      });
+      return { success: false };
+    }
 
     const supabase = await createClient();
     const updatePayload: Record<string, unknown> = {
@@ -160,11 +173,16 @@ export async function updateImportJobStatusAction(
       updatePayload.error_message = errorMessage;
     }
 
-    await supabase
+    const { error: updateError } = await supabase
       .from("import_jobs")
       .update(updatePayload)
       .eq("organization_id", profile.organization_id)
       .eq("id", jobId);
+
+    if (updateError) {
+      console.error("Failed to update import job status:", updateError);
+      return { success: false };
+    }
 
     // Log the completion/failure audit
     await logAudit({
@@ -622,7 +640,7 @@ export async function importTableChunkAction(
           for (const [lowerName, category] of newCategories.entries()) {
             const sourceIds = newCategorySourceIds.get(lowerName) || [];
             failed += sourceIds.length;
-            warnings.push(`Category insert error: ${error?.message || "Unknown error"} (Category: ${category.name}).`);
+            warnings.push(importRowWarning("Category", category.name));
           }
         } else {
           for (const cat of data) {
@@ -701,7 +719,7 @@ export async function importTableChunkAction(
           .select("id, name");
 
         if (error) {
-          warnings.push(`Bulk supplier insert error: ${error.message}`);
+          warnings.push(importRowWarning("One or more suppliers"));
         } else if (data) {
           for (const item of data) {
             supMap.set(item.name.toLowerCase(), item.id);
@@ -807,7 +825,7 @@ export async function importTableChunkAction(
           // If a batch fails, we log it and fallback to failing the whole batch
           // (a more robust strategy would retry one by one, but batch failure is standard here)
           failed += chunk.length;
-          warnings.push(`Customer batch insert error: ${error?.message || "Mismatched returned rows"}.`);
+          warnings.push(importRowWarning("One or more customers"));
         } else {
           for (let j = 0; j < data.length; j++) {
             const { phone, email, name, rowId } = chunkMap[j];
@@ -936,7 +954,7 @@ export async function importTableChunkAction(
 
           if (error) {
             failed++;
-            warnings.push(`Product insert error: ${error.message} (Product: ${name}).`);
+            warnings.push(importRowWarning("Product", name));
           } else {
             if (sku) skuMap.set(sku, data.id);
             if (barcode) barcodeMap.set(barcode, data.id);
@@ -1008,7 +1026,7 @@ export async function importTableChunkAction(
 
           if (error) {
             failed++;
-            warnings.push(`Stock lot insert error: ${error.message} (Lot ID: ${row.Id}).`);
+            warnings.push(importRowWarning("Stock lot", `Lot ID: ${row.Id}`));
           } else {
             lotMap.set(key, data.id);
             mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
@@ -1088,7 +1106,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Stock movement insert error: ${error.message} (ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Stock movement", `ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1164,7 +1182,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Bill insert error: ${error.message} (BillNo: ${invoiceNo}).`);
+          warnings.push(importRowWarning("Invoice", `Invoice: ${invoiceNo}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1253,7 +1271,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Bill item insert error: ${error.message} (Item ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Invoice item", `Item ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1328,7 +1346,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Allocation insert error: ${error.message} (ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Stock allocation", `ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1381,7 +1399,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Payment insert error: ${error.message} (ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Payment", `ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1439,7 +1457,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Ledger insert error: ${error.message} (ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Customer ledger entry", `ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1510,7 +1528,7 @@ export async function importTableChunkAction(
 
           if (error) {
             failed++;
-            warnings.push(`Return insert error: ${error.message} (Return ID: ${row.Id}).`);
+            warnings.push(importRowWarning("Return", `Return ID: ${row.Id}`));
           } else {
             returnMap.set(retNo, data.id);
             mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
@@ -1597,7 +1615,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Return item insert error: ${error.message} (ReturnItem ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Return item", `Return item ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1676,7 +1694,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Supplier purchase insert error: ${error.message} (PurchaseNo: ${purchaseNo}).`);
+          warnings.push(importRowWarning("Supplier purchase", `Purchase: ${purchaseNo}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1770,7 +1788,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Supplier purchase item insert error: ${error.message} (Item ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Supplier purchase item", `Item ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1836,7 +1854,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Supplier payment insert error: ${error.message} (Payment ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Supplier payment", `Payment ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1907,7 +1925,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Supplier ledger entry insert error: ${error.message} (Ledger ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Supplier ledger entry", `Ledger ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -1967,7 +1985,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Credit payment insert error: ${error.message} (Payment ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Customer credit payment", `Payment ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -2019,7 +2037,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Expense insert error: ${error.message} (ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Expense", `ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -2075,7 +2093,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Repair job insert error: ${error.message} (JobNo: ${jobNo}).`);
+          warnings.push(importRowWarning("Repair job", `Job: ${jobNo}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -2117,7 +2135,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Daily closing insert error: ${error.message} (Date: ${closingDate}).`);
+          warnings.push(importRowWarning("Daily closing", `Date: ${closingDate}`));
         } else {
           inserted++;
         }
@@ -2170,7 +2188,7 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(`Audit log insert error: ${error.message} (ID: ${row.Id}).`);
+          warnings.push(importRowWarning("Audit log entry", `ID: ${row.Id}`));
         } else {
           mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
           inserted++;
@@ -2303,14 +2321,13 @@ export async function importOnlineTableChunkAction(
 
         if (insertError) {
           failed++;
-          warnings.push(`Insert failed for ${tableName} (ID: ${rowId}): ${insertError.message}`);
+          warnings.push(importRowWarning(tableName, `ID: ${rowId}`));
         } else {
           inserted++;
         }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (rowErr: any) {
+      } catch {
         failed++;
-        warnings.push(`Error processing row in ${tableName}: ${rowErr.message || rowErr}`);
+        warnings.push(importRowWarning(tableName));
       }
     }
 
