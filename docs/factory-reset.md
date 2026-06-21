@@ -1,6 +1,6 @@
 # Restore Factory Defaults / Factory Reset
 
-The **Restore Factory Defaults / Factory Reset** module provides an Owner and Admin-scoped tool inside the online POS to wipe historical business data securely for the current organization while maintaining structural, identity, and security safety boundaries.
+The **Restore Factory Defaults / Factory Reset** module provides an Owner-only tool inside the online POS to wipe historical business data securely for the current organization while maintaining structural, identity, and security safety boundaries.
 
 ---
 
@@ -9,7 +9,7 @@ The **Restore Factory Defaults / Factory Reset** module provides an Owner and Ad
 To prevent accidental triggers or malicious sweeps, the factory reset process enforces the following validation checks:
 
 1. **Role Access Restriction**:
-   * Enforced strictly server-side. Only users registered as `owner` or `admin` role are permitted.
+   * Enforced strictly server-side. Only the shop `owner` is permitted.
 2. **Re-Authentication of Current Session**:
    * The active user must enter their current login password. This password is verified server-side directly against the Supabase Auth system (`supabase.auth.signInWithPassword`) to re-confirm identity before any transactional wipe.
 3. **Double Confirmations**:
@@ -37,7 +37,7 @@ Once verified, the server action invokes the Postgres RPC function `reset_organi
 
 ```mermaid
 graph TD
-    A[Wipe Request] --> B[Verify Owner/Admin Role]
+    A[Wipe Request] --> B[Verify Owner Role]
     B --> C[Re-authenticate Password with Supabase Auth]
     C --> D[Ensure Org Name Matches]
     D --> E[Enforce Verified Phrase]
@@ -53,27 +53,37 @@ The function clears rows strictly bounded by `organization_id` using a safe casc
 1. `return_stock_allocations`
 2. `return_items`
 3. `returns`
-4. `invoice_item_stock_allocations`
-5. `stock_movements`
-6. `product_stock_lots` (FIFO batches)
-7. `payments`
-8. `invoice_items`
-9. `invoices`
-10. `customer_ledger_entries`
-11. `repair_status_history`
-12. `repairs`
-13. `expenses`
-14. `daily_closings`
-15. `products`
-16. `product_categories`
-17. `suppliers`
-18. `customers`
-19. `import_row_mappings`
-20. `import_jobs`
+4. `supplier_ledger_entries`
+5. `supplier_payments`
+6. `supplier_purchase_items`
+7. `supplier_purchases`
+8. `loss_prevention_events`
+9. `cash_shifts`
+10. `staff_permissions`
+11. `invoice_item_stock_allocations`
+12. `stock_movements`
+13. `product_stock_lots` (FIFO batches)
+14. `payments`
+15. `invoice_items`
+16. `invoices`
+17. `customer_ledger_entries`
+18. `repair_status_history`
+19. `repairs`
+20. `expenses`
+21. `daily_closings`
+22. `products`
+23. `product_categories`
+24. `supplier_write_offs`
+25. `suppliers`
+26. `credit_payments`
+27. `customer_write_offs`
+28. `customers`
+29. `import_row_mappings`
+30. `import_jobs`
 
 ### 2. What is Preserved
 * **Auth Credentials**: Raw logins and user accounts in `supabase.users` are **never** deleted.
-* **Profiles**: The active Owner and Admin profiles remain fully intact.
+* **Profiles**: Existing user profiles remain intact; only the Owner can authorize the reset.
 * **Tenancy**: The parent `organizations` row and `branches` tables are preserved.
 * **Final Audit Event**: A final log entry `settings.factory_reset_completed` is injected to maintain a permanent audit trail.
 
