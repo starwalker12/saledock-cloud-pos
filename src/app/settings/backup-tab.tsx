@@ -57,6 +57,8 @@ type BackupOperationNotice = {
   message: string;
 };
 
+const MAX_BACKUP_FILE_BYTES = 50 * 1024 * 1024;
+
 const DEFAULT_BACKUP_GUARD_LABELS: BackupGuardLabels = {
   busyTitle: "Backup in progress",
   exportTitle: "Creating backup ZIP",
@@ -535,6 +537,18 @@ export function BackupTab({
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      setZipFile(null);
+      setParseError("Choose a SaleDock backup ZIP file.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size === 0 || file.size > MAX_BACKUP_FILE_BYTES) {
+      setZipFile(null);
+      setParseError("Backup ZIP files must be larger than 0 bytes and no more than 50 MB.");
+      e.target.value = "";
+      return;
+    }
     let detectedZipKind: BackupZipKind = "unknown";
     let detectedBackupPath = "not detected";
     const wasmPath = "/sql-wasm.wasm";
