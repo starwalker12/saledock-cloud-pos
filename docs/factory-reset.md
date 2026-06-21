@@ -1,6 +1,6 @@
 # Restore Factory Defaults / Factory Reset
 
-The **Restore Factory Defaults / Factory Reset** module provides an Owner and Admin-scoped tool inside the online POS to wipe historical business data securely for the current organization while maintaining structural, identity, and security safety boundaries.
+The **Restore Factory Defaults / Factory Reset** module provides an Owner-only tool inside the online POS to wipe historical business data securely for the current organization while maintaining structural, identity, and security safety boundaries.
 
 ---
 
@@ -37,7 +37,7 @@ Once verified, the server action invokes the Postgres RPC function `reset_organi
 
 ```mermaid
 graph TD
-    A[Wipe Request] --> B[Verify Owner/Admin Role]
+    A[Wipe Request] --> B[Verify Owner Role]
     B --> C[Re-authenticate Password with Supabase Auth]
     C --> D[Ensure Org Name Matches]
     D --> E[Enforce Verified Phrase]
@@ -73,7 +73,7 @@ The function clears rows strictly bounded by `organization_id` using a safe casc
 
 ### 2. What is Preserved
 * **Auth Credentials**: Raw logins and user accounts in `supabase.users` are **never** deleted.
-* **Profiles**: The active Owner and Admin profiles remain fully intact.
+* **Profiles**: Existing user profiles remain intact; only the Owner can authorize the reset.
 * **Tenancy**: The parent `organizations` row and `branches` tables are preserved.
 * **Final Audit Event**: A final log entry `settings.factory_reset_completed` is injected to maintain a permanent audit trail.
 

@@ -29,24 +29,24 @@ Desktop SQLite backup inspection has been implemented as a browser-safe preview 
 1. **Local sql.js WASM Parsing**: Initializes lazy WebAssembly-compiled `sql.js` inside the browser using the app-hosted `/sql-wasm.wasm` asset.
 2. **SQLite Buffer Reading**: Reads `gadgetzonepos.db` SQLite database file buffers completely in-memory.
 3. **Nested ZIP Traversal**: Finds `gadgetzonepos.db` even when the desktop ZIP is wrapped inside another folder or archive structure.
-4. **Preview-Only Mapping**: Extracts row counts across supported desktop tables (`Products`, `Categories`, `Customers`, `Suppliers`, `Bills`, `BillItems`, `Allocations`, `Ledgers`, `Payments`, `Returns`, `Expenses`, `Repairs`, `DailyClosings`, `AuditLog`) without importing data.
-5. **Import Disabled/Planned**: The final online restore remains disabled until the production import flow is approved.
+4. **Preview and Mapping**: Extracts row counts across supported desktop tables (`Products`, `Categories`, `Customers`, `Suppliers`, `Bills`, `BillItems`, `Allocations`, `Ledgers`, `Payments`, `Returns`, `Expenses`, `Repairs`, `DailyClosings`, `AuditLog`) before importing data.
+5. **Guarded Additive Import**: Owners and admins can continue through dry-run, orphan handling, double confirmation, and chunked additive import. The operation has no automatic rollback and must be tested on staging first.
 
 CDN WASM loading was removed because production browsers can block or fail cross-origin WASM fetches. Serving `public/sql-wasm.wasm` from the same Vercel deployment keeps desktop backup previews stable and makes missing-parser errors diagnosable.
 
-For a deep-dive into table mapping rules and dry-run validation mechanics, refer to the [Offline Backup Restore Guide](file:///Users/sw12/Projects/gadget-zone-online-pos/docs/offline-backup-restore.md).
+For a deep-dive into table mapping rules and dry-run validation mechanics, refer to the [Offline Backup Restore Guide](offline-backup-restore.md).
 
 ---
 
 ## Restore Factory Defaults / Factory Reset
 
-The system features an Owner and Admin-scoped **Factory Reset** danger zone under the Backup tab:
+The system features an Owner-only **Factory Reset** danger zone under the Backup tab:
 - **Safety Snapshot Enforced**: Requires generating and downloading a pre-reset backup ZIP before confirmation triggers.
 - **Wasm/Server Integrity**: Wipes active business data cleanly across all 20 operational tables in cascading relational order while keeping tenant profiles and logins active.
 - **Bulletproof Protections**: Re-authenticates user password against Supabase Auth, matches exact organization name, and requires verification phrase `RESTORE FACTORY DEFAULTS`.
 - **Full Traceability**: Details deleted count statistics in the final report and leaves a permanent `settings.factory_reset_completed` event in the system audit logs.
 
-For detailed security mechanics and cascading rules, see the [Factory Reset Guide](file:///Users/sw12/Projects/gadget-zone-online-pos/docs/factory-reset.md).
+For detailed security mechanics and cascading rules, see the [Factory Reset Guide](factory-reset.md).
 
 ---
 
@@ -59,7 +59,7 @@ During file upload, the archive is inspected using JSZip and classified into one
 * **Online Backup ZIP (`online`)**:
   * Identified by the presence of `data/gadgetzone-online.json` (at root or nested), or a `manifest.json` whose `AppName` includes `"Gadget Zone Online POS"`.
   * The interface parses the JSON structure dynamically and previews collections and record counts.
-  * Since full online restore execution is planned, the final import button is disabled, showing: *"Online backup restore execution is planned; this ZIP can currently be inspected safely."*
+  * The same guarded dry-run and additive import flow is used after the archive is previewed.
 * **Desktop SQLite Backup ZIP (`desktop`)**:
   * Identified by the presence of `data/gadgetzonepos.db` or `gadgetzonepos.db` (at root or nested).
   * Relies on a recursive key scanner `findZipEntryBySuffix` to automatically traverse nested top-level wrappers (e.g., `BackupFolder/data/gadgetzonepos.db`).

@@ -6,7 +6,7 @@ This document serves as the guide for the Offline Desktop Backup ZIP Import / Re
 
 ## 🚀 Architectural Overview
 
-To prevent heavy server binary compilations and eliminate Vercel serverless timeout failures, the current desktop backup flow previews SQLite files in the browser and keeps the destructive import path disabled until explicitly approved:
+To prevent heavy server binary compilations and eliminate Vercel serverless timeout failures, the current desktop backup flow previews SQLite files in the browser, requires a dry run and double confirmation, then performs an additive chunked import:
 
 ```mermaid
 graph TD
@@ -41,8 +41,8 @@ Located under **Settings → Backup & Restore**:
 3. **Configuration**: Option to apply safe brand details (shop support phones, repair terms).
 4. **Dry Run**: Evaluates structural constraints, orphaned lots, invalid prices, and counts warnings before making database writes.
 5. **Confirmation**: Strict warning checklist + typing `IMPORT DESKTOP BACKUP` and checking risk acknowledgements.
-6. **Progress**: Reserved for the future approved import flow.
-7. **Report**: Reserved for the future approved import flow.
+6. **Progress**: Uploads supported tables in dependency order using organization-scoped server actions.
+7. **Report**: Shows created, duplicate-skipped, orphan-skipped, and failed row counts. Import is additive and has no automatic rollback.
 
 Online backup ZIP files with `data/gadgetzone-online.json` are inspected directly and do not initialize SQLite/WASM. Desktop ZIP files, including nested desktop exports, use the local WASM parser only for preview/count inspection. Missing `manifest.json` is handled by inferring desktop metadata from the SQLite database, not by failing the upload.
 
@@ -56,7 +56,8 @@ Online backup ZIP files with `data/gadgetzone-online.json` are inspected directl
 > - Real user login credentials must be created by owners or admins under the **User Management** page.
 >
 > **RLS Boundary Enforcement:**
-> - Every insertion query inherits RLS scopes matching the current active cashier's `organization_id` to ensure no cross-tenant data leak occurs.
+> - Every insertion query inherits RLS scopes matching the current authenticated user's `organization_id` to ensure no cross-tenant data leak occurs.
+> - Import actions additionally require an Owner or Admin role on the server.
 
 ---
 
