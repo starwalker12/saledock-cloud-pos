@@ -2474,9 +2474,12 @@ export async function previewFactoryResetAction(): Promise<{ success: boolean; c
       return { success: false, error: "Not authenticated." };
     }
 
-    if (profile.role !== "owner" && profile.role !== "admin") {
+    // Owner-only: the factory-reset RPC (reset_organization_to_factory_defaults)
+    // enforces role = 'owner', so admins must be blocked here too — otherwise an
+    // admin completes the whole confirmation flow and only fails at the RPC.
+    if (profile.role !== "owner") {
       logAudit({ module: "settings", action: "permission.denied", details: `Factory reset preview denied for role ${profile.role}` });
-      return { success: false, error: "Only Owners and Admins can access factory reset preview." };
+      return { success: false, error: "Only the shop Owner can access factory reset." };
     }
 
     const orgId = profile.organization_id;
@@ -2573,9 +2576,12 @@ export async function restoreFactoryDefaultsAction(
       return { success: false, error: "Not authenticated." };
     }
 
-    if (profile.role !== "owner" && profile.role !== "admin") {
+    // Owner-only: matches the reset_organization_to_factory_defaults RPC guard
+    // (role = 'owner'). Admins are intentionally blocked from this irreversible,
+    // organization-wide reset.
+    if (profile.role !== "owner") {
       logAudit({ module: "settings", action: "permission.denied", details: `Factory reset execution denied for role ${profile.role}` });
-      return { success: false, error: "Only Owners and Admins can reset shop data." };
+      return { success: false, error: "Only the shop Owner can reset shop data." };
     }
 
     const orgId = profile.organization_id;
