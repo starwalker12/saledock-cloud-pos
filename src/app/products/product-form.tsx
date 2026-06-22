@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { Loader2, Plus } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
 import type { CategoryRow, ProductRow, SupplierRow } from "@/lib/data/catalog";
-import { saveProductAction, type ActionState } from "./actions";
+import { saveCategoryAction, saveProductAction, type ActionState } from "./actions";
 import { BarcodeScanner } from "./barcode-scanner";
 import { ProductImageField } from "./product-image-field";
 
@@ -17,6 +17,7 @@ type ProductFormProps = {
   onSaved?: () => void;
   onCancel?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onCategoryCreated?: (category: CategoryRow) => void;
   canWrite: boolean;
   canManageOverride: boolean;
 };
@@ -33,6 +34,7 @@ export function ProductForm({
   onSaved,
   onCancel,
   onDirtyChange,
+  onCategoryCreated,
   canWrite,
   canManageOverride,
 }: ProductFormProps) {
@@ -46,11 +48,44 @@ export function ProductForm({
     useState<ActionState | null>(null);
   const [barcode, setBarcode] = useState(initialValues?.barcode ?? "");
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const [categoryId, setCategoryId] = useState(initialValues?.category_id ?? "");
+  const [showCategoryCreator, setShowCategoryCreator] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [isCreatingCategory, startCategoryTransition] = useTransition();
+
+  function handleCreateCategory() {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setCategoryError(null);
+    const formData = new FormData();
+    formData.set("name", name);
+    formData.set("is_active", "on");
+    startCategoryTransition(async () => {
+      const result = await saveCategoryAction({ error: null, success: null }, formData);
+      if (result.error) {
+        setCategoryError(result.error);
+        return;
+      }
+      if (result.record) {
+        const newCategory: CategoryRow = {
+          id: result.record.id,
+          name: result.record.name,
+          description: null,
+          is_active: true,
+        };
+        onCategoryCreated?.(newCategory);
+        setCategoryId(result.record.id);
+        onDirtyChange?.(true);
+      }
+      setNewCategoryName("");
+      setShowCategoryCreator(false);
+    });
+  }
 
   useEffect(() => {
-    if (state.success && !initialValues?.id) formRef.current?.reset();
     if (state.success) onSaved?.();
-  }, [state.success, initialValues?.id, onSaved]);
+  }, [state.success, onSaved]);
 
   const activeCategories = categories.filter(
     (category) =>
@@ -165,7 +200,11 @@ export function ProductForm({
               <span className={labelClass}>Category</span>
               <AppSelect
                 name="category_id"
-                defaultValue={initialValues?.category_id ?? ""}
+                value={categoryId}
+                onChange={(value) => {
+                  setCategoryId(value);
+                  onDirtyChange?.(true);
+                }}
                 disabled={!canWrite}
                 options={categoryOptions}
                 ariaLabel="Product category"
@@ -174,6 +213,77 @@ export function ProductForm({
                 buttonClassName="h-11"
               />
             </label>
+
+            <div className="block min-w-0">
+              <span className={labelClass}>New category</span>
+              {!showCategoryCreator ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryCreator(true)}
+                  disabled={!canWrite}
+                  className="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 text-sm font-bold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <Plus className="size-4" />
+                  Create category
+                </button>
+              ) : (
+                <div className="mt-1 space-y-2">
+                  <input
+                    value={newCategoryName}
+                    onChange={(e) => {
+                      setNewCategoryName(e.target.value);
+                      setCategoryError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCreateCategory();
+                      }
+                      if (e.key === "Escape") {
+                        setShowCategoryCreator(false);
+                        setNewCategoryName("");
+                        setCategoryError(null);
+                      }
+                    }}
+                    placeholder="Category name"
+                    disabled={isCreatingCategory || !canWrite}
+                    className={inputClass}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      disabled={isCreatingCategory || !newCategoryName.trim() || !canWrite}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-700 px-3 text-xs font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isCreatingCategory ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Plus className="size-3.5" />
+                      )}
+                      Create
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCategoryCreator(false);
+                        setNewCategoryName("");
+                        setCategoryError(null);
+                      }}
+                      disabled={isCreatingCategory}
+                      className="inline-flex h-9 items-center rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {categoryError && (
+                    <p role="alert" className="text-xs font-semibold text-red-700 dark:text-red-400">
+                      {categoryError}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
             <label className="block min-w-0">
               <span className={labelClass}>Supplier</span>

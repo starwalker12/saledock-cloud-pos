@@ -18,8 +18,8 @@ import {
   uploadProductImage,
 } from "@/lib/storage/product-images.server";
 
-export type ActionState = { error: string | null; success: string | null };
-const ok = (msg: string): ActionState => ({ error: null, success: msg });
+export type ActionState = { error: string | null; success: string | null; record?: { id: string; name: string } | null };
+const ok = (msg: string, record?: { id: string; name: string }): ActionState => ({ error: null, success: msg, record: record ?? null });
 const err = (msg: string): ActionState => ({ error: msg, success: null });
 
 async function requireWriter() {
@@ -79,13 +79,17 @@ export async function saveCategoryAction(
       .eq("id", id)
       .eq("organization_id", w.ctx.profile!.organization_id!);
     if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
+    revalidatePath("/products");
+    revalidatePath("/dashboard");
+    return ok("Category updated.", { id, name: parsed.data.name });
   } else {
-    const { error } = await supabase.from("product_categories").insert(payload);
+    const newId = crypto.randomUUID();
+    const { error } = await supabase.from("product_categories").insert({ id: newId, ...payload });
     if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
+    revalidatePath("/products");
+    revalidatePath("/dashboard");
+    return ok("Category created.", { id: newId, name: parsed.data.name });
   }
-  revalidatePath("/products");
-  revalidatePath("/dashboard");
-  return ok(id ? "Category updated." : "Category created.");
 }
 
 export async function archiveCategoryAction(formData: FormData) {
