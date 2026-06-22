@@ -10,6 +10,12 @@ const optionalString = z.preprocess((value) => {
   return trimmed === "" ? null : trimmed;
 }, z.string().min(1).optional().nullable());
 
+const optionalEmail = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}, z.string().email("Invalid email.").optional().nullable());
+
 const nonNegativeNumber = z.coerce
   .number({ message: "Enter a valid number." })
   .min(0, "Must be 0 or more.");
@@ -66,6 +72,16 @@ const productSchema = z
       }
     }
   });
+
+const supplierSchema = z.object({
+  name: z.string().trim().min(1, "Supplier name is required.").max(160),
+  company: optionalString,
+  phone: optionalString,
+  email: optionalEmail,
+  address: optionalString,
+  notes: optionalString,
+  is_active: boolish.default(true),
+});
 
 const validProduct = {
   name: "QA product",
@@ -135,4 +151,35 @@ test("required product name remains required", () => {
   assert.equal(result.success, false);
   if (result.success) return;
   assert.equal(result.error.issues[0]?.message, "Product name is required.");
+});
+
+test("supplier optional fields can be left blank", () => {
+  const result = supplierSchema.safeParse({
+    name: "QA supplier",
+    company: "",
+    phone: " ",
+    email: "",
+    address: "",
+    notes: "",
+    is_active: "on",
+  });
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+  assert.equal(result.data.company, null);
+  assert.equal(result.data.phone, null);
+  assert.equal(result.data.email, null);
+  assert.equal(result.data.address, null);
+  assert.equal(result.data.notes, null);
+});
+
+test("filled supplier email is trimmed and validated", () => {
+  const result = supplierSchema.safeParse({
+    name: "QA supplier",
+    email: "  stock@example.com  ",
+  });
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+  assert.equal(result.data.email, "stock@example.com");
 });
