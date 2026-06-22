@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import type { CategoryRow, ProductRow, SupplierRow } from "@/lib/data/catalog";
 import { ProductForm } from "./product-form";
@@ -12,7 +11,9 @@ type ProductFormModalProps = {
   suppliers: SupplierRow[];
   canWrite: boolean;
   canManageOverride: boolean;
-  closeHref: string;
+  onClose: () => void;
+  onSaved?: () => void;
+  onCategoryCreated?: (category: CategoryRow) => void;
 };
 
 export function ProductFormModal({
@@ -21,17 +22,18 @@ export function ProductFormModal({
   suppliers,
   canWrite,
   canManageOverride,
-  closeHref,
+  onClose,
+  onSaved,
+  onCategoryCreated,
 }: ProductFormModalProps) {
-  const router = useRouter();
   const dialogRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [dirty, setDirty] = useState(false);
   const isEdit = Boolean(initialValues?.id);
 
   const close = useCallback(() => {
-    router.push(closeHref);
-  }, [closeHref, router]);
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -66,9 +68,9 @@ export function ProductFormModal({
   }, [close, dirty]);
 
   const handleSaved = useCallback(() => {
-    router.push(closeHref);
-    router.refresh();
-  }, [closeHref, router]);
+    onSaved?.();
+    onClose();
+  }, [onClose, onSaved]);
 
   return (
     <div
@@ -82,7 +84,7 @@ export function ProductFormModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-form-title"
-        className="flex h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#fff] shadow-2xl dark:bg-slate-950 sm:h-auto sm:max-h-[92dvh] sm:max-w-4xl sm:rounded-xl sm:border sm:border-slate-200 sm:dark:border-slate-800"
+        className="flex h-dvh w-full min-w-0 flex-col bg-[#fff] shadow-2xl dark:bg-slate-950 sm:h-auto sm:max-h-[92dvh] sm:max-w-4xl sm:rounded-xl sm:border sm:border-slate-200 sm:dark:border-slate-800"
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6 dark:border-slate-800">
           <div className="min-w-0">
@@ -120,6 +122,7 @@ export function ProductFormModal({
           onSaved={handleSaved}
           onCancel={close}
           onDirtyChange={setDirty}
+          onCategoryCreated={onCategoryCreated}
         />
       </section>
     </div>

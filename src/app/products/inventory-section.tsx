@@ -133,7 +133,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-[#fff] p-4 shadow-2xl overflow-y-auto max-h-[90vh] md:p-6 dark:border-slate-800 dark:bg-slate-950 text-left">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 dark:border-slate-800">
