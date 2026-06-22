@@ -30,6 +30,8 @@ export default async function PosPage() {
         currency={organization?.currency_code ?? "PKR"}
         canCheckout={canUsePos(profile.role)}
         canWriteCatalog={canWriteCatalog(profile.role)}
+        orgId={profile.organization_id}
+        userId={user.id}
       />
     </AppShell>
   );
