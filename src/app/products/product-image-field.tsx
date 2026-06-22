@@ -12,12 +12,14 @@ type ProductImageFieldProps = {
   currentUrl?: string | null;
   disabled?: boolean;
   onDirty?: () => void;
+  onFileStateChange?: () => void;
 };
 
 export function ProductImageField({
   currentUrl,
   disabled = false,
   onDirty,
+  onFileStateChange,
 }: ProductImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -41,6 +43,8 @@ export function ProductImageField({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setError(null);
+    onFileStateChange?.();
     const validationError = validateProductImageFile(file);
     if (validationError) {
       setError(validationError);
@@ -63,6 +67,7 @@ export function ProductImageField({
     setPreviewUrl(null);
     setRemoved(true);
     setError(null);
+    onFileStateChange?.();
     onDirty?.();
   }
 
