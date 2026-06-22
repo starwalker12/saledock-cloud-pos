@@ -6,10 +6,11 @@ const optionalString = z.preprocess((value) => {
   return trimmed === "" ? null : trimmed;
 }, z.string().min(1).optional().nullable());
 
-const optionalEmail = z
-  .preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().email("Invalid email."))
-  .optional()
-  .nullable();
+const optionalEmail = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}, z.string().email("Invalid email.").optional().nullable());
 
 const nonNegativeNumber = z.coerce
   .number({ message: "Enter a valid number." })

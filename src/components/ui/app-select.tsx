@@ -82,6 +82,7 @@ export function AppSelect({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.stopPropagation();
         setIsOpen(false);
         setQuery("");
       }

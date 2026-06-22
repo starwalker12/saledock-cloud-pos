@@ -57,8 +57,13 @@ export function ProductsTab({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [products] = useState(initialProducts);
-  const [categories, setCategories] = useState(initialCategories);
+  const products = initialProducts;
+  const [createdCategories, setCreatedCategories] = useState<CategoryRow[]>([]);
+  const categories = useMemo(() => {
+    const byId = new Map(initialCategories.map((category) => [category.id, category]));
+    createdCategories.forEach((category) => byId.set(category.id, category));
+    return Array.from(byId.values());
+  }, [createdCategories, initialCategories]);
 
   const [search, setSearch] = useState(params.q ?? "");
   const [categoryFilter, setCategoryFilter] = useState(params.category ?? "");
@@ -180,7 +185,9 @@ export function ProductsTab({
           canManageOverride={canManageOverride}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
-          onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
+          onCategoryCreated={(category) =>
+            setCreatedCategories((previous) => [...previous, category])
+          }
         />
       )}
 
