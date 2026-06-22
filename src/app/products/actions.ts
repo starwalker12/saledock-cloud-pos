@@ -13,6 +13,10 @@ import {
   supplierSchema,
 } from "@/lib/validation/catalog";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
+import {
+  removeProductImage,
+  uploadProductImage,
+} from "@/lib/storage/product-images.server";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -265,6 +269,9 @@ export async function saveProductAction(
   if (!parsed.success) return err(flatten(parsed.error));
 
   const id = (formData.get("id") as string | null) || null;
+  const imageValue = formData.get("product_image");
+  const imageFile = imageValue instanceof File && imageValue.size > 0 ? imageValue : null;
+  const removeImage = formData.get("remove_image") === "1";
   const supabase = await createClient();
   const isService = parsed.data.is_service;
   const orgId = w.ctx.profile!.organization_id!;
@@ -315,7 +322,7 @@ export async function saveProductAction(
     // Query old state for comparative override audit logs
     const { data: oldProduct, error: fetchErr } = await supabase
       .from("products")
-      .select("allow_sell_at_loss, sell_at_loss_reason, name")
+      .select("allow_sell_at_loss, sell_at_loss_reason, name, image_path")
       .eq("id", id)
       .eq("organization_id", orgId)
       .maybeSingle();
@@ -324,12 +331,30 @@ export async function saveProductAction(
       return err("We could not find this record for your shop. It may have been removed or you may not have access.");
     }
 
+    let nextImagePath = oldProduct.image_path;
+    let uploadedImagePath: string | null = null;
+    if (imageFile) {
+      const upload = await uploadProductImage(supabase, orgId, id, imageFile);
+      if (upload.error) return err(upload.error);
+      nextImagePath = upload.path;
+      uploadedImagePath = upload.path;
+    } else if (removeImage) {
+      nextImagePath = null;
+    }
+
     const { error } = await supabase
       .from("products")
-      .update(payload)
+      .update({ ...payload, image_path: nextImagePath })
       .eq("id", id)
       .eq("organization_id", orgId);
-    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
+    if (error) {
+      await removeProductImage(supabase, uploadedImagePath);
+      return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
+    }
+
+    if (oldProduct.image_path && oldProduct.image_path !== nextImagePath) {
+      await removeProductImage(supabase, oldProduct.image_path);
+    }
 
     if (oldProduct && !isService) {
       if (!oldProduct.allow_sell_at_loss && parsed.data.allow_sell_at_loss) {
@@ -360,8 +385,23 @@ export async function saveProductAction(
       }
     }
   } else {
-    const { error } = await supabase.from("products").insert(payload);
-    if (error) return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
+    const productId = crypto.randomUUID();
+    let imagePath: string | null = null;
+    if (imageFile) {
+      const upload = await uploadProductImage(supabase, orgId, productId, imageFile);
+      if (upload.error) return err(upload.error);
+      imagePath = upload.path;
+    }
+
+    const { error } = await supabase.from("products").insert({
+      id: productId,
+      ...payload,
+      image_path: imagePath,
+    });
+    if (error) {
+      await removeProductImage(supabase, imagePath);
+      return err(getSafeActionError(error, "We couldn't save these changes. Please try again."));
+    }
 
     if (parsed.data.allow_sell_at_loss && !isService) {
       logAudit({
@@ -374,6 +414,7 @@ export async function saveProductAction(
   }
 
   revalidatePath("/products");
+  revalidatePath("/pos");
   revalidatePath("/dashboard");
   logAudit({
     module: "products",

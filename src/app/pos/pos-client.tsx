@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Minus, Plus, Search, Trash2, UserPlus2 } from "lucide-react";
 import { checkoutAction, quickCreateCustomerAction } from "./actions";
 import { BarcodeScanner } from "@/app/products/barcode-scanner";
+import { ProductThumbnail } from "@/components/products/product-thumbnail";
 import {
   PAYMENT_METHODS,
   SERVICE_DIRECTIONS,
@@ -546,6 +547,12 @@ export function PosClient({ products: initialProducts, customers: initialCustome
                       </span>
                     )}
                   </div>
+                  <ProductThumbnail
+                    imageUrl={p.image_url}
+                    productName={p.name}
+                    className="mt-2 aspect-square w-full"
+                    sizes="(max-width: 379px) 100vw, (max-width: 639px) 50vw, (max-width: 1023px) 33vw, 25vw"
+                  />
                   <p className="mt-2 line-clamp-2 break-words text-sm font-bold text-slate-900 dark:text-slate-100">{p.name}</p>
                   <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{p.sku ?? p.barcode ?? p.category_name ?? "—"}</p>
                   <div className="mt-auto flex flex-col gap-1 pt-3 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between">

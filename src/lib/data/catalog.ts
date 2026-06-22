@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { escapeLike } from "@/lib/security/sanitize";
+import { getProductImagePublicUrl } from "@/lib/storage/product-images.server";
 
 export type CategoryRow = {
   id: string;
@@ -31,6 +32,8 @@ export type ProductRow = {
   supplier_id: string | null;
   category_name: string | null;
   supplier_name: string | null;
+  image_path: string | null;
+  image_url: string | null;
   type: "product" | "service";
   purchase_price: number;
   sale_price: number;
@@ -107,7 +110,7 @@ export async function listProducts(
   let query = supabase
     .from("products")
     .select(
-      `id, name, sku, barcode, category_id, supplier_id, type, purchase_price, sale_price,
+      `id, name, sku, barcode, category_id, supplier_id, image_path, type, purchase_price, sale_price,
        stock_quantity, minimum_stock, allow_sell_at_loss, sell_at_loss_reason, notes, is_active,
        product_categories(name), suppliers(name)`,
     )
@@ -141,6 +144,8 @@ export async function listProducts(
       supplier_id: r.supplier_id,
       category_name: categoryName,
       supplier_name: supplierName,
+      image_path: r.image_path,
+      image_url: getProductImagePublicUrl(supabase, r.image_path),
       type: r.type,
       purchase_price: Number(r.purchase_price ?? 0),
       sale_price: Number(r.sale_price ?? 0),
