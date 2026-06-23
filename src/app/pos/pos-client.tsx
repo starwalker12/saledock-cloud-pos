@@ -473,7 +473,13 @@ export function PosClient({
       checkoutAttemptRef.current = null;
 
       if (heldBillId && res.invoice_id) {
-        await completeHeldBillAction(heldBillId, res.invoice_id);
+        const completeRes = await completeHeldBillAction(heldBillId, res.invoice_id);
+        if (!completeRes.ok) {
+          toast.show({
+            type: "error",
+            message: `Sale completed as ${res.invoice_no}, but we could not link it to the held bill. Please contact support.`,
+          });
+        }
       }
 
       setProducts((prev) =>

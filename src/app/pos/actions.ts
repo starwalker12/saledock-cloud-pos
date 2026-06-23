@@ -313,6 +313,28 @@ export async function resumeHeldBillAction(id: string): Promise<{
   }
 
   const supabase = await createClient();
+
+  // Only held bills can be resumed. Already-resumed is idempotent; completed/
+  // cancelled bills cannot return to the POS.
+  const { data: current, error: fetchError } = await supabase
+    .from("pos_held_bills")
+    .select("status")
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single();
+
+  if (fetchError || !current) {
+    return { ok: false, error: "Held bill not found." };
+  }
+
+  if (current.status === "completed" || current.status === "cancelled") {
+    return { ok: false, error: "This held bill has already been completed or cancelled." };
+  }
+
+  if (current.status === "resumed") {
+    return { ok: true, error: null };
+  }
+
   const { error } = await supabase
     .from("pos_held_bills")
     .update({ status: "resumed", updated_by: ctx.profile.id, resumed_at: new Date().toISOString() })
@@ -342,6 +364,27 @@ export async function completeHeldBillAction(id: string, invoiceId: string): Pro
   if (!ctx.profile?.organization_id) redirect("/setup");
 
   const supabase = await createClient();
+
+  // Only bills that have been loaded back into the POS can be marked completed.
+  const { data: current, error: fetchError } = await supabase
+    .from("pos_held_bills")
+    .select("status")
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single();
+
+  if (fetchError || !current) {
+    return { ok: false, error: "Held bill not found." };
+  }
+
+  if (current.status === "completed") {
+    return { ok: true, error: null };
+  }
+
+  if (current.status === "cancelled") {
+    return { ok: false, error: "This held bill has been cancelled." };
+  }
+
   const { error } = await supabase
     .from("pos_held_bills")
     .update({ status: "completed", updated_by: ctx.profile.id, completed_invoice_id: invoiceId })
@@ -351,6 +394,13 @@ export async function completeHeldBillAction(id: string, invoiceId: string): Pro
   if (error) {
     return { ok: false, error: getSafeActionError(error, "We couldn't finalize the held bill record.") };
   }
+
+  logAudit({
+    module: "pos",
+    action: "pos.held_bill_completed",
+    details: `Held bill completed`,
+    metadata: { held_bill_id: id, invoice_id: invoiceId },
+  });
 
   return { ok: true, error: null };
 }
@@ -367,6 +417,26 @@ export async function cancelHeldBillAction(id: string): Promise<{
   }
 
   const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("pos_held_bills")
+    .select("status")
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single();
+
+  if (fetchError || !current) {
+    return { ok: false, error: "Held bill not found." };
+  }
+
+  if (current.status === "completed") {
+    return { ok: false, error: "Completed bills cannot be cancelled." };
+  }
+
+  if (current.status === "cancelled") {
+    return { ok: true, error: null };
+  }
+
   const { error } = await supabase
     .from("pos_held_bills")
     .update({ status: "cancelled", updated_by: ctx.profile.id })
