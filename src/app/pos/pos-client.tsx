@@ -570,6 +570,7 @@ export function PosClient({
     label: string | null;
     customer_name: string | null;
   }) {
+    setHeldBillsOpen(false);
     const confirmed = await confirm({
       title: "Resume held bill",
       message: "This will load the bill into a new tab. Continue?",
@@ -599,6 +600,7 @@ export function PosClient({
   }
 
   async function handleCancelHeldBill(bill: { id: string; label: string | null }) {
+    setHeldBillsOpen(false);
     const confirmed = await confirm({
       title: "Cancel held bill",
       message: `Cancel ${bill.label ? `"${bill.label}"` : "this held bill"}? This cannot be undone.`,
