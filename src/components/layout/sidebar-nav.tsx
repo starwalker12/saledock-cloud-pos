@@ -48,6 +48,10 @@ type SidebarPreferences = {
   order: string[];
   archived: string[];
   updatedAt: string;
+  // Cookie-consent values are stored in the same preferences object for signed-in
+  // users. Preserve them so sidebar operations do not wipe consent decisions.
+  analyticsConsent?: "accepted" | "rejected";
+  marketingConsent?: "accepted" | "rejected";
 };
 
 const STORAGE_KEY = "saledock-sidebar-preferences-v1";
@@ -72,9 +76,10 @@ function uniqueStrings(values: unknown): string[] {
 function parseStoredPreferences(raw: string | null): SidebarPreferences {
   try {
     if (!raw) return createDefaultPreferences();
-    const parsed = JSON.parse(raw) as Partial<SidebarPreferences>;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
 
     return {
+      ...parsed,
       version: 1,
       collapsed: parsed.collapsed === true,
       order: uniqueStrings(parsed.order),
