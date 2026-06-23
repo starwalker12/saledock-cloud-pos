@@ -13,7 +13,33 @@ const PREFERENCES_STORAGE_KEY = "saledock-sidebar-preferences-v1";
 const CONSENT_VERSION = "2026-06-analytics-v1";
 const OPEN_COOKIE_SETTINGS_EVENT = "saledock:open-cookie-settings";
 const COOKIE_CONSENT_CHANGED_EVENT = "saledock:cookie-consent-changed";
+// Sidebar preferences are also used for signed-in analytics/marketing consent storage.
 const PREFERENCES_CHANGED_EVENT = "saledock-sidebar-preferences-changed";
+
+function hasStoredConsentDecision(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    // Anonymous visitors: consent stored directly under STORAGE_KEY.
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw === "accepted" || raw === "rejected") return true;
+    const parsed = raw ? (JSON.parse(raw) as Partial<StoredConsent>) : null;
+    if (parsed?.value === "accepted" || parsed?.value === "rejected") return true;
+
+    // Signed-in visitors: consent is persisted as part of sidebar preferences.
+    const rawPrefs = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
+    if (rawPrefs) {
+      const prefs = JSON.parse(rawPrefs) as Record<string, unknown>;
+      const hasAnalytics =
+        prefs.analyticsConsent === "accepted" || prefs.analyticsConsent === "rejected";
+      const hasMarketing =
+        prefs.marketingConsent === "accepted" || prefs.marketingConsent === "rejected";
+      if (hasAnalytics || hasMarketing) return true;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return false;
+}
 
 type ConsentValue = "accepted" | "rejected";
 
@@ -231,7 +257,7 @@ export default function AnalyticsNotice({
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dbChecked, setDbChecked] = useState(false);
-  const [bannerOpen, setBannerOpen] = useState(false);
+  const [bannerOpen, setBannerOpen] = useState(() => !hasStoredConsentDecision());
   const [showDetails, setShowDetails] = useState(false);
   const [consentTrigger, setConsentTrigger] = useState(0);
 
@@ -239,17 +265,15 @@ export default function AnalyticsNotice({
   const [draftAnalytics, setDraftAnalytics] = useState(false);
   const [draftMarketing, setDraftMarketing] = useState(false);
 
-  // Listen to storage / preference changes
+  // Listen to storage / preference changes (only for live consent updates, not banner state).
   useEffect(() => {
     const handleStorageChange = () => {
       setConsentTrigger((prev) => prev + 1);
     };
     window.addEventListener("storage", handleStorageChange);
-    window.addEventListener(PREFERENCES_CHANGED_EVENT, handleStorageChange);
     window.addEventListener(COOKIE_CONSENT_CHANGED_EVENT, handleStorageChange);
     return () => {
       window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener(PREFERENCES_CHANGED_EVENT, handleStorageChange);
       window.removeEventListener(COOKIE_CONSENT_CHANGED_EVENT, handleStorageChange);
     };
   }, []);
@@ -370,6 +394,11 @@ export default function AnalyticsNotice({
 
   const { analytics: analyticsDecision, marketing: marketingDecision } = getDecisions();
 
+  // Keep banner visibility derived from persisted consent. If the visitor has already
+  // decided (accepted or rejected), sidebar/dash layout changes must not reopen it.
+  const hasDecided = analyticsDecision !== null && marketingDecision !== null;
+  const shouldShowBanner = !hasDecided || bannerOpen;
+
   const saveAnalyticsAccountConsent = (value: ConsentValue) => {
     if (typeof window === "undefined") return;
 
@@ -444,12 +473,6 @@ export default function AnalyticsNotice({
   if (authLoading || (user && !dbChecked)) return null;
 
   const analyticsAccepted = analyticsDecision === "accepted";
-
-  // Show the banner until BOTH categories have an explicit decision (or when the
-  // visitor reopens Cookie settings). Adding the marketing category means people
-  // who previously only decided analytics will be asked once about marketing.
-  const shouldShowBanner =
-    bannerOpen || analyticsDecision === null || marketingDecision === null;
 
   return (
     <>

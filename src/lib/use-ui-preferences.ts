@@ -34,6 +34,12 @@ export function useUIPreferencesSync() {
 
         const localDashboard = localStorage.getItem(DASHBOARD_KEY);
         const localSidebar = localStorage.getItem(SIDEBAR_KEY);
+        let localParsed: Record<string, unknown> = {};
+        if (localSidebar) {
+          try {
+            localParsed = JSON.parse(localSidebar);
+          } catch {}
+        }
 
         if (data) {
           const dbDashboard = data.dashboard_layout;
@@ -53,7 +59,17 @@ export function useUIPreferencesSync() {
 
           // Sync sidebar preferences
           if (dbSidebar) {
-            localStorage.setItem(SIDEBAR_KEY, JSON.stringify(dbSidebar));
+            // Preserve cookie-consent values that may exist locally but have not
+            // been persisted to the database yet, so the cookie banner does not
+            // reappear after a refresh.
+            const merged = { ...localParsed, ...dbSidebar };
+            if (localParsed?.analyticsConsent && !dbSidebar?.analyticsConsent) {
+              merged.analyticsConsent = localParsed.analyticsConsent;
+            }
+            if (localParsed?.marketingConsent && !dbSidebar?.marketingConsent) {
+              merged.marketingConsent = localParsed.marketingConsent;
+            }
+            localStorage.setItem(SIDEBAR_KEY, JSON.stringify(merged));
             window.dispatchEvent(new Event(SIDEBAR_EVENT));
           } else if (localSidebar) {
             updates.sidebar_preferences = JSON.parse(localSidebar);
