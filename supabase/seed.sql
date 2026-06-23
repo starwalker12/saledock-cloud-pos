@@ -92,3 +92,28 @@ values (
   'Thank you for shopping at Gadget Zone.',
   '{"repair_statuses":["received","waiting_for_parts","in_progress","completed","delivered","cancelled"]}'::jsonb
 );
+
+-- Local/dev seed stock lots for FIFO checkout QA.
+-- The seeded physical products above have stock_quantity values, but pos_checkout
+-- allocates from product_stock_lots using FIFO. Without matching lots, physical
+-- product checkout fails even when products show stock. These seeded lots make
+-- fresh local databases consistent so POS QA can use real physical products.
+insert into public.product_stock_lots (
+  id,
+  organization_id,
+  branch_id,
+  product_id,
+  supplier_id,
+  lot_number,
+  purchase_date,
+  quantity_received,
+  quantity_remaining,
+  unit_cost,
+  notes,
+  is_active,
+  created_by
+)
+values
+  ('00000000-0000-4000-8000-000000005001', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000003001', '00000000-0000-4000-8000-000000002001', 'LOT-IPHONE-CASE-001', current_date, 20, 20, 650, 'Demo opening stock for local QA', true, null),
+  ('00000000-0000-4000-8000-000000005002', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000003002', '00000000-0000-4000-8000-000000002001', 'LOT-ADAPTER-001', current_date, 12, 12, 2200, 'Demo opening stock for local QA', true, null)
+on conflict (id) do nothing;
