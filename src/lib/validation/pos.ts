@@ -136,3 +136,70 @@ export const quickCustomerSchema = z.object({
   phone: z.string().trim().max(40).optional().nullable(),
 });
 export type QuickCustomerInput = z.infer<typeof quickCustomerSchema>;
+
+// ── Held bills / suspended sales ─────────────────────────────────────────────
+
+export const heldBillCartSchema = z
+  .object({
+    product_id: z.string().uuid(),
+    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1."),
+    unit_price: z.coerce.number().min(0, "Unit price must be 0 or more."),
+    discount: z.coerce.number().min(0, "Line discount must be 0 or more.").default(0),
+    service_provider: optionalString,
+    service_direction: optionalString,
+    service_account_number: optionalString,
+    service_receiver_account: optionalString,
+    service_reference_no: optionalString,
+    service_transaction_amount: optionalNonNegativeNumber,
+    service_commission: optionalNonNegativeNumber,
+    service_total_charged: optionalNonNegativeNumber,
+    service_note: z
+      .preprocess(
+        (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+        z.string().max(500),
+      )
+      .optional(),
+  })
+  .superRefine((val, ctx) => {
+    const principal = val.service_transaction_amount;
+    const commission = val.service_commission;
+    const totalCharged = val.service_total_charged;
+    if (
+      totalCharged !== undefined &&
+      commission !== undefined &&
+      totalCharged < commission
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Total charged cannot be less than commission.",
+        path: ["service_total_charged"],
+      });
+    }
+    if (principal !== undefined && principal < 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Principal must be 0 or more.",
+        path: ["service_transaction_amount"],
+      });
+    }
+  });
+export type HeldBillCartItem = z.infer<typeof heldBillCartSchema>;
+
+export const heldBillPayloadSchema = z.object({
+  label: z.string().trim().max(120).optional().nullable(),
+  customer_id: z.string().uuid().optional().nullable(),
+  customer_name: z.string().trim().max(160).optional().nullable(),
+  note: z.string().trim().max(500).optional().nullable(),
+  cart: z.array(heldBillCartSchema).min(1, "Cannot hold an empty bill."),
+  totals_snapshot: z
+    .object({
+      item_count: z.number().int().min(0),
+      grand_total: z.number().min(0),
+    })
+    .optional()
+    .nullable(),
+});
+export type HeldBillPayload = z.infer<typeof heldBillPayloadSchema>;
+
+export const heldBillStatusSchema = z.enum(["held", "resumed", "completed", "cancelled"]);
+export type HeldBillStatus = z.infer<typeof heldBillStatusSchema>;

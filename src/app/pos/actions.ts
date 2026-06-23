@@ -10,8 +10,10 @@ import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import {
   checkoutSchema,
+  heldBillPayloadSchema,
   quickCustomerSchema,
   type CheckoutInput,
+  type HeldBillPayload,
   type QuickCustomerInput,
 } from "@/lib/validation/pos";
 
@@ -26,6 +28,12 @@ export type QuickCustomerResult = {
   ok: boolean;
   error: string | null;
   customer?: { id: string; name: string; phone: string | null };
+};
+
+export type HeldBillResult = {
+  ok: boolean;
+  error: string | null;
+  held_bill_id?: string;
 };
 
 export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResult> {
@@ -158,4 +166,293 @@ export async function quickCreateCustomerAction(
   if (error) return { ok: false, error: getSafeActionError(error, "We couldn't save this customer. Please try again.") };
   revalidatePath("/customers");
   return { ok: true, error: null, customer: data as { id: string; name: string; phone: string | null } };
+}
+
+// ── Held bills / suspended sales ─────────────────────────────────────────────
+// These actions intentionally NEVER create invoices, invoice numbers, stock
+// reservations, payments, or customer ledger entries. Real invoice numbers are
+// generated only by checkoutAction above via the pos_checkout RPC.
+
+export async function holdBillAction(payload: HeldBillPayload): Promise<HeldBillResult> {
+  const ctx = await getCurrentContext();
+  if (!ctx.user) redirect("/login");
+  if (!ctx.profile?.organization_id) redirect("/setup");
+  if (!(await canSellNew(ctx.profile))) {
+    logAudit({ module: "pos", action: "permission.denied", details: "Attempted hold bill without sell permission" });
+    return { ok: false, error: "You do not have permission to hold bills." };
+  }
+
+  const parsed = heldBillPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("pos_held_bills").insert({
+    organization_id: ctx.profile.organization_id,
+    branch_id: ctx.profile.branch_id,
+    created_by: ctx.profile.id,
+    status: "held",
+    label: parsed.data.label ?? null,
+    customer_id: parsed.data.customer_id ?? null,
+    customer_name: parsed.data.customer_name ?? null,
+    note: parsed.data.note ?? null,
+    cart: parsed.data.cart,
+    totals_snapshot: parsed.data.totals_snapshot ?? null,
+  });
+
+  if (error) {
+    return { ok: false, error: getSafeActionError(error, "We couldn't hold this bill. Please try again.") };
+  }
+
+  logAudit({
+    module: "pos",
+    action: "pos.held_bill_created",
+    details: `Held bill created${parsed.data.label ? `: ${parsed.data.label}` : ""}`,
+    metadata: { customer_id: parsed.data.customer_id ?? null },
+  });
+
+  return { ok: true, error: null };
+}
+
+export async function listHeldBillsAction(): Promise<{
+  ok: boolean;
+  error: string | null;
+  bills?: {
+    id: string;
+    status: string;
+    label: string | null;
+    customer_name: string | null;
+    note: string | null;
+    item_count: number;
+    grand_total: number;
+    created_at: string;
+    updated_at: string;
+  }[];
+}> {
+  const ctx = await getCurrentContext();
+  if (!ctx.user) redirect("/login");
+  if (!ctx.profile?.organization_id) redirect("/setup");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("pos_held_bills")
+    .select("id, status, label, customer_name, note, totals_snapshot, created_at, updated_at")
+    .eq("organization_id", ctx.profile.organization_id)
+    .in("status", ["held", "resumed"])
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    return { ok: false, error: getSafeActionError(error, "We couldn't load held bills."), bills: [] };
+  }
+
+  const bills = (data ?? []).map((row) => {
+    const snap = (row.totals_snapshot ?? {}) as Record<string, number>;
+    return {
+      id: row.id,
+      status: row.status,
+      label: row.label,
+      customer_name: row.customer_name,
+      note: row.note,
+      item_count: Number.isFinite(Number(snap.item_count)) ? Number(snap.item_count) : 0,
+      grand_total: Number.isFinite(Number(snap.grand_total)) ? Number(snap.grand_total) : 0,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  });
+
+  return { ok: true, error: null, bills };
+}
+
+export async function getHeldBillAction(id: string): Promise<{
+  ok: boolean;
+  error: string | null;
+  bill?: HeldBillPayload & { id: string; status: string };
+}> {
+  const ctx = await getCurrentContext();
+  if (!ctx.user) redirect("/login");
+  if (!ctx.profile?.organization_id) redirect("/setup");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("pos_held_bills")
+    .select("id, status, label, customer_id, customer_name, note, cart, totals_snapshot")
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single();
+
+  if (error || !data) {
+    return { ok: false, error: "Held bill not found." };
+  }
+
+  return {
+    ok: true,
+    error: null,
+    bill: {
+      id: data.id,
+      status: data.status,
+      label: data.label,
+      customer_id: data.customer_id,
+      customer_name: data.customer_name,
+      note: data.note,
+      cart: data.cart as HeldBillPayload["cart"],
+      totals_snapshot: data.totals_snapshot as HeldBillPayload["totals_snapshot"],
+    },
+  };
+}
+
+export async function resumeHeldBillAction(id: string): Promise<{
+  ok: boolean;
+  error: string | null;
+}> {
+  const ctx = await getCurrentContext();
+  if (!ctx.user) redirect("/login");
+  if (!ctx.profile?.organization_id) redirect("/setup");
+  if (!(await canSellNew(ctx.profile))) {
+    return { ok: false, error: "You do not have permission to resume held bills." };
+  }
+
+  const supabase = await createClient();
+
+  // Only held bills can be resumed. Already-resumed is idempotent; completed/
+  // cancelled bills cannot return to the POS.
+  const { data: current, error: fetchError } = await supabase
+    .from("pos_held_bills")
+    .select("status")
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single();
+
+  if (fetchError || !current) {
+    return { ok: false, error: "Held bill not found." };
+  }
+
+  if (current.status === "completed" || current.status === "cancelled") {
+    return { ok: false, error: "This held bill has already been completed or cancelled." };
+  }
+
+  if (current.status === "resumed") {
+    return { ok: true, error: null };
+  }
+
+  const { error } = await supabase
+    .from("pos_held_bills")
+    .update({ status: "resumed", updated_by: ctx.profile.id, resumed_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id);
+
+  if (error) {
+    return { ok: false, error: getSafeActionError(error, "We couldn't resume this bill.") };
+  }
+
+  logAudit({
+    module: "pos",
+    action: "pos.held_bill_resumed",
+    details: `Held bill resumed`,
+    metadata: { held_bill_id: id },
+  });
+
+  return { ok: true, error: null };
+}
+
+export async function completeHeldBillAction(id: string, invoiceId: string): Promise<{
+  ok: boolean;
+  error: string | null;
+}> {
+  const ctx = await getCurrentContext();
+  if (!ctx.user) redirect("/login");
+  if (!ctx.profile?.organization_id) redirect("/setup");
+
+  const supabase = await createClient();
+
+  // Only bills that have been loaded back into the POS can be marked completed.
+  const { data: current, error: fetchError } = await supabase
+    .from("pos_held_bills")
+    .select("status")
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single();
+
+  if (fetchError || !current) {
+    return { ok: false, error: "Held bill not found." };
+  }
+
+  if (current.status === "completed") {
+    return { ok: true, error: null };
+  }
+
+  if (current.status === "cancelled") {
+    return { ok: false, error: "This held bill has been cancelled." };
+  }
+
+  const { error } = await supabase
+    .from("pos_held_bills")
+    .update({ status: "completed", updated_by: ctx.profile.id, completed_invoice_id: invoiceId })
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id);
+
+  if (error) {
+    return { ok: false, error: getSafeActionError(error, "We couldn't finalize the held bill record.") };
+  }
+
+  logAudit({
+    module: "pos",
+    action: "pos.held_bill_completed",
+    details: `Held bill completed`,
+    metadata: { held_bill_id: id, invoice_id: invoiceId },
+  });
+
+  return { ok: true, error: null };
+}
+
+export async function cancelHeldBillAction(id: string): Promise<{
+  ok: boolean;
+  error: string | null;
+}> {
+  const ctx = await getCurrentContext();
+  if (!ctx.user) redirect("/login");
+  if (!ctx.profile?.organization_id) redirect("/setup");
+  if (!(await canSellNew(ctx.profile))) {
+    return { ok: false, error: "You do not have permission to cancel held bills." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("pos_held_bills")
+    .select("status")
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single();
+
+  if (fetchError || !current) {
+    return { ok: false, error: "Held bill not found." };
+  }
+
+  if (current.status === "completed") {
+    return { ok: false, error: "Completed bills cannot be cancelled." };
+  }
+
+  if (current.status === "cancelled") {
+    return { ok: true, error: null };
+  }
+
+  const { error } = await supabase
+    .from("pos_held_bills")
+    .update({ status: "cancelled", updated_by: ctx.profile.id })
+    .eq("id", id)
+    .eq("organization_id", ctx.profile.organization_id);
+
+  if (error) {
+    return { ok: false, error: getSafeActionError(error, "We couldn't cancel this held bill.") };
+  }
+
+  logAudit({
+    module: "pos",
+    action: "pos.held_bill_cancelled",
+    details: `Held bill cancelled`,
+    metadata: { held_bill_id: id },
+  });
+
+  return { ok: true, error: null };
 }
