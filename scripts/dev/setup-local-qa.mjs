@@ -24,11 +24,32 @@ const QA_USERS = [
     role: "owner",
   },
   {
+    email: "admin@saledock.local",
+    password: "Password123!",
+    fullName: "Demo Admin",
+    username: "demo-admin",
+    role: "admin",
+  },
+  {
+    email: "manager@saledock.local",
+    password: "Password123!",
+    fullName: "Demo Manager",
+    username: "demo-manager",
+    role: "manager",
+  },
+  {
     email: "cashier@saledock.local",
     password: "Password123!",
     fullName: "Demo Cashier",
     username: "demo-cashier",
     role: "cashier",
+  },
+  {
+    email: "technician@saledock.local",
+    password: "Password123!",
+    fullName: "Demo Technician",
+    username: "demo-technician",
+    role: "technician",
   },
 ];
 
@@ -79,7 +100,7 @@ async function ensureUser({ url, serviceKey, email, password, fullName, username
   if (createRes.ok) {
     const data = await createRes.json();
     userId = data.id;
-    console.log(`  Created ${role}: ${email} (${userId})`);
+    console.log(`  Created ${role}: ${email}`);
   } else {
     const err = await createRes.json().catch(() => ({}));
     if (err.error_code === "email_exists" || err.message?.toLowerCase().includes("already")) {
@@ -105,7 +126,7 @@ async function ensureUser({ url, serviceKey, email, password, fullName, username
             const updateErr = await updateRes.json().catch(() => ({}));
             console.warn(`  Could not update password for ${email}:`, updateErr.message || updateRes.statusText);
           }
-          console.log(`  Updated ${role}: ${email} (${userId})`);
+          console.log(`  Updated ${role}: ${email}`);
         }
       }
     }
@@ -145,7 +166,7 @@ async function ensureUser({ url, serviceKey, email, password, fullName, username
   if (result.includes("ERROR") || result.includes("failed")) {
     throw new Error(`Profile upsert failed for ${email}: ${result}`);
   }
-  console.log(`  Linked ${role} profile to org ${ORG_ID}, branch ${BRANCH_ID}`);
+  console.log(`  Linked ${role} profile to the local Gadget Zone shop`);
 
   return userId;
 }
@@ -192,14 +213,13 @@ async function main() {
     console.log(`  ${user.role}: ${user.email} / ${user.password}`);
   }
 
-  console.log("\nPaste the following into .env.local (gitignored; NEVER commit):\n");
-  console.log(`NEXT_PUBLIC_SUPABASE_URL=${url}`);
-  if (anonKey) {
-    console.log(`NEXT_PUBLIC_SUPABASE_ANON_KEY=${anonKey}`);
+  console.log("\nLocal keys were intentionally not printed.");
+  console.log("Keep local Supabase values in the gitignored .env.local file only.");
+  if (!anonKey) {
+    console.log("Local publishable key was not detected; check `supabase status` before starting the app.");
   }
-  console.log(`SUPABASE_SERVICE_ROLE_KEY=${serviceKey}`);
-  console.log("# Leave RECAPTCHA_SECRET_KEY unset so local dev mode skips Google verification.");
-  console.log("# Start the app with: npm run dev");
+  console.log("Leave RECAPTCHA_SECRET_KEY unset so local dev mode skips Google verification.");
+  console.log("Start the app with: npm run dev");
   console.log("\nStart the app and log in through the real browser login page.\n");
 }
 

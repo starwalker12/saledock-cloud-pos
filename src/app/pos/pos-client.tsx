@@ -669,6 +669,7 @@ export function PosClient({
         return (
           <div
             key={tab.id}
+            data-testid="pos-bill-tab"
             onClick={() => switchTab(tab.id)}
             className={`group flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm ${
               isActive
@@ -678,6 +679,7 @@ export function PosClient({
           >
             <div className="flex min-w-0 flex-col items-start">
               <input
+                data-testid="pos-bill-label"
                 type="text"
                 value={tab.label ?? `Bill ${tabs.findIndex((t) => t.id === tab.id) + 1}`}
                 onChange={(e) => {
@@ -863,6 +865,7 @@ export function PosClient({
                     type="button"
                     key={p.id}
                     data-testid="pos-product-btn"
+                    data-product-id={p.id}
                     onClick={() => addToCart(p)}
                     disabled={outOfStock || !canCheckout}
                     className={`flex min-h-36 h-full flex-col rounded-xl border p-3 text-left transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-cyan-400/70 dark:focus-visible:ring-offset-slate-950 ${
