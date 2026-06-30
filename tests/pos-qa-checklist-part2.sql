@@ -340,7 +340,11 @@ BEGIN
   DELETE FROM public.customer_ledger_entries
    WHERE customer_id = v_customer_id
      AND created_by = v_user_id
-     AND description LIKE 'QA%' OR description LIKE 'Credit write-off: QA%' OR reference_number LIKE 'QA%';
+     AND (
+       description LIKE 'QA%'
+       OR description LIKE 'Credit write-off: QA%'
+       OR reference_number LIKE 'QA%'
+     );
 
   DELETE FROM public.customer_write_offs
    WHERE customer_id = v_customer_id AND reason = 'QA uncollectible';

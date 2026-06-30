@@ -14,11 +14,11 @@ Branch: `qa/mvp-part-2-manual-production-pilot-checklist`
 
 PR #284 fixed the release-blocking service-sale defect. A deterministic SQL regression test confirms that a service line with `unit_price: 0` and `service_total_charged: 1050` now produces invoice line total, grand total, amount paid, and payment rows all equal to 1050, with no physical stock movement. The fix is live on production.
 
-The remaining Part 2 checklist items were verified with deterministic SQL and Node tests because local Playwright browser QA is currently blocked by an auth redirect issue: after email/password login the app lands on `/onboarding` despite `profiles.onboarding_completed = true`, `organizations.onboarding_completed = true`, and `app_settings` existing. This appears to be a local development/session discrepancy rather than a product bug, but it prevents running browser-based POS, settlement, and cash-drawer flows in this session.
+The remaining Part 2 safety paths were covered with deterministic SQL and Node tests where practical because local Playwright browser QA is currently blocked by an auth redirect issue: after email/password login the app lands on `/onboarding` despite `profiles.onboarding_completed = true`, `organizations.onboarding_completed = true`, and `app_settings` existing. This appears to be a local development/session discrepancy rather than a confirmed production bug, but it prevents browser verification of POS UI, settlement UI, cash-drawer closing UI, product-image upload UI, and runtime cross-organization isolation in this session.
 
 Customer settlement FIFO allocation, digital settlements, write-offs, daily-closing credit collection arithmetic, cross-organization RLS schema, product-image storage policies, and backup/import schema all pass deterministic verification.
 
-Final decision: **READY FOR HUMAN BROWSER VERIFICATION** — the blocker is resolved and the deterministic safety net is green. Fardan should perform the live-site eyeball checklist (no real sales unless separately approved) before calling MVP-live.
+Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service-sale defect and the deterministic safety net is green, but the required browser verification remains incomplete. Fardan should not call SaleDock MVP-live until a fresh local/staging browser session completes the blocked UI checks and the live-site eyeball checklist is signed off.
 
 ## Environments and roles
 
@@ -73,7 +73,7 @@ Final decision: **READY FOR HUMAN BROWSER VERIFICATION** — the blocker is reso
 - Result: Local app and Supabase worked; `.env.local` pointed to `127.0.0.1` and remained untracked; no package or lockfile changes were introduced. Part 1 merged during this run and the final branch was rebased onto updated `main`.
 - Evidence: `local_status_ok=true`; 26/26 Node tests; production roots 200.
 - Risk level: Medium
-- Follow-up needed: None for the Part 1 dependency; the service-sale blocker below remains the release gate.
+- Follow-up needed: None for the Part 1 dependency; browser verification remains the release gate.
 
 ### 2. Authentication
 
@@ -224,7 +224,7 @@ Final decision: **READY FOR HUMAN BROWSER VERIFICATION** — the blocker is reso
 - Result: Physical invoice details rendered and return links worked. Cash overpayment invoice recorded grand total/paid 1200 and change 800. Held bills did not allocate numbers before checkout.
 - Evidence: Focused POS/invoice/return test; `INV-000015` overpayment row; held ordering assertions.
 - Risk level: Medium
-- Follow-up needed: Actual browser print/PDF/export output remains a live/manual eyeball check. Service invoices are blocked by section 6.
+- Follow-up needed: Actual browser print/PDF/export output and the repaired service-sale UI flow remain live/manual eyeball checks.
 
 ### 15. Repairs
 
@@ -367,6 +367,6 @@ The final lint, typecheck, build, diff check, required Node tests, and focused E
 
 ## Final decision
 
-**READY FOR HUMAN BROWSER VERIFICATION**
+**BLOCKED - DO NOT CALL MVP-LIVE**
 
-PR #284 resolved the service-sale zero-value invoice blocker and is deployed to production. Deterministic SQL and Node tests pass for service checkout, customer settlement FIFO, write-offs, daily-closing credit collection arithmetic, cross-org RLS schema, product-image storage policies, and backup/import schema. Local Playwright browser QA is blocked by an auth redirect issue in this session, so the remaining browser-level verification (POS UI, settlement UI, cash-drawer close, image upload) should be completed in a fresh local/staging session before calling MVP-live. No production mutations were performed.
+PR #284 resolved the service-sale zero-value invoice blocker and is deployed to production. Deterministic SQL and Node tests pass for service checkout, customer settlement FIFO, write-offs, daily-closing credit collection arithmetic, cross-org RLS schema, product-image storage policies, and backup/import schema. Local Playwright browser QA is blocked by an auth redirect issue in this session, so POS UI, settlement UI, cash-drawer closing UI, product-image upload UI, runtime cross-organization checks, and the live-site owner eyeball must still pass before a controlled MVP pilot. No production mutations were performed.
