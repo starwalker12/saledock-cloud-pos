@@ -67,7 +67,7 @@ test.describe("SaleDock POS, Invoice, Return, and Reports Smoke Tests", () => {
     }
 
     // Wait for item to appear in the cart list
-    await expect(page.locator("button:has-text('Clear')")).not.toBeDisabled();
+    await expect(page.getByRole("button", { name: "Clear", exact: true })).not.toBeDisabled();
 
     // Click "Exact" cash tender button if present (manual QA simulation)
     const exactBtn = page.locator('[data-testid="pos-exact-tender-btn"]');
@@ -111,8 +111,8 @@ test.describe("SaleDock POS, Invoice, Return, and Reports Smoke Tests", () => {
     await page.waitForURL(/.*\/invoices\/.*/);
 
     // Verify invoice number and totals are visible
-    await expect(page.locator("text=Invoice")).toBeVisible();
-    await expect(page.locator("button:has-text('Print')")).toBeVisible();
+    await expect(page.locator("header h1").first()).toContainText(/^Invoice INV-/);
+    await expect(page.getByRole("button", { name: "Print A4 / Save PDF", exact: true })).toBeVisible();
 
     // 3. Return & Refund Flow on the Invoice Page
     // Check if the form is already disabled or if there are no returnable items
@@ -139,27 +139,9 @@ test.describe("SaleDock POS, Invoice, Return, and Reports Smoke Tests", () => {
       await refundAmtInput.fill(maxRefund);
     }
 
-    // Select the first non-empty enabled refund method option
-    const refundMethodSelect = page.locator("select[name='refund_method']");
-    if (await refundMethodSelect.count() > 0) {
-      const options = await refundMethodSelect.locator("option").all();
-      let selectedOptionValue = "";
-      for (const opt of options) {
-        const value = await opt.getAttribute("value");
-        if (value && value !== "") {
-          selectedOptionValue = value;
-          break;
-        }
-      }
-
-      if (selectedOptionValue) {
-        await refundMethodSelect.selectOption(selectedOptionValue);
-      } else {
-        console.log("No non-empty refund method options found. Skipping return test.");
-        test.skip(true, "No non-empty refund method options found.");
-        return;
-      }
-    }
+    const refundMethod = page.getByRole("button", { name: "Refund method", exact: true });
+    await refundMethod.click();
+    await page.getByRole("option", { name: "Cash", exact: true }).click();
 
     // Click "Process return" button
     const processReturnBtn = page.locator("button[type='submit']:has-text('Process return')");
@@ -175,7 +157,7 @@ test.describe("SaleDock POS, Invoice, Return, and Reports Smoke Tests", () => {
     // Click view return and verify it loads
     await viewReturnLink.click();
     await page.waitForURL(/.*\/returns\/.*/);
-    await expect(page.locator("text=Return Details")).toBeVisible();
+    await expect(page.locator("header h1").first()).toContainText(/^Return RET-/);
   });
 
   test("Reports Smoke Test", async ({ page }) => {
@@ -183,8 +165,8 @@ test.describe("SaleDock POS, Invoice, Return, and Reports Smoke Tests", () => {
     await page.goto("/reports");
 
     // Verify reports page elements load
-    await expect(page.locator("text=Gross sales")).toBeVisible();
-    await expect(page.locator("text=Estimated Net Profit")).toBeVisible();
+    await expect(page.getByText("Gross sales", { exact: true })).toBeVisible();
+    await expect(page.getByText("Estimated Net Profit", { exact: true }).first()).toBeVisible();
 
     // Verify the reconciliation helper card can be expanded
     const summaryHeader = page.locator("summary:has-text('How do these numbers connect')");
@@ -192,8 +174,8 @@ test.describe("SaleDock POS, Invoice, Return, and Reports Smoke Tests", () => {
     await summaryHeader.click();
 
     // Verify that the helper text exists and is shown
-    await expect(page.locator("text=Gross Sales")).toBeVisible();
-    await expect(page.locator("text=Discounts Applied")).toBeVisible();
-    await expect(page.locator("text=Net Sales")).toBeVisible();
+    await expect(page.getByText("Gross Sales", { exact: true })).toBeVisible();
+    await expect(page.getByText("Discounts Applied", { exact: true })).toBeVisible();
+    await expect(page.getByRole("group").getByText("Net Sales (Revenue)", { exact: true })).toBeVisible();
   });
 });

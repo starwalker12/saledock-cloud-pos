@@ -1,6 +1,13 @@
 import { Page } from "@playwright/test";
 import { ENV } from "./env";
 
+async function waitForAuthRedirectToSettle(page: Page): Promise<void> {
+  // The callback can queue a final same-destination navigation after the URL
+  // first becomes /dashboard. Reloading that destination proves the session
+  // is durable and cancels any stale callback transition before the test moves on.
+  await page.reload({ waitUntil: "networkidle" });
+}
+
 /**
  * Log in to the application using test credentials from environment variables.
  * Returns true if login is successful (or already logged in), false otherwise.
@@ -22,9 +29,17 @@ export async function loginWithCredentials(
   // Go to login page
   await page.goto("/login");
 
-  // Check if we are already logged in (e.g. session restored)
+  // Check if we are already logged in (e.g. session restored). The login
+  // route intentionally renders a signed-in card instead of redirecting.
   const pathname = new URL(page.url()).pathname;
   if (pathname === "/dashboard" || pathname === "/pos") {
+    return true;
+  }
+  const existingSessionLink = page.getByRole("link", { name: "Go to dashboard", exact: true });
+  if (await existingSessionLink.isVisible().catch(() => false)) {
+    await existingSessionLink.click();
+    await page.waitForURL(/\/(?:dashboard|pos)(?:\?|$)/, { timeout: 10000 });
+    await waitForAuthRedirectToSettle(page);
     return true;
   }
 
@@ -42,6 +57,7 @@ export async function loginWithCredentials(
       const p = url.pathname;
       return p === "/dashboard" || p === "/pos" || p.startsWith("/dashboard/") || p.startsWith("/pos/");
     }, { timeout: 10000 });
+    await waitForAuthRedirectToSettle(page);
     return true;
   } catch {
     const goToDashboard = page.locator('a:has-text("Go to dashboard")');
@@ -52,6 +68,7 @@ export async function loginWithCredentials(
           const p = url.pathname;
           return p === "/dashboard" || p === "/pos" || p.startsWith("/dashboard/") || p.startsWith("/pos/");
         }, { timeout: 10000 });
+        await waitForAuthRedirectToSettle(page);
         return true;
       } catch {
         // fall through to error collection

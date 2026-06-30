@@ -17,78 +17,81 @@ test.describe("Customers, Products, Expenses, and Suppliers Smoke Tests", () => 
 
   test("Customers Section Smoke Test", async ({ page }) => {
     await page.goto("/customers");
-    await expect(page.locator("text=Total customers").or(page.locator("text=Customer Management"))).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("header h1").first()).toHaveText("Customers", { timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Customer Management", exact: true })).toBeVisible();
     
-    // Verify search input or search label is visible
-    const searchHeader = page.locator("text=Search");
-    await expect(searchHeader).toBeVisible();
+    await expect(page.getByPlaceholder("Name or phone number")).toBeVisible();
 
     // If there is at least one customer, click edit/view detail page
     const firstCustomerLink = page.locator("a[href^='/customers/']").first();
     if (await firstCustomerLink.count() > 0) {
       await firstCustomerLink.click();
       await page.waitForURL(/.*\/customers\/.+/);
-      await expect(page.locator("text=Customer Details").or(page.locator("text=Ledger")).or(page.locator("text=Statement"))).toBeVisible();
+      await expect(page.getByRole("link", { name: "Ledger", exact: true })).toBeVisible();
     }
   });
 
   test("Products Section Smoke Test", async ({ page }) => {
     await page.goto("/products");
-    await expect(page.locator("text=Active products").or(page.locator("text=Catalog"))).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("header h1").first()).toHaveText("Products", { timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Product catalog", exact: true })).toBeVisible();
 
     // Verify Tab navigation
     // Click Categories tab
-    const categoriesTabLink = page.locator("a[href*='tab=categories']");
-    await expect(categoriesTabLink).toBeVisible();
-    await categoriesTabLink.click();
+    const categoriesTab = page.getByRole("button", { name: "Categories", exact: true });
+    await expect(categoriesTab).toBeVisible();
+    await categoriesTab.click();
     await page.waitForURL(/.*tab=categories.*/);
-    await expect(page.locator("text=Active categories").or(page.locator("text=Category"))).toBeVisible();
+    await expect(page.getByPlaceholder("Search name or description")).toBeVisible();
 
     // Click Suppliers tab
-    const suppliersTabLink = page.locator("a[href*='tab=suppliers']");
-    await expect(suppliersTabLink).toBeVisible();
-    await suppliersTabLink.click();
+    const suppliersTab = page.getByRole("button", { name: "Suppliers", exact: true });
+    await expect(suppliersTab).toBeVisible();
+    await suppliersTab.click();
     await page.waitForURL(/.*tab=suppliers.*/);
-    await expect(page.locator("text=Active suppliers").or(page.locator("text=Supplier"))).toBeVisible();
+    await expect(page.getByPlaceholder("Search supplier details")).toBeVisible();
 
     // Click Products tab
-    const productsTabLink = page.locator("a[href*='tab=products']");
-    await expect(productsTabLink).toBeVisible();
-    await productsTabLink.click();
+    const productsTab = page.getByRole("button", { name: "Products", exact: true });
+    await expect(productsTab).toBeVisible();
+    await productsTab.click();
     await page.waitForURL(/.*tab=products.*/);
-    await expect(page.locator("text=Active products").or(page.locator("text=Catalog"))).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Product catalog", exact: true })).toBeVisible();
   });
 
   test("Expenses Section Smoke Test", async ({ page }) => {
     await page.goto("/expenses");
-    await expect(page.locator("text=Today expenses").or(page.locator("text=All expenses"))).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("header h1").first()).toHaveText("Expenses", { timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "All expenses", exact: true })).toBeVisible();
   });
 
   test("Suppliers Section Smoke Test", async ({ page }) => {
     // Visit Dues page
     await page.goto("/suppliers/dues");
-    await expect(page.locator("text=Total supplier dues").or(page.locator("text=Supplier dues"))).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("header h1").first()).toHaveText("Supplier Dues", { timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Supplier dues", exact: true })).toBeVisible();
 
-    // Verify accessible Sort link on Dues
-    const sortLinkSupplier = page.locator("a[aria-label^='Sort by Supplier']").first();
-    await expect(sortLinkSupplier).toBeVisible();
+    // A fresh seed has no outstanding dues, so the empty state replaces sorting controls.
+    const sortLinkSupplier = page.locator("a[aria-label^='Sort by Supplier']");
+    const noDues = page.getByText("No outstanding dues.", { exact: true });
+    expect((await sortLinkSupplier.count()) > 0 || await noDues.isVisible()).toBe(true);
 
     // Visit Purchases page
     await page.goto("/suppliers/purchases");
-    await expect(page.locator("text=Purchases this month").or(page.locator("text=Supplier Purchases"))).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("header h1").first()).toHaveText("Supplier Purchases", { timeout: 10000 });
+    await expect(page.getByText("Purchases this month", { exact: true })).toBeVisible();
 
-    // Verify accessible Sort link on Purchases
-    const sortLinkDate = page.locator("a[aria-label^='Sort by Date']").first();
-    await expect(sortLinkDate).toBeVisible();
+    const sortLinkDate = page.locator("a[aria-label^='Sort by Date']");
+    const noPurchases = page.getByText("No purchases match these filters.", { exact: true });
+    expect((await sortLinkDate.count()) > 0 || await noPurchases.isVisible()).toBe(true);
   });
 
   test("Replenishment Section Smoke Test", async ({ page }) => {
     await page.goto("/purchases/replenishment");
-    await expect(page.locator("text=Replenishment").or(page.locator("text=Suggested Orders")).or(page.locator("text=Reorder"))).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("header h1").first()).toHaveText("Replenishment", { timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Inventory Replenishment", exact: true })).toBeVisible();
 
-    // Verify sorting select is present
-    const sortSelect = page.locator("select").first();
-    await expect(sortSelect).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sort", exact: true })).toBeVisible();
   });
 
   test("Customers Dark Mode Smoke Test", async ({ page }) => {
@@ -96,6 +99,6 @@ test.describe("Customers, Products, Expenses, and Suppliers Smoke Tests", () => 
       window.localStorage.setItem("theme", "dark");
     });
     await page.goto("/customers");
-    await expect(page.locator("text=Customer Management")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Customer Management", exact: true }).first()).toBeVisible({ timeout: 10000 });
   });
 });

@@ -38,8 +38,13 @@ test.describe("Local authentication smoke", () => {
     await page.reload();
     await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
     await expectPageTitle(page, "Dashboard");
+    await expect(page.locator("main .animate-pulse")).toHaveCount(0, { timeout: 15_000 });
 
-    await page.locator('header button[aria-haspopup="true"][aria-expanded]').last().click();
+    const userMenuButton = page
+      .locator('header button[aria-haspopup="true"][aria-expanded]', { hasText: "Demo Owner" })
+      .last();
+    await userMenuButton.click();
+    await expect(userMenuButton).toHaveAttribute("aria-expanded", "true");
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Sign out?" });
     await expect(dialog).toBeVisible();

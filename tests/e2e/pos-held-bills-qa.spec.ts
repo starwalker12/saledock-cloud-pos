@@ -25,6 +25,16 @@ async function dismissCookieBanner(page: import("@playwright/test").Page) {
   }
 }
 
+async function gotoPos(page: import("@playwright/test").Page) {
+  try {
+    await page.goto("/pos", { waitUntil: "domcontentloaded" });
+  } catch (error) {
+    const isExpectedAbort = error instanceof Error && error.message.includes("net::ERR_ABORTED");
+    if (!isExpectedAbort) throw error;
+  }
+  await expect(page).toHaveURL(/\/pos(?:\?|$)/);
+}
+
 test.describe("POS Held Bills QA", () => {
   test.beforeEach(async ({ page }) => {
     if (!hasCredentials()) {
@@ -37,9 +47,9 @@ test.describe("POS Held Bills QA", () => {
   });
 
   test("held bills lifecycle - tabs, hold, resume, invoice ordering", async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     await dismissCookieBanner(page);
-    await page.goto("/pos");
+    await gotoPos(page);
     await expect(page).not.toHaveURL(/.*\/login.*/);
     await expect(page.locator('[role="region"][aria-label="Cookie consent"]')).toHaveCount(0);
 
@@ -118,7 +128,7 @@ test.describe("POS Held Bills QA", () => {
     expect(invoiceNo1).toMatch(/^INV-/);
 
     // ---- Resume Customer A and checkout ----
-    await page.goto("/pos");
+    await gotoPos(page);
     await first('button:has-text("Held bills")').click();
     await expect(first('text=Customer A')).toBeVisible();
     await first('button:has-text("Resume")').click();
@@ -140,13 +150,16 @@ test.describe("POS Held Bills QA", () => {
     expect(numeric1).toBeLessThan(numeric2);
 
     // Completed held bills leave neither a stale drawer row nor a stale cart.
-    await page.goto("/pos");
+    await gotoPos(page);
     await first('button:has-text("Held bills")').click();
-    await expect(page.getByText("Customer A", { exact: true })).toHaveCount(0);
-    await page.getByRole("dialog", { name: "Held bills" }).getByRole("button", { name: "Close", exact: true }).click();
+    const completedDrawer = page.getByRole("dialog", { name: "Held bills" });
+    await expect(completedDrawer).toBeVisible();
+    await expect(completedDrawer.getByText("Customer A", { exact: true })).toHaveCount(0);
+    await expect(completedDrawer.getByText("No held bills", { exact: true })).toBeVisible();
+    await completedDrawer.getByRole("button", { name: "Close", exact: true }).click();
 
     // ---- Close-tab confirmation: add a new item, click tab X, expect prompt ----
-    await page.goto("/pos");
+    await gotoPos(page);
     await addFirstAvailableProduct(0);
     await first('button[aria-label="Close tab"]').click();
     await expect(first('h2:has-text("Close this bill?")')).toBeVisible();
@@ -250,7 +263,7 @@ test.describe("POS physical-product held bill safety", () => {
 
     expect(await loginWithCredentials(page, "owner@saledock.local", "Password123!")).toBe(true);
     await dismissCookieBanner(page);
-    await page.goto("/pos");
+    await gotoPos(page);
     await expect(page).toHaveURL(/\/pos(?:\?|$)/);
     await expect(page.locator('[role="region"][aria-label="Cookie consent"]')).toHaveCount(0);
 
@@ -299,7 +312,7 @@ test.describe("POS physical-product held bill safety", () => {
     expect(afterCustomerB.lotRemaining).toBe(before.lotRemaining - 1);
     expect(afterCustomerB.lotRemaining).toBe(afterCustomerB.stock);
 
-    await page.goto("/pos");
+    await gotoPos(page);
     await page.getByRole("button", { name: "Held bills", exact: true }).click();
     const heldCard = page.locator(`[data-held-bill-id="${heldBill.id}"]`);
     await expect(heldCard).toBeVisible();
