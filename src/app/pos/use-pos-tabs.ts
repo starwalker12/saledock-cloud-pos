@@ -58,6 +58,12 @@ function defaultServiceForProduct(p: PosProduct): ServiceFields {
   };
 }
 
+function serviceTotalCharged(service: ServiceFields): number {
+  const principal = Number(service.principal || 0);
+  const commission = Number(service.commission || 0);
+  return service.total_charged.trim() === "" ? principal + commission : Number(service.total_charged);
+}
+
 function emptyTab(id?: string): BillTab {
   return {
     id: id ?? crypto.randomUUID(),
@@ -354,7 +360,10 @@ export function heldItemsToCart(products: PosProduct[], items: HeldBillCartItem[
       return {
         product,
         quantity: item.quantity,
-        unit_price: item.unit_price,
+        unit_price:
+          product.type === "service" && service
+            ? serviceTotalCharged(service)
+            : item.unit_price,
         discount: item.discount,
         service,
       } as CartLine;

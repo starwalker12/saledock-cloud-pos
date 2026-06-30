@@ -324,14 +324,19 @@ export function PosClient({
           l.product.id === p.id ? { ...l, quantity: l.quantity + 1 } : l,
         );
       }
+      const service = p.type === "service" ? defaultServiceForProduct(p) : undefined;
+      const initialUnitPrice =
+        p.type === "service" && service
+          ? Number(service.total_charged || 0)
+          : p.sale_price;
       return [
         ...prev,
         {
           product: p,
           quantity: 1,
-          unit_price: p.sale_price,
+          unit_price: initialUnitPrice,
           discount: 0,
-          service: p.type === "service" ? defaultServiceForProduct(p) : undefined,
+          service,
         },
       ];
     });
@@ -339,11 +344,21 @@ export function PosClient({
 
   function updateLineService(id: string, patch: Partial<ServiceFields>) {
     setCart((prev) =>
-      prev.map((l) =>
-        l.product.id === id && l.service
-          ? { ...l, service: { ...l.service, ...patch } }
-          : l,
-      ),
+      prev.map((l) => {
+        if (l.product.id !== id || !l.service) return l;
+        const nextService = { ...l.service, ...patch };
+        const principal = Number(nextService.principal || 0);
+        const commission = Number(nextService.commission || 0);
+        const totalCharged =
+          nextService.total_charged.trim() === ""
+            ? principal + commission
+            : Number(nextService.total_charged);
+        return {
+          ...l,
+          unit_price: totalCharged,
+          service: nextService,
+        };
+      }),
     );
   }
 
