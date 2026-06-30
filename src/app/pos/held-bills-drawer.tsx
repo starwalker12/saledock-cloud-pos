@@ -79,6 +79,8 @@ export function HeldBillsDrawer({
         {bills.map((bill) => (
           <div
             key={bill.id}
+            data-testid="held-bill-card"
+            data-held-bill-id={bill.id}
             className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/50 sm:p-4"
           >
             <div className="flex items-start justify-between gap-3">

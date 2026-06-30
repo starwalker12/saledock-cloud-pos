@@ -10,6 +10,15 @@ export async function login(page: Page): Promise<boolean> {
     return false;
   }
 
+  return loginWithCredentials(page, ENV.email, ENV.password);
+}
+
+/** Log in with an explicit local QA account without exposing credentials in output. */
+export async function loginWithCredentials(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<boolean> {
   // Go to login page
   await page.goto("/login");
 
@@ -20,8 +29,8 @@ export async function login(page: Page): Promise<boolean> {
   }
 
   // Fill credentials
-  await page.fill('input[name="email"]', ENV.email);
-  await page.fill('input[name="password"]', ENV.password);
+  await page.fill('input[name="email"]', email);
+  await page.fill('input[name="password"]', password);
 
   // Click Submit
   await page.click('button[type="submit"]');
