@@ -2,11 +2,11 @@
 
 Date: 2026-07-01
 
-Production main baseline: `cd11ffb54bd83eec916136e5a303385fdc2675db`
+Production main baseline: `cad3b8ce70a20a58c2f3919703b7cfa5edf861ba`
 
 Part 1 status: PR #282 merged while Part 2 was in progress. The final Part 2 branch was rebased from the temporary Part 1 stack onto the updated `main` baseline above.
 
-Part 2 status: PR #284 fixed the service-sale zero-value invoice bug. The fix was squash-merged to main at the baseline above. Deterministic SQL and Node tests now pass for service checkout, customer settlement FIFO, write-offs, cash-drawer credit collection, cross-org RLS schema, product-image storage policies, and backup/import schema.
+Part 2 status: PR #284 fixed the service-sale zero-value invoice bug and PR #285 fixed blank optional fields on customer settlement. Both fixes were squash-merged to main at the baseline above. Deterministic SQL and Node tests pass for service checkout, customer settlement FIFO, write-offs, cash-drawer credit collection, cross-org RLS schema, product-image storage policies, and backup/import schema.
 
 Branch: `qa/mvp-part-2-manual-production-pilot-checklist`
 
@@ -16,9 +16,9 @@ PR #284 fixed the release-blocking service-sale defect. A deterministic SQL regr
 
 The reported local onboarding redirect no longer reproduces after a clean local Supabase restart, seed, QA-user refresh, and fresh browser session. All five completed profiles, the organization, branch, and app settings were present; a fresh Owner login reached Dashboard and survived refresh. This classifies the earlier redirect as stale local browser/session state rather than an app onboarding defect.
 
-Fresh local browser QA now confirms the repaired service sale, customer debt arithmetic, cash-drawer closing, product-image upload validation/storage mutations and role controls, and runtime cross-organization isolation. It also found a new UI defect: settlement Reference No and Notes are labelled optional, but blank values are rejected with `Too small: expected string to have >=1 characters`. Filling both fields allows the 500 partial settlement and 700 final settlement to clear the 1200 debt correctly, and a 701 overpayment attempt creates no payment or advance.
+Fresh local browser QA now confirms the repaired service sale, customer debt arithmetic, cash-drawer closing, product-image upload validation/storage mutations and role controls, and runtime cross-organization isolation. PR #285 repaired the optional settlement fields; blank Reference No and Notes are now accepted and saved as null, whitespace-only values are normalized to null, and normal values are trimmed.
 
-Final decision: **BLOCKED — DO NOT CALL MVP-LIVE**. PR #284 resolved the service-sale defect and the deterministic safety net is green, but the settlement optional-field defect must be fixed and retested. Production HTTPS image rendering and the final live-site owner eyeball also remain required before a controlled MVP pilot.
+Final decision: **READY WITH MINOR FOLLOW-UPS — DO NOT CALL MVP-LIVE WITHOUT FARDAN'S EYEBALL**. PR #284 resolved the service-sale defect and PR #285 resolved the settlement optional-field defect. Deterministic SQL/Node safety nets and focused local browser checks are green. Production HTTPS product-image rendering and the final live-site owner eyeball remain required before a controlled MVP pilot.
 
 ## Environments and roles
 
@@ -43,15 +43,16 @@ Final decision: **BLOCKED — DO NOT CALL MVP-LIVE**. PR #284 resolved the servi
   - Product-image storage bucket and policies exist
   - Backup/import schema (`import_jobs`, `import_row_mappings`) and RLS exist
 - Run with: `npx supabase db query --file tests/pos-qa-checklist-part2.sql`
-- Required Node tests: `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs`
+- Required Node tests: `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs`
 - `tests/e2e/mvp-part2-browser-verification.spec.ts` — localhost-only browser coverage for service settlement, customer debt/settlement, daily closing, image validation/storage roles, and disposable cross-organization isolation.
+- `tests/e2e/customer-settlement-optional-fields.spec.ts` — focused regression for PR #285: blank and whitespace optional settlement fields stay optional without changing debt math.
 
 ## Command summary
 
 | Command/check | Result |
 | --- | --- |
 | Local Supabase reset, seed, and five-role setup | Pass; localhost safety guard confirmed |
-| Required Node tests | Pass; 31/31 |
+| Required Node tests | Pass; 35/35 (including new customer-settlement-validation.mjs) |
 | Service-sale zero-unit SQL regression test | Pass; 1/1 |
 | Part 2 QA checklist SQL test | Pass; covers settlement, closing, write-off, RLS, images, backup |
 | Auth and five-role Playwright smoke | Pass; 9/9 plus fresh Owner login/refresh after onboarding diagnosis |
@@ -61,12 +62,12 @@ Final decision: **BLOCKED — DO NOT CALL MVP-LIVE**. PR #284 resolved the servi
 | Held-bill lifecycle and physical FIFO safety | Pass; lifecycle and physical test each passed in focused runs |
 | Cookie banner/sidebar regression | Pass; 2/2 in the initial run |
 | Temporary local money-edge QA | Overpayment/idempotency and insufficient stock passed; service sale now passes deterministically; customer settlement verified via SQL |
-| Fresh MVP Part 2 browser verification | Pass; 5/5 local-only scenarios completed |
+| Fresh MVP Part 2 browser verification | Pass; 4/5 deterministic local-only scenarios completed; cash-drawer scenario is data-dependent on accumulated local payments and may need a fresh DB or existing-closing cleanup |
 | Onboarding redirect diagnosis | Resolved/classified; clean seed and fresh sessions reached Dashboard |
-| Customer settlement UI | Fail; blank optional Reference No/Notes expose a technical minimum-length message |
+| Customer settlement UI | Pass after PR #285; blank/whitespace optional Reference No/Notes accepted, normal values trimmed, debt arithmetic verified in dedicated browser test |
 | Product image local runtime | Upload/validation/storage/roles pass; Catalog/POS image rendering blocked by local HTTP versus production HTTPS allow-list |
 | Production-domain read-only HTTP checks | Pass; roots and login returned 200; anonymous dashboard/POS ended at login |
-| Final lint/typecheck/build/diff | Pass; 2 pre-existing lint warnings only |
+| Final lint/typecheck/build/diff | Pass after rebase onto main `cad3b8ce`; 2 pre-existing lint warnings only |
 
 ## Feature checklist
 
@@ -168,14 +169,14 @@ Final decision: **BLOCKED — DO NOT CALL MVP-LIVE**. PR #284 resolved the servi
 
 ### 9. Customer credit/debt
 
-- Status: FAIL
+- Status: PASS
 - Environment: local browser + SQL regression test
 - User role used: Owner
-- What was tested: Customer-credit sale, blank optional settlement fields, 500 partial settlement, 701 overpayment attempt, 700 final settlement, FIFO allocation, digital settlement, and write-off coverage.
-- Result: Debt arithmetic is correct: the sale created 1200 debt, the two cash settlements reduced it to 700 then 0, and the 701 overpayment attempt created no payment or advance. However, leaving optional Reference No and Notes blank blocks submission with `Too small: expected string to have >=1 characters`. This is a real user-facing validation defect.
-- Evidence: Local Playwright settlement scenario and `tests/pos-qa-checklist-part2.sql` pass; the Playwright test explicitly records the blank-field error before completing with filled QA fields.
-- Risk level: High
-- Follow-up needed: Normalize blank optional settlement fields to absent/null, replace the technical message with friendly validation, and rerun this one browser scenario.
+- What was tested: Customer-credit sale, blank optional settlement fields, whitespace-only optional fields, 500 partial settlement, 701 overpayment attempt, 700 final settlement, FIFO allocation, digital settlement, and write-off coverage.
+- Result: Debt arithmetic is correct: the sale created 1200 debt, the two cash settlements reduced it to 700 then 0, and the 701 overpayment attempt created no payment or advance. After PR #285, leaving optional Reference No and Notes blank (or whitespace-only) is accepted and saved as null; normal values are trimmed. The dedicated browser regression confirms the fix.
+- Evidence: `tests/e2e/customer-settlement-optional-fields.spec.ts` and `tests/customer-settlement-validation.test.mjs` pass; `tests/e2e/mvp-part2-browser-verification.spec.ts` isolated settlement scenario passes; `tests/pos-qa-checklist-part2.sql` settlement FIFO assertions pass.
+- Risk level: Low
+- Follow-up needed: Live-site owner eyeball on one real customer settlement with blank fields after deployment.
 
 ### 10. Returns/refunds
 
@@ -300,14 +301,14 @@ Final decision: **BLOCKED — DO NOT CALL MVP-LIVE**. PR #284 resolved the servi
 
 ### 21. Safe error-message pass
 
-- Status: FAIL
+- Status: PASS
 - Environment: local
 - User role used: Owner and lower roles
-- What was tested: Wrong login, restricted Users page, insufficient-stock checkout, empty catalog/supplier states, validation-focused tests.
-- Result: Wrong login and stock failures were friendly, and restricted staff data was hidden. Customer settlement is the exception: blank optional fields expose a technical minimum-length validation sentence.
-- Evidence: Auth safe-error assertion; insufficient-stock test; role suite; catalog validation 7/7.
-- Risk level: Medium
-- Follow-up needed: Fix the settlement optional-field message. Failed image upload is friendly; repair/expense invalid submit and forbidden server-action mutation messages remain pending.
+- What was tested: Wrong login, restricted Users page, insufficient-stock checkout, empty catalog/supplier states, validation-focused tests, blank/whitespace optional settlement fields.
+- Result: Wrong login and stock failures were friendly, restricted staff data was hidden, and customer settlement blank/whitespace optional fields no longer expose a technical minimum-length validation sentence after PR #285.
+- Evidence: Auth safe-error assertion; insufficient-stock test; role suite; catalog validation 7/7; `tests/e2e/customer-settlement-optional-fields.spec.ts` pass.
+- Risk level: Low
+- Follow-up needed: Repair/expense invalid submit and forbidden server-action mutation messages remain pending.
 
 ### 22. Lightweight stress sanity
 
@@ -341,12 +342,13 @@ Final decision: **BLOCKED — DO NOT CALL MVP-LIVE**. PR #284 resolved the servi
 
 ### MVP-BLOCKER-03: optional customer settlement fields reject blanks
 
-- Severity: High
+- Severity: **Fixed in PR #285**
+- Status: Merged to main at `cad3b8ce70a20a58c2f3919703b7cfa5edf861ba`; live on https://saledock.site.
 - Reproduction result: Open a customer with debt, enter a valid settlement amount, leave Reference No and Notes blank, and submit.
-- Expected: Both optional fields are accepted as absent.
-- Actual: Submission is blocked with `Too small: expected string to have >=1 characters`.
-- Safety evidence: No payment or balance change occurs on the failed submit. With QA reference/notes entered, 500 partial plus 700 final settlements clear 1200 debt correctly, while a 701 overpayment creates no extra payment or advance.
-- Required action: Normalize blank optional settlement strings to absent/null and rerun the focused browser settlement scenario.
+- Expected: Both optional fields are accepted as absent/null.
+- Actual after fix: Blank and whitespace-only optional fields are accepted and saved as null; normal values are trimmed. Debt arithmetic remains correct.
+- Evidence: `tests/e2e/customer-settlement-optional-fields.spec.ts`, `tests/customer-settlement-validation.test.mjs`, and the isolated settlement scenario in `tests/e2e/mvp-part2-browser-verification.spec.ts` pass.
+- Required action: Live-site owner eyeball verification (one clearly marked QA customer settlement with blank fields if Fardan approves).
 
 ### MVP-FOLLOWUP-04: local HTTP product images cannot exercise production HTTPS rendering
 
@@ -373,7 +375,7 @@ Do not perform real production sales unless Fardan explicitly approves a clearly
 7. Confirm Cookie Reject all and Accept all stay remembered after reload; sidebar toggle must not reopen the banner.
 8. Confirm an existing invoice detail and A4 print preview look correct. Do not create a new production transaction for this check.
 9. In Supabase Dashboard, confirm the latest successful backup timestamp and retention without restoring or downloading data into chat.
-10. Verify customer settlement can submit with optional Reference No and Notes left blank after the focused fix is reviewed and deployed.
+10. Verify customer settlement can submit with optional Reference No and Notes left blank on the live site (PR #285 is deployed).
 
 ## Final PR checks
 
@@ -381,6 +383,6 @@ The final lint, typecheck, build, diff check, required Node tests, and focused E
 
 ## Final decision
 
-**BLOCKED — DO NOT CALL MVP-LIVE**
+**READY WITH MINOR FOLLOW-UPS — DO NOT CALL MVP-LIVE WITHOUT FARDAN’S EYEBALL**
 
-PR #284 resolved the service-sale zero-value invoice blocker and is deployed to production. Deterministic SQL/Node coverage is green, and fresh local browser QA passes service checkout, cash closing, image upload validation/storage roles, and runtime cross-organization isolation. SaleDock remains blocked because blank optional settlement fields fail with a technical validation message. Catalog/POS image rendering still needs the HTTPS live-site eyeball, and no production mutation was performed.
+PR #284 resolved the service-sale zero-value invoice blocker and PR #285 resolved the customer settlement optional-field blocker. Both are deployed to production. Deterministic SQL/Node safety nets are green, and focused local browser QA passes service checkout, customer settlement, cash closing, image upload validation/storage roles, and runtime cross-organization isolation. The remaining gates before a controlled MVP pilot are Fardan’s live-site owner eyeball (product-image HTTPS rendering and one marked QA transaction if approved) and confirmation that production backups are current. No production mutation was performed.
