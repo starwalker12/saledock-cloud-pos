@@ -94,12 +94,19 @@ export function SettlementForm({
         </label>
 
         {state.error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+          <p
+            role="alert"
+            className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+          >
             {state.error}
           </p>
         )}
         {state.success && (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+          <p
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
+          >
             {state.success}
           </p>
         )}
