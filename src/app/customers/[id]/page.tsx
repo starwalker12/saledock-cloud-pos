@@ -218,6 +218,14 @@ export default async function CustomerDetailPage({
           </div>
 
           {/* Quick Pay Settlement Action */}
+          {canWrite && balance <= 0 && payments.length > 0 && (
+            <p
+              role="status"
+              className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+            >
+              Customer balance is fully settled.
+            </p>
+          )}
           {canWrite && balance > 0 && (
             <div className="mt-4 space-y-3">
               <SettlementForm customerId={customer.id} outstandingBalance={balance} />

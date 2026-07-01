@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-const optionalString = z
-  .preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().min(1))
-  .optional()
-  .nullable();
+const optionalString = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}, z.string({ message: "Enter text or leave this field blank." }).optional().nullable());
 
 const optionalEmail = z
   .preprocess(
