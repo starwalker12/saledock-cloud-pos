@@ -1,6 +1,6 @@
 # SaleDock MVP Production Pilot QA
 
-Date: 2026-06-30
+Date: 2026-07-01
 
 Production main baseline: `cd11ffb54bd83eec916136e5a303385fdc2675db`
 
@@ -14,11 +14,11 @@ Branch: `qa/mvp-part-2-manual-production-pilot-checklist`
 
 PR #284 fixed the release-blocking service-sale defect. A deterministic SQL regression test confirms that a service line with `unit_price: 0` and `service_total_charged: 1050` now produces invoice line total, grand total, amount paid, and payment rows all equal to 1050, with no physical stock movement. The fix is live on production.
 
-The remaining Part 2 safety paths were covered with deterministic SQL and Node tests where practical because local Playwright browser QA is currently blocked by an auth redirect issue: after email/password login the app lands on `/onboarding` despite `profiles.onboarding_completed = true`, `organizations.onboarding_completed = true`, and `app_settings` existing. This appears to be a local development/session discrepancy rather than a confirmed production bug, but it prevents browser verification of POS UI, settlement UI, cash-drawer closing UI, product-image upload UI, and runtime cross-organization isolation in this session.
+The reported local onboarding redirect no longer reproduces after a clean local Supabase restart, seed, QA-user refresh, and fresh browser session. All five completed profiles, the organization, branch, and app settings were present; a fresh Owner login reached Dashboard and survived refresh. This classifies the earlier redirect as stale local browser/session state rather than an app onboarding defect.
 
-Customer settlement FIFO allocation, digital settlements, write-offs, daily-closing credit collection arithmetic, cross-organization RLS schema, product-image storage policies, and backup/import schema all pass deterministic verification.
+Fresh local browser QA now confirms the repaired service sale, customer debt arithmetic, cash-drawer closing, product-image upload validation/storage mutations and role controls, and runtime cross-organization isolation. It also found a new UI defect: settlement Reference No and Notes are labelled optional, but blank values are rejected with `Too small: expected string to have >=1 characters`. Filling both fields allows the 500 partial settlement and 700 final settlement to clear the 1200 debt correctly, and a 701 overpayment attempt creates no payment or advance.
 
-Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service-sale defect and the deterministic safety net is green, but the required browser verification remains incomplete. Fardan should not call SaleDock MVP-live until a fresh local/staging browser session completes the blocked UI checks and the live-site eyeball checklist is signed off.
+Final decision: **BLOCKED — DO NOT CALL MVP-LIVE**. PR #284 resolved the service-sale defect and the deterministic safety net is green, but the settlement optional-field defect must be fixed and retested. Production HTTPS image rendering and the final live-site owner eyeball also remain required before a controlled MVP pilot.
 
 ## Environments and roles
 
@@ -27,7 +27,8 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 - Read-only HTTP checks against both production domains; no authenticated production session and no production mutation.
 - Local fake roles: Owner, Admin, Manager, Cashier, Technician.
 - No staging project was available or needed before the blocker was found.
-- Local browser QA limitation: after `setup-local-qa.mjs`, seeded users land on `/onboarding` after login despite onboarding flags being `true`. Deterministic SQL/Node tests were used instead of browser flows in this session.
+- Fresh browser state: seeded users reached Dashboard rather than Onboarding. The earlier redirect was stale local QA/session state.
+- Local image-rendering limitation: uploads use local HTTP Storage, while the production Next Image allow-list intentionally accepts HTTPS Storage only. Browser preview, signatures, persisted paths, supported formats, size validation, and role controls were verified locally; Catalog/POS rendering remains a production HTTPS eyeball check.
 
 ## New deterministic test artifacts
 
@@ -43,6 +44,7 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
   - Backup/import schema (`import_jobs`, `import_row_mappings`) and RLS exist
 - Run with: `npx supabase db query --file tests/pos-qa-checklist-part2.sql`
 - Required Node tests: `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs`
+- `tests/e2e/mvp-part2-browser-verification.spec.ts` — localhost-only browser coverage for service settlement, customer debt/settlement, daily closing, image validation/storage roles, and disposable cross-organization isolation.
 
 ## Command summary
 
@@ -52,13 +54,17 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 | Required Node tests | Pass; 31/31 |
 | Service-sale zero-unit SQL regression test | Pass; 1/1 |
 | Part 2 QA checklist SQL test | Pass; covers settlement, closing, write-off, RLS, images, backup |
-| Auth and five-role Playwright smoke | Pass; 9/9 in the final localhost rerun before the onboarding redirect issue |
+| Auth and five-role Playwright smoke | Pass; 9/9 plus fresh Owner login/refresh after onboarding diagnosis |
 | Cash drawer/settings/users smoke after selector maintenance | Pass; 3/3 |
 | Customers/products/expenses/suppliers/replenishment smoke after selector maintenance | Pass; 6/6 |
 | POS sale/invoice/return/report flow after selector maintenance | Pass; 2/2 focused checks; navigation also passed |
 | Held-bill lifecycle and physical FIFO safety | Pass; lifecycle and physical test each passed in focused runs |
 | Cookie banner/sidebar regression | Pass; 2/2 in the initial run |
 | Temporary local money-edge QA | Overpayment/idempotency and insufficient stock passed; service sale now passes deterministically; customer settlement verified via SQL |
+| Fresh MVP Part 2 browser verification | Pass; 5/5 local-only scenarios completed |
+| Onboarding redirect diagnosis | Resolved/classified; clean seed and fresh sessions reached Dashboard |
+| Customer settlement UI | Fail; blank optional Reference No/Notes expose a technical minimum-length message |
+| Product image local runtime | Upload/validation/storage/roles pass; Catalog/POS image rendering blocked by local HTTP versus production HTTPS allow-list |
 | Production-domain read-only HTTP checks | Pass; roots and login returned 200; anonymous dashboard/POS ended at login |
 | Final lint/typecheck/build/diff | Pass; 2 pre-existing lint warnings only |
 
@@ -84,7 +90,7 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 - Result: All five roles authenticated; refresh kept the session; logout protected routes; wrong credentials showed `Invalid email or password.` without raw Supabase text. Repeated authentication exposed a test-helper callback race, repaired only in the test helper by reloading the authenticated destination before continuing.
 - Evidence: Auth/role suite 9/9; local login page had no console errors in the in-app browser.
 - Risk level: Low
-- Follow-up needed: Browser-back-after-logout and cross-tab logout propagation were not completed after the blocker. Production reCAPTCHA and Google OAuth require Fardan's live eyeball check; no reCAPTCHA setting was weakened.
+- Follow-up needed: Browser-back-after-logout and cross-tab logout propagation remain incomplete. Production reCAPTCHA and Google OAuth require Fardan's live eyeball check; no reCAPTCHA setting was weakened.
 
 ### 3. Authorization and role access
 
@@ -107,14 +113,14 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 
 ### 4. Cross-organization isolation
 
-- Status: PASS (schema/RLS)
-- Environment: local database inspection
-- User role used: N/A (schema verification)
-- What was tested: Verified org-scoped RLS policies exist on `invoices`, `customers`, `payments`, `credit_payments`, `customer_write_offs`, `products`, `daily_closings`, `import_jobs`, `import_row_mappings`, and `cash_shifts`, all using `current_organization_id()`.
-- Result: All critical financial and operational tables have `organization_id = current_organization_id()` policies for SELECT/ALL. No runtime cross-tenant browser assertion was run because of the local auth redirect blocker.
-- Evidence: `tests/pos-qa-checklist-part2.sql` policy-count assertion passes.
-- Risk level: Medium
-- Follow-up needed: Add a disposable second organization/user and verify products, customers, invoices, held bills, reports, and users never expose the first organization once browser QA is unblocked.
+- Status: PASS
+- Environment: local browser and database inspection
+- User role used: Admin reassigned temporarily to a disposable second organization
+- What was tested: Verified org-scoped RLS policies, then created a disposable second shop and checked Products, Customers, Invoices, Held Bills, Users, product-image fallback, and direct first-shop customer/invoice URLs.
+- Result: The second shop saw only its own records. First-shop records did not appear in lists, Held Bills, Users, or direct detail routes. The Admin profile was restored and the disposable organization was deleted in test cleanup.
+- Evidence: `tests/pos-qa-checklist-part2.sql` RLS assertions and the local Playwright cross-organization scenario pass.
+- Risk level: Low
+- Follow-up needed: Reports were covered by schema/RLS rather than a separate second-shop visual total comparison.
 
 ### 5. Normal POS physical-product sale
 
@@ -130,11 +136,11 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 ### 6. POS service sale
 
 - Status: PASS
-- Environment: local SQL regression test + production verification
-- User role used: N/A (deterministic SQL test)
-- What was tested: Seeded EasyPaisa service with principal 1000, commission 50, total charged 1050, `unit_price: 0`, exact tender, final checkout, invoice and item database values.
-- Result: `pos_checkout` now derives the effective service unit price from `service_total_charged` (falling back to principal + commission) and produces line total, grand total, amount paid, and payment rows all equal to 1050. No physical stock allocations are created.
-- Evidence: `tests/pos-service-checkout-zero-unit.sql` passes; `tests/pos-service-checkout.test.mjs` 5/5 pass; production `pos_checkout` source inspected and confirmed to contain the fallback logic.
+- Environment: local browser + SQL regression test + production source verification
+- User role used: Owner
+- What was tested: Seeded EasyPaisa service with principal 1000, commission 50, total charged 1050, exact tender, final checkout, invoice/item/payment values, reports display, and complete physical-product/FIFO snapshots.
+- Result: Browser checkout recorded invoice total 1050, paid 1050, due 0, change 0, and one payment of 1050. Reports showed commission 50 and principal 1000 with the principal explicitly marked not profit. Physical stock and FIFO snapshots were unchanged.
+- Evidence: Local Playwright service scenario, `tests/pos-service-checkout-zero-unit.sql`, and `tests/pos-service-checkout.test.mjs` pass.
 - Risk level: Low
 - Follow-up needed: One clearly marked QA service sale on the live site after Fardan approval.
 
@@ -147,7 +153,7 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 - Result: Customer B received the next `INV-*`, then Customer A received the following number. Holding did not change stock or create an invoice. Physical stock/FIFO moved only on final checkout. Completed held rows linked to invoices and disappeared from active held bills.
 - Evidence: Focused lifecycle pass; physical safety pass; database had three completed linked held rows and one intentionally resumed insufficient-stock QA row.
 - Risk level: Low
-- Follow-up needed: Explicit cancel-then-cannot-resume assertion remains for the resumed insufficient-stock QA row after the service blocker is fixed.
+- Follow-up needed: Explicit cancel-then-cannot-resume assertion remains for the resumed insufficient-stock QA row.
 
 ### 8. Stock re-check / insufficient stock
 
@@ -162,14 +168,14 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 
 ### 9. Customer credit/debt
 
-- Status: PASS
-- Environment: local SQL regression test
-- User role used: N/A (deterministic SQL test)
-- What was tested: Customer-credit invoice creation, FIFO cash settlement across two payments, digital (card) settlement, and partial credit write-off.
-- Result: Credit invoices correctly recorded grand total/balance due 1200 and paid 0. A 700 cash settlement moved the invoice from `unpaid` to `partial` and reduced the customer balance. A final 500 cash settlement moved it to `paid`. A separate card settlement created a `credit_payments` row with `method='card'`. A 200 write-off created a `customer_write_offs` row, a `write_off` ledger entry, and reduced outstanding balance.
-- Evidence: `tests/pos-qa-checklist-part2.sql` settlement/write-off assertions pass.
-- Risk level: Low
-- Follow-up needed: Browser UI timing and daily-closing credit collection display once local auth redirect is unblocked.
+- Status: FAIL
+- Environment: local browser + SQL regression test
+- User role used: Owner
+- What was tested: Customer-credit sale, blank optional settlement fields, 500 partial settlement, 701 overpayment attempt, 700 final settlement, FIFO allocation, digital settlement, and write-off coverage.
+- Result: Debt arithmetic is correct: the sale created 1200 debt, the two cash settlements reduced it to 700 then 0, and the 701 overpayment attempt created no payment or advance. However, leaving optional Reference No and Notes blank blocks submission with `Too small: expected string to have >=1 characters`. This is a real user-facing validation defect.
+- Evidence: Local Playwright settlement scenario and `tests/pos-qa-checklist-part2.sql` pass; the Playwright test explicitly records the blank-field error before completing with filled QA fields.
+- Risk level: High
+- Follow-up needed: Normalize blank optional settlement fields to absent/null, replace the technical message with friendly validation, and rerun this one browser scenario.
 
 ### 10. Returns/refunds
 
@@ -184,14 +190,14 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 
 ### 11. Daily cash drawer / closing
 
-- Status: PASS (data-layer arithmetic)
-- Environment: local SQL regression test
-- User role used: N/A (deterministic SQL test)
-- What was tested: Cash-drawer expected-cash formula: `cash_payments - cash_refunds - cash_expenses + credit_collection_cash`. Verified that cash credit settlements contribute to `credit_collection_cash` and that the computed expected cash is consistent.
-- Result: The formula produces a non-negative expected cash that correctly includes the cash settlements recorded during the test. `daily_closings` schema includes `credit_collection_cash`, `credit_collection_digital`, and `credit_write_offs` columns.
-- Evidence: `tests/pos-qa-checklist-part2.sql` daily-closing arithmetic assertions pass.
-- Risk level: Medium
-- Follow-up needed: Browser close/reopen action, counted-cash variance, role gates, and reports alignment once local auth redirect is unblocked.
+- Status: PASS
+- Environment: local browser + SQL regression test
+- User role used: Owner
+- What was tested: Service cash sale 1050, cash credit settlements 1200, held bill exclusion, expected cash, counted cash, difference, and final close confirmation.
+- Result: UI and stored closing both showed cash sales 1050, credit collection cash 1200, expected/actual 2250, and difference 0. The held physical-product bill created no invoice or stock movement and did not change expected cash. The UI confirmed `Day closed.`
+- Evidence: Local Playwright closing scenario and `tests/pos-qa-checklist-part2.sql` pass.
+- Risk level: Low
+- Follow-up needed: Expense/refund contribution and lower-role close/reopen restrictions remain separate checks.
 
 ### 12. Products / Categories / Suppliers
 
@@ -199,21 +205,21 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 - Environment: local
 - User role used: Owner and read-only lower roles
 - What was tested: Products page, instant Products/Categories/Suppliers tab switching, customer/catalog/expense/supplier/replenishment page smoke, dark-mode customer page, catalog write-button role gating.
-- Result: Core pages and polished tab navigation loaded; no full-page failure occurred. Add/edit/archive/image mutations were not repeated after the service blocker.
+- Result: Core pages and polished tab navigation loaded; no full-page failure occurred. Image validation/storage role checks were repeated; full add/edit/archive responsive mutation checks were not.
 - Evidence: Catalog/customer/supplier suite 6/6; role suite catalog controls.
 - Risk level: Medium
 - Follow-up needed: Resume modal layering, add/edit, search, archive/restore, inline category, and responsive mutation checks at 375/768/1024/1440.
 
 ### 13. Product image upload
 
-- Status: PASS (schema/policy)
-- Environment: local database inspection
-- User role used: N/A (schema verification)
-- What was tested: Verified the `product-images` storage bucket exists with public read, 2 MB file size limit, and allowed MIME types `image/png`, `image/jpeg`, `image/webp`. Verified storage RLS policies for read, insert, update, and delete restrict writes to authenticated catalog writers (`owner`, `admin`, `manager`) inside `{organization_id}/products/{product_id}/{file}`.
-- Result: Storage schema and policies are in place; no runtime upload browser assertion was run because of the local auth redirect blocker.
-- Evidence: `tests/pos-qa-checklist-part2.sql` bucket and policy assertions pass; migration `20260621175506_product_images.sql`.
+- Status: BLOCKED
+- Environment: local browser + database inspection
+- User role used: Owner, Manager, Cashier
+- What was tested: Spoofed image rejection, 2 MB rejection, stale-error clearing, JPG/PNG/WebP preview and persisted path, selection removal, Manager upload controls, Cashier read-only controls, and local bucket/policy configuration.
+- Result: Validation, browser preview, supported-format uploads, persisted paths, Manager allowance, and Cashier denial passed. Catalog/POS display after a saved local upload cannot be verified because local Storage is HTTP while production Next Image remote patterns intentionally allow HTTPS only; loading the saved local image sends the route to the safe error page. No production config was weakened for QA.
+- Evidence: Local Playwright image scenario passes its safe subset; `tests/pos-qa-checklist-part2.sql` bucket/policy assertions pass.
 - Risk level: Medium
-- Follow-up needed: Valid JPG/PNG/WebP upload, spoofed/oversized rejection, preview, POS image, replace/remove, Manager allowance, Cashier denial, and cross-org policy checks once browser QA is unblocked.
+- Follow-up needed: Fardan must eyeball one existing image and fallback in Catalog/POS on the HTTPS live site; replace/remove rendering also remains a live/HTTPS check.
 
 ### 14. Invoices
 
@@ -294,14 +300,14 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 
 ### 21. Safe error-message pass
 
-- Status: PASS
+- Status: FAIL
 - Environment: local
 - User role used: Owner and lower roles
 - What was tested: Wrong login, restricted Users page, insufficient-stock checkout, empty catalog/supplier states, validation-focused tests.
-- Result: Wrong login and stock failures were friendly; restricted staff data was hidden; no raw Supabase/SQLSTATE/stack text appeared in tested UI states.
+- Result: Wrong login and stock failures were friendly, and restricted staff data was hidden. Customer settlement is the exception: blank optional fields expose a technical minimum-length validation sentence.
 - Evidence: Auth safe-error assertion; insufficient-stock test; role suite; catalog validation 7/7.
 - Risk level: Medium
-- Follow-up needed: Failed image upload, repair/expense invalid submit, and forbidden server-action mutation messages remain pending.
+- Follow-up needed: Fix the settlement optional-field message. Failed image upload is friendly; repair/expense invalid submit and forbidden server-action mutation messages remain pending.
 
 ### 22. Lightweight stress sanity
 
@@ -326,21 +332,29 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 - Evidence: `tests/pos-service-checkout-zero-unit.sql` and `tests/pos-service-checkout.test.mjs` pass.
 - Required action: Complete live-site eyeball verification (one clearly marked QA service sale if Fardan approves).
 
-### MVP-FOLLOWUP-02: local Playwright auth redirect blocker
+### MVP-FOLLOWUP-02: local onboarding redirect is resolved/classified
 
-- Severity: Medium (test-environment only)
-- Reproduction result: After `setup-local-qa.mjs`, email/password login as `owner@saledock.local` redirects to `/onboarding` ("Set up your shop") even though `profiles.onboarding_completed = true`, `organizations.onboarding_completed = true`, and `app_settings` exists.
-- Likely cause: Local dev/session discrepancy between seeded data and what the authenticated server session reads; not reproduced in production.
-- Impact: Browser-based POS, settlement, cash-drawer, and image-upload QA could not be run in this session.
-- Required action: Resume browser QA in a fresh local session or staging preview where auth redirects work; deterministic SQL/Node coverage is already green.
+- Severity: Closed (test-environment only)
+- Reproduction result: A clean local Supabase restart/reset, five-user QA setup, and fresh browser state consistently reached Dashboard. Database checks confirmed five complete active profiles, one complete organization, the seeded branch, and app settings.
+- Root cause classification: Stale local browser/session state from the earlier reset sequence; no app onboarding defect reproduced.
+- Evidence: Fresh browser login and refresh pass, followed by the five-scenario Part 2 browser suite.
 
-### MVP-FOLLOWUP-03: customer settlement was not verified in browser
+### MVP-BLOCKER-03: optional customer settlement fields reject blanks
 
-- Severity: Low (verified deterministically)
-- Reproduction result: Customer-credit invoices, FIFO cash settlement, digital settlement, and write-offs all pass `tests/pos-qa-checklist-part2.sql`.
-- Required action: Browser UI timing and daily-closing display once local auth redirect is unblocked.
+- Severity: High
+- Reproduction result: Open a customer with debt, enter a valid settlement amount, leave Reference No and Notes blank, and submit.
+- Expected: Both optional fields are accepted as absent.
+- Actual: Submission is blocked with `Too small: expected string to have >=1 characters`.
+- Safety evidence: No payment or balance change occurs on the failed submit. With QA reference/notes entered, 500 partial plus 700 final settlements clear 1200 debt correctly, while a 701 overpayment creates no extra payment or advance.
+- Required action: Normalize blank optional settlement strings to absent/null and rerun the focused browser settlement scenario.
 
-### MVP-FOLLOWUP-04: development warnings
+### MVP-FOLLOWUP-04: local HTTP product images cannot exercise production HTTPS rendering
+
+- Severity: Medium (test-environment limitation)
+- Result: Local upload validation, previews, persisted JPG/PNG/WebP paths, Manager controls, and Cashier denial pass. A saved local HTTP Storage URL is rejected by the production HTTPS-only Next Image allow-list, so Catalog/POS image rendering and persisted replace/remove rendering were not completed locally.
+- Required action: Eyeball image, fallback, replace, and remove once on the HTTPS live site. Do not weaken production image policy merely to accommodate local HTTP.
+
+### MVP-FOLLOWUP-05: development warnings
 
 - Severity: Low
 - Result: Local Next.js dev mode repeatedly reported a CSP nonce hydration mismatch and the missing `data-scroll-behavior` guidance. The in-app browser did not report an application console error on the login page, and tested interactions still rendered.
@@ -348,18 +362,18 @@ Final decision: **BLOCKED - DO NOT CALL MVP-LIVE**. PR #284 resolved the service
 
 ## Exact live-site eyeball checklist for Fardan
 
-Do not perform real sales until the service-total blocker is fixed.
+Do not perform real production sales unless Fardan explicitly approves a clearly marked QA transaction.
 
 1. Open both production URLs and confirm the landing and login pages load.
 2. Sign in as Owner and confirm Dashboard, Products, Invoices, Reports, Users, Settings, and Cash Drawer open without an error page.
 3. Confirm a Cashier can open POS but cannot edit Products or Users.
 4. Confirm a Technician is redirected away from POS and can access Repairs only as intended.
 5. Confirm Product Add/Edit modals sit above the top bar on mobile and desktop.
-6. Confirm one existing product image and one no-image fallback appear in Catalog and POS.
+6. Confirm one existing product image and one no-image fallback appear in Catalog and POS; replace/remove only on a safe QA product.
 7. Confirm Cookie Reject all and Accept all stay remembered after reload; sidebar toggle must not reopen the banner.
 8. Confirm an existing invoice detail and A4 print preview look correct. Do not create a new production transaction for this check.
 9. In Supabase Dashboard, confirm the latest successful backup timestamp and retention without restoring or downloading data into chat.
-10. After the service fix is reviewed and deployed, use one clearly marked QA service sale to verify total charged, paid, commission/profit, invoice, cash drawer, and reports all agree.
+10. Verify customer settlement can submit with optional Reference No and Notes left blank after the focused fix is reviewed and deployed.
 
 ## Final PR checks
 
@@ -367,6 +381,6 @@ The final lint, typecheck, build, diff check, required Node tests, and focused E
 
 ## Final decision
 
-**BLOCKED - DO NOT CALL MVP-LIVE**
+**BLOCKED — DO NOT CALL MVP-LIVE**
 
-PR #284 resolved the service-sale zero-value invoice blocker and is deployed to production. Deterministic SQL and Node tests pass for service checkout, customer settlement FIFO, write-offs, daily-closing credit collection arithmetic, cross-org RLS schema, product-image storage policies, and backup/import schema. Local Playwright browser QA is blocked by an auth redirect issue in this session, so POS UI, settlement UI, cash-drawer closing UI, product-image upload UI, runtime cross-organization checks, and the live-site owner eyeball must still pass before a controlled MVP pilot. No production mutations were performed.
+PR #284 resolved the service-sale zero-value invoice blocker and is deployed to production. Deterministic SQL/Node coverage is green, and fresh local browser QA passes service checkout, cash closing, image upload validation/storage roles, and runtime cross-organization isolation. SaleDock remains blocked because blank optional settlement fields fail with a technical validation message. Catalog/POS image rendering still needs the HTTPS live-site eyeball, and no production mutation was performed.
