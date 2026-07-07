@@ -1,7 +1,7 @@
 import { getCurrentContext, signProfilePictureUrl } from "@/lib/auth/session";
 import { canManageUsers, canViewAuditLog, canManageSupplierPurchases, canViewReplenishment } from "@/lib/permissions";
 import { isPlatformAdmin } from "@/lib/platform/admin";
-import { MobileDrawer } from "./mobile-drawer";
+import { MobileDrawerPanel } from "./mobile-drawer-panel";
 
 type NavItem = {
   href: string;
@@ -49,7 +49,7 @@ export async function MobileDrawerWrapper() {
   ];
 
   return (
-    <MobileDrawer
+    <MobileDrawerPanel
       items={visibleItems}
       user={user ? {
         name: profile?.full_name ?? user.email ?? "User",

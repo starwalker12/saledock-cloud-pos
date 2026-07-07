@@ -3,7 +3,7 @@ import { AlertTriangle } from "lucide-react";
 import { getCurrentContext, signProfilePictureUrl } from "@/lib/auth/session";
 import { GlobalSearch } from "@/components/search/global-search";
 import { UserMenu } from "@/components/layout/user-menu";
-import { MobileDrawerWrapper } from "@/components/layout/mobile-drawer-wrapper";
+import { MobileDrawerTrigger } from "@/components/layout/mobile-drawer-trigger";
 import { NotificationPopover } from "@/components/layout/notification-popover";
 import { getPublicPlatformSetting, isPlatformAdmin } from "@/lib/platform/admin";
 import { getServerDict } from "@/lib/i18n/server";
@@ -35,7 +35,7 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
       {/* Mobile top bar (< md) */}
       <div className="flex h-14 items-center justify-between px-3 md:hidden">
         <div className="flex items-center gap-2 min-w-0">
-          <MobileDrawerWrapper />
+          <MobileDrawerTrigger />
           <h1 className="truncate text-lg font-black text-slate-950 dark:text-slate-50">{title}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -63,7 +63,7 @@ export async function Topbar({ pageTitle }: { pageTitle?: string }) {
       {/* Desktop/Tablet top bar (>= md) */}
       <div className="hidden md:flex min-h-20 min-w-0 flex-col gap-3 px-3 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-2">
-          <MobileDrawerWrapper />
+          <MobileDrawerTrigger />
           <h1 className="truncate text-xl font-black text-slate-950 dark:text-slate-50 sm:text-2xl">{title}</h1>
         </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:max-w-[860px] lg:flex-1 lg:justify-end xl:max-w-[980px]">
