@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { DrawerProvider } from "@/components/layout/drawer-context";
 import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
+import { MobileDrawerWrapper } from "@/components/layout/mobile-drawer-wrapper";
 
 export function AppShell({
   children,
@@ -19,21 +20,22 @@ export function AppShell({
   showMobileTabBar?: boolean;
 }) {
   return (
-    <ConfirmDialogProvider>
-      <DrawerProvider>
-        <div className="flex h-dvh max-w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
-          <Sidebar />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <Topbar pageTitle={pageTitle} />
-            <main className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${mainClassName}`}>
-              <div className={`animate-fade-in mx-auto w-full min-w-0 space-y-4 md:space-y-6 ${contentClassName}`}>
-                {children}
-              </div>
-            </main>
-            {showMobileTabBar && <MobileTabBar />}
+      <ConfirmDialogProvider>
+        <DrawerProvider>
+          <div className="flex h-dvh max-w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+            <Sidebar />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <Topbar pageTitle={pageTitle} />
+              <main className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${mainClassName}`}>
+                <div className={`animate-fade-in mx-auto w-full min-w-0 space-y-4 md:space-y-6 ${contentClassName}`}>
+                  {children}
+                </div>
+              </main>
+              {showMobileTabBar && <MobileTabBar />}
+            </div>
           </div>
-        </div>
-      </DrawerProvider>
-    </ConfirmDialogProvider>
+          <MobileDrawerWrapper />
+        </DrawerProvider>
+      </ConfirmDialogProvider>
   );
 }

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Menu, X, LayoutDashboard, ShoppingCart, Boxes, Users, ReceiptText,
+  X, LayoutDashboard, ShoppingCart, Boxes, Users, ReceiptText,
   RotateCcw, Wrench, Wallet, Banknote, BarChart3,
   Truck, ScrollText, UserCog, Settings, MonitorCog, PackageCheck, ListChecks,
   UserCircle, Shield, ShieldCheck, ArrowUp, ArrowDown, Check,
@@ -68,8 +68,8 @@ type CustomSidebarPreferences = {
   [key: string]: unknown;
 };
 
-export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo | null }) {
-  const { open, openDrawer, closeDrawer } = useDrawer();
+export function MobileDrawerPanel({ items, user }: { items: NavItem[]; user: UserInfo | null }) {
+  const { open, closeDrawer } = useDrawer();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
@@ -148,26 +148,14 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
     .slice(0, 2);
 
   return (
-    <>
-      {/* Hamburger button — rendered inside the topbar on mobile */}
-      <button
-        type="button"
-        onClick={openDrawer}
-        className="flex size-11 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100 lg:hidden dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-        aria-label="Open navigation menu"
+    <ClientPortal>
+      <div
+        className={`fixed inset-0 z-[110] h-dvh min-h-dvh lg:hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
+          open ? "visible pointer-events-auto" : "invisible pointer-events-none"
+        }`}
       >
-        <Menu className="size-6" />
-      </button>
-
-      <ClientPortal>
-        {/* Drawer Overlay always rendered for transitions */}
         <div
-          className={`fixed inset-0 z-[110] h-dvh min-h-dvh lg:hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
-            open ? "visible pointer-events-auto" : "invisible pointer-events-none"
-          }`}
-        >
-        {/* Backdrop overlay */}
-        <div
+          data-testid="drawer-backdrop"
           className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
             open ? "opacity-100" : "opacity-0"
           }`}
@@ -175,7 +163,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
           aria-hidden="true"
         />
 
-        {/* Slide-out Panel */}
         <div
           ref={drawerRef}
           className={`absolute inset-0 flex h-dvh min-h-dvh w-full flex-col bg-[#fff] shadow-xl md:inset-y-0 md:left-0 md:right-auto md:w-[85vw] md:max-w-[360px] dark:bg-slate-900 transform transition-transform duration-300 ease-in-out motion-reduce:transition-none ${
@@ -187,7 +174,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
         >
           {showCustomize ? (
             <div className="flex h-full w-full flex-col bg-[#fff] dark:bg-slate-900">
-              {/* Header */}
               <div className="relative flex min-h-24 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 pt-[env(safe-area-inset-top)] dark:border-slate-800 dark:bg-slate-950">
                 <div className="min-w-0 flex-1 pr-10">
                   <p className="text-sm font-black text-slate-950 dark:text-slate-50 leading-tight">
@@ -207,9 +193,7 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                 </button>
               </div>
 
-              {/* Content */}
               <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-6">
-                {/* Selection pool */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -266,7 +250,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                   </div>
                 </div>
 
-                {/* Ordering list */}
                 {tempTabs.length > 0 && (
                   <div className="space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
@@ -328,7 +311,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                 )}
               </div>
 
-              {/* Action Buttons footer */}
               <div className="border-t border-slate-200 p-4 bg-slate-50 dark:border-slate-800 dark:bg-slate-950 flex flex-col gap-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                 <div className="flex gap-2">
                   <button
@@ -364,7 +346,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
             </div>
           ) : (
             <>
-              {/* User Header */}
               <div className="relative flex min-h-24 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 pt-[env(safe-area-inset-top)] dark:border-slate-800 dark:bg-slate-950">
                 <div className="flex items-center gap-3 pr-10 min-w-0">
                   {user?.profilePictureUrl ? (
@@ -389,7 +370,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                   </div>
                 </div>
 
-                {/* Close button positioned at top right */}
                 <button
                   type="button"
                   onClick={closeDrawer}
@@ -400,7 +380,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                 </button>
               </div>
 
-              {/* Scrollable navigation area */}
               <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] overscroll-contain space-y-4">
                 <nav className="space-y-1">
                   {items.filter(item => item.href !== "/settings").map((item) => {
@@ -424,13 +403,11 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                   })}
                 </nav>
 
-                {/* Separator / Settings Header */}
                 <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
                   <p className="px-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                     Settings
                   </p>
                   <nav className="mt-2 space-y-1">
-                    {/* Main settings link */}
                     {(() => {
                       const settingsItem = items.find(item => item.href === "/settings");
                       if (!settingsItem) return null;
@@ -453,7 +430,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                       );
                     })()}
 
-                    {/* Settings subitems */}
                     {settingsSubItems.map((s) => {
                       const active = pathname === "/settings" && currentTab === s.href.split("=")[1];
                       return (
@@ -475,7 +451,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
                   </nav>
                 </div>
 
-                {/* Custom Tabs section */}
                 <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
                   <p className="mb-2 px-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                     Navigation
@@ -500,7 +475,6 @@ export function MobileDrawer({ items, user }: { items: NavItem[]; user: UserInfo
           )}
         </div>
       </div>
-      </ClientPortal>
-    </>
+    </ClientPortal>
   );
 }
