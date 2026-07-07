@@ -4,17 +4,17 @@ Date: 2026-07-07
 
 Branch: `qa/mobile-native-full-product-audit`
 
-Base main SHA: `cad3b8ce70a20a58c2f3919703b7cfa5edf861ba`
+Base main SHA: `faf1dddfacaced9e3a91ce2e70b8d5c4c9d4b2dd`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
-Final recommendation: BLOCKED — CRITICAL MOBILE OR PDF DEFECT FOUND
+Final recommendation: MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST
 
 ## Executive Summary
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers that prevent calling the mobile/PDF audit passed: the mobile navigation close button is intercepted by the drawer overlay, and the cookie banner appears in invoice print/PDF output and covers invoice totals. The audit therefore does not claim full mobile or PDF readiness.
+The continuation found two P1 blockers that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, and the cookie banner appeared in invoice print/PDF output and covered invoice totals. Both blockers have since been fixed on main and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because P2/P3 findings and several untested areas remain.
 
 | Metric | Result |
 | --- | --- |
@@ -29,9 +29,10 @@ The continuation found two P1 blockers that prevent calling the mobile/PDF audit
 | PDF/print/export surfaces discovered | 10 |
 | Drag/drop/resize/rearrange surfaces discovered | 5 |
 | P0 findings | 0 observed, not a complete proof because some authenticated print/export surfaces remain untested |
-| P1 findings | 2 |
+| P1 findings | 0 |
 | P2 findings | 4 |
 | P3 findings | 3 |
+| Fixed P1 findings | 2 |
 | Blocked or not-tested areas | 8 |
 
 ## Environment Tested
@@ -39,7 +40,7 @@ The continuation found two P1 blockers that prevent calling the mobile/PDF audit
 | Item | Result |
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
-| Starting main | `cad3b8ce70a20a58c2f3919703b7cfa5edf861ba` |
+| Starting main | `faf1dddfacaced9e3a91ce2e70b8d5c4c9d4b2dd` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -96,23 +97,23 @@ Executed in Chromium:
 | Area | Status | Evidence | Follow-up |
 | --- | --- | --- | --- |
 | Authentication/onboarding | PASS with caveat | Local owner/admin/manager/cashier/technician roles verified; auth-role smoke passed 9/9. | Verify again on Vercel preview before MVP-live. |
-| Navigation/sidebar | FAIL | Mobile drawer opens but close button click is intercepted by overlay; duplicate navigation dialogs/buttons are exposed. | Focused mobile drawer fix PR. |
-| Dashboard mobile layout | PARTIAL | Focused mobile dashboard route/edit controls checked in Chromium; full route matrix timed out locally. | Re-run after drawer fix and dev-server performance split. |
+| Navigation/sidebar | PASS | Mobile drawer renders one accessible dialog; hamburger opens/closes; close button, backdrop, and Escape work; Customize tabs move up/down; body scroll locks/restores; tablet-to-desktop closes drawer. | Continue monitoring on Vercel preview. |
+| Dashboard mobile layout | PARTIAL | Focused mobile dashboard route/edit controls checked in Chromium; full route matrix timed out locally. | Re-run after dev-server performance split. |
 | Dashboard rearrange | FAIL | Reorder depends on drag handle. | Add touch-friendly move controls. |
 | Dashboard resize | PASS with caveat | Size controls are visible in focused mobile dashboard smoke; drag resize still needs manual touch confirmation. | Verify after dashboard reorder fix. |
 | POS | PASS with caveat | Focused POS mobile controls visible; service-sale and settlement regressions passed; full manual POS matrix not complete. | Continue after drawer/PDF blockers. |
 | Held bills | PASS | Focused physical-product held bill safety rerun passed 1/1 after clean local reset. | Keep manual real-device confirmation pending. |
 | Products/catalog | PARTIAL | Product route included in authenticated route matrix before timeout; full image upload manual matrix not rerun. | Re-run image workflow after blockers. |
 | Product images | PARTIAL | Prior QA history and code inventory inspected; no fresh upload mutation in this continuation. | Re-run image upload mobile matrix. |
-| Invoices | FAIL | Local invoice screen and print-media artifacts captured; cookie banner covers invoice print/PDF output. | Focused print/cookie fix PR. |
-| PDFs/printing | FAIL | Invoice A4 PDF generated locally; cookie banner appears in print media and PDF path; Download PDF calls print. | Focused print/cookie fix PR. |
-| Returns | BLOCKED | Print/share surface inspected, but local return print artifact not generated after invoice blocker. | Re-run after invoice print blocker. |
+| Invoices | PASS with caveat | Local invoice screen and print-media artifacts captured; cookie banner no longer covers invoice print/PDF output. | Continue return/repair/cash drawer/report print QA. |
+| PDFs/printing | PASS with caveat | Invoice A4/80mm PDF generated locally; cookie banner hidden in print media; Download PDF still calls browser print. | Generate print artifacts for returns/repairs/daily-closing/reports/supplier statements. |
+| Returns | BLOCKED | Print/share surface inspected; local return print artifact not generated after invoice blocker was resolved. | Re-run returns mobile/print QA. |
 | Customers | PARTIAL | Customer settlement flow passed locally; full customers list/detail mobile matrix not rerun. | Re-run customer mobile QA. |
 | Settlement | PASS | Customer settlement optional-field E2E passed 1/1 locally. | Manual mobile keyboard check still useful. |
-| Repairs | BLOCKED | Detail/print surfaces inspected; no local repair print artifact generated after invoice print blocker. | Re-run repairs mobile QA. |
+| Repairs | BLOCKED | Detail/print surfaces inspected; local repair print artifact not generated after invoice blocker was resolved. | Re-run repairs mobile/print QA. |
 | Expenses | BLOCKED | Route and validation surface inspected; expense mobile workflow not rerun after blockers. | Re-run expenses mobile QA. |
-| Cash Drawer | BLOCKED | Print surface inspected; cash drawer close/print workflow not rerun after invoice print blocker. | Re-run cash drawer close/print QA. |
-| Reports | BLOCKED | Print and report routes inspected; report print artifact not generated after invoice print blocker. | Re-run reports mobile/print QA. |
+| Cash Drawer | BLOCKED | Print surface inspected; cash drawer close/print workflow not rerun after invoice blocker was resolved. | Re-run cash drawer close/print QA. |
+| Reports | BLOCKED | Print and report routes inspected; report print artifact not generated after invoice blocker was resolved. | Re-run reports mobile/print QA. |
 | Users/permissions | PASS with caveat | Auth-role smoke passed for all five local roles; focused cashier mobile user-page restriction passed. | Full mobile direct URL matrix still pending. |
 | Settings | PARTIAL | Settings route is encoded in the authenticated matrix, but full matrix timed out. | Re-run settings mobile QA. |
 | Responsive tables | PARTIAL | Route matrix and code inventory cover tables, but not every table was manually interacted with. | Re-run with local data. |
@@ -127,7 +128,7 @@ Executed in Chromium:
 
 | Surface | Implementation | Audit status |
 | --- | --- | --- |
-| Invoice detail | A4/80mm `window.print`, WhatsApp share, image capture/download, button labeled Download PDF | FAIL: local invoice A4 PDF generated, but cookie banner appears over printable output |
+| Invoice detail | A4/80mm `window.print`, WhatsApp share, image capture/download, button labeled Download PDF | PASS: local invoice A4/80mm PDF generated; cookie banner hidden in print media; totals visible |
 | Returns detail | A4/80mm `window.print`, WhatsApp share | Code inspected; visual output blocked |
 | Repair detail | A4/80mm `window.print`, WhatsApp share | Code inspected; visual output blocked |
 | Daily closing | A4/80mm/shift thermal `window.print` | Code inspected; visual output blocked |
@@ -296,40 +297,48 @@ Executed in Chromium:
 | Field | Detail |
 | --- | --- |
 | Severity | P1 |
+| Status | FIXED ON MAIN — VERIFIED |
 | Module | Mobile navigation/sidebar |
 | Device/browser | Chromium, mobile emulation |
 | Viewport | 390x844 |
 | User role | Owner |
 | Steps | Log in locally as owner, open Dashboard, tap the hamburger menu, tap the close button. |
 | Expected | One navigation dialog opens, the close button is tappable, and the drawer closes immediately. |
-| Actual | The DOM exposes duplicate `Navigation menu` dialogs and duplicate close buttons. A Playwright click on the visible close button is intercepted by the drawer overlay and does not complete. |
-| Evidence | `/Users/sw12/Projects/gadget-zone-online-pos/test-results/mobile-native-audit-Mobile-c55ea-s-expose-reachable-controls-chromium/test-failed-1.png` from the failed focused run; trace retained under the same test-results folder. |
+| Actual (original) | The DOM exposed duplicate `Navigation menu` dialogs and duplicate close buttons. A Playwright click on the visible close button was intercepted by the drawer overlay and did not complete. |
+| Evidence (original) | `/Users/sw12/Projects/gadget-zone-online-pos/test-results/mobile-native-audit-Mobile-c55ea-s-expose-reachable-controls-chromium/test-failed-1.png` from the failed focused run; trace retained under the same test-results folder. |
 | Console/network error | Playwright reported pointer-event interception by the drawer overlay. |
 | Environment | Local disposable Supabase, authenticated owner. |
-| Risk to shop user | A mobile owner may be unable to close the menu using the visible close control, making the app feel broken and trapping part of the screen. Screen readers also see duplicate dialogs. |
+| Risk to shop user (original) | A mobile owner was unable to close the menu using the visible close control, making the app feel broken and trapping part of the screen. Screen readers also saw duplicate dialogs. |
 | Recommended fix scope | Render a single mobile drawer instance, ensure only the active drawer is accessible, and fix overlay/close-button stacking. |
 | Suggested branch | `fix/mobile-drawer-close-and-duplicate-dialog` |
 | Suggested regression test | Mobile navigation test opens the drawer, asserts exactly one dialog, taps close, and verifies it disappears. |
+| Resolution | Fixed on main in commit `faf1dddfacaced9e3a91ce2e70b8d5c4c9d4b2dd`. The drawer was split into a single `mobile-drawer-panel` portal and a `mobile-drawer-trigger` hamburger. The trigger is rendered in the topbar for mobile and tablet, and the panel mounts once inside `DrawerProvider`. A `matchMedia` listener closes the drawer and restores body scroll when the viewport crosses into desktop width. Original PR #288 was closed by the commit keyword; the code is present on main. |
+| Regression evidence | `tests/e2e/mobile-drawer-single-dialog.spec.ts` passed 5/5 in Chromium against local Supabase: mobile open/close/backdrop/Escape/navigate/customize, tablet hamburger and single drawer, desktop trigger hidden, rotation to desktop closes drawer and restores scroll, repeated open/close creates no duplicate portal. `tests/e2e/auth-role-smoke.spec.ts` passed 9/9 across all five local roles. |
+| Remaining limitations | The full `tests/e2e/mobile-native-audit.spec.ts` owner touch-surface test remains flaky when run as part of the complete matrix (MN-006); focused regression is reliable. Real-device hardware, WebKit/Firefox authenticated runs, and 125% zoom were not retested. |
 
 ### MN-009 - Cookie banner appears in invoice print/PDF output
 
 | Field | Detail |
 | --- | --- |
 | Severity | P1 |
+| Status | FIXED ON MAIN — VERIFIED |
 | Module | Invoices, PDF/printing, cookie/privacy banner |
 | Device/browser | Chromium, mobile emulation and print media |
 | Viewport | 390x844, A4 print output |
 | User role | Owner |
 | Steps | Log in locally, open invoice `INV-000001`, generate print-media screenshot and A4 PDF while the cookie banner is present. |
 | Expected | Printable invoice uses a clean white print background with no web overlays; totals, paid, due, and item rows remain visible. |
-| Actual | The cookie banner appears inside the printable invoice output and covers the item/totals area. The A4 PDF is generated but includes this overlay state. |
-| Evidence | `/tmp/saledock-mobile-audit-artifacts/invoice-mobile-print-media.png`, `/tmp/saledock-mobile-audit-artifacts/invoice-a4-print.pdf`, and the repeated dismissed-banner attempt at `/tmp/saledock-mobile-audit-artifacts/invoice-mobile-print-media-cookie-dismissed.png`. |
+| Actual (original) | The cookie banner appeared inside the printable invoice output and covered the item/totals area. The A4 PDF was generated but included this overlay state. |
+| Evidence (original) | `/tmp/saledock-mobile-audit-artifacts/invoice-mobile-print-media.png`, `/tmp/saledock-mobile-audit-artifacts/invoice-a4-print.pdf`, and the repeated dismissed-banner attempt at `/tmp/saledock-mobile-audit-artifacts/invoice-mobile-print-media-cookie-dismissed.png`. |
 | Console/network error | None. |
 | Environment | Local disposable Supabase, local invoice generated through QA flow. |
-| Risk to shop user | Printed/PDF invoices can be unusable for a first-time browser/session because the privacy banner covers financial totals. |
+| Risk to shop user (original) | Printed/PDF invoices could be unusable for a first-time browser/session because the privacy banner covered financial totals. |
 | Recommended fix scope | Hide cookie/privacy banner under print media and confirm it does not overlay invoice/receipt/report print views. |
 | Suggested branch | `fix/cookie-banner-print-output` |
 | Suggested regression test | Invoice print-media test asserts cookie banner is not visible with `media: print` and generated PDF contains no overlay. |
+| Resolution | Fixed on main in commit `2c98657293449629f30be4ee08e34cc4cafca3ab`. PR #287 added a print-media CSS rule that hides the cookie/privacy banner when printing. The fix applies to the invoice A4 and 80mm/thermal print paths. |
+| Regression evidence | `tests/e2e/cookie-banner-print-output.spec.ts` passed 1/1 in Chromium: banner visible on screen, hidden in `media: print`, A4 and 80mm thermal print PDFs generated with visible totals. `tests/e2e/cookie-banner-sidebar.test.ts` passed 1/2 (one skipped because no dashboard credentials, one accept-all sidebar test passed). `tests/unit/analytics-notice-consent.test.mjs` passed 4/4, including the print-media visibility assertion. |
+| Remaining limitations | Print artifacts were only generated for invoices. Returns, repairs, daily closing, reports, and supplier statement print surfaces were not visually regenerated. The non-invoice print surfaces are assumed to be covered by the same print-media CSS rule, but they were not directly generated. |
 
 ## Automated Audit Coverage Added
 
@@ -377,22 +386,48 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/pos-held-bills-qa.spec.ts --project=chromium -g "physical-product"` | PASS - 1 test passed after clean local reset; earlier parallel run was contaminated by reset and discarded |
 | Local invoice print artifact capture | FAIL/PARTIAL - A4 PDF generated; cookie banner appeared in print media and covered totals |
 
+## Commands Run During Rerun (post-fix)
+
+| Command | Result |
+| --- | --- |
+| `git fetch origin main` | PASS - origin/main at `faf1dddfacaced9e3a91ce2e70b8d5c4c9d4b2dd` |
+| `git checkout qa/mobile-native-full-product-audit` | PASS |
+| `git rebase origin/main` | PASS - no conflicts |
+| `git push --force-with-lease origin qa/mobile-native-full-product-audit` | PASS - new head `a6c546b6fb5703f7ed9a8ee0a5dbcf8303a894cb` |
+| `npx supabase db reset --local --yes` | PASS against local Supabase only |
+| `node scripts/dev/setup-local-qa.mjs` | PASS; fake local QA users created/linked |
+| `npm run lint` | PASS - 0 errors, 2 existing Privacy Center hook warnings |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS |
+| `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs` | PASS - 35 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-drawer-single-dialog.spec.ts --project=chromium` | PASS - 5/5 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium` | PASS - 9/9 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/cookie-banner-print-output.spec.ts --project=chromium` | PASS - 1/1 test passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/cookie-banner-sidebar.test.ts --project=chromium` | PASS - 1/2 passed, 1 skipped (no dashboard credentials for reject-all test) |
+| `node --test tests/unit/analytics-notice-consent.test.mjs` | PASS - 4/4 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium` | PARTIAL - 3/4 passed; owner touch-surface test failed in full matrix run but passed when run in isolation (MN-006 flakiness) |
+| `gh pr comment 288 --body "..."` | PASS - traceability comment added to PR #288 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 |
+
 ## Known Limitations
 
-- Full authenticated browser QA is not complete because the single-test owner route/viewport matrix timed out locally.
+- Both P1 blockers (MN-008 mobile drawer and MN-009 cookie banner in invoice print) were fixed on main and verified with focused regression tests.
+- Full authenticated browser QA is still not complete because the single-test owner route/viewport matrix timed out locally (MN-006).
 - Production was not used for mutation testing.
-- WebKit and Firefox authenticated routes were not run; public/auth routes passed.
+- WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
 - Browser zoom at 125 percent was not run in this pass.
-- Invoice PDF/print artifacts were generated locally, but returns/repairs/daily closing/reports/supplier statement print artifacts were not generated after the invoice print blocker was found.
+- Invoice PDF/print artifacts were regenerated and passed, but returns/repairs/daily closing/reports/supplier statement print artifacts were not regenerated after the fixes.
 - No product, invoice, cash drawer, return, settlement, or stock mutation was performed in production.
+- The `fix/mobile-drawer-close-and-duplicate-dialog` branch was not deleted during this audit; it is safe to delete once Fardan approves.
 
 ## Top Priority Focused Fix PRs
 
-1. `fix/cookie-banner-print-output` - hide cookie/privacy overlays from invoice/receipt/report print media and verify A4/80mm output.
-2. `fix/mobile-drawer-close-and-duplicate-dialog` - fix duplicate mobile navigation dialogs and the blocked close button.
-3. `fix/dashboard-mobile-reorder-controls` - add touch-friendly dashboard widget move controls and verify persistence.
-4. `fix/invoice-pdf-download-ux` - make invoice PDF/print wording match behavior or add real PDF generation.
-5. `fix/sidebar-rearrange-accessible-controls` - add a non-drag alternative for desktop sidebar rearranging.
+1. `fix/dashboard-mobile-reorder-controls` - add touch-friendly dashboard widget move controls and verify persistence.
+2. `fix/invoice-pdf-download-ux` - make invoice PDF/print wording match behavior or add real PDF generation.
+3. `fix/sidebar-rearrange-accessible-controls` - add a non-drag alternative for desktop sidebar rearranging.
+4. `test/split-mobile-native-authenticated-matrix` - split the authenticated viewport matrix so the full owner route smoke is reliable in CI (related to MN-006).
 
 ## Fardan Live-Site Eyeball Checklist
 
@@ -420,4 +455,6 @@ Production should stay read-only unless a specific QA transaction is approved.
 
 ## Risk Position
 
-Risk is not fully closed. The audit now has authenticated local evidence for roles, settlement, physical held-bill safety, public cross-browser viewport checks, and invoice print artifacts. It also found two P1 blockers. Remaining unverified areas include real-device mobile behavior, authenticated WebKit/Firefox, 125 percent zoom, slow network, and print artifacts beyond invoices.
+The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, and the cookie/privacy banner is hidden from invoice print/PDF output. The audit no longer recommends blocking the mobile/PDF surface on these two issues.
+
+Risk remains open for P2/P3 findings and unverified areas: dashboard drag-only reorder, desktop sidebar drag-only reorder, small print/share touch targets, product image crop nudge controls, the heavy authenticated viewport matrix, CSP nonce dev warnings, and unverified surfaces including returns/repairs/daily-closing/reports/supplier statement print artifacts, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.

@@ -13,6 +13,10 @@ type LocalStatus = {
   SERVICE_ROLE_KEY?: string;
   serviceRoleKey?: string;
   service_role_key?: string;
+  PUBLISHABLE_KEY?: string;
+  ANON_KEY?: string;
+  anonKey?: string;
+  anon_key?: string;
 };
 
 let localAdmin: PostgrestClient | null = null;
@@ -68,6 +72,21 @@ export function getLocalAdminClient(): PostgrestClient {
     },
   });
   return localAdmin;
+}
+
+export function getLocalAuthConfig(): { url: string; anonKey: string } {
+  const status = readLocalStatus();
+  const url = status.API_URL ?? status.apiUrl ?? status.api_url ?? "";
+  const anonKey =
+    status.PUBLISHABLE_KEY ??
+    status.ANON_KEY ??
+    status.anonKey ??
+    status.anon_key ??
+    "";
+  if (!isLocalUrl(url) || !anonKey) {
+    throw new Error("A running local Supabase instance is required for direct local login.");
+  }
+  return { url, anonKey };
 }
 
 export const LOCAL_QA_ORG_ID = "00000000-0000-4000-8000-000000000001";
