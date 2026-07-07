@@ -488,7 +488,8 @@ export default function AnalyticsNotice({
         <div
           role="region"
           aria-label="Cookie consent"
-          className="fixed inset-x-3 bottom-3 z-30 rounded-xl border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm text-[#0f172a] shadow-lg dark:border-[#475569] dark:bg-[#0f172a] dark:text-[#e2e8f0] sm:left-1/2 sm:right-auto sm:w-[min(760px,calc(100%-2rem))] sm:-translate-x-1/2"
+          data-testid="cookie-consent-banner"
+          className="print-hidden fixed inset-x-3 bottom-3 z-30 rounded-xl border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm text-[#0f172a] shadow-lg print:hidden dark:border-[#475569] dark:bg-[#0f172a] dark:text-[#e2e8f0] sm:left-1/2 sm:right-auto sm:w-[min(760px,calc(100%-2rem))] sm:-translate-x-1/2"
         >
           <div className="flex flex-col gap-3">
             <p className="leading-6">
