@@ -17,10 +17,6 @@ async function loginOwner(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
 
-  // Submit the local login form, then navigate to /dashboard.
-  // The current local dev environment creates a valid session but does not
-  // follow the server-action redirect automatically, so we read the cookie
-  // and continue to the authenticated route.
   await page.goto("/login");
   await page.fill('input[name="email"]', OWNER_EMAIL);
   await page.fill('input[name="password"]', LOCAL_PASSWORD);
@@ -53,8 +49,6 @@ async function assertSingleDrawer(page: import("@playwright/test").Page) {
 async function openDrawer(page: import("@playwright/test").Page) {
   const hamburgers = page.getByRole("button", { name: "Open navigation menu", exact: true });
   await expect(hamburgers).toHaveCount(1);
-  // The drawer panel is mounted inside a client-only portal; wait for it to
-  // be attached to the DOM before clicking the trigger so the open state works.
   await page.locator('[role="dialog"][aria-label="Navigation menu"]').first().waitFor({ state: "attached", timeout: 10000 });
   await hamburgers.first().click();
   await assertSingleDrawer(page);
@@ -77,9 +71,6 @@ async function customizeMoveDown(page: import("@playwright/test").Page) {
 }
 
 async function customizeReset(page: import("@playwright/test").Page) {
-  // The bottom-left Reset button overlaps the Next.js dev indicator badge.
-  // In production this badge is absent; use the element's DOM click to keep
-  // the test honest without masking or removing the overlay.
   await drawer(page).evaluate((dialog) => {
     const btn = Array.from(dialog.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "Reset"
@@ -101,6 +92,10 @@ async function bodyScrollIsLocked(page: import("@playwright/test").Page): Promis
   return page.evaluate(() => document.body.style.overflow === "hidden");
 }
 
+async function waitForBodyScrollUnlocked(page: import("@playwright/test").Page) {
+  await page.waitForFunction(() => document.body.style.overflow !== "hidden");
+}
+
 test.describe("mobile navigation drawer renders one accessible dialog", () => {
   test.beforeEach(() => {
     test.skip(!isLocalhost(process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000"), "Drawer mutation QA is restricted to localhost.");
@@ -112,7 +107,6 @@ test.describe("mobile navigation drawer renders one accessible dialog", () => {
     await loginOwner(page);
     await page.goto("/dashboard");
 
-    // No dialog when closed
     await expect(drawer(page)).toHaveCount(0);
 
     await openDrawer(page);
@@ -145,7 +139,6 @@ test.describe("mobile navigation drawer renders one accessible dialog", () => {
     await customizeReset(page);
     await customizeSave(page);
 
-    // Saving hides the customize view and returns to the main menu while keeping the drawer open.
     await expect(drawer(page).getByRole("button", { name: "Customize bottom tabs", exact: true })).toBeVisible();
     await closeDrawerViaButton(page);
     await expect(drawer(page)).toHaveCount(0);
@@ -170,19 +163,35 @@ test.describe("mobile navigation drawer renders one accessible dialog", () => {
 
     await expect(page.getByRole("button", { name: "Open navigation menu", exact: true })).toHaveCount(0);
     await expect(drawer(page)).toHaveCount(0);
+    expect(await bodyScrollIsLocked(page)).toBe(false);
   });
 
-  test("rotation from tablet to desktop hides drawer and trigger", async ({ page }) => {
+  test("rotation from tablet to desktop closes drawer and restores scroll", async ({ page }) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 820, height: 1180 });
     await loginOwner(page);
     await page.goto("/dashboard");
 
     await openDrawer(page);
+    await assertSingleDrawer(page);
+    expect(await bodyScrollIsLocked(page)).toBe(true);
+
     await page.setViewportSize({ width: 1366, height: 768 });
-    await page.waitForTimeout(300);
+    await waitForBodyScrollUnlocked(page);
     await expect(drawer(page)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open navigation menu", exact: true })).toHaveCount(0);
+    expect(await bodyScrollIsLocked(page)).toBe(false);
+
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await expect(page.getByRole("button", { name: "Open navigation menu", exact: true })).toHaveCount(1);
+    await expect(drawer(page)).toHaveCount(0);
+    expect(await bodyScrollIsLocked(page)).toBe(false);
+
+    await openDrawer(page);
+    await assertSingleDrawer(page);
+    await closeDrawerViaButton(page);
+    await expect(drawer(page)).toHaveCount(0);
+    expect(await bodyScrollIsLocked(page)).toBe(false);
   });
 
   test("repeated open/close does not duplicate portals", async ({ page }) => {

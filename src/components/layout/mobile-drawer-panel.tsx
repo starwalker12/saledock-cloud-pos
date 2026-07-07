@@ -124,6 +124,17 @@ export function MobileDrawerPanel({ items, user }: { items: NavItem[]; user: Use
   }, [pathname, closeDrawer]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    if (mq.matches) closeDrawer();
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (e.matches) closeDrawer();
+    };
+    mq.addEventListener("change", handleChange);
+    return () => mq.removeEventListener("change", handleChange);
+  }, [closeDrawer]);
+
+  useEffect(() => {
     if (!open) {
       const timer = setTimeout(() => {
         setShowCustomize(false);
