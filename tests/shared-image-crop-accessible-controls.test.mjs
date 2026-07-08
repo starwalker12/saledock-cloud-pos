@@ -80,6 +80,13 @@ test("cancel and use crop buttons remain", () => {
   );
 });
 
+test("crop overlay is portaled to document body above the mobile tab bar", () => {
+  assertContains("createPortal(", "crop overlay must keep portal rendering");
+  assertContains("document.body", "crop overlay portal target must remain document.body");
+  assertContains('data-testid="crop-overlay"', "crop overlay must expose a stable test marker");
+  assertContains("className=\"fixed inset-0 z-[80]", "crop overlay must remain fixed and above z-40 mobile chrome");
+});
+
 test("dialog instructions are connected and reference both drag and buttons", () => {
   assertContains('id="image-crop-description"', "instructions must have an id for aria-describedby");
   assertContains(
@@ -178,6 +185,24 @@ test("Reset crop button restores defaults without touching file or url", () => {
     !resetRegion.includes("url:") && !resetRegion.includes("file:"),
     "reset must not touch file or url fields",
   );
+});
+
+test("nudge and reset handlers do not perform storage or upload work", () => {
+  const nudgeRegion = source.slice(
+    source.indexOf("function nudgePosition(deltaX: number, deltaY: number)"),
+    source.indexOf("function resetCrop()"),
+  );
+  const resetRegion = source.slice(
+    source.indexOf("function resetCrop()"),
+    source.indexOf("function handleRemove()"),
+  );
+
+  for (const [name, region] of [["nudgePosition", nudgeRegion], ["resetCrop", resetRegion]]) {
+    assert.ok(!region.includes("upload"), `${name} must not upload`);
+    assert.ok(!region.includes("storage"), `${name} must not touch storage`);
+    assert.ok(!region.includes("supabase"), `${name} must not call Supabase`);
+    assert.ok(!region.includes("handleConfirmCrop"), `${name} must not confirm crop`);
+  }
 });
 
 test("no hardcoded magic numbers used in place of nudge constants", () => {

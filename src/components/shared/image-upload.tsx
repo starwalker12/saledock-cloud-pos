@@ -499,7 +499,10 @@ export function ImageUpload({
       )}
 
       {cropState && mounted && createPortal(
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-3 sm:items-center sm:p-6">
+        <div
+          data-testid="crop-overlay"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-3 sm:items-center sm:p-6"
+        >
           <button
             type="button"
             aria-label="Cancel image crop"
