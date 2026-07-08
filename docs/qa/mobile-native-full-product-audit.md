@@ -4,7 +4,7 @@ Date: 2026-07-07
 
 Branch: `qa/mobile-native-full-product-audit`
 
-Base main SHA: `4cd1c0745334ed12fb4fc4eefff0cb26af7e9a40`
+Base main SHA: `b240ae533351917f846fe240daf602f39ca4abe1`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -31,9 +31,9 @@ The continuation found two P1 blockers and four P2 findings that prevented calli
 | P0 findings | 0 observed, not a complete proof because some authenticated print/export surfaces remain untested |
 | P1 findings | 0 |
 | P2 findings | 0 |
-| P3 findings | 3 |
+| P3 findings | 2 |
 | Fixed P1 findings | 2 |
-| Fixed findings | 6 |
+| Fixed findings | 7 |
 | Blocked or not-tested areas | 8 |
 
 ## Environment Tested
@@ -41,7 +41,7 @@ The continuation found two P1 blockers and four P2 findings that prevented calli
 | Item | Result |
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
-| Starting main | `4cd1c0745334ed12fb4fc4eefff0cb26af7e9a40` |
+| Starting main | `b240ae533351917f846fe240daf602f39ca4abe1` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -88,7 +88,7 @@ The new Playwright suite encodes these viewports:
 Executed in Chromium:
 
 - Public/auth responsive smoke: PASS across all encoded viewports.
-- Authenticated app responsive smoke: PARTIAL. The focused mobile owner/cashier smoke passed. The full owner route/viewport matrix timed out on the local dev server after public routes passed.
+- Authenticated app responsive smoke: PASS in Chromium. The full audit file passed after the owner route/viewport matrix was split into 12 focused tests.
 - WebKit and Firefox: PASS for public/auth route viewport smoke using a temporary uncommitted Playwright config after installing local browser binaries.
 - Browser zoom 125 percent: NOT TESTED in this pass.
 - Real mobile device hardware: NOT TESTED in this pass.
@@ -108,6 +108,7 @@ Executed in Chromium:
 | Product images | PARTIAL | Prior QA history and code inventory inspected; no fresh upload mutation in this continuation. | Re-run image upload mobile matrix. |
 | Invoices | PASS with caveat | Local invoice screen and print-media artifacts captured; cookie banner no longer covers invoice print/PDF output. | Continue return/repair/cash drawer/report print QA. |
 | PDFs/printing | PASS with caveat | Invoice A4/80mm PDF generated locally; cookie banner hidden in print media; Share Invoice action now says Print / Save as PDF while retaining browser print/save-to-PDF behavior. | Generate print artifacts for returns/repairs/daily-closing/reports/supplier statements. |
+| Print/share touch targets | FIXED ON MAIN — VERIFIED | PR #292 normalized reports, repairs, daily closing, and supplier statement print/share controls to an explicit `min-h-[44px]`. Returns already used `min-h-[44px]` and remained unchanged. Browser-rendered checks passed for Reports, Daily Closing, and Supplier Statement at 320x568, 390x844, and 430x932. Repair detail, return detail, and conditional daily shift-report controls were verified by source-contract test because deterministic local fixtures were unavailable. | Re-run repair/return detail pages visually when safe fixtures exist. |
 | Invoice PDF wording | FIXED ON MAIN — VERIFIED | PR #290 changed the Share Invoice modal wording from Download PDF to Print / Save as PDF, retained existing A4 browser print behavior, passed desktop 1440x900 and mobile 390x844 localhost review, passed focused invoice wording E2E, and passed cookie-print regression. | Do not claim direct PDF download was added; behavior remains browser print/save-to-PDF. |
 | Returns | BLOCKED | Print/share surface inspected; local return print artifact not generated after invoice blocker was resolved. | Re-run returns mobile/print QA. |
 | Customers | PARTIAL | Customer settlement flow passed locally; full customers list/detail mobile matrix not rerun. | Re-run customer mobile QA. |
@@ -207,20 +208,26 @@ Executed in Chromium:
 | Field | Detail |
 | --- | --- |
 | Severity | P3 |
+| Status | FIXED ON MAIN — VERIFIED |
 | Module | Reports, returns, repairs, daily closing, supplier statements |
 | Device/browser | Mobile touch |
-| Viewport | 320x568 through 430x932 |
+| Viewport | 320x568, 390x844, and 430x932 focused verification |
 | User role | Owner/Admin/Cashier where allowed |
 | Steps | Open print/export action groups on detail/report pages. |
 | Expected | Important print/share buttons should be approximately 44x44 px or larger. |
-| Actual | Several print/share buttons are styled around `h-10`, which is 40 px before text and spacing context. |
-| Evidence | `src/app/reports/print-button.tsx`, `src/app/repairs/[id]/print-button.tsx`, `src/app/returns/[id]/print-button.tsx`, `src/app/daily-closing/print-button.tsx`, `src/app/suppliers/[id]/statement/print-button.tsx`. |
+| Actual (original) | Several print/share buttons were styled around `h-10` or `h-9`, which rendered below the 44 px mobile touch-target guideline. |
+| Evidence (original) | `src/app/reports/print-button.tsx`, `src/app/repairs/[id]/print-button.tsx`, `src/app/daily-closing/print-button.tsx`, and `src/app/suppliers/[id]/statement/print-button.tsx`; returns controls were already compliant. |
 | Console/network error | None observed. |
-| Environment | Local/code audit. |
-| Risk to shop user | Slightly harder tapping on small phones. |
+| Environment | Local/code audit, localhost browser regression, source-contract regression. |
+| Risk to shop user (original) | Slightly harder tapping on small phones. |
 | Recommended fix scope | Normalize print/share controls to mobile-sized app buttons. |
 | Suggested branch | `fix/print-action-touch-targets` |
 | Suggested regression test | Visual/touch target smoke checks print buttons at 320 px width. |
+| Resolution | Fixed on main in merge commit `b240ae533351917f846fe240daf602f39ca4abe1` from PR #292. Reports Print Report; repairs Print A4, Print 80mm, and Share WhatsApp; daily closing Print A4, Print 80mm, and Print shift report; and supplier statement Print A4 / Save PDF, Print 80mm, and Share WhatsApp now carry an explicit `min-h-[44px]`. Returns Print A4, Print 80mm, and Share WhatsApp already used `min-h-[44px]`, remained unchanged, and remain covered by the source-contract test. |
+| Behavior retained | Print labels, icons, A4/thermal/shift-thermal modes, `window.print()`, print cleanup behavior, WhatsApp URLs, `_blank` and safe `rel` behavior, and existing print-hidden behavior were unchanged. No report, repair, return, daily-closing, supplier, financial, or business calculation changed. |
+| Browser-rendered evidence | `tests/e2e/print-action-touch-targets.spec.ts` passed 2/2 in Chromium. Reports, Daily Closing, and Supplier Statement controls rendered at least 44 px tall at 320x568, 390x844, and 430x932 without horizontal overflow, clipped labels, framework overlays, or print-mode regressions. |
+| Source-contract evidence | `tests/print-action-touch-targets.test.mjs` passed 13/13 and covers Reports: Print Report; Repairs: Print A4, Print 80mm, Share WhatsApp; Returns: Print A4, Print 80mm, Share WhatsApp; Daily closing: Print A4, Print 80mm, Print shift report; Supplier statement: Print A4 / Save PDF, Print 80mm, Share WhatsApp. |
+| Limitations | No local repair detail fixture was available, no local return detail fixture was available, and no open local shift existed for a visible Print shift report control. Those controls were verified through the precise source-contract test rather than rendered detail-page browser checks. |
 
 ### MN-004 - Desktop sidebar reorder lacks a clear non-drag alternative
 
@@ -483,14 +490,34 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1` | PASS - full audit file completed 16/16 with no skips. Longest owner matrix test: 54s, `mobile viewports / core sales routes`. |
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium --workers=1` | PASS - 9/9 tests passed |
 
+## Commands Run During MN-003 Main Sync
+
+| Command | Result |
+| --- | --- |
+| `git fetch origin main qa/mobile-native-full-product-audit` | PASS - origin/main at `b240ae533351917f846fe240daf602f39ca4abe1`; audit branch pre-rebase head at `b4d9528329a3a6ecadaa0de07e00c1164302eb34` |
+| `git rebase origin/main` | PASS - no conflicts |
+| `git diff --check` | PASS |
+| `npm run lint` | PASS - 0 errors, 2 existing Privacy Center hook warnings |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS |
+| `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs tests/dashboard-widget-reorder.test.mjs tests/print-action-touch-targets.test.mjs` | PASS - 60/60 tests passed, including 13/13 print/share touch-target source-contract checks |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/print-action-touch-targets.spec.ts --project=chromium --workers=1` | PASS - 2/2 tests passed; deterministic Reports, Daily Closing, and Supplier Statement controls rendered at least 44 px at 320x568, 390x844, and 430x932 |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/cookie-banner-print-output.spec.ts --project=chromium --workers=1` | PASS - 1/1 test passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium --workers=1` | PASS - 9/9 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1` | PASS - 16/16 tests passed in 4.2m; no skips, retries, or timeouts |
+| Extra timing extraction run: `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1 --reporter=json > /tmp/saledock-mobile-audit-final.json` | FAIL - 15 expected, 1 unexpected, no skips/flakes reported by Playwright JSON. The tablet operations owner matrix timed out after 180s while navigating to `/daily-closing`. This was an additional timing run after the required full audit pass. |
+| Focused rerun of failed group: `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1 -g "owner matrix: tablet viewports / operations routes"` | PASS - 1/1 in 41.5s. The `/daily-closing` timeout did not reproduce in the focused group. |
+| Local visual spot-check at 320x568 and 390x844 | PASS for `/reports`, `/daily-closing`, and `/suppliers/00000000-0000-4000-8000-000000002001/statement`; measured controls at 44 px, no horizontal overflow, no clipped labels, and print/share controls hidden in print media |
+
 ## Known Limitations
 
-- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-004 (desktop sidebar drag-only reorder), MN-006 (heavy authenticated viewport matrix), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main or in the audit suite and verified with focused regression tests.
+- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-003 (print/share touch targets), MN-004 (desktop sidebar drag-only reorder), MN-006 (heavy authenticated viewport matrix), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main or in the audit suite and verified with focused regression tests.
 - The authenticated owner route/viewport matrix now completes locally in split tests, but production remains read-only and not used for mutation testing.
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
 - Browser zoom at 125 percent was not run in this pass.
-- Invoice PDF/print artifacts were regenerated and passed, but returns/repairs/daily closing/reports/supplier statement print artifacts were not regenerated after the fixes.
+- Invoice PDF/print artifacts were regenerated and passed. Print/share touch-target browser checks passed for reports, daily closing, and supplier statement. Return and repair print artifacts were not regenerated because deterministic local detail fixtures were unavailable.
+- A supplemental JSON timing run of the full mobile audit exposed one intermittent local `/daily-closing` tablet operations timeout after the required line-reporter full audit had already passed. The exact focused group passed on rerun in 41.5s. Treat the broader full-file timing as not perfectly clean, while MN-003 remains closed by the focused touch-target contract and rendered-route evidence.
 - No product, invoice, cash drawer, return, settlement, or stock mutation was performed in production.
 - The `fix/mobile-drawer-close-and-duplicate-dialog` branch was not deleted during this audit; it is safe to delete once Fardan approves.
 - The `fix/dashboard-mobile-reorder-controls` branch was merged through PR #289 and can be deleted after Fardan approves.
@@ -498,9 +525,9 @@ The authenticated tests deliberately skip instead of guessing when local login i
 
 ## Top Priority Focused Fix PRs
 
-1. `fix/print-action-touch-targets` - normalize print/share controls to mobile-sized app buttons.
-2. `fix/product-image-crop-touch-controls` - add non-drag nudge/reset controls for product image crop positioning.
-3. `fix/csp-nonce-hydration-warning` - verify and address the local CSP nonce hydration warning if it reproduces outside dev.
+1. `fix/product-image-crop-touch-controls` - add non-drag nudge/reset controls for product image crop positioning.
+2. `fix/csp-nonce-hydration-warning` - verify and address the local CSP nonce hydration warning if it reproduces outside dev.
+3. `qa/mobile-native-authenticated-remainder` - finish the remaining blocked authenticated print/export, dark-mode, zoom, slow-network, and real-device checks.
 
 ## Fardan Live-Site Eyeball Checklist
 
@@ -528,6 +555,6 @@ Production should stay read-only unless a specific QA transaction is approved.
 
 ## Risk Position
 
-The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The P2 dashboard reorder, invoice wording, desktop sidebar reorder, and authenticated matrix findings are also resolved and verified. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, the cookie/privacy banner is hidden from invoice print/PDF output, the dashboard and desktop sidebar now provide Move Earlier / Move Later controls alongside existing drag, invoice print wording matches browser behavior, and the owner viewport matrix no longer runs as one brittle 224-navigation test. The audit no longer recommends blocking the mobile/PDF surface on these issues.
+The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The P2 dashboard reorder, invoice wording, desktop sidebar reorder, and authenticated matrix findings are also resolved and verified. MN-003 print/share touch targets are fixed on main through PR #292. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, the cookie/privacy banner is hidden from invoice print/PDF output, the dashboard and desktop sidebar now provide Move Earlier / Move Later controls alongside existing drag, invoice print wording matches browser behavior, print/share controls have a 44 px source contract, and the owner viewport matrix no longer runs as one brittle 224-navigation test. The audit no longer recommends blocking the mobile/PDF surface on these issues.
 
-Risk remains open for P3 findings and unverified areas including small print/share touch targets, product image crop nudge controls, CSP nonce dev warnings, and unverified surfaces including returns/repairs/daily-closing/reports/supplier statement print artifacts, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.
+Risk remains open for P3 findings and unverified areas including product image crop nudge controls, CSP nonce dev warnings, unavailable repair/return print artifacts, unavailable visible daily shift-report fixture, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.
