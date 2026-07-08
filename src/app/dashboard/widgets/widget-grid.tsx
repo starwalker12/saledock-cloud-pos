@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Responsive, WidthProvider } from "react-grid-layout/legacy";
-import { Trash2, GripHorizontal, Check, Settings2 } from "lucide-react";
+import { Trash2, GripHorizontal, Check, Settings2, ArrowUp, ArrowDown } from "lucide-react";
 import {
   WIDGET_COLORS,
   WIDGET_CATALOG,
@@ -18,187 +18,26 @@ import {
   getChartTypesForWidget,
   renderWidgetContent,
 } from "./widget-registry";
+import {
+  GRID_BREAKPOINTS,
+  GRID_COLS,
+  GridBreakpoint,
+  WidgetInstance,
+  canMoveWidgetEarlier,
+  canMoveWidgetLater,
+  getWidgetDimsFromSize,
+  getWidgetSizeFromDims,
+  getReorderColumnCount,
+  isMobileBreakpoint,
+  makeLayoutForBreakpoint,
+  moveWidgetInVisualOrder,
+  packWidgetStateForColumns,
+} from "./widget-layout";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
-const GRID_COLS = { ultra: 12, wide: 8, lg: 4, md: 4, sm: 2, xs: 2, xxs: 2 } as const;
-const GRID_BREAKPOINTS = { ultra: 2600, wide: 1800, lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 } as const;
-type GridBreakpoint = keyof typeof GRID_COLS;
-const MOBILE_BREAKPOINTS = new Set<GridBreakpoint>(["sm", "xs", "xxs"]);
-
-export function getWidgetDimsFromSize(size: WidgetSize): { w: number; h: number } {
-  switch (size) {
-    case "S":
-      return { w: 1, h: 1 };
-    case "M":
-      return { w: 2, h: 1 };
-    case "L":
-      return { w: 4, h: 2 };
-    case "XL":
-      return { w: 4, h: 3 };
-  }
-}
-
-export function getWidgetSizeFromDims(w: number, h: number): WidgetSize {
-  if (h >= 4) {
-    return "XL";
-  }
-  if (w >= 4) {
-    return h >= 3 ? "XL" : "L";
-  }
-  if (h >= 3) {
-    return "L";
-  }
-  if (w >= 2) {
-    return h >= 2 ? "L" : "M";
-  }
-  if (h >= 2) {
-    return "M";
-  }
-  return "S";
-}
-
-function isMobileBreakpoint(breakpoint: GridBreakpoint) {
-  return MOBILE_BREAKPOINTS.has(breakpoint);
-}
-
-function getMobileWidgetDims(size: WidgetSize): { w: number; h: number } {
-  switch (size) {
-    case "S":
-      return { w: 1, h: 1 };
-    case "M":
-      return { w: 2, h: 2 };
-    case "L":
-      return { w: 2, h: 3 };
-    case "XL":
-      return { w: 2, h: 4 };
-  }
-}
-
-function getLayoutDims(widget: WidgetInstance, cols: number, breakpoint: GridBreakpoint) {
-  const size = getWidgetSizeFromDims(widget.w, widget.h);
-  if (isMobileBreakpoint(breakpoint)) {
-    const mobileDims = getMobileWidgetDims(size);
-    return {
-      w: Math.min(Math.max(mobileDims.w, 1), cols),
-      h: mobileDims.h,
-    };
-  }
-
-  return {
-    w: Math.min(Math.max(widget.w, 1), cols),
-    h: Math.max(widget.h, 1),
-  };
-}
-
-function packWidgetsForColumns(widgets: WidgetInstance[], cols: number, breakpoint: GridBreakpoint) {
-  const sorted = [...widgets].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-  let cursorX = 0;
-  let cursorY = 0;
-  let rowHeight = 1;
-
-  return sorted.map((widget) => {
-    const { w, h } = getLayoutDims(widget, cols, breakpoint);
-
-    if (cursorX > 0 && cursorX + w > cols) {
-      cursorX = 0;
-      cursorY += rowHeight;
-      rowHeight = 1;
-    }
-
-    const item = {
-      i: widget.id,
-      x: cursorX,
-      y: cursorY,
-      w,
-      h,
-      minW: 1,
-      minH: 1,
-      maxW: cols,
-      maxH: 4,
-    };
-
-    cursorX += w;
-    rowHeight = Math.max(rowHeight, h);
-
-    return item;
-  });
-}
-
-function makeLayoutForBreakpoint(widgets: WidgetInstance[], breakpoint: GridBreakpoint) {
-  const cols = GRID_COLS[breakpoint];
-  const needsRepack =
-    isMobileBreakpoint(breakpoint) ||
-    cols < 4 ||
-    (cols > 4 && widgets.every((widget) => widget.x + widget.w <= 4));
-
-  if (needsRepack) {
-    return packWidgetsForColumns(widgets, cols, breakpoint);
-  }
-
-  return widgets.map((widget) => {
-    const w = Math.min(Math.max(widget.w, 1), cols);
-
-    return {
-      i: widget.id,
-      x: Math.min(Math.max(widget.x, 0), Math.max(cols - w, 0)),
-      y: Math.max(widget.y, 0),
-      w,
-      h: Math.max(widget.h, 1),
-      minW: 1,
-      minH: 1,
-      maxW: cols,
-      maxH: 4,
-    };
-  });
-}
-
-function packWidgetStateForColumns(widgets: WidgetInstance[], cols: number) {
-  let cursorX = 0;
-  let cursorY = 0;
-  let rowHeight = 1;
-
-  return widgets.map((widget) => {
-    const dims = getWidgetDimsFromSize(widget.size);
-    const w = Math.min(Math.max(dims.w, 1), cols);
-    const h = Math.max(dims.h, 1);
-
-    if (cursorX > 0 && cursorX + w > cols) {
-      cursorX = 0;
-      cursorY += rowHeight;
-      rowHeight = 1;
-    }
-
-    const updated = {
-      ...widget,
-      x: cursorX,
-      y: cursorY,
-      w,
-      h,
-    };
-
-    cursorX += w;
-    rowHeight = Math.max(rowHeight, h);
-
-    return updated;
-  });
-}
-
-type WidgetInstance = {
-  id: string;
-  type: string;
-  size: WidgetSize;
-  color: WidgetColor;
-  fillStyle?: WidgetFillStyle;
-  textColor?: WidgetTextColor;
-  chartType?: ChartType;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
 
 type WidgetGridProps = {
   widgets: WidgetInstance[];
@@ -220,7 +59,11 @@ function WidgetSettingsControls({
   onUpdateFillStyle,
   onUpdateTextColor,
   onUpdateChartType,
+  onMoveEarlier,
+  onMoveLater,
   onRemove,
+  canMoveEarlier: canMoveEarlierProp,
+  canMoveLater: canMoveLaterProp,
 }: {
   widget: WidgetInstance;
   renderSize: WidgetSize;
@@ -231,16 +74,55 @@ function WidgetSettingsControls({
   onUpdateFillStyle: (id: string, fillStyle: WidgetFillStyle) => void;
   onUpdateTextColor: (id: string, textColor: WidgetTextColor) => void;
   onUpdateChartType: (id: string, chartType: ChartType) => void;
+  onMoveEarlier: (id: string) => void;
+  onMoveLater: (id: string) => void;
   onRemove: (id: string) => void;
+  canMoveEarlier: boolean;
+  canMoveLater: boolean;
 }) {
   const chartTypes = getChartTypesForWidget(widget.type);
   const activeChartType: ChartType =
     chartTypes.length > 0 && widget.chartType && chartTypes.includes(widget.chartType)
       ? widget.chartType
       : chartTypes[0];
+  const title = WIDGET_CATALOG.find((cat) => cat.type === widget.type)?.title || widget.type;
 
   return (
     <div className="space-y-2">
+      <div>
+        <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Order
+        </p>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveEarlier(widget.id);
+            }}
+            disabled={!canMoveEarlierProp}
+            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-[#fff] px-2 text-xs font-black text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:hover:bg-[#fff] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900 dark:disabled:hover:bg-slate-950"
+            aria-label={`Move ${title} earlier`}
+          >
+            <ArrowUp className="size-3.5" />
+            <span>{labels?.moveEarlier ?? "Move earlier"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveLater(widget.id);
+            }}
+            disabled={!canMoveLaterProp}
+            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-[#fff] px-2 text-xs font-black text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:hover:bg-[#fff] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900 dark:disabled:hover:bg-slate-950"
+            aria-label={`Move ${title} later`}
+          >
+            <ArrowDown className="size-3.5" />
+            <span>{labels?.moveLater ?? "Move later"}</span>
+          </button>
+        </div>
+      </div>
+
       {chartTypes.length > 0 && (
         <div>
           <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -430,6 +312,8 @@ export function WidgetGrid({
   const [mounted, setMounted] = useState(false);
   const [openSettingsId, setOpenSettingsId] = useState<string | null>(null);
   const [activeBreakpoint, setActiveBreakpoint] = useState<GridBreakpoint>("lg");
+  const [recentlyMovedWidgetId, setRecentlyMovedWidgetId] = useState<string | null>(null);
+  const suppressProgrammaticLayoutChangesUntilRef = useRef(0);
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 0);
@@ -454,6 +338,13 @@ export function WidgetGrid({
       window.clearTimeout(clearTimer);
     };
   }, [highlightWidgetId, onHighlightComplete]);
+
+  useEffect(() => {
+    if (!recentlyMovedWidgetId || typeof window === "undefined") return;
+
+    const clearTimer = window.setTimeout(() => setRecentlyMovedWidgetId(null), 1400);
+    return () => window.clearTimeout(clearTimer);
+  }, [recentlyMovedWidgetId]);
 
   useEffect(() => {
     if (!openSettingsId || typeof window === "undefined") return;
@@ -505,6 +396,7 @@ export function WidgetGrid({
 
   const handleLayoutChange = (currentLayout: readonly any[]) => {
     if (!editing) return;
+    if (Date.now() < suppressProgrammaticLayoutChangesUntilRef.current) return;
 
     if (isMobileLayout) {
       const order = new Map(
@@ -523,6 +415,24 @@ export function WidgetGrid({
       if (hasChanged) {
         onChangeWidgets(updated);
       }
+      return;
+    }
+
+    const expectedResponsiveLayout = layouts[activeBreakpoint];
+    const isResponsiveEcho =
+      currentLayout.length === expectedResponsiveLayout.length &&
+      currentLayout.every((item) => {
+        const expected = expectedResponsiveLayout.find((layoutItem) => layoutItem.i === item.i);
+        return (
+          expected &&
+          expected.x === item.x &&
+          expected.y === item.y &&
+          expected.w === item.w &&
+          expected.h === item.h
+        );
+      });
+
+    if (isResponsiveEcho) {
       return;
     }
 
@@ -579,6 +489,21 @@ export function WidgetGrid({
 
   const handleRemoveWidget = (id: string) => {
     onChangeWidgets(widgets.filter((w) => w.id !== id));
+  };
+
+  const handleMoveWidget = (id: string, direction: "earlier" | "later") => {
+    const updated = moveWidgetInVisualOrder(
+      widgets,
+      id,
+      direction,
+      getReorderColumnCount(widgets, activeBreakpoint),
+    );
+    if (updated === widgets) return;
+
+    setOpenSettingsId(id);
+    setRecentlyMovedWidgetId(id);
+    suppressProgrammaticLayoutChangesUntilRef.current = Date.now() + 750;
+    onChangeWidgets(updated);
   };
 
   const handleUpdateWidgetSize = (id: string, size: WidgetSize) => {
@@ -714,7 +639,7 @@ export function WidgetGrid({
                 "--widget-chart-color": resolvedText,
               } as React.CSSProperties)
             : undefined;
-          const isHighlighted = highlightWidgetId === widget.id;
+          const isHighlighted = highlightWidgetId === widget.id || recentlyMovedWidgetId === widget.id;
           const isSettingsOpen = openSettingsId === widget.id;
           const hasLink = widget.type === "low-stock" || widget.type === "pending-repairs";
           const href = widget.type === "low-stock" ? "/purchases/replenishment" : "/repairs";
@@ -731,7 +656,7 @@ export function WidgetGrid({
             >
               {/* Header Title (Clean, same in Edit and View modes) */}
               <div className="mb-1.5 flex min-h-5 shrink-0 items-center justify-center border-b border-slate-200/40 pb-1.5 dark:border-slate-800/40">
-                <span className={`widget-card-title min-w-0 flex-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:text-[10px] ${editing ? "px-8 text-center" : ""}`}>
+                <span className={`widget-card-title min-w-0 flex-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:text-[10px] ${editing ? "px-12 text-center lg:px-8" : ""}`}>
                   {title}
                 </span>
               </div>
@@ -754,9 +679,9 @@ export function WidgetGrid({
               {editing && (
                 <div data-widget-settings-root={widget.id}>
                   <div
-                    className="widget-drag-handle absolute left-2 top-2 z-30 touch-none cursor-grab rounded-lg border border-slate-200/70 bg-[#fff]/90 p-1 text-slate-500 shadow-sm backdrop-blur transition hover:bg-slate-50 hover:text-slate-800 active:cursor-grabbing active:scale-95 dark:border-white/[0.12] dark:bg-slate-950/80 dark:text-slate-300 dark:hover:bg-slate-900"
+                    className="widget-drag-handle absolute left-2 top-2 z-30 flex size-11 touch-none cursor-grab items-center justify-center rounded-xl border border-slate-200/70 bg-[#fff]/90 text-slate-500 shadow-sm backdrop-blur transition hover:bg-slate-50 hover:text-slate-800 active:cursor-grabbing active:scale-95 dark:border-white/[0.12] dark:bg-slate-950/80 dark:text-slate-300 dark:hover:bg-slate-900 lg:size-auto lg:rounded-lg lg:p-1"
                     title="Drag to reorder"
-                    aria-label="Drag to reorder widget"
+                    aria-label={`Drag ${title} widget to reorder`}
                   >
                     <GripHorizontal className="size-3.5" />
                   </div>
@@ -767,13 +692,13 @@ export function WidgetGrid({
                       e.stopPropagation();
                       setOpenSettingsId((current) => current === widget.id ? null : widget.id);
                     }}
-                    className={`absolute right-2 top-2 z-30 rounded-lg border p-1 shadow-sm backdrop-blur transition active:scale-95 ${
+                    className={`absolute right-2 top-2 z-30 flex size-11 items-center justify-center rounded-xl border shadow-sm backdrop-blur transition active:scale-95 lg:size-auto lg:rounded-lg lg:p-1 ${
                       isSettingsOpen
                         ? "border-[var(--primary-accent-bg)] bg-[var(--primary-accent-bg)] text-[var(--primary-accent-text)]"
                         : "border-slate-200/70 bg-[#fff]/90 text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:border-white/[0.12] dark:bg-slate-950/80 dark:text-slate-300 dark:hover:bg-slate-900"
                     }`}
                     aria-expanded={isSettingsOpen}
-                    aria-label="Open widget settings"
+                    aria-label={`Open ${title} widget settings`}
                   >
                     <Settings2 className="size-3.5" />
                   </button>
@@ -790,6 +715,10 @@ export function WidgetGrid({
                         onUpdateFillStyle={handleUpdateWidgetFillStyle}
                         onUpdateTextColor={handleUpdateWidgetTextColor}
                         onUpdateChartType={handleUpdateWidgetChartType}
+                        onMoveEarlier={(id) => handleMoveWidget(id, "earlier")}
+                        onMoveLater={(id) => handleMoveWidget(id, "later")}
+                        canMoveEarlier={canMoveWidgetEarlier(widgets, widget.id)}
+                        canMoveLater={canMoveWidgetLater(widgets, widget.id)}
                         onRemove={(id) => {
                           setOpenSettingsId(null);
                           handleRemoveWidget(id);
@@ -806,7 +735,7 @@ export function WidgetGrid({
       </ResponsiveGridLayout>
       {editing && isMobileLayout && openSettingsWidget && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 z-[120] flex items-end bg-slate-950/60 px-0 pt-[calc(2.5rem+env(safe-area-inset-top))] backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-[120] flex items-end bg-slate-950/60 px-0 pt-[calc(2.5rem+env(safe-area-inset-top))] backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby={`widget-settings-title-${openSettingsWidget.id}`}
@@ -851,6 +780,10 @@ export function WidgetGrid({
                 onUpdateFillStyle={handleUpdateWidgetFillStyle}
                 onUpdateTextColor={handleUpdateWidgetTextColor}
                 onUpdateChartType={handleUpdateWidgetChartType}
+                onMoveEarlier={(id) => handleMoveWidget(id, "earlier")}
+                onMoveLater={(id) => handleMoveWidget(id, "later")}
+                canMoveEarlier={canMoveWidgetEarlier(widgets, openSettingsWidget.id)}
+                canMoveLater={canMoveWidgetLater(widgets, openSettingsWidget.id)}
                 onRemove={(id) => {
                   setOpenSettingsId(null);
                   handleRemoveWidget(id);

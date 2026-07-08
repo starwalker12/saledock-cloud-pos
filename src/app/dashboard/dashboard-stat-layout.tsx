@@ -4,9 +4,10 @@
 import React, { useState, useMemo, useSyncExternalStore, useCallback } from "react";
 import Link from "next/link";
 import { LayoutGrid, Check, RotateCcw, Plus, ShoppingCart, Loader2 } from "lucide-react";
-import { WidgetGrid, getWidgetDimsFromSize, getWidgetSizeFromDims } from "./widgets/widget-grid";
+import { WidgetGrid } from "./widgets/widget-grid";
 import { WidgetGallery } from "./widgets/widget-gallery";
 import { BoardFillStyle, WIDGET_CATALOG, WidgetColor, WidgetFillStyle, WidgetSize, WidgetTextColor, ChartType, getChartTypesForWidget, resolveChartType, isChartable } from "./widgets/widget-registry";
+import { WidgetInstance, getWidgetDimsFromSize, getWidgetSizeFromDims } from "./widgets/widget-layout";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DASHBOARD_KEY,
@@ -34,20 +35,6 @@ export type DashboardLayoutLabels = {
   textColor: string;
   white: string;
   black: string;
-};
-
-type WidgetInstance = {
-  id: string;
-  type: string;
-  size: WidgetSize;
-  color: WidgetColor;
-  fillStyle?: WidgetFillStyle;
-  textColor?: WidgetTextColor;
-  chartType?: ChartType;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
 };
 
 type DashboardPreferences = {
