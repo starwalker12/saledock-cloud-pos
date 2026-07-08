@@ -13,6 +13,20 @@ function assertContains(substring, message) {
   assert.ok(source.includes(substring), message ?? `Expected source to contain: ${substring}`);
 }
 
+function buttonTagForAriaLabel(label) {
+  const index = source.indexOf(`aria-label="${label}"`);
+  assert.notEqual(index, -1, `button with aria-label "${label}" must exist`);
+  const tagStart = source.lastIndexOf("<button", index);
+  const tagEnd = source.indexOf(">", index);
+  assert.notEqual(tagStart, -1, `"${label}" must be inside a <button> tag`);
+  assert.notEqual(tagEnd, -1, `"${label}" button tag must close`);
+  return source.slice(tagStart, tagEnd + 1);
+}
+
+function hasClassNameFragment(tag, fragment) {
+  return new RegExp(`className="[^"]*${fragment}[^"]*"`).test(tag);
+}
+
 test("crop constants are defined with expected values", () => {
   assertContains("const DEFAULT_CROP_X = 50;", "DEFAULT_CROP_X must be 50");
   assertContains("const DEFAULT_CROP_Y = 50;", "DEFAULT_CROP_Y must be 50");
@@ -20,129 +34,138 @@ test("crop constants are defined with expected values", () => {
   assertContains("const NUDGE_STEP = 5;", "NUDGE_STEP must be 5");
 });
 
-test("nudge and reset helpers exist and use constants", () => {
+test("nudge and reset helpers exist, clamp, and use constants", () => {
   assertContains("function nudgePosition(deltaX: number, deltaY: number)", "nudgePosition must be defined");
   assertContains("function resetCrop()", "resetCrop must be defined");
 
-  // Nudge must add the delta and clamp, not mutate zoom.
   assertContains("x: clampPosition(current.x + deltaX)", "nudge must use clampPosition for x");
   assertContains("y: clampPosition(current.y + deltaY)", "nudge must use clampPosition for y");
 
-  // Reset must restore the named defaults.
   assertContains(
     "x: DEFAULT_CROP_X, y: DEFAULT_CROP_Y, zoom: DEFAULT_CROP_ZOOM",
     "reset must restore all three default constants",
   );
-});
 
-test("crop position is clamped between 0 and 100", () => {
   assertContains(
     "function clampPosition(value: number) {\n    return Math.max(0, Math.min(100, value));\n  }",
     "clampPosition must enforce [0, 100] boundaries",
   );
 });
 
-test("directional buttons exist with correct accessible labels", () => {
-  const expected = [
-    { label: "Move image up" },
-    { label: "Move image down" },
-    { label: "Move image left" },
-    { label: "Move image right" },
-  ];
-
-  for (const { label } of expected) {
-    const index = source.indexOf(`aria-label="${label}"`);
-    assert.notEqual(index, -1, `button with aria-label "${label}" must exist`);
-    const tagStart = source.lastIndexOf("<button", index);
-    const tagEnd = source.indexOf(">", index);
-    const tag = source.slice(tagStart, tagEnd + 1);
-    assert.ok(tag.includes(">"), `aria-label "${label}" must be on a button tag`);
-    assert.ok(tag.includes(`aria-label="${label}"`), "aria-label must be on the opening button tag");
-  }
+test("pointer drag handlers remain unchanged", () => {
+  assertContains("onPointerDown={handleCropPointerDown}", "pointer down handler must remain");
+  assertContains("onPointerMove={handleCropPointerMove}", "pointer move handler must remain");
+  assertContains("onPointerUp={handleCropPointerEnd}", "pointer up handler must remain");
+  assertContains("onPointerCancel={handleCropPointerEnd}", "pointer cancel handler must remain");
+  assertContains("aria-label=\"Drag image to reposition crop\"", "drag area accessible label must remain");
 });
 
-test("reset crop button exists with correct accessible label and icon", () => {
-  const index = source.indexOf('aria-label="Reset crop"');
-  assert.notEqual(index, -1, "reset button with aria-label \"Reset crop\" must exist");
-  const tagStart = source.lastIndexOf("<button", index);
-  const tagEnd = source.indexOf(">", index);
-  const tag = source.slice(tagStart, tagEnd + 1);
-  assert.ok(tag.includes('aria-label="Reset crop"'), "reset aria-label must be on the opening button tag");
-  assertContains("<RotateCcw", "reset button must use RotateCcw icon");
-  assertContains("onClick={resetCrop}", "reset button must call resetCrop");
+test("zoom range remains min 1, max 3, step 0.05", () => {
+  assertContains('min="1"', "zoom input must keep min 1");
+  assertContains('max="3"', "zoom input must keep max 3");
+  assertContains('step="0.05"', "zoom input must keep step 0.05");
 });
 
-test("nudge buttons call nudgePosition with the correct step values", () => {
-  assertContains("nudgePosition(-NUDGE_STEP, 0)", "left button must nudge left by NUDGE_STEP");
-  assertContains("nudgePosition(NUDGE_STEP, 0)", "right button must nudge right by NUDGE_STEP");
-  assertContains("nudgePosition(0, -NUDGE_STEP)", "up button must nudge up by NUDGE_STEP");
-  assertContains("nudgePosition(0, NUDGE_STEP)", "down button must nudge down by NUDGE_STEP");
-});
+test("cancel and use crop buttons remain", () => {
+  const cancelTag = buttonTagForAriaLabel("Cancel image crop");
+  assert.ok(cancelTag.includes("onClick={handleCancelCrop}"), "cancel button must call handleCancelCrop");
 
-test("nudge buttons use explicit min-height touch target", () => {
-  const buttonPattern = /<button[\s\S]*?aria-label="Move image (?:up|down|left|right)"[\s\S]*?>/;
-  const match = source.match(buttonPattern);
-  assert.ok(match, "directional buttons must be rendered with explicit classes");
-  const buttonTag = match[0];
-  assert.ok(
-    /className="[^"]*min-h-11[^"]*"/.test(buttonTag),
-    "directional buttons must use min-h-11 for touch target",
+  const closeTag = buttonTagForAriaLabel("Close crop dialog");
+  assert.ok(closeTag.includes("onClick={handleCancelCrop}"), "close dialog button must call handleCancelCrop");
+
+  assertContains('type="button"', "cancel/close buttons must remain type=button");
+  assertContains(
+    "onClick={handleConfirmCrop}",
+    "use crop action must remain",
   );
 });
 
-test("reset button uses explicit min-height touch target", () => {
-  const resetPattern = /<button[\s\S]*?aria-label="Reset crop"[\s\S]*?>/;
-  const match = source.match(resetPattern);
-  assert.ok(match, "reset button must be rendered with explicit classes");
-  assert.ok(
-    /className="[^"]*min-h-11[^"]*"/.test(match[0]),
-    "reset button must use min-h-11 for touch target",
+test("dialog instructions are connected and reference both drag and buttons", () => {
+  assertContains('id="image-crop-description"', "instructions must have an id for aria-describedby");
+  assertContains(
+    'aria-describedby="image-crop-description"',
+    "dialog must describe itself by the instructions paragraph",
   );
-});
-
-test("instructions mention both drag and button controls", () => {
   assertContains(
     "Drag the image or use the direction buttons",
     "crop dialog instructions must reference both drag and buttons",
   );
 });
 
-test("no hardcoded magic numbers used in place of nudge constants", () => {
-  // The literal values below should only appear in the constant declarations.
-  const nudgeButtonRegion = source.slice(
-    source.indexOf('aria-label="Move image up"'),
-    source.indexOf('aria-label="Reset crop"'),
+test("source comment explains inverse object-position semantics", () => {
+  assertContains(
+    "CSS object-position moves the *alignment point*",
+    "comment must explain object-position inverse semantics",
   );
+  assertContains(
+    "moving the image right decreases X",
+    "comment must state right-decreases-X",
+  );
+  assertContains(
+    "moving the image down decreases Y",
+    "comment must state down-decreases-Y",
+  );
+});
+
+test("Move image left button uses positive X delta", () => {
+  const tag = buttonTagForAriaLabel("Move image left");
+  assert.ok(tag.includes('type="button"'), "left button must be type=button");
+  assert.ok(hasClassNameFragment(tag, "min-h-11"), "left button must use min-h-11");
+  assert.ok(tag.includes("disabled={cropProcessing}"), "left button must disable during cropProcessing");
+  assert.ok(tag.includes("nudgePosition(NUDGE_STEP, 0)"), "left button must nudge X by +NUDGE_STEP");
   assert.ok(
-    !/nudgePosition\([^)]*5\)/.test(nudgeButtonRegion),
-    "nudge calls must not hardcode 5; use NUDGE_STEP",
+    tag.includes("focus:outline-none") && tag.includes("focus-visible:ring-2") && tag.includes("focus-visible:ring-offset-2"),
+    "left button must have visible focus ring",
   );
+});
+
+test("Move image right button uses negative X delta", () => {
+  const tag = buttonTagForAriaLabel("Move image right");
+  assert.ok(tag.includes('type="button"'), "right button must be type=button");
+  assert.ok(hasClassNameFragment(tag, "min-h-11"), "right button must use min-h-11");
+  assert.ok(tag.includes("disabled={cropProcessing}"), "right button must disable during cropProcessing");
+  assert.ok(tag.includes("nudgePosition(-NUDGE_STEP, 0)"), "right button must nudge X by -NUDGE_STEP");
   assert.ok(
-    !/nudgePosition\([^)]*-5\)/.test(nudgeButtonRegion),
-    "nudge calls must not hardcode -5; use NUDGE_STEP",
+    tag.includes("focus:outline-none") && tag.includes("focus-visible:ring-2") && tag.includes("focus-visible:ring-offset-2"),
+    "right button must have visible focus ring",
   );
 });
 
-test("zoom input remains unchanged in range and step", () => {
-  assertContains('min="1"', "zoom input must keep min 1");
-  assertContains('max="3"', "zoom input must keep max 3");
-  assertContains('step="0.05"', "zoom input must keep step 0.05");
+test("Move image up button uses positive Y delta", () => {
+  const tag = buttonTagForAriaLabel("Move image up");
+  assert.ok(tag.includes('type="button"'), "up button must be type=button");
+  assert.ok(hasClassNameFragment(tag, "min-h-11"), "up button must use min-h-11");
+  assert.ok(tag.includes("disabled={cropProcessing}"), "up button must disable during cropProcessing");
+  assert.ok(tag.includes("nudgePosition(0, NUDGE_STEP)"), "up button must nudge Y by +NUDGE_STEP");
+  assert.ok(
+    tag.includes("focus:outline-none") && tag.includes("focus-visible:ring-2") && tag.includes("focus-visible:ring-offset-2"),
+    "up button must have visible focus ring",
+  );
 });
 
-test("all nudge directions are wired with non-zero sign-correct deltas", () => {
-  const signs = [
-    { text: "nudgePosition(-NUDGE_STEP, 0)", axis: "x", sign: -1 },
-    { text: "nudgePosition(NUDGE_STEP, 0)", axis: "x", sign: 1 },
-    { text: "nudgePosition(0, -NUDGE_STEP)", axis: "y", sign: -1 },
-    { text: "nudgePosition(0, NUDGE_STEP)", axis: "y", sign: 1 },
-  ];
-
-  for (const { text, axis, sign } of signs) {
-    assertContains(text, `expected ${axis} nudge call with sign ${sign}`);
-  }
+test("Move image down button uses negative Y delta", () => {
+  const tag = buttonTagForAriaLabel("Move image down");
+  assert.ok(tag.includes('type="button"'), "down button must be type=button");
+  assert.ok(hasClassNameFragment(tag, "min-h-11"), "down button must use min-h-11");
+  assert.ok(tag.includes("disabled={cropProcessing}"), "down button must disable during cropProcessing");
+  assert.ok(tag.includes("nudgePosition(0, -NUDGE_STEP)"), "down button must nudge Y by -NUDGE_STEP");
+  assert.ok(
+    tag.includes("focus:outline-none") && tag.includes("focus-visible:ring-2") && tag.includes("focus-visible:ring-offset-2"),
+    "down button must have visible focus ring",
+  );
 });
 
-test("reset restores defaults and does not alter file or url", () => {
+test("Reset crop button restores defaults without touching file or url", () => {
+  const tag = buttonTagForAriaLabel("Reset crop");
+  assert.ok(tag.includes('type="button"'), "reset button must be type=button");
+  assert.ok(hasClassNameFragment(tag, "min-h-11"), "reset button must use min-h-11");
+  assert.ok(tag.includes("disabled={cropProcessing}"), "reset button must disable during cropProcessing");
+  assert.ok(tag.includes("onClick={resetCrop}"), "reset button must call resetCrop");
+  assert.ok(
+    tag.includes("focus:outline-none") && tag.includes("focus-visible:ring-2") && tag.includes("focus-visible:ring-offset-2"),
+    "reset button must have visible focus ring",
+  );
+
   const resetRegion = source.slice(
     source.indexOf("function resetCrop()"),
     source.indexOf("function handleRemove()"),
@@ -157,45 +180,76 @@ test("reset restores defaults and does not alter file or url", () => {
   );
 });
 
-test("crop boundaries are enforced by clampPosition for all axes", () => {
+test("no hardcoded magic numbers used in place of nudge constants", () => {
+  const nudgeButtonRegion = source.slice(
+    source.indexOf('aria-label="Move image up"'),
+    source.indexOf('aria-label="Reset crop"'),
+  );
+  assert.ok(
+    !/nudgePosition\([^)]*5\)/.test(nudgeButtonRegion),
+    "nudge calls must not hardcode 5; use NUDGE_STEP",
+  );
+  assert.ok(
+    !/nudgePosition\([^)]*-5\)/.test(nudgeButtonRegion),
+    "nudge calls must not hardcode -5; use NUDGE_STEP",
+  );
+});
+
+test("inverse mapping matches pointer drag semantics", () => {
+  // Pointer drag: nextX = startX - pointerDeltaX, nextY = startY - pointerDeltaY.
+  // Drag right -> X decreases. Move image right button -> X decreases.
+  // Drag left -> X increases. Move image left button -> X increases.
+  // Drag down -> Y decreases. Move image down button -> Y decreases.
+  // Drag up -> Y increases. Move image up button -> Y increases.
+
   assertContains(
-    "Math.max(0, Math.min(100, value))",
-    "clampPosition must clamp to [0, 100] in a single expression",
+    'aria-label="Move image right"',
+    "Move image right button must exist",
   );
-  assert.ok(
-    (source.match(/clampPosition\(current\.x \+ deltaX\)/g) || []).length >= 1,
-    "x must be clamped after nudge",
+  assertContains(
+    "nudgePosition(-NUDGE_STEP, 0)",
+    "Move image right must decrease X",
   );
-  assert.ok(
-    (source.match(/clampPosition\(current\.y \+ deltaY\)/g) || []).length >= 1,
-    "y must be clamped after nudge",
+  assertContains(
+    "nudgePosition(NUDGE_STEP, 0)",
+    "Move image left must increase X",
+  );
+  assertContains(
+    "nudgePosition(0, -NUDGE_STEP)",
+    "Move image down must decrease Y",
+  );
+  assertContains(
+    "nudgePosition(0, NUDGE_STEP)",
+    "Move image up must increase Y",
   );
 });
 
 test("positive, negative, and boundary values produce expected nudge results", () => {
-  // Replicate the exact clampPosition logic used in the component.
   function clampPosition(value) {
     return Math.max(0, Math.min(100, value));
   }
 
-  // Starting from the default center, each nudge should move by NUDGE_STEP.
   const NUDGE_STEP = 5;
   const DEFAULT_CROP_X = 50;
   const DEFAULT_CROP_Y = 50;
   const DEFAULT_CROP_ZOOM = 1;
 
-  assert.equal(clampPosition(DEFAULT_CROP_X + NUDGE_STEP), 55, "right nudge from center stays inside boundary");
-  assert.equal(clampPosition(DEFAULT_CROP_X - NUDGE_STEP), 45, "left nudge from center stays inside boundary");
-  assert.equal(clampPosition(DEFAULT_CROP_Y + NUDGE_STEP), 55, "down nudge from center stays inside boundary");
-  assert.equal(clampPosition(DEFAULT_CROP_Y - NUDGE_STEP), 45, "up nudge from center stays inside boundary");
+  // From center, the inverse mapping moves as follows:
+  // Move image right -> X decreases by 5.
+  assert.equal(clampPosition(DEFAULT_CROP_X - NUDGE_STEP), 45, "right nudge from center decreases X");
+  // Move image left -> X increases by 5.
+  assert.equal(clampPosition(DEFAULT_CROP_X + NUDGE_STEP), 55, "left nudge from center increases X");
+  // Move image down -> Y decreases by 5.
+  assert.equal(clampPosition(DEFAULT_CROP_Y - NUDGE_STEP), 45, "down nudge from center decreases Y");
+  // Move image up -> Y increases by 5.
+  assert.equal(clampPosition(DEFAULT_CROP_Y + NUDGE_STEP), 55, "up nudge from center increases Y");
 
-  // Boundary values: at the edges, clamping should cap the result.
-  assert.equal(clampPosition(0 - NUDGE_STEP), 0, "left nudge from 0 must clamp to 0");
-  assert.equal(clampPosition(100 + NUDGE_STEP), 100, "right nudge from 100 must clamp to 100");
-  assert.equal(clampPosition(0 - NUDGE_STEP), 0, "up nudge from 0 must clamp to 0");
-  assert.equal(clampPosition(100 + NUDGE_STEP), 100, "down nudge from 100 must clamp to 100");
+  // Boundary clamping.
+  assert.equal(clampPosition(0 - NUDGE_STEP), 0, "repeated right nudge clamps X at 0");
+  assert.equal(clampPosition(100 + NUDGE_STEP), 100, "repeated left nudge clamps X at 100");
+  assert.equal(clampPosition(0 - NUDGE_STEP), 0, "repeated down nudge clamps Y at 0");
+  assert.equal(clampPosition(100 + NUDGE_STEP), 100, "repeated up nudge clamps Y at 100");
 
-  // Reset must return to the default values.
   assert.equal(DEFAULT_CROP_X, 50, "default x is 50");
   assert.equal(DEFAULT_CROP_Y, 50, "default y is 50");
   assert.equal(DEFAULT_CROP_ZOOM, 1, "default zoom is 1");
