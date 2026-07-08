@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type PointerEvent } from "react";
-import { Upload, X, Loader2, ImageIcon } from "lucide-react";
+import { Upload, X, Loader2, ImageIcon, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import { validateImageFile, uploadImage, resolveImagePreviewUrl, type UploadResult } from "@/lib/storage/upload";
 import { createClient } from "@/lib/supabase/client";
 
@@ -43,6 +43,11 @@ const cropOutputSize = {
   square: { width: 800, height: 800, aspect: 1 },
   landscape: { width: 960, height: 720, aspect: 4 / 3 },
 };
+
+const DEFAULT_CROP_X = 50;
+const DEFAULT_CROP_Y = 50;
+const DEFAULT_CROP_ZOOM = 1;
+const NUDGE_STEP = 5;
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -232,7 +237,7 @@ export function ImageUpload({
 
     setCropState((current) => {
       if (current?.url) URL.revokeObjectURL(current.url);
-      return { file, url: URL.createObjectURL(file), zoom: 1, x: 50, y: 50 };
+      return { file, url: URL.createObjectURL(file), zoom: DEFAULT_CROP_ZOOM, x: DEFAULT_CROP_X, y: DEFAULT_CROP_Y };
     });
   }
 
@@ -343,6 +348,27 @@ export function ImageUpload({
       setCropProcessing(false);
       setUploadError("Image could not be cropped. Please try another image.");
     }
+  }
+
+  function nudgePosition(deltaX: number, deltaY: number) {
+    if (!cropState || cropProcessing) return;
+    setCropState((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        x: clampPosition(current.x + deltaX),
+        y: clampPosition(current.y + deltaY),
+      };
+    });
+  }
+
+  function resetCrop() {
+    if (!cropState || cropProcessing) return;
+    setCropState((current) =>
+      current
+        ? { ...current, x: DEFAULT_CROP_X, y: DEFAULT_CROP_Y, zoom: DEFAULT_CROP_ZOOM }
+        : current
+    );
   }
 
   function handleRemove() {
@@ -486,7 +512,7 @@ export function ImageUpload({
                   Crop image
                 </h3>
                 <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
-                  Drag the image to position it, adjust zoom, then confirm to upload.
+                  Drag the image or use the direction buttons. Adjust zoom, then confirm to upload.
                 </p>
               </div>
               <button
@@ -527,11 +553,16 @@ export function ImageUpload({
                   className={`pointer-events-none absolute inset-4 border-2 border-white shadow-[0_0_0_999px_rgba(2,6,23,0.42)] ${
                     aspectRatio === "square" ? "rounded-full" : "rounded-2xl"
                   }`}
+                  data-testid="crop-mask"
                 />
                 <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
               </div>
               <p className="mt-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Drag to position. Use zoom for a closer crop.
+                Drag to position or use the buttons. Use zoom for a closer crop.
+              </p>
+
+              <p className="mt-1 text-center text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                X {cropState.x.toFixed(0)}% · Y {cropState.y.toFixed(0)}% · Zoom {cropState.zoom.toFixed(2)}×
               </p>
             </div>
 
@@ -548,6 +579,72 @@ export function ImageUpload({
                   className="mt-2 w-full accent-[var(--primary-accent-bg)]"
                 />
               </label>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Position</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-start-2">
+                  <button
+                    type="button"
+                    onClick={() => nudgePosition(0, -NUDGE_STEP)}
+                    disabled={cropProcessing}
+                    aria-label="Move image up"
+                    className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                  >
+                    <ArrowUp className="size-3.5" />
+                    <span>Up</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => nudgePosition(-NUDGE_STEP, 0)}
+                  disabled={cropProcessing}
+                  aria-label="Move image left"
+                  className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                >
+                  <ArrowLeft className="size-3.5" />
+                  <span>Left</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={resetCrop}
+                  disabled={cropProcessing}
+                  aria-label="Reset crop"
+                  className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                >
+                  <RotateCcw className="size-3.5" />
+                  <span>Reset</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => nudgePosition(NUDGE_STEP, 0)}
+                  disabled={cropProcessing}
+                  aria-label="Move image right"
+                  className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                >
+                  <ArrowRight className="size-3.5" />
+                  <span>Right</span>
+                </button>
+                <div className="col-start-2">
+                  <button
+                    type="button"
+                    onClick={() => nudgePosition(0, NUDGE_STEP)}
+                    disabled={cropProcessing}
+                    aria-label="Move image down"
+                    className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                  >
+                    <ArrowDown className="size-3.5" />
+                    <span>Down</span>
+                  </button>
+                </div>
+              </div>
+              <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+                Reset restores the centered position and 1× zoom.
+              </p>
+              <p className="sr-only" aria-live="polite">
+                Position {cropState.x.toFixed(0)} percent horizontal, {cropState.y.toFixed(0)} percent vertical. Zoom {cropState.zoom.toFixed(2)} times.
+              </p>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
