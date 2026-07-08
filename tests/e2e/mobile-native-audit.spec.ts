@@ -192,7 +192,7 @@ test.describe("Mobile-native audit route smoke", () => {
 
     await page.getByRole("button", { name: "Edit layout", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add Widget", exact: true })).toBeVisible();
-    await expect(page.getByLabel("Drag to reorder widget").first()).toBeVisible();
+    await expect(page.getByLabel("Drag to reorder").first()).toBeVisible();
     await expect(page.getByLabel("Open widget settings").first()).toBeVisible();
 
     await page.goto("/pos", { waitUntil: "domcontentloaded" });

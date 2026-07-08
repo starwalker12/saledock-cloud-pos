@@ -4,7 +4,7 @@ Date: 2026-07-07
 
 Branch: `qa/mobile-native-full-product-audit`
 
-Base main SHA: `faf1dddfacaced9e3a91ce2e70b8d5c4c9d4b2dd`
+Base main SHA: `21857aa639a88c3d615e3d6abdc6e10f07060e6d`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -14,7 +14,7 @@ Final recommendation: MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, and the cookie banner appeared in invoice print/PDF output and covered invoice totals. Both blockers have since been fixed on main and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because P2/P3 findings and several untested areas remain.
+The continuation found two P1 blockers and one P2 finding that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, and dashboard widget reorder was drag-only. All three have since been fixed on main and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because remaining P2/P3 findings and several untested areas remain.
 
 | Metric | Result |
 | --- | --- |
@@ -30,9 +30,10 @@ The continuation found two P1 blockers that prevented calling the mobile/PDF aud
 | Drag/drop/resize/rearrange surfaces discovered | 5 |
 | P0 findings | 0 observed, not a complete proof because some authenticated print/export surfaces remain untested |
 | P1 findings | 0 |
-| P2 findings | 4 |
+| P2 findings | 3 |
 | P3 findings | 3 |
 | Fixed P1 findings | 2 |
+| Fixed findings | 3 |
 | Blocked or not-tested areas | 8 |
 
 ## Environment Tested
@@ -40,7 +41,7 @@ The continuation found two P1 blockers that prevented calling the mobile/PDF aud
 | Item | Result |
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
-| Starting main | `faf1dddfacaced9e3a91ce2e70b8d5c4c9d4b2dd` |
+| Starting main | `21857aa639a88c3d615e3d6abdc6e10f07060e6d` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -99,7 +100,7 @@ Executed in Chromium:
 | Authentication/onboarding | PASS with caveat | Local owner/admin/manager/cashier/technician roles verified; auth-role smoke passed 9/9. | Verify again on Vercel preview before MVP-live. |
 | Navigation/sidebar | PASS | Mobile drawer renders one accessible dialog; hamburger opens/closes; close button, backdrop, and Escape work; Customize tabs move up/down; body scroll locks/restores; tablet-to-desktop closes drawer. | Continue monitoring on Vercel preview. |
 | Dashboard mobile layout | PARTIAL | Focused mobile dashboard route/edit controls checked in Chromium; full route matrix timed out locally. | Re-run after dev-server performance split. |
-| Dashboard rearrange | FAIL | Reorder depends on drag handle. | Add touch-friendly move controls. |
+| Dashboard rearrange | FIXED ON MAIN — VERIFIED | Touch-friendly Move Earlier / Move Later controls added in PR #289. Button reorder preserves exact widget width/height, 4/8/12-column layouts remain valid, no overlap or duplicate IDs, persistence after reload verified. Existing drag behavior retained. | Continue monitoring on Vercel preview. |
 | Dashboard resize | PASS with caveat | Size controls are visible in focused mobile dashboard smoke; drag resize still needs manual touch confirmation. | Verify after dashboard reorder fix. |
 | POS | PASS with caveat | Focused POS mobile controls visible; service-sale and settlement regressions passed; full manual POS matrix not complete. | Continue after drawer/PDF blockers. |
 | Held bills | PASS | Focused physical-product held bill safety rerun passed 1/1 after clean local reset. | Keep manual real-device confirmation pending. |
@@ -157,20 +158,24 @@ Executed in Chromium:
 | Field | Detail |
 | --- | --- |
 | Severity | P2 |
+| Status | FIXED ON MAIN — VERIFIED |
 | Module | Dashboard |
-| Device/browser | Mobile/touch, Chromium code audit |
+| Device/browser | Mobile/touch, Chromium code audit and E2E |
 | Viewport | 390x844 target |
 | User role | Owner/Admin |
 | Steps | Log in, open Dashboard, tap Edit layout, attempt to rearrange widgets without precise dragging. |
 | Expected | User can reorder widgets with clear touch-friendly controls such as Move Up/Move Down or a rearrange mode that does not fight page scroll. |
-| Actual | Widget order uses drag handles; no non-drag reorder alternative was found for dashboard widgets. |
-| Evidence | `src/app/dashboard/widgets/widget-grid.tsx` uses `react-grid-layout`, drag handles, and resize handles. |
+| Actual (original) | Widget order used drag handles; no non-drag reorder alternative was found for dashboard widgets. |
+| Evidence (original) | `src/app/dashboard/widgets/widget-grid.tsx` used `react-grid-layout`, drag handles, and resize handles. |
 | Console/network error | None observed. |
-| Environment | Local/code audit. |
-| Risk to shop user | Mobile owner may be unable to customize dashboard layout reliably. |
+| Environment | Local/code audit and local E2E. |
+| Risk to shop user (original) | Mobile owner may be unable to customize dashboard layout reliably. |
 | Recommended fix scope | Add explicit Move Up/Move Down controls in dashboard edit mode, keep desktop drag behavior. |
 | Suggested branch | `fix/dashboard-mobile-reorder-controls` |
 | Suggested regression test | Mobile dashboard edit test reorders one widget with buttons, reloads, and verifies persistence. |
+| Resolution | Fixed on main in merge commit `21857aa639a88c3d615e3d6abdc6e10f07060e6d` from PR #289. Touch-friendly Move Earlier and Move Later controls were added to the widget edit menu. Existing drag behavior is retained. Exact customized widget width and height are preserved during button reorder. Four-, eight-, and twelve-column layouts remain valid, with no overlap or duplicate widget IDs introduced. Local and preference-sync persistence are verified. |
+| Regression evidence | `tests/dashboard-widget-reorder.test.mjs` passed 8/8 locally. `tests/e2e/dashboard-mobile-reorder-controls.spec.ts` passed 3/3 in Chromium against local Supabase: move earlier, move later, and reload persistence at mobile width. The mobile-native audit test that exercises Dashboard touch surfaces passed. |
+| Remaining limitations | Only the dashboard reorder surface was regenerated. Full authenticated viewport matrix, real-device hardware, WebKit/Firefox authenticated runs, 125% zoom, and full dark-mode matrix were not re-run. |
 
 ### MN-002 - Invoice "Download PDF" action is actually browser print
 
@@ -413,7 +418,7 @@ The authenticated tests deliberately skip instead of guessing when local login i
 
 ## Known Limitations
 
-- Both P1 blockers (MN-008 mobile drawer and MN-009 cookie banner in invoice print) were fixed on main and verified with focused regression tests.
+- MN-001 (dashboard drag-only reorder), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main and verified with focused regression tests.
 - Full authenticated browser QA is still not complete because the single-test owner route/viewport matrix timed out locally (MN-006).
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
@@ -421,13 +426,13 @@ The authenticated tests deliberately skip instead of guessing when local login i
 - Invoice PDF/print artifacts were regenerated and passed, but returns/repairs/daily closing/reports/supplier statement print artifacts were not regenerated after the fixes.
 - No product, invoice, cash drawer, return, settlement, or stock mutation was performed in production.
 - The `fix/mobile-drawer-close-and-duplicate-dialog` branch was not deleted during this audit; it is safe to delete once Fardan approves.
+- The `fix/dashboard-mobile-reorder-controls` branch was merged through PR #289 and can be deleted after Fardan approves.
 
 ## Top Priority Focused Fix PRs
 
-1. `fix/dashboard-mobile-reorder-controls` - add touch-friendly dashboard widget move controls and verify persistence.
-2. `fix/invoice-pdf-download-ux` - make invoice PDF/print wording match behavior or add real PDF generation.
-3. `fix/sidebar-rearrange-accessible-controls` - add a non-drag alternative for desktop sidebar rearranging.
-4. `test/split-mobile-native-authenticated-matrix` - split the authenticated viewport matrix so the full owner route smoke is reliable in CI (related to MN-006).
+1. `fix/invoice-pdf-download-ux` - make invoice PDF/print wording match behavior or add real PDF generation.
+2. `fix/sidebar-rearrange-accessible-controls` - add a non-drag alternative for desktop sidebar rearranging.
+3. `test/split-mobile-native-authenticated-matrix` - split the authenticated viewport matrix so the full owner route smoke is reliable in CI (related to MN-006).
 
 ## Fardan Live-Site Eyeball Checklist
 
