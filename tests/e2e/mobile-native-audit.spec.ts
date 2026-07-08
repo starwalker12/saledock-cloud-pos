@@ -182,8 +182,10 @@ test.describe("Mobile-native audit route smoke", () => {
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
     await dismissCookieBannerIfVisible(page);
-    await expect(page.getByRole("button", { name: "Open navigation menu", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Open navigation menu", exact: true }).click();
+    const openNavigation = page.getByRole("button", { name: "Open navigation menu", exact: true });
+    await expect(openNavigation).toBeVisible();
+    await page.locator('[role="dialog"][aria-label="Navigation menu"]').first().waitFor({ state: "attached", timeout: 10_000 });
+    await openNavigation.click();
     const navigationDrawer = page.getByRole("dialog", { name: "Navigation menu", exact: true });
     await expect(navigationDrawer.first()).toBeVisible();
     expect(await navigationDrawer.count()).toBeGreaterThan(0);
@@ -192,8 +194,12 @@ test.describe("Mobile-native audit route smoke", () => {
 
     await page.getByRole("button", { name: "Edit layout", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add Widget", exact: true })).toBeVisible();
-    await expect(page.getByLabel("Drag to reorder").first()).toBeVisible();
-    await expect(page.getByLabel("Open widget settings").first()).toBeVisible();
+    await expect(page.getByLabel(/Drag .+ widget to reorder/).first()).toBeVisible();
+    const widgetSettings = page.getByRole("button", { name: /^Open .+ widget settings$/ }).first();
+    await expect(widgetSettings).toBeVisible();
+    await widgetSettings.click();
+    await expect(page.getByRole("button", { name: /^Move .+ earlier$/ }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Move .+ later$/ }).first()).toBeVisible();
 
     await page.goto("/pos", { waitUntil: "domcontentloaded" });
     await dismissCookieBannerIfVisible(page);
@@ -217,6 +223,7 @@ test.describe("Mobile-native audit route smoke", () => {
     await expect(page.getByRole("heading", { name: "Invite staff", exact: true })).toHaveCount(0);
     await expect(page.getByText("owner@saledock.local", { exact: true })).toHaveCount(0);
 
+    await page.locator('[role="dialog"][aria-label="Navigation menu"]').first().waitFor({ state: "attached", timeout: 10_000 });
     await page.getByRole("button", { name: "Open navigation menu", exact: true }).click();
     const drawer = page.getByRole("dialog", { name: "Navigation menu", exact: true }).first();
     await expect(drawer).toBeVisible();

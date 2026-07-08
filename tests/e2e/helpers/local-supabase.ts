@@ -14,9 +14,6 @@ type LocalStatus = {
   serviceRoleKey?: string;
   service_role_key?: string;
   PUBLISHABLE_KEY?: string;
-  ANON_KEY?: string;
-  anonKey?: string;
-  anon_key?: string;
 };
 
 let localAdmin: PostgrestClient | null = null;
@@ -125,7 +122,12 @@ export async function loginLocalOwnerDirectly(
 
   const status = readLocalStatus();
   const supabaseUrl = status.API_URL ?? status.apiUrl ?? status.api_url ?? "";
-  const anonKey = status.ANON_KEY ?? status.anonKey ?? status.anon_key ?? "";
+  const anonKey =
+    status.PUBLISHABLE_KEY ??
+    status.ANON_KEY ??
+    status.anonKey ??
+    status.anon_key ??
+    "";
   const appUrl = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 
   if (!isLocalUrl(supabaseUrl) || !isLocalUrl(appUrl) || !anonKey) {

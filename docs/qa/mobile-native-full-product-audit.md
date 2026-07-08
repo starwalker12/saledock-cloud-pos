@@ -4,7 +4,7 @@ Date: 2026-07-07
 
 Branch: `qa/mobile-native-full-product-audit`
 
-Base main SHA: `21857aa639a88c3d615e3d6abdc6e10f07060e6d`
+Base main SHA: `17551da8db6723d4b7d235c9b55b9d81ef92f190`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -14,7 +14,7 @@ Final recommendation: MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers and one P2 finding that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, and dashboard widget reorder was drag-only. All three have since been fixed on main and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because remaining P2/P3 findings and several untested areas remain.
+The continuation found two P1 blockers and two P2 findings that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, dashboard widget reorder was drag-only, and the Share Invoice modal used misleading "Download PDF" wording for a browser print/save-to-PDF action. All four have since been fixed on main and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because remaining P2/P3 findings and several untested areas remain.
 
 | Metric | Result |
 | --- | --- |
@@ -30,10 +30,10 @@ The continuation found two P1 blockers and one P2 finding that prevented calling
 | Drag/drop/resize/rearrange surfaces discovered | 5 |
 | P0 findings | 0 observed, not a complete proof because some authenticated print/export surfaces remain untested |
 | P1 findings | 0 |
-| P2 findings | 3 |
+| P2 findings | 2 |
 | P3 findings | 3 |
 | Fixed P1 findings | 2 |
-| Fixed findings | 3 |
+| Fixed findings | 4 |
 | Blocked or not-tested areas | 8 |
 
 ## Environment Tested
@@ -41,7 +41,7 @@ The continuation found two P1 blockers and one P2 finding that prevented calling
 | Item | Result |
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
-| Starting main | `21857aa639a88c3d615e3d6abdc6e10f07060e6d` |
+| Starting main | `17551da8db6723d4b7d235c9b55b9d81ef92f190` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -107,7 +107,8 @@ Executed in Chromium:
 | Products/catalog | PARTIAL | Product route included in authenticated route matrix before timeout; full image upload manual matrix not rerun. | Re-run image workflow after blockers. |
 | Product images | PARTIAL | Prior QA history and code inventory inspected; no fresh upload mutation in this continuation. | Re-run image upload mobile matrix. |
 | Invoices | PASS with caveat | Local invoice screen and print-media artifacts captured; cookie banner no longer covers invoice print/PDF output. | Continue return/repair/cash drawer/report print QA. |
-| PDFs/printing | PASS with caveat | Invoice A4/80mm PDF generated locally; cookie banner hidden in print media; Download PDF still calls browser print. | Generate print artifacts for returns/repairs/daily-closing/reports/supplier statements. |
+| PDFs/printing | PASS with caveat | Invoice A4/80mm PDF generated locally; cookie banner hidden in print media; Share Invoice action now says Print / Save as PDF while retaining browser print/save-to-PDF behavior. | Generate print artifacts for returns/repairs/daily-closing/reports/supplier statements. |
+| Invoice PDF wording | FIXED ON MAIN — VERIFIED | PR #290 changed the Share Invoice modal wording from Download PDF to Print / Save as PDF, retained existing A4 browser print behavior, passed desktop 1440x900 and mobile 390x844 localhost review, passed focused invoice wording E2E, and passed cookie-print regression. | Do not claim direct PDF download was added; behavior remains browser print/save-to-PDF. |
 | Returns | BLOCKED | Print/share surface inspected; local return print artifact not generated after invoice blocker was resolved. | Re-run returns mobile/print QA. |
 | Customers | PARTIAL | Customer settlement flow passed locally; full customers list/detail mobile matrix not rerun. | Re-run customer mobile QA. |
 | Settlement | PASS | Customer settlement optional-field E2E passed 1/1 locally. | Manual mobile keyboard check still useful. |
@@ -122,14 +123,14 @@ Executed in Chromium:
 | Modals/drawers | PASS with blocked app modals | Public drawer route smoke passed; authenticated modals blocked. | Re-run product/POS/settings modals. |
 | Loading/success/errors | BLOCKED | Code-level inspection only for most app pages. | Re-run slow-network browser QA. |
 | Dark mode | BLOCKED | Not fully browser-verified. | Re-run light/dark matrix. |
-| Accessibility | FAIL | Drag-only interactions lack touch/keyboard alternatives. | Add alternatives, then re-test. |
+| Accessibility | FAIL | Desktop sidebar reorder still lacks a clear non-drag alternative; dashboard reorder now has Move Earlier / Move Later controls. | Add sidebar reorder alternative, then re-test. |
 | Cross-browser behavior | PARTIAL | Public/auth viewport matrix passed in WebKit and Firefox; authenticated cross-browser not run. | Add WebKit/Firefox authenticated run after drawer fix. |
 
 ## PDF, Print, Download, and Export Surfaces
 
 | Surface | Implementation | Audit status |
 | --- | --- | --- |
-| Invoice detail | A4/80mm `window.print`, WhatsApp share, image capture/download, button labeled Download PDF | PASS: local invoice A4/80mm PDF generated; cookie banner hidden in print media; totals visible |
+| Invoice detail | A4/80mm `window.print`, WhatsApp share, image capture/download, Share modal action labeled Print / Save as PDF | PASS: local invoice A4/80mm PDF generated; cookie banner hidden in print media; wording matches browser print/save-to-PDF behavior; totals visible |
 | Returns detail | A4/80mm `window.print`, WhatsApp share | Code inspected; visual output blocked |
 | Repair detail | A4/80mm `window.print`, WhatsApp share | Code inspected; visual output blocked |
 | Daily closing | A4/80mm/shift thermal `window.print` | Code inspected; visual output blocked |
@@ -144,7 +145,7 @@ Executed in Chromium:
 
 | Surface | Desktop behavior | Mobile/touch readiness |
 | --- | --- | --- |
-| Dashboard widgets | `react-grid-layout` drag and resize handles | P2: reorder still depends on drag; size controls exist but need mobile browser confirmation |
+| Dashboard widgets | `react-grid-layout` drag and resize handles plus Move Earlier / Move Later controls | FIXED: touch-friendly reorder controls verified; size controls still need broader mobile browser confirmation |
 | Desktop sidebar nav order | Pointer drag reorder in sidebar | P2/P3: no obvious keyboard or button fallback in desktop sidebar |
 | Mobile drawer nav order | Up/down buttons in customize mode | Better mobile alternative present |
 | Product image crop | Pointer drag reposition plus zoom | P3: touch drag likely works, but nudge/reset controls would improve accessibility |
@@ -182,20 +183,24 @@ Executed in Chromium:
 | Field | Detail |
 | --- | --- |
 | Severity | P2 |
+| Status | FIXED ON MAIN — VERIFIED |
 | Module | Invoices, PDFs/printing |
 | Device/browser | Mobile and desktop browsers |
-| Viewport | All |
+| Viewport | Desktop 1440x900 and mobile 390x844 manual localhost review |
 | User role | Owner/Admin/Cashier where invoice access is allowed |
 | Steps | Open invoice detail, open share/export actions, select Download PDF. |
 | Expected | Either a real downloadable PDF is generated with clear loading/success/error feedback, or the label says Print/Save as PDF. |
-| Actual | The action calls `window.print()`, so the wording can mislead users, especially on mobile. |
-| Evidence | `src/app/invoices/[id]/print-button.tsx` label/action inspection. |
+| Actual (original) | The action called `window.print()`, so the wording could mislead users, especially on mobile. |
+| Evidence (original) | `src/app/invoices/[id]/print-button.tsx` label/action inspection. |
 | Console/network error | None observed. |
-| Environment | Local/code audit. |
-| Risk to shop user | Owner may think PDF export is broken when the browser print dialog opens instead of downloading a file. |
+| Environment | Local/code audit, localhost manual review, and focused Playwright regression. |
+| Risk to shop user (original) | Owner may think PDF export is broken when the browser print dialog opens instead of downloading a file. |
 | Recommended fix scope | Rename to "Print / Save as PDF" or add real PDF generation/download. |
 | Suggested branch | `fix/invoice-pdf-download-ux` |
 | Suggested regression test | Invoice action test confirms the button label matches the behavior and print/export feedback is visible. |
+| Resolution | Fixed on main in merge commit `17551da8db6723d4b7d235c9b55b9d81ef92f190` from PR #290. The Share Invoice modal action changed from `Download PDF` to `Print / Save as PDF`, the misleading download icon was replaced by the printer icon, and the accessible name is `Print or save invoice as PDF`. This did not add direct PDF generation; the behavior remains browser print/save-to-PDF. |
+| Regression evidence | Desktop 1440x900 localhost manual review passed. Mobile 390x844 localhost manual review passed. `tests/e2e/invoice-print-save-pdf-wording.spec.ts` passed in Chromium and confirmed `window.print` is called, A4 print mode is selected, the modal closes after starting print, old `Download PDF` wording is absent, and the main `Print A4 / Save PDF`, Print 80mm, WhatsApp, and Download Image actions remain unchanged. `tests/e2e/cookie-banner-print-output.spec.ts` passed and confirmed the cookie banner remains absent from print output. |
+| Business safety | No invoice totals, payments, balances, stock/FIFO, cash drawer, reports, invoice numbering, or business logic changed. |
 
 ### MN-003 - Print/share touch targets are below the mobile target guideline
 
@@ -416,9 +421,26 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 |
 | `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 |
 
+## Commands Run During MN-002 Rebase Update
+
+| Command | Result |
+| --- | --- |
+| `git fetch origin main qa/mobile-native-full-product-audit` | PASS - origin/main at `17551da8db6723d4b7d235c9b55b9d81ef92f190`; audit branch pre-rebase head at `1f04956744a3f41b4b58e9d2a27099251f4350f4` |
+| `git rebase origin/main` | PASS - no conflicts |
+| `git diff --check` | PASS |
+| `npm run lint` | PASS - 0 errors, 2 existing Privacy Center hook warnings |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS |
+| `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs tests/dashboard-widget-reorder.test.mjs` | PASS - 47 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/invoice-print-save-pdf-wording.spec.ts --project=chromium` | PASS - 1/1 test passed after the test accepted cookie consent before clicking the modal print action |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/cookie-banner-print-output.spec.ts --project=chromium` | PASS - 1/1 test passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium` | PARTIAL - public matrix passed, owner route matrix timed out at `/returns` after 420 seconds, and the remaining two tests did not run (MN-006 remains open) |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium -g "mobile navigation, dashboard editing, and POS touch surfaces"` | PASS - 1/1 focused owner touch-surface test passed after updating the audit smoke to wait for the drawer portal and verify the new dashboard Move Earlier / Move Later controls |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-drawer-single-dialog.spec.ts --project=chromium` | PASS - 5/5 tests passed; confirms the MN-008 drawer fix still works |
+
 ## Known Limitations
 
-- MN-001 (dashboard drag-only reorder), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main and verified with focused regression tests.
+- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main and verified with focused regression tests.
 - Full authenticated browser QA is still not complete because the single-test owner route/viewport matrix timed out locally (MN-006).
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
@@ -430,9 +452,9 @@ The authenticated tests deliberately skip instead of guessing when local login i
 
 ## Top Priority Focused Fix PRs
 
-1. `fix/invoice-pdf-download-ux` - make invoice PDF/print wording match behavior or add real PDF generation.
-2. `fix/sidebar-rearrange-accessible-controls` - add a non-drag alternative for desktop sidebar rearranging.
-3. `test/split-mobile-native-authenticated-matrix` - split the authenticated viewport matrix so the full owner route smoke is reliable in CI (related to MN-006).
+1. `fix/sidebar-rearrange-accessible-controls` - add a non-drag alternative for desktop sidebar rearranging.
+2. `test/split-mobile-native-authenticated-matrix` - split the authenticated viewport matrix so the full owner route smoke is reliable in CI (related to MN-006).
+3. `fix/print-action-touch-targets` - normalize print/share controls to mobile-sized app buttons.
 
 ## Fardan Live-Site Eyeball Checklist
 
@@ -462,4 +484,4 @@ Production should stay read-only unless a specific QA transaction is approved.
 
 The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, and the cookie/privacy banner is hidden from invoice print/PDF output. The audit no longer recommends blocking the mobile/PDF surface on these two issues.
 
-Risk remains open for P2/P3 findings and unverified areas: dashboard drag-only reorder, desktop sidebar drag-only reorder, small print/share touch targets, product image crop nudge controls, the heavy authenticated viewport matrix, CSP nonce dev warnings, and unverified surfaces including returns/repairs/daily-closing/reports/supplier statement print artifacts, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.
+Risk remains open for P2/P3 findings and unverified areas: desktop sidebar drag-only reorder, small print/share touch targets, product image crop nudge controls, the heavy authenticated viewport matrix, CSP nonce dev warnings, and unverified surfaces including returns/repairs/daily-closing/reports/supplier statement print artifacts, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.

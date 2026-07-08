@@ -19,10 +19,11 @@ test("invoice Share modal action wording matches browser print behavior", async 
   await loginLocalOwnerDirectly(page);
 
   // Suppress the analytics cookie consent banner so it does not intercept clicks.
-  await page.evaluate(() => {
-    const acceptButton = document.querySelector('[aria-label="Accept all cookies"]') as HTMLElement | null;
-    acceptButton?.click();
-  });
+  const acceptCookies = page.getByRole("button", { name: "Accept all cookies", exact: true });
+  if (await acceptCookies.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await acceptCookies.click();
+    await expect(page.getByTestId("cookie-consent-banner")).toHaveCount(0);
+  }
 
   await page.goto("/pos");
   await expect(page).toHaveURL(/\/pos(?:\?|$)/);
