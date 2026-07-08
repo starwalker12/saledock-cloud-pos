@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageCircle, Printer, Download, X, Loader2, Image as ImageIcon, Copy, Check, ExternalLink } from "lucide-react";
+import { MessageCircle, Printer, X, Loader2, Image as ImageIcon, Copy, Check, ExternalLink } from "lucide-react";
 import { useTheme } from "next-themes";
 
 type PrintItem = {
@@ -353,14 +353,15 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
 
               <button
                 type="button"
+                aria-label="Print or save invoice as PDF"
                 onClick={() => {
                   printWithMode("a4", invoiceNo);
                   setIsOpen(false);
                 }}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
               >
-                <Download className="size-4" />
-                Download PDF
+                <Printer className="size-4" />
+                Print / Save as PDF
               </button>
 
               <button
