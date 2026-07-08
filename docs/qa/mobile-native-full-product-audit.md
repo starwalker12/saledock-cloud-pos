@@ -4,7 +4,7 @@ Date: 2026-07-07
 
 Branch: `qa/mobile-native-full-product-audit`
 
-Base main SHA: `17551da8db6723d4b7d235c9b55b9d81ef92f190`
+Base main SHA: `4cd1c0745334ed12fb4fc4eefff0cb26af7e9a40`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -14,7 +14,7 @@ Final recommendation: MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers and two P2 findings that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, dashboard widget reorder was drag-only, and the Share Invoice modal used misleading "Download PDF" wording for a browser print/save-to-PDF action. All four have since been fixed on main and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because remaining P2/P3 findings and several untested areas remain.
+The continuation found two P1 blockers and four P2 findings that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, dashboard widget reorder was drag-only, the Share Invoice modal used misleading print/PDF wording, the desktop sidebar reorder lacked a non-drag alternative, and the authenticated viewport matrix was too heavy as one 224-navigation test. All P1 and P2 findings have since been fixed on main or in this audit suite and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because remaining P3 findings and several untested areas remain.
 
 | Metric | Result |
 | --- | --- |
@@ -25,15 +25,15 @@ The continuation found two P1 blockers and two P2 findings that prevented callin
 | Browsers executed | Chromium, WebKit public smoke, Firefox public smoke |
 | Public/auth routes browser-smoked | 5 routes across 14 viewports in Chromium, WebKit, and Firefox |
 | Authenticated browser routes encoded | 16 routes across 14 viewports |
-| Authenticated browser route matrix executed | Chromium partial; public route matrix passed, owner matrix timed out before completion |
+| Authenticated browser route matrix executed | Chromium full audit file passed after splitting the owner matrix into 12 focused tests |
 | PDF/print/export surfaces discovered | 10 |
 | Drag/drop/resize/rearrange surfaces discovered | 5 |
 | P0 findings | 0 observed, not a complete proof because some authenticated print/export surfaces remain untested |
 | P1 findings | 0 |
-| P2 findings | 2 |
+| P2 findings | 0 |
 | P3 findings | 3 |
 | Fixed P1 findings | 2 |
-| Fixed findings | 4 |
+| Fixed findings | 6 |
 | Blocked or not-tested areas | 8 |
 
 ## Environment Tested
@@ -41,7 +41,7 @@ The continuation found two P1 blockers and two P2 findings that prevented callin
 | Item | Result |
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
-| Starting main | `17551da8db6723d4b7d235c9b55b9d81ef92f190` |
+| Starting main | `4cd1c0745334ed12fb4fc4eefff0cb26af7e9a40` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -123,7 +123,7 @@ Executed in Chromium:
 | Modals/drawers | PASS with blocked app modals | Public drawer route smoke passed; authenticated modals blocked. | Re-run product/POS/settings modals. |
 | Loading/success/errors | BLOCKED | Code-level inspection only for most app pages. | Re-run slow-network browser QA. |
 | Dark mode | BLOCKED | Not fully browser-verified. | Re-run light/dark matrix. |
-| Accessibility | FAIL | Desktop sidebar reorder still lacks a clear non-drag alternative; dashboard reorder now has Move Earlier / Move Later controls. | Add sidebar reorder alternative, then re-test. |
+| Desktop sidebar reorder | FIXED ON MAIN — VERIFIED | PR #291 added visible Move Earlier and Move Later controls inside the existing desktop Rearrange mode. Controls work by mouse click and keyboard Enter/Space. First/last visible items disable the boundary controls. Existing pointer drag remains available. Reorder moves one visible item by one visible position, persists after reload, preserves archived items, stored collapsed state, and cookie-consent values. English, Urdu, and Roman Urdu labels verified. Dark mode and reduced motion verified. No href duplicates or missing links introduced. | P3 areas remain open. |
 | Cross-browser behavior | PARTIAL | Public/auth viewport matrix passed in WebKit and Firefox; authenticated cross-browser not run. | Add WebKit/Firefox authenticated run after drawer fix. |
 
 ## PDF, Print, Download, and Export Surfaces
@@ -146,7 +146,7 @@ Executed in Chromium:
 | Surface | Desktop behavior | Mobile/touch readiness |
 | --- | --- | --- |
 | Dashboard widgets | `react-grid-layout` drag and resize handles plus Move Earlier / Move Later controls | FIXED: touch-friendly reorder controls verified; size controls still need broader mobile browser confirmation |
-| Desktop sidebar nav order | Pointer drag reorder in sidebar | P2/P3: no obvious keyboard or button fallback in desktop sidebar |
+| Desktop sidebar nav order | Pointer drag reorder plus Move Earlier / Move Later buttons in Rearrange mode | FIXED: keyboard and button reorder controls added; existing drag retained |
 | Mobile drawer nav order | Up/down buttons in customize mode | Better mobile alternative present |
 | Product image crop | Pointer drag reposition plus zoom | P3: touch drag likely works, but nudge/reset controls would improve accessibility |
 | Shop map location | Draggable marker and location adjustment | Needs mobile verification |
@@ -227,20 +227,25 @@ Executed in Chromium:
 | Field | Detail |
 | --- | --- |
 | Severity | P2 |
+| Status | FIXED ON MAIN — VERIFIED |
 | Module | Sidebar/navigation |
 | Device/browser | Desktop/tablet pointer and keyboard |
 | Viewport | 1024x768 and larger |
 | User role | Authenticated app user |
-| Steps | Open app shell, try to reorder sidebar navigation without pointer drag. |
+| Steps | Open app shell, enter desktop Rearrange mode, try to reorder sidebar navigation without pointer drag. |
 | Expected | Drag reorder should have a keyboard/button alternative, matching the mobile drawer's up/down approach. |
-| Actual | Sidebar reorder uses pointer events and drag state; no obvious up/down buttons were found in desktop sidebar. |
-| Evidence | `src/components/layout/sidebar-nav.tsx` pointer drag inspection; mobile drawer has button alternative. |
+| Actual (original) | Sidebar reorder used pointer events and drag state; no obvious up/down buttons were found in desktop sidebar. |
+| Evidence (original) | `src/components/layout/sidebar-nav.tsx` pointer drag inspection; mobile drawer has button alternative. |
 | Console/network error | None observed. |
-| Environment | Local/code audit. |
-| Risk to shop user | Accessibility and precision-pointer issue for users who cannot drag reliably. |
+| Environment | Local/code audit and focused local E2E. |
+| Risk to shop user (original) | Accessibility and precision-pointer issue for users who cannot drag reliably. |
 | Recommended fix scope | Add optional up/down controls or reuse mobile drawer customization controls. |
 | Suggested branch | `fix/sidebar-rearrange-accessible-controls` |
 | Suggested regression test | Keyboard-accessible sidebar reorder test. |
+| Resolution | Fixed on main in merge commit `4cd1c0745334ed12fb4fc4eefff0cb26af7e9a40` from PR #291. The desktop sidebar Rearrange mode now shows visible Move Earlier and Move Later controls for every visible nav item. The first visible item has Move Earlier disabled; the last visible item has Move Later disabled. The existing pointer drag handle remains visible and wired. Reorder still uses the existing sidebar preference object and `saveSidebarPreferences` path. Archived items stay archived and excluded from visible order. Dashboard and POS archive protection remains unchanged. Stored collapsed state is not overwritten when Rearrange mode temporarily expands the sidebar. Cookie-consent values in the shared sidebar preference object are preserved. English, Urdu, and Roman Urdu sidebar labels were added for the new controls. Dark mode and reduced-motion behavior verified. No duplicate or missing navigation hrefs introduced. |
+| Regression evidence | `tests/e2e/sidebar-accessible-reorder-controls.spec.ts` verified Move Earlier, Move Later, disabled boundaries, persistence after reload, archived-item preservation, consent preservation, and localized labels in Chromium against local Supabase. The full-file run was 2/3; the mouse/keyboard reorder test passed on an isolated rerun. `tests/e2e/auth-role-smoke.spec.ts` passed 9/9 across all five local roles. `tests/e2e/mobile-drawer-single-dialog.spec.ts` passed 5/5 on rerun. `tests/e2e/mobile-native-audit.spec.ts` passed 4/4 in this run. |
+| Business safety | No auth, permission, route visibility, tenant scope, business-data, database, financial, or stock logic changed. |
+| Remaining limitations | Real-device hardware, WebKit/Firefox authenticated runs, 125% zoom, and full dark-mode matrix were not re-run. |
 
 ### MN-005 - Product image crop is drag-first
 
@@ -267,20 +272,25 @@ Executed in Chromium:
 | Field | Detail |
 | --- | --- |
 | Severity | P2 |
+| Status | FIXED IN AUDIT SUITE — VERIFIED |
 | Module | Whole authenticated app |
 | Device/browser | Local Chromium |
-| Viewport | Required matrix encoded but not fully executed |
-| User role | Owner/Cashier intended |
+| Viewport | 14 required viewport entries preserved |
+| User role | Owner/Cashier intended; owner matrix split and verified |
 | Steps | Start local app and local Supabase, run authenticated Playwright route/viewport matrix. |
-| Expected | The route matrix completes across all required authenticated routes and viewports. |
-| Actual | Local Supabase was restored and login worked, but the full owner route matrix timed out after several minutes on the local dev server. Focused owner/cashier mobile smoke passed. |
-| Evidence | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium` timed out in the owner app-shell matrix; focused `-g "mobile navigation"` run passed 2/2. |
-| Console/network error | Test timeout while navigating repeated route/viewport matrix. |
+| Expected | The route matrix completes across all required authenticated routes and viewports without one slow route blocking later coverage. |
+| Actual (original) | Local Supabase was restored and login worked, but the full owner route matrix timed out after several minutes on the local dev server. Focused owner/cashier mobile smoke passed. |
+| Evidence (original) | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium` timed out in the owner app-shell matrix; focused `-g "mobile navigation"` run passed 2/2. |
+| Console/network error | Original test timeout while navigating repeated route/viewport matrix. |
 | Environment | Local only. |
-| Risk to shop user | No direct production risk by itself, but the audit suite needs splitting before it can be a reliable CI/manual tool. |
+| Risk to shop user (original) | No direct production risk by itself, but the audit suite needed splitting before it could be a reliable CI/manual tool. |
 | Recommended fix scope | Split authenticated viewport matrix into smaller focused tests by area or viewport group. |
 | Suggested branch | `test/split-mobile-native-authenticated-matrix` |
 | Suggested regression test | Smaller mobile-native audit tests that complete independently for Dashboard, POS, Products, Invoices, and Settings. |
+| Resolution | The single 224-navigation owner test was replaced with 12 independently reported owner matrix tests: three viewport families multiplied by four route groups. The viewport families are mobile (6), tablet (3), and desktop (5). The route groups are core sales (5), operations (4), reports and administration (4), and supply (3). A dedicated `matrix partition preserves all required owner route coverage` test proves every existing `REQUIRED_VIEWPORTS` entry appears exactly once, every existing `APP_ROUTES` path appears exactly once, there are no duplicate viewport names or route paths, and the total remains 14 x 16 = 224 combinations. |
+| Regression evidence | Two consecutive focused runs passed 13/13 each, including the partition test and all 12 owner matrix tests. Focused run 1 longest owner slice was 34s (`mobile viewports / reports and administration routes`). Focused run 2 longest owner slice was 44s (`desktop viewports / reports and administration routes`). The complete `tests/e2e/mobile-native-audit.spec.ts` file passed 16/16 with no skips; longest owner slice was 54s (`mobile viewports / core sales routes`). `tests/e2e/auth-role-smoke.spec.ts` passed 9/9. |
+| Business safety | No application source, auth, permission, route visibility, tenant scope, business-data, database, financial, stock, or report logic changed. |
+| Remaining limitations | Real-device hardware, WebKit/Firefox authenticated runs, 125% zoom, slow network, and full dark-mode matrix were not re-run. |
 
 ### MN-007 - Local dev console shows CSP nonce hydration warning on public pages
 
@@ -324,7 +334,7 @@ Executed in Chromium:
 | Suggested regression test | Mobile navigation test opens the drawer, asserts exactly one dialog, taps close, and verifies it disappears. |
 | Resolution | Fixed on main in commit `faf1dddfacaced9e3a91ce2e70b8d5c4c9d4b2dd`. The drawer was split into a single `mobile-drawer-panel` portal and a `mobile-drawer-trigger` hamburger. The trigger is rendered in the topbar for mobile and tablet, and the panel mounts once inside `DrawerProvider`. A `matchMedia` listener closes the drawer and restores body scroll when the viewport crosses into desktop width. Original PR #288 was closed by the commit keyword; the code is present on main. |
 | Regression evidence | `tests/e2e/mobile-drawer-single-dialog.spec.ts` passed 5/5 in Chromium against local Supabase: mobile open/close/backdrop/Escape/navigate/customize, tablet hamburger and single drawer, desktop trigger hidden, rotation to desktop closes drawer and restores scroll, repeated open/close creates no duplicate portal. `tests/e2e/auth-role-smoke.spec.ts` passed 9/9 across all five local roles. |
-| Remaining limitations | The full `tests/e2e/mobile-native-audit.spec.ts` owner touch-surface test remains flaky when run as part of the complete matrix (MN-006); focused regression is reliable. Real-device hardware, WebKit/Firefox authenticated runs, and 125% zoom were not retested. |
+| Remaining limitations | Real-device hardware, WebKit/Firefox authenticated runs, 125% zoom, and full dark-mode matrix were not retested. |
 
 ### MN-009 - Cookie banner appears in invoice print/PDF output
 
@@ -438,10 +448,45 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium -g "mobile navigation, dashboard editing, and POS touch surfaces"` | PASS - 1/1 focused owner touch-surface test passed after updating the audit smoke to wait for the drawer portal and verify the new dashboard Move Earlier / Move Later controls |
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-drawer-single-dialog.spec.ts --project=chromium` | PASS - 5/5 tests passed; confirms the MN-008 drawer fix still works |
 
+## Commands Run During MN-004 Rebase Update
+
+| Command | Result |
+| --- | --- |
+| `git fetch origin main qa/mobile-native-full-product-audit` | PASS - origin/main at `4cd1c0745334ed12fb4fc4eefff0cb26af7e9a40`; audit branch pre-rebase head at `f2c0dfdf9bc5668a183e22294c2582c81b731eda` |
+| `git rebase origin/main` | PASS - no conflicts |
+| `git diff --check` | PASS |
+| `npm run lint` | PASS - 0 errors, 2 existing Privacy Center hook warnings |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS |
+| `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs tests/dashboard-widget-reorder.test.mjs` | PASS - 47 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/sidebar-accessible-reorder-controls.spec.ts --project=chromium` | 2/3 passed in full-file run; the mouse/keyboard reorder test showed timing sensitivity around preference sync. When rerun in isolation, that test passed. |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/sidebar-accessible-reorder-controls.spec.ts --project=chromium -g "mouse and keyboard reorder one visible item"` | PASS - 1/1 isolated rerun passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium` | PASS - 9/9 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-drawer-single-dialog.spec.ts --project=chromium` | 4/5 passed in first full run; the mobile navigation test failed to carry the authenticated session to the POS link. Rerun passed 5/5. |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium` | PASS - 4/4 tests passed; the full owner route/viewport matrix completed in this run, but the suite has historically timed out (MN-006 remains open as a test-infrastructure finding). |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 |
+
+## Commands Run During MN-006 Audit Suite Split
+
+| Command | Result |
+| --- | --- |
+| `git fetch origin main qa/mobile-native-full-product-audit` | PASS - origin/main at `4cd1c0745334ed12fb4fc4eefff0cb26af7e9a40`; audit branch starting head at `165e9ea38c1de6438976675d8fdaec4ba72c9bf4` |
+| `git diff --check` | PASS |
+| `npm run lint` | PASS - 0 errors, 2 existing Privacy Center hook warnings |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS |
+| `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs tests/dashboard-widget-reorder.test.mjs` | PASS - 47 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1 -g "owner matrix\|matrix partition"` | PASS - focused run 1 completed 13/13 with no skips. Longest owner matrix test: 34s, `mobile viewports / reports and administration routes`. |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1 -g "owner matrix\|matrix partition"` | PASS - focused run 2 completed 13/13 with no skips. Longest owner matrix test: 44s, `desktop viewports / reports and administration routes`. |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1` | PASS - full audit file completed 16/16 with no skips. Longest owner matrix test: 54s, `mobile viewports / core sales routes`. |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium --workers=1` | PASS - 9/9 tests passed |
+
 ## Known Limitations
 
-- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main and verified with focused regression tests.
-- Full authenticated browser QA is still not complete because the single-test owner route/viewport matrix timed out locally (MN-006).
+- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-004 (desktop sidebar drag-only reorder), MN-006 (heavy authenticated viewport matrix), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main or in the audit suite and verified with focused regression tests.
+- The authenticated owner route/viewport matrix now completes locally in split tests, but production remains read-only and not used for mutation testing.
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
 - Browser zoom at 125 percent was not run in this pass.
@@ -449,12 +494,13 @@ The authenticated tests deliberately skip instead of guessing when local login i
 - No product, invoice, cash drawer, return, settlement, or stock mutation was performed in production.
 - The `fix/mobile-drawer-close-and-duplicate-dialog` branch was not deleted during this audit; it is safe to delete once Fardan approves.
 - The `fix/dashboard-mobile-reorder-controls` branch was merged through PR #289 and can be deleted after Fardan approves.
+- The `fix/sidebar-rearrange-accessible-controls` branch was merged through PR #291 and can be deleted after Fardan approves.
 
 ## Top Priority Focused Fix PRs
 
-1. `fix/sidebar-rearrange-accessible-controls` - add a non-drag alternative for desktop sidebar rearranging.
-2. `test/split-mobile-native-authenticated-matrix` - split the authenticated viewport matrix so the full owner route smoke is reliable in CI (related to MN-006).
-3. `fix/print-action-touch-targets` - normalize print/share controls to mobile-sized app buttons.
+1. `fix/print-action-touch-targets` - normalize print/share controls to mobile-sized app buttons.
+2. `fix/product-image-crop-touch-controls` - add non-drag nudge/reset controls for product image crop positioning.
+3. `fix/csp-nonce-hydration-warning` - verify and address the local CSP nonce hydration warning if it reproduces outside dev.
 
 ## Fardan Live-Site Eyeball Checklist
 
@@ -482,6 +528,6 @@ Production should stay read-only unless a specific QA transaction is approved.
 
 ## Risk Position
 
-The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, and the cookie/privacy banner is hidden from invoice print/PDF output. The audit no longer recommends blocking the mobile/PDF surface on these two issues.
+The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The P2 dashboard reorder, invoice wording, desktop sidebar reorder, and authenticated matrix findings are also resolved and verified. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, the cookie/privacy banner is hidden from invoice print/PDF output, the dashboard and desktop sidebar now provide Move Earlier / Move Later controls alongside existing drag, invoice print wording matches browser behavior, and the owner viewport matrix no longer runs as one brittle 224-navigation test. The audit no longer recommends blocking the mobile/PDF surface on these issues.
 
-Risk remains open for P2/P3 findings and unverified areas: desktop sidebar drag-only reorder, small print/share touch targets, product image crop nudge controls, the heavy authenticated viewport matrix, CSP nonce dev warnings, and unverified surfaces including returns/repairs/daily-closing/reports/supplier statement print artifacts, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.
+Risk remains open for P3 findings and unverified areas including small print/share touch targets, product image crop nudge controls, CSP nonce dev warnings, and unverified surfaces including returns/repairs/daily-closing/reports/supplier statement print artifacts, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.

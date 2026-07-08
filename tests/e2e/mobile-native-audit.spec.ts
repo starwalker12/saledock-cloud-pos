@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginWithCredentials } from "./helpers/auth";
-import { isLocalPlaywrightRun } from "./helpers/local-supabase";
+import { isLocalPlaywrightRun, loginLocalOwnerDirectly } from "./helpers/local-supabase";
 
 const LOCAL_PASSWORD = "Password123!";
 const OWNER_EMAIL = "owner@saledock.local";
@@ -50,24 +50,92 @@ const APP_ROUTES = [
   { path: "/suppliers/purchases", title: "Purchases" },
 ] as const;
 
+type RequiredViewport = (typeof REQUIRED_VIEWPORTS)[number];
+type AppRoute = (typeof APP_ROUTES)[number];
+
+function pickViewports(names: readonly RequiredViewport["name"][]): RequiredViewport[] {
+  const byName = new Map(REQUIRED_VIEWPORTS.map((viewport) => [viewport.name, viewport]));
+  return names.map((name) => {
+    const viewport = byName.get(name);
+    if (!viewport) throw new Error(`Unknown required viewport in matrix partition: ${name}`);
+    return viewport;
+  });
+}
+
+function pickRoutes(paths: readonly AppRoute["path"][]): AppRoute[] {
+  const byPath = new Map(APP_ROUTES.map((route) => [route.path, route]));
+  return paths.map((path) => {
+    const route = byPath.get(path);
+    if (!route) throw new Error(`Unknown authenticated route in matrix partition: ${path}`);
+    return route;
+  });
+}
+
+const VIEWPORT_FAMILIES = [
+  {
+    name: "mobile",
+    viewports: pickViewports([
+      "mobile-320x568",
+      "mobile-360x800",
+      "mobile-375x667",
+      "mobile-390x844",
+      "mobile-412x915",
+      "mobile-430x932",
+    ]),
+  },
+  {
+    name: "tablet",
+    viewports: pickViewports(["tablet-768x1024", "tablet-1024x768", "tablet-820x1180"]),
+  },
+  {
+    name: "desktop",
+    viewports: pickViewports([
+      "desktop-1024x768",
+      "desktop-1280x720",
+      "desktop-1366x768",
+      "desktop-1440x900",
+      "desktop-1920x1080",
+    ]),
+  },
+] as const;
+
+const ROUTE_GROUPS = [
+  {
+    name: "core sales",
+    routes: pickRoutes(["/dashboard", "/pos", "/products", "/customers", "/invoices"]),
+  },
+  {
+    name: "operations",
+    routes: pickRoutes(["/returns", "/repairs", "/expenses", "/daily-closing"]),
+  },
+  {
+    name: "reports and administration",
+    routes: pickRoutes(["/reports", "/users", "/settings", "/settings/permissions"]),
+  },
+  {
+    name: "supply",
+    routes: pickRoutes(["/purchases/replenishment", "/suppliers/dues", "/suppliers/purchases"]),
+  },
+] as const;
+
 function skipUnlessLocal(): void {
   test.skip(!isLocalPlaywrightRun(), "Mobile-native audit mutations and role checks are local-only.");
 }
 
 async function rejectCookieBanner(page: Page): Promise<void> {
-  if (page.url() === "about:blank") {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+  const consent = {
+    value: "rejected",
+    version: "2026-06-analytics-v1",
+    timestamp: new Date().toISOString(),
+  };
+  await page.addInitScript((storedConsent) => {
+    window.localStorage.setItem("analytics-consent", JSON.stringify(storedConsent));
+  }, consent);
+  if (page.url() !== "about:blank") {
+    await page.evaluate((storedConsent) => {
+      window.localStorage.setItem("analytics-consent", JSON.stringify(storedConsent));
+    }, consent);
   }
-  await page.evaluate(() => {
-    window.localStorage.setItem(
-      "analytics-consent",
-      JSON.stringify({
-        value: "rejected",
-        version: "2026-06-analytics-v1",
-        timestamp: new Date().toISOString(),
-      }),
-    );
-  });
 }
 
 async function dismissCookieBannerIfVisible(page: Page): Promise<void> {
@@ -129,8 +197,66 @@ async function expectNoFrameworkOverlay(page: Page): Promise<void> {
   await expect(page.locator("text=/Unhandled Runtime Error|Application error|Build Error/i")).toHaveCount(0);
 }
 
+function findDuplicates(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) duplicates.add(value);
+    seen.add(value);
+  }
+  return [...duplicates].sort();
+}
+
+async function expectOwnerRouteFitsViewport(
+  page: Page,
+  route: AppRoute,
+  viewport: RequiredViewport,
+  context: { routeGroup: string; viewportFamily: string },
+): Promise<void> {
+  const label = `${context.viewportFamily} ${viewport.name} / ${context.routeGroup} ${route.path}`;
+  await test.step(`owner matrix ${label}`, async () => {
+    await page.goto(route.path, { waitUntil: "domcontentloaded" });
+    await expect(page, `${label} redirected to login`).not.toHaveURL(/\/login(?:\?|$)/);
+    await expect(
+      page.locator("header h1").first(),
+      `${label} did not render the expected page heading`,
+    ).toContainText(route.title, { timeout: 15_000 });
+    await expectNoFrameworkOverlay(page);
+    await expectNoPageLevelHorizontalOverflow(page, label);
+  });
+}
+
 test.describe("Mobile-native audit route smoke", () => {
   test.beforeEach(skipUnlessLocal);
+
+  test("matrix partition preserves all required owner route coverage", async () => {
+    const requiredViewportNames = REQUIRED_VIEWPORTS.map((viewport) => viewport.name);
+    const partitionedViewportNames = VIEWPORT_FAMILIES.flatMap((family) =>
+      family.viewports.map((viewport) => viewport.name),
+    );
+    const requiredRoutePaths = APP_ROUTES.map((route) => route.path);
+    const partitionedRoutePaths = ROUTE_GROUPS.flatMap((group) =>
+      group.routes.map((route) => route.path),
+    );
+
+    expect(VIEWPORT_FAMILIES, "owner matrix viewport families").toHaveLength(3);
+    expect(ROUTE_GROUPS, "owner matrix route groups").toHaveLength(4);
+    expect(REQUIRED_VIEWPORTS, "required viewport count").toHaveLength(14);
+    expect(APP_ROUTES, "authenticated route count").toHaveLength(16);
+    expect(findDuplicates(requiredViewportNames), "duplicate required viewport names").toEqual([]);
+    expect(findDuplicates(partitionedViewportNames), "duplicate partitioned viewport names").toEqual([]);
+    expect(findDuplicates(requiredRoutePaths), "duplicate authenticated route paths").toEqual([]);
+    expect(findDuplicates(partitionedRoutePaths), "duplicate partitioned route paths").toEqual([]);
+    expect(partitionedViewportNames.sort(), "viewport partition must exactly match REQUIRED_VIEWPORTS").toEqual(
+      requiredViewportNames.sort(),
+    );
+    expect(partitionedRoutePaths.sort(), "route partition must exactly match APP_ROUTES").toEqual(
+      requiredRoutePaths.sort(),
+    );
+    expect(partitionedViewportNames.length * partitionedRoutePaths.length, "owner route/viewport combinations").toBe(
+      224,
+    );
+  });
 
   test("public and auth surfaces fit required viewport matrix", async ({ page }) => {
     test.setTimeout(240_000);
@@ -148,28 +274,31 @@ test.describe("Mobile-native audit route smoke", () => {
     }
   });
 
-  test("owner app shell modules fit required viewport matrix without global overflow", async ({ page }) => {
-    test.setTimeout(420_000);
-    page.on("dialog", async (dialog) => {
-      throw new Error(`Native browser dialog appeared on ${page.url()}: ${dialog.type()}`);
-    });
+  for (const viewportFamily of VIEWPORT_FAMILIES) {
+    for (const routeGroup of ROUTE_GROUPS) {
+      test(`owner matrix: ${viewportFamily.name} viewports / ${routeGroup.name} routes`, async ({ page }) => {
+        test.setTimeout(180_000);
+        page.on("dialog", async (dialog) => {
+          throw new Error(
+            `Native browser dialog appeared during owner matrix ${viewportFamily.name} / ${routeGroup.name} at ${page.url()}: ${dialog.type()}`,
+          );
+        });
 
-    await rejectCookieBanner(page);
-    if (!(await loginWithCredentials(page, OWNER_EMAIL, LOCAL_PASSWORD))) {
-      test.skip(true, "Local owner login was not available for authenticated mobile audit checks.");
-    }
+        await rejectCookieBanner(page);
+        await loginLocalOwnerDirectly(page);
 
-    for (const viewport of REQUIRED_VIEWPORTS) {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      for (const route of APP_ROUTES) {
-        await page.goto(route.path, { waitUntil: "domcontentloaded" });
-        await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-        await expect(page.locator("header h1").first()).toContainText(route.title, { timeout: 15_000 });
-        await expectNoFrameworkOverlay(page);
-        await expectNoPageLevelHorizontalOverflow(page, `${viewport.name} ${route.path}`);
-      }
+        for (const viewport of viewportFamily.viewports) {
+          await page.setViewportSize({ width: viewport.width, height: viewport.height });
+          for (const route of routeGroup.routes) {
+            await expectOwnerRouteFitsViewport(page, route, viewport, {
+              routeGroup: routeGroup.name,
+              viewportFamily: viewportFamily.name,
+            });
+          }
+        }
+      });
     }
-  });
+  }
 
   test("mobile navigation, dashboard editing, and POS touch surfaces expose reachable controls", async ({ page }) => {
     test.setTimeout(180_000);
