@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, type PointerEvent } from "react";
-import { Upload, X, Loader2, ImageIcon } from "lucide-react";
+import { useState, useRef, useEffect, useSyncExternalStore, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
+import { Upload, X, Loader2, ImageIcon, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import { validateImageFile, uploadImage, resolveImagePreviewUrl, type UploadResult } from "@/lib/storage/upload";
 import { createClient } from "@/lib/supabase/client";
 
@@ -43,6 +44,11 @@ const cropOutputSize = {
   square: { width: 800, height: 800, aspect: 1 },
   landscape: { width: 960, height: 720, aspect: 4 / 3 },
 };
+
+const DEFAULT_CROP_X = 50;
+const DEFAULT_CROP_Y = 50;
+const DEFAULT_CROP_ZOOM = 1;
+const NUDGE_STEP = 5;
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -127,6 +133,11 @@ export function ImageUpload({
   // Holds the current local blob preview URL so we can revoke it only when it is
   // replaced or the component unmounts — never while it is still on screen.
   const objectUrlRef = useRef<string | null>(null);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   // Track currentUrl during render so preview re-syncs whenever the parent
   // changes it (draft resume, server URL arriving after first paint, remove).
@@ -232,7 +243,7 @@ export function ImageUpload({
 
     setCropState((current) => {
       if (current?.url) URL.revokeObjectURL(current.url);
-      return { file, url: URL.createObjectURL(file), zoom: 1, x: 50, y: 50 };
+      return { file, url: URL.createObjectURL(file), zoom: DEFAULT_CROP_ZOOM, x: DEFAULT_CROP_X, y: DEFAULT_CROP_Y };
     });
   }
 
@@ -343,6 +354,27 @@ export function ImageUpload({
       setCropProcessing(false);
       setUploadError("Image could not be cropped. Please try another image.");
     }
+  }
+
+  function nudgePosition(deltaX: number, deltaY: number) {
+    if (!cropState || cropProcessing) return;
+    setCropState((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        x: clampPosition(current.x + deltaX),
+        y: clampPosition(current.y + deltaY),
+      };
+    });
+  }
+
+  function resetCrop() {
+    if (!cropState || cropProcessing) return;
+    setCropState((current) =>
+      current
+        ? { ...current, x: DEFAULT_CROP_X, y: DEFAULT_CROP_Y, zoom: DEFAULT_CROP_ZOOM }
+        : current
+    );
   }
 
   function handleRemove() {
@@ -466,8 +498,11 @@ export function ImageUpload({
         <p className="text-xs text-red-500">{uploadError}</p>
       )}
 
-      {cropState && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-3 sm:items-center sm:p-6">
+      {cropState && mounted && createPortal(
+        <div
+          data-testid="crop-overlay"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-3 sm:items-center sm:p-6"
+        >
           <button
             type="button"
             aria-label="Cancel image crop"
@@ -475,9 +510,11 @@ export function ImageUpload({
             onClick={handleCancelCrop}
           />
           <div
+            data-testid="crop-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="image-crop-title"
+            aria-describedby="image-crop-description"
             className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-[#fff] p-4 shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:p-5"
           >
             <div className="flex items-start justify-between gap-3">
@@ -485,8 +522,8 @@ export function ImageUpload({
                 <h3 id="image-crop-title" className="text-base font-bold text-slate-950 dark:text-white">
                   Crop image
                 </h3>
-                <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
-                  Drag the image to position it, adjust zoom, then confirm to upload.
+                <p id="image-crop-description" className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
+                  Drag the image or use the direction buttons. Adjust zoom, then confirm to upload.
                 </p>
               </div>
               <button
@@ -501,6 +538,7 @@ export function ImageUpload({
 
             <div className="mt-4 rounded-2xl bg-slate-100 p-3 dark:bg-slate-900">
               <div
+                data-testid="crop-preview-area"
                 className={`relative mx-auto max-h-[48dvh] w-full touch-none overflow-hidden rounded-xl bg-slate-950 ${aspectClasses[aspectRatio]} ${
                   cropProcessing ? "cursor-wait" : "cursor-grab active:cursor-grabbing"
                 }`}
@@ -527,11 +565,16 @@ export function ImageUpload({
                   className={`pointer-events-none absolute inset-4 border-2 border-white shadow-[0_0_0_999px_rgba(2,6,23,0.42)] ${
                     aspectRatio === "square" ? "rounded-full" : "rounded-2xl"
                   }`}
+                  data-testid="crop-mask"
                 />
                 <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
               </div>
               <p className="mt-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Drag to position. Use zoom for a closer crop.
+                Drag to position or use the buttons. Use zoom for a closer crop.
+              </p>
+
+              <p data-testid="crop-status" className="mt-1 text-center text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                X {cropState.x.toFixed(0)}% · Y {cropState.y.toFixed(0)}% · Zoom {cropState.zoom.toFixed(2)}×
               </p>
             </div>
 
@@ -539,6 +582,7 @@ export function ImageUpload({
               <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Zoom
                 <input
+                  data-testid="crop-zoom"
                   type="range"
                   min="1"
                   max="3"
@@ -548,6 +592,79 @@ export function ImageUpload({
                   className="mt-2 w-full accent-[var(--primary-accent-bg)]"
                 />
               </label>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Position</p>
+              {/**
+               * CSS object-position moves the *alignment point*, which is the inverse of the
+               * visible image movement. The pointer-drag handlers already subtract pointer deltas
+               * (nextX = startX - pointerDeltaX), so the buttons below intentionally mirror that
+               * inverse: moving the image right decreases X, moving the image left increases X,
+               * moving the image down decreases Y, and moving the image up increases Y.
+               */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-start-2">
+                  <button
+                    type="button"
+                    onClick={() => nudgePosition(0, NUDGE_STEP)}
+                    disabled={cropProcessing}
+                    aria-label="Move image up"
+                    className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10 dark:focus-visible:ring-offset-slate-950"
+                  >
+                    <ArrowUp className="size-3.5" />
+                    <span>Up</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => nudgePosition(NUDGE_STEP, 0)}
+                  disabled={cropProcessing}
+                  aria-label="Move image left"
+                  className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10 dark:focus-visible:ring-offset-slate-950"
+                >
+                  <ArrowLeft className="size-3.5" />
+                  <span>Left</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={resetCrop}
+                  disabled={cropProcessing}
+                  aria-label="Reset crop"
+                  className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10 dark:focus-visible:ring-offset-slate-950"
+                >
+                  <RotateCcw className="size-3.5" />
+                  <span>Reset</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => nudgePosition(-NUDGE_STEP, 0)}
+                  disabled={cropProcessing}
+                  aria-label="Move image right"
+                  className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10 dark:focus-visible:ring-offset-slate-950"
+                >
+                  <ArrowRight className="size-3.5" />
+                  <span>Right</span>
+                </button>
+                <div className="col-start-2">
+                  <button
+                    type="button"
+                    onClick={() => nudgePosition(0, -NUDGE_STEP)}
+                    disabled={cropProcessing}
+                    aria-label="Move image down"
+                    className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-accent-bg)] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10 dark:focus-visible:ring-offset-slate-950"
+                  >
+                    <ArrowDown className="size-3.5" />
+                    <span>Down</span>
+                  </button>
+                </div>
+              </div>
+              <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+                Reset restores the centered position and 1× zoom.
+              </p>
+              <p className="sr-only" aria-live="polite">
+                Position {cropState.x.toFixed(0)} percent horizontal, {cropState.y.toFixed(0)} percent vertical. Zoom {cropState.zoom.toFixed(2)} times.
+              </p>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -569,7 +686,8 @@ export function ImageUpload({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
