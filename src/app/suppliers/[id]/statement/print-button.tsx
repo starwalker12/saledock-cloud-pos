@@ -23,7 +23,7 @@ export function PrintButton({ whatsappHref }: PrintButtonProps) {
       <button
         type="button"
         onClick={() => printWithMode("a4")}
-        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
       >
         <Printer className="size-4" />
         Print A4 / Save PDF
@@ -31,7 +31,7 @@ export function PrintButton({ whatsappHref }: PrintButtonProps) {
       <button
         type="button"
         onClick={() => printWithMode("thermal")}
-        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50"
+        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50"
       >
         <Printer className="size-4" />
         Print 80mm
@@ -40,7 +40,7 @@ export function PrintButton({ whatsappHref }: PrintButtonProps) {
         href={whatsappHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
       >
         <MessageCircle className="size-4" />
         Share WhatsApp
