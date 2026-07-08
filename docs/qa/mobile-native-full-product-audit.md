@@ -99,12 +99,12 @@ Executed in Chromium:
 | --- | --- | --- | --- |
 | Authentication/onboarding | PASS with caveat | Local owner/admin/manager/cashier/technician roles verified; auth-role smoke passed 9/9. | Verify again on Vercel preview before MVP-live. |
 | Navigation/sidebar | PASS | Mobile drawer renders one accessible dialog; hamburger opens/closes; close button, backdrop, and Escape work; Customize tabs move up/down; body scroll locks/restores; tablet-to-desktop closes drawer. | Continue monitoring on Vercel preview. |
-| Dashboard mobile layout | PARTIAL | Focused mobile dashboard route/edit controls checked in Chromium; full route matrix timed out locally. | Re-run after dev-server performance split. |
+| Dashboard mobile layout | PASS with caveat | The current authenticated Chromium matrix completed in the required 16/16 full-audit run. Focused Dashboard mobile navigation/edit/POS touch-surface coverage passed. A separate supplemental timing run had an intermittent tablet operations `/daily-closing` timeout unrelated to Dashboard. | Real-device Dashboard layout and touch-resize confirmation remain pending. |
 | Dashboard rearrange | FIXED ON MAIN — VERIFIED | Touch-friendly Move Earlier / Move Later controls added in PR #289. Button reorder preserves exact widget width/height, 4/8/12-column layouts remain valid, no overlap or duplicate IDs, persistence after reload verified. Existing drag behavior retained. | Continue monitoring on Vercel preview. |
-| Dashboard resize | PASS with caveat | Size controls are visible in focused mobile dashboard smoke; drag resize still needs manual touch confirmation. | Verify after dashboard reorder fix. |
-| POS | PASS with caveat | Focused POS mobile controls visible; service-sale and settlement regressions passed; full manual POS matrix not complete. | Continue after drawer/PDF blockers. |
+| Dashboard resize | PASS with caveat | Size controls are visible in focused mobile dashboard smoke; drag resize still needs manual touch confirmation. | Manual touch-resize confirmation remains pending. |
+| POS | PASS with caveat | Focused POS mobile controls visible; service-sale and settlement regressions passed; full manual POS matrix not complete. | Real-device and fuller manual checkout layout coverage remain pending. |
 | Held bills | PASS | Focused physical-product held bill safety rerun passed 1/1 after clean local reset. | Keep manual real-device confirmation pending. |
-| Products/catalog | PARTIAL | Product route included in authenticated route matrix before timeout; full image upload manual matrix not rerun. | Re-run image workflow after blockers. |
+| Products/catalog | PARTIAL | The Products route completed in the current authenticated owner matrix. Full product image upload, crop, modal, and mobile keyboard interaction were not rerun. | Continue through MN-005 and the remaining product-image mobile workflow. |
 | Product images | PARTIAL | Prior QA history and code inventory inspected; no fresh upload mutation in this continuation. | Re-run image upload mobile matrix. |
 | Invoices | PASS with caveat | Local invoice screen and print-media artifacts captured; cookie banner no longer covers invoice print/PDF output. | Continue return/repair/cash drawer/report print QA. |
 | PDFs/printing | PASS with caveat | Invoice A4/80mm PDF generated locally; cookie banner hidden in print media; Share Invoice action now says Print / Save as PDF while retaining browser print/save-to-PDF behavior. | Generate print artifacts for returns/repairs/daily-closing/reports/supplier statements. |
@@ -118,14 +118,14 @@ Executed in Chromium:
 | Cash Drawer | BLOCKED | Print surface inspected; cash drawer close/print workflow not rerun after invoice blocker was resolved. | Re-run cash drawer close/print QA. |
 | Reports | BLOCKED | Print and report routes inspected; report print artifact not generated after invoice blocker was resolved. | Re-run reports mobile/print QA. |
 | Users/permissions | PASS with caveat | Auth-role smoke passed for all five local roles; focused cashier mobile user-page restriction passed. | Full mobile direct URL matrix still pending. |
-| Settings | PARTIAL | Settings route is encoded in the authenticated matrix, but full matrix timed out. | Re-run settings mobile QA. |
+| Settings | PARTIAL | `/settings` and `/settings/permissions` completed in the authenticated owner route matrix. Full interactive settings-panel, form, modal, mobile keyboard, and role-specific mutation coverage remains incomplete. | Run focused settings interaction coverage in the authenticated remainder audit. |
 | Responsive tables | PARTIAL | Route matrix and code inventory cover tables, but not every table was manually interacted with. | Re-run with local data. |
 | Forms/mobile keyboard | BLOCKED | Code-level checks only. | Re-run on mobile emulation. |
 | Modals/drawers | PASS with blocked app modals | Public drawer route smoke passed; authenticated modals blocked. | Re-run product/POS/settings modals. |
 | Loading/success/errors | BLOCKED | Code-level inspection only for most app pages. | Re-run slow-network browser QA. |
 | Dark mode | BLOCKED | Not fully browser-verified. | Re-run light/dark matrix. |
 | Desktop sidebar reorder | FIXED ON MAIN — VERIFIED | PR #291 added visible Move Earlier and Move Later controls inside the existing desktop Rearrange mode. Controls work by mouse click and keyboard Enter/Space. First/last visible items disable the boundary controls. Existing pointer drag remains available. Reorder moves one visible item by one visible position, persists after reload, preserves archived items, stored collapsed state, and cookie-consent values. English, Urdu, and Roman Urdu labels verified. Dark mode and reduced motion verified. No href duplicates or missing links introduced. | P3 areas remain open. |
-| Cross-browser behavior | PARTIAL | Public/auth viewport matrix passed in WebKit and Firefox; authenticated cross-browser not run. | Add WebKit/Firefox authenticated run after drawer fix. |
+| Cross-browser behavior | PARTIAL | Public/auth viewport matrix passed in WebKit and Firefox; authenticated cross-browser not run. | Authenticated WebKit/Firefox coverage remains pending. |
 
 ## PDF, Print, Download, and Export Surfaces
 
