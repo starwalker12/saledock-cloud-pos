@@ -112,18 +112,44 @@ function hydrateWarnings(messages: ConsoleMessage[]): string[] {
     );
 }
 
-async function assertNoFrameworkErrorOverlay(page: Page): Promise<void> {
-  const hasErrorOverlay = await page.evaluate(() => {
-    const portal = document.querySelector("nextjs-portal");
-    if (!portal) return false;
-    const dialog = portal.querySelector('[role="dialog"]');
-    if (!dialog) return false;
-    const text = (dialog as HTMLElement).innerText || "";
-    return /Unhandled Runtime Error|Runtime Error|Build Error|Hydration failed|Application error|error overlay/i.test(
-      text,
-    );
+async function assertNoFrameworkErrorOverlay(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const errorPatterns =
+      /Unhandled Runtime Error|Runtime Error|Build Error|Hydration failed|Application error|error overlay/gi;
+    const signatures: string[] = [];
+
+    function isVisible(element: Element): boolean {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        parseFloat(style.opacity) > 0 &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    }
+
+    function collectSignatures(root: Document | ShadowRoot | Element): void {
+      const candidates = root.querySelectorAll('[role="dialog"]');
+      candidates.forEach((candidate) => {
+        if (!isVisible(candidate)) return;
+        const text = (candidate as HTMLElement).innerText || "";
+        let match: RegExpExecArray | null;
+        while ((match = errorPatterns.exec(text)) !== null) {
+          signatures.push(match[0]);
+        }
+      });
+    }
+
+    collectSignatures(document);
+    document.querySelectorAll("nextjs-portal").forEach((portal) => {
+      if (portal.shadowRoot) collectSignatures(portal.shadowRoot);
+      collectSignatures(portal);
+    });
+
+    return Array.from(new Set(signatures)).join(", ");
   });
-  expect(hasErrorOverlay).toBe(false);
 }
 
 async function verifyNonceUniqueness(
@@ -283,12 +309,22 @@ test.describe("application routes", () => {
 
         const cspReportAttempts: string[] = [];
         if (isReadOnlyEnv) {
-          await page.route("**/api/csp-report", async (interceptedRoute) => {
-            cspReportAttempts.push(
-              `${env} ${route} ${interceptedRoute.request().method()} attempt ${cspReportAttempts.length + 1}`,
-            );
-            await interceptedRoute.abort();
-          });
+          await page.route(
+            new RegExp(".*\\/api\\/csp-report(?:\\?.*)?$"),
+            async (interceptedRoute) => {
+              const request = interceptedRoute.request();
+              const url = new URL(request.url());
+              if (
+                request.method() === "POST" &&
+                url.pathname === "/api/csp-report"
+              ) {
+                cspReportAttempts.push(
+                  `${env} ${route} ${request.method()} attempt ${cspReportAttempts.length + 1}`,
+                );
+              }
+              await interceptedRoute.abort();
+            },
+          );
         }
 
         const listeners = attachListeners(page, cspReportAttempts);
@@ -336,31 +372,30 @@ test.describe("application routes", () => {
           expect(domScripts.externalRuntime.mismatch).toBe(0);
         }
 
-        test
-          .info()
-          .annotations.push({
-            type: "external-runtime-scripts",
-            description: `${domScripts.externalRuntime.withNonce}/${domScripts.externalRuntime.total} with nonce, ${domScripts.externalRuntime.withoutNonce} without nonce, ${domScripts.externalRuntime.mismatch} mismatch`,
-          });
+        test.info().annotations.push({
+          type: "external-runtime-scripts",
+          description: `${domScripts.externalRuntime.withNonce}/${domScripts.externalRuntime.total} with nonce, ${domScripts.externalRuntime.withoutNonce} without nonce, ${domScripts.externalRuntime.mismatch} mismatch`,
+        });
 
         if (domScripts.jsonLd.total > 0) {
           expect(domScripts.jsonLd.mismatch).toBe(0);
         }
 
-        test
-          .info()
-          .annotations.push({
-            type: "inline-other-scripts",
-            description: `${domScripts.inlineOther.withNonce}/${domScripts.inlineOther.total} with nonce, ${domScripts.inlineOther.mismatch} mismatch`,
-          });
-        test
-          .info()
-          .annotations.push({
-            type: "json-ld-scripts",
-            description: `${domScripts.jsonLd.withNonce}/${domScripts.jsonLd.total} with nonce, ${domScripts.jsonLd.mismatch} mismatch`,
-          });
+        test.info().annotations.push({
+          type: "inline-other-scripts",
+          description: `${domScripts.inlineOther.withNonce}/${domScripts.inlineOther.total} with nonce, ${domScripts.inlineOther.mismatch} mismatch`,
+        });
+        test.info().annotations.push({
+          type: "json-ld-scripts",
+          description: `${domScripts.jsonLd.withNonce}/${domScripts.jsonLd.total} with nonce, ${domScripts.jsonLd.mismatch} mismatch`,
+        });
 
-        await assertNoFrameworkErrorOverlay(page);
+        const frameworkOverlaySignatures =
+          await assertNoFrameworkErrorOverlay(page);
+        expect(
+          frameworkOverlaySignatures,
+          `${env} ${route} ${viewport.width}x${viewport.height}: framework error overlay not expected`,
+        ).toBe("");
 
         const warnings = hydrateWarnings(listeners.consoleMessages);
         const pageErrors = listeners.pageErrors;
@@ -394,18 +429,10 @@ test.describe("application routes", () => {
 
         const attemptedReports = listeners.cspReportAttempts.length;
         const blockedReports = attemptedReports;
-        test
-          .info()
-          .annotations.push({
-            type: "csp-report-attempts",
-            description: String(attemptedReports),
-          });
-        test
-          .info()
-          .annotations.push({
-            type: "csp-report-blocked",
-            description: String(blockedReports),
-          });
+        test.info().annotations.push({
+          type: "csp-report-interception",
+          description: `interceptor installed; attempts observed: ${attemptedReports}; blocked: ${blockedReports}; stored: 0`,
+        });
         expect(blockedReports).toBe(attemptedReports);
 
         // Do not fail merely because a hydration warning exists; classify it instead.
@@ -417,33 +444,46 @@ test.describe("application routes", () => {
           /nonce|did not match|mismatch/i.test(w),
         );
 
-        test
-          .info()
-          .annotations.push({
-            type: "hydration-warning",
-            description: hasHydrationWarning ? "observed" : "none",
-          });
-        test
-          .info()
-          .annotations.push({
-            type: "nonce-mismatch",
-            description: hasNonceMismatch ? "observed" : "none",
-          });
-        test
-          .info()
-          .annotations.push({
-            type: "native-dialogs",
-            description: String(dialogs.length),
-          });
-        test
-          .info()
-          .annotations.push({
-            type: "page-errors",
-            description: String(pageErrors.length),
-          });
-        test
-          .info()
-          .annotations.push({ type: "framework-overlay", description: "none" });
+        if (env === "dev") {
+          expect(
+            hasHydrationWarning,
+            `${env} ${route} ${viewport.width}x${viewport.height}: hydration warning expected`,
+          ).toBe(true);
+          expect(
+            hasNonceMismatch,
+            `${env} ${route} ${viewport.width}x${viewport.height}: nonce mismatch expected`,
+          ).toBe(true);
+        } else {
+          expect(
+            hasHydrationWarning,
+            `${env} ${route} ${viewport.width}x${viewport.height}: hydration warning not expected`,
+          ).toBe(false);
+          expect(
+            hasNonceMismatch,
+            `${env} ${route} ${viewport.width}x${viewport.height}: nonce mismatch not expected`,
+          ).toBe(false);
+        }
+
+        test.info().annotations.push({
+          type: "hydration-warning",
+          description: hasHydrationWarning ? "observed" : "none",
+        });
+        test.info().annotations.push({
+          type: "nonce-mismatch",
+          description: hasNonceMismatch ? "observed" : "none",
+        });
+        test.info().annotations.push({
+          type: "native-dialogs",
+          description: String(dialogs.length),
+        });
+        test.info().annotations.push({
+          type: "page-errors",
+          description: String(pageErrors.length),
+        });
+        test.info().annotations.push({
+          type: "framework-overlay",
+          description: frameworkOverlaySignatures || "none",
+        });
       });
     }
   }

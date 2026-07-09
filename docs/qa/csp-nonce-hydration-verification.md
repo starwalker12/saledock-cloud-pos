@@ -33,12 +33,12 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 
 ## Environment Matrix
 
-| Environment                        | Base URL                                                                             | Status                    | Hydration Warning                           | Notes                                                                                          |
-| ---------------------------------- | ------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Local dev                          | `http://localhost:3000`                                                              | **Reproduced**            | **Yes** — color-theme script nonce mismatch | Full details below                                                                             |
-| Local production                   | `http://localhost:3001`                                                              | Not reproduced            | No                                          | Tested through `next build` plus `next start`                                                  |
+| Environment                        | Base URL                                                                             | Status                     | Hydration Warning                           | Notes                                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------------ | -------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Local dev                          | `http://localhost:3000`                                                              | **Reproduced**             | **Yes** — color-theme script nonce mismatch | Full details below                                                                              |
+| Local production                   | `http://localhost:3001`                                                              | Not reproduced             | No                                          | Tested through `next build` plus `next start`                                                   |
 | Vercel preview                     | `https://saledock-cloud-pos-git-qa-csp-non-e4e51f-fardan-aatirs-projects.vercel.app` | **Blocked / Inconclusive** | N/A                                         | Deployment Ready; browser application access protected by Vercel SSO; no bypass token requested |
-| Production `https://saledock.site` | `https://saledock.site`                                                              | Not reproduced            | No                                          | Public read-only routes; no login or mutation                                                  |
+| Production `https://saledock.site` | `https://saledock.site`                                                              | Not reproduced             | No                                          | Public read-only routes; no login or mutation                                                   |
 
 ## Local Dev Results
 
@@ -48,9 +48,22 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 - No `x-nonce` response header leak.
 - The color-theme inline script and Next.js root inline scripts carry a matching nonce.
 - **A React hydration warning is emitted on every route.** After redaction, the warning matches the pattern for a server/client attribute mismatch on the color-theme `<script>` tag. The server-rendered nonce value and the client-rendered nonce value differ, which is exactly the MN-007 symptom.
-- No framework error overlays detected.
+- No framework error overlays detected (checked across light DOM and `nextjs-portal` shadow DOM, with visibility checks).
 - No page errors, no dialogs, no non-trivial request failures.
 - Zero CSP report attempts observed.
+- Hydration-warning count: 10/10 dev route/viewport tests.
+- Nonce-mismatch count: 10/10 dev route/viewport tests.
+
+## Redacted Warning Signature
+
+- **Category:** React hydration attribute mismatch
+- **Affected element:** root color-theme inline script
+- **Differing attribute:** nonce
+- **Raw values:** redacted
+- **Routes affected:** 5 (`/`, `/login`, `/privacy`, `/terms`, `/auth/invite?error=otp_expired`)
+- **Viewports affected:** 390x844 and 1440x900
+- **Reproductions:** 10/10 dev route/viewport tests
+- **No server nonce, client nonce, or full attribute diff containing nonce values is included in this report.**
 
 ## Local Production Results
 
@@ -60,10 +73,12 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 - No `x-nonce` response header leak.
 - The color-theme inline script and Next.js root inline scripts carry a matching nonce.
 - **No hydration warning is observed.**
-- No framework error overlays detected.
-- Some external `_next` scripts do not carry a nonce attribute (recorded in test annotations). This does not trigger a hydration warning because those scripts are loaded via `src` and are covered by the bootstrap script’s `strict-dynamic` trust propagation.
+- No framework error overlays detected (checked across light DOM and `nextjs-portal` shadow DOM, with visibility checks).
+- Some external `_next` scripts were observed without an explicit DOM nonce attribute (recorded in test annotations). No hydration mismatch or runtime failure resulted under the current report-only policy. This observation does not prove compatibility with a future enforced CSP and is outside the MN-007 classification.
 - `net::ERR_ABORTED` requests for `_rsc` (React Server Components) and Vercel analytics scripts were observed during context teardown and are filtered out as noise.
 - Zero CSP report attempts observed.
+- Hydration-warning count: 0/10 local-production route/viewport tests.
+- Nonce-mismatch count: 0/10 local-production route/viewport tests.
 
 ## Vercel Preview Results
 
@@ -73,6 +88,7 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 - **Decision:** Keep the preview protected. No Vercel protection-bypass token was requested, stored, or used.
 - **Impact:** Vercel preview application verification is blocked by deployment protection; no SaleDock CSP or hydration response was inspected.
 - **Skipped tests:** 10 (all route/viewport combinations).
+- **Preview pass/skip count:** 1 passed (SSO preflight), 10 skipped (application routes), 0 failed.
 - No CSP nonce or hydration data was collected from this environment.
 
 ## Production Results
@@ -83,21 +99,24 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 - No `x-nonce` response header leak.
 - The color-theme inline script and Next.js root inline scripts carry a matching nonce.
 - **No hydration warning is observed.**
-- No framework error overlays detected.
-- Some external `_next` scripts do not carry a nonce attribute (recorded in test annotations); no mismatch observed.
+- No framework error overlays detected (checked across light DOM and `nextjs-portal` shadow DOM, with visibility checks).
+- Some external `_next` scripts were observed without an explicit DOM nonce attribute (recorded in test annotations). No hydration mismatch or runtime failure resulted under the current report-only policy. This observation does not prove compatibility with a future enforced CSP and is outside the MN-007 classification.
 - `/api/csp-report` POSTs were intercepted, counted, and blocked by the test harness. Zero attempts observed.
+- Hydration-warning count: 0/10 production route/viewport tests.
+- Nonce-mismatch count: 0/10 production route/viewport tests.
 
 ## Evidence Corrections Applied
 
-1. **Real framework-overlay check:** Added `assertNoFrameworkErrorOverlay` which inspects the `nextjs-portal` for a visible dialog containing error text (Unhandled Runtime Error, Runtime Error, Build Error, Hydration failed, Application error, error overlay). It does not hide or remove the portal; it only asserts that an error overlay is not present.
-2. **CSP report attempt tracking:** The read-only E2E routes now intercept `**/api/csp-report`, record the environment, route under test, HTTP method, and attempt number, then abort the request. Attempted and blocked counts are annotated per test. No report bodies are recorded.
-3. **Preview SSO preflight:** For `CSP_TEST_ENV=preview`, a dedicated preflight test verifies the Vercel SSO redirect and skips all application-route assertions with a precise reason.
-4. **JSON-LD source honesty:** The source-contract test no longer asserts that the JSON-LD script lacks a nonce. It asserts the script exists, records whether an explicit nonce is present via a diagnostic message, and does not fail on either state.
+1. **Environment-specific classification enforcement:** The E2E spec now asserts that `hasHydrationWarning` and `hasNonceMismatch` are true for `dev` and false for `local-production` and `production`. Preview application routes remain skipped. Assertion messages include environment, route, and viewport only.
+2. **Shadow-DOM framework-overlay check:** `assertNoFrameworkErrorOverlay` inspects the normal document DOM, each `nextjs-portal`, and `nextjs-portal.shadowRoot` when present. It checks `role="dialog"` elements and visible text for known error patterns. Visibility is verified (display not none, visibility not hidden, opacity not zero, rendered rectangle positive). The portal is not removed, hidden, or modified.
+3. **Robust CSP report matching:** The read-only E2E routes now use a query-safe regular expression (`/\/api\/csp-report(?:\?.*)?$/`) to intercept `/api/csp-report` and `/api/csp-report?...`. Only POST requests with pathname `/api/csp-report` are recorded. The interceptor records environment, tested route, HTTP method, and attempt number, then aborts the request. No bodies, headers, cookies, nonce values, or query parameter values are recorded.
+4. **Preview SSO preflight:** For `CSP_TEST_ENV=preview`, a dedicated preflight test verifies the Vercel SSO redirect and skips all application-route assertions with a precise reason.
+5. **JSON-LD source honesty:** The source-contract test no longer asserts that the JSON-LD script lacks a nonce. It asserts the script exists, records whether an explicit nonce is present via a diagnostic message, and does not fail on either state.
 
 ## Files Added
 
 - `tests/csp-nonce-flow.test.mjs` — source-contract tests that verify nonce generation, CSP construction, header forwarding, and component-level nonce propagation without launching a browser.
-- `tests/e2e/csp-nonce-hydration-verification.spec.ts` — Playwright E2E spec that runs the environment matrix, classifies hydration warnings, checks framework overlays, and tracks CSP report attempts.
+- `tests/e2e/csp-nonce-hydration-verification.spec.ts` — Playwright E2E spec that runs the environment matrix, enforces classification, checks framework overlays across light and shadow DOM, and tracks CSP report attempts.
 - `docs/qa/csp-nonce-hydration-verification.md` — this report.
 
 ## Source-Contract Test Summary
@@ -146,17 +165,21 @@ All 19 assertions in `tests/csp-nonce-flow.test.mjs` pass:
 
 - The Vercel preview URL discovered in this PR is protected by SSO, so the environment matrix is incomplete for that specific deployment. The limitation is documented; no bypass was attempted.
 - The test does not fix the underlying nonce mismatch; it only records and classifies it.
+- Some external `_next` scripts were observed without an explicit nonce attribute; this was recorded but not proven safe under a future enforced CSP because the current policy is report-only.
 
 ## Validation Summary
 
+- `git status --short`: clean.
+- `git diff --check`: no whitespace errors.
+- `git diff --name-only`: only the three allowed files changed.
 - `npm run lint`: passes (0 errors, only pre-existing warnings).
 - `npm run typecheck`: passes.
 - `npm run build`: passes.
 - `node --test tests/csp-nonce-flow.test.mjs`: 19 passed.
-- Local dev E2E: 10 passed, 1 skipped (preview preflight).
-- Local production E2E: 10 passed, 1 skipped (preview preflight).
-- Preview E2E: 1 passed (SSO preflight), 10 skipped (application routes blocked by SSO).
-- Production E2E: 10 passed, 1 skipped (preview preflight).
+- Local dev E2E: 10 passed, 1 skipped (preview preflight), 0 failed; hydration warnings 10/10, nonce mismatches 10/10, framework overlays none, CSP report attempts 0.
+- Local production E2E: 10 passed, 1 skipped (preview preflight), 0 failed; hydration warnings 0/10, nonce mismatches 0/10, framework overlays none, CSP report attempts 0.
+- Preview E2E: 1 passed (SSO preflight), 10 skipped (application routes blocked by SSO), 0 failed.
+- Production E2E: 10 passed, 1 skipped (preview preflight), 0 failed; hydration warnings 0/10, nonce mismatches 0/10, framework overlays none, CSP report attempts 0.
 - No raw nonce values appear in output.
 - No CSP reports were stored.
 - PR #286 remains unchanged.
