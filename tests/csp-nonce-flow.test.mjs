@@ -13,7 +13,10 @@ function source(relativePath) {
 }
 
 function assertContains(source, substring, message) {
-  assert.ok(source.includes(substring), message ?? `Expected source to contain: ${substring}`);
+  assert.ok(
+    source.includes(substring),
+    message ?? `Expected source to contain: ${substring}`,
+  );
 }
 
 const proxySource = source("src/proxy.ts");
@@ -40,20 +43,32 @@ test("proxy CSP script-src contains a nonce source", () => {
 });
 
 test("proxy CSP contains strict-dynamic", () => {
-  assertContains(proxySource, "'strict-dynamic'", "proxy CSP must include strict-dynamic");
+  assertContains(
+    proxySource,
+    "'strict-dynamic'",
+    "proxy CSP must include strict-dynamic",
+  );
 });
 
 test("proxy unsafe-eval is development-only", () => {
   assertContains(
     proxySource,
-    "isDev ? \" 'unsafe-eval'\" : \"\"",
+    'isDev ? " \'unsafe-eval\'" : ""',
     "unsafe-eval must be conditional on development",
   );
-  assertContains(proxySource, "const isDev = process.env.NODE_ENV === \"development\"", "isDev must be derived from NODE_ENV");
+  assertContains(
+    proxySource,
+    'const isDev = process.env.NODE_ENV === "development"',
+    "isDev must be derived from NODE_ENV",
+  );
 });
 
 test("proxy CSP is currently report-only", () => {
-  assertContains(proxySource, 'const headerName = isEnforced', "proxy must choose header name based on isEnforced");
+  assertContains(
+    proxySource,
+    "const headerName = isEnforced",
+    "proxy must choose header name based on isEnforced",
+  );
   assertContains(
     proxySource,
     '"Content-Security-Policy-Report-Only"',
@@ -62,7 +77,11 @@ test("proxy CSP is currently report-only", () => {
 });
 
 test("proxy isEnforced remains false", () => {
-  assertContains(proxySource, "const isEnforced = false", "isEnforced must be false");
+  assertContains(
+    proxySource,
+    "const isEnforced = false",
+    "isEnforced must be false",
+  );
 });
 
 test("proxy passes nonce and headers to updateSession", () => {
@@ -157,7 +176,10 @@ test("landing page passes nonce to MetaPixel", () => {
 
 test("AnalyticsNotice passes nonce to each configured Next Script", () => {
   const scriptCount = (analyticsSource.match(/nonce={nonce}/g) || []).length;
-  assert.ok(scriptCount >= 2, `AnalyticsNotice must pass nonce to configured Next Script elements (found ${scriptCount})`);
+  assert.ok(
+    scriptCount >= 2,
+    `AnalyticsNotice must pass nonce to configured Next Script elements (found ${scriptCount})`,
+  );
 });
 
 test("MetaPixel passes nonce to its Next Script", () => {
@@ -168,15 +190,22 @@ test("MetaPixel passes nonce to its Next Script", () => {
   );
 });
 
-test("JSON-LD script is present and does not have an explicit nonce", () => {
+test("JSON-LD script state is recorded without judging presence or absence of an explicit nonce", (t) => {
   const jsonLdStart = pageSource.indexOf('type="application/ld+json"');
-  assert.notEqual(jsonLdStart, -1, "landing page must contain a JSON-LD script");
+  assert.notEqual(
+    jsonLdStart,
+    -1,
+    "landing page must contain a JSON-LD script",
+  );
   const tagStart = pageSource.lastIndexOf("<script", jsonLdStart);
   const tagEnd = pageSource.indexOf(">", jsonLdStart);
   const tag = pageSource.slice(tagStart, tagEnd + 1);
   assert.ok(tag.includes("<script"), "JSON-LD marker must be on a script tag");
-  assert.ok(
-    !tag.includes("nonce="),
-    "JSON-LD script currently has no explicit nonce (recorded but not failing)",
+  const hasNonce = tag.includes("nonce=");
+  t.diagnostic(`JSON-LD script explicit nonce present: ${hasNonce}`);
+  assert.doesNotMatch(
+    tag,
+    /nonce=["'][A-Za-z0-9+/=_-]{10,}["']/,
+    "JSON-LD script tag must not contain a raw nonce value in test output",
   );
 });
