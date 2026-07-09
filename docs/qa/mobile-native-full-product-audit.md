@@ -4,7 +4,7 @@ Date: 2026-07-07
 
 Branch: `qa/mobile-native-full-product-audit`
 
-Base main SHA: `b240ae533351917f846fe240daf602f39ca4abe1`
+Base main SHA: `12cddabc28bf49d58af5e30fbb8d4f7f04a42af1`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -14,7 +14,7 @@ Final recommendation: MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers and four P2 findings that prevented calling the mobile/PDF audit passed: the mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, dashboard widget reorder was drag-only, the Share Invoice modal used misleading print/PDF wording, the desktop sidebar reorder lacked a non-drag alternative, and the authenticated viewport matrix was too heavy as one 224-navigation test. All P1 and P2 findings have since been fixed on main or in this audit suite and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because remaining P3 findings and several untested areas remain.
+The continuation found two P1 blockers, four P2 findings, and several P3 polish gaps that prevented calling the mobile/PDF audit passed. The mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, dashboard widget reorder was drag-only, the Share Invoice modal used misleading print/PDF wording, the desktop sidebar reorder lacked a non-drag alternative, the authenticated viewport matrix was too heavy as one 224-navigation test, print/share touch targets were undersized, and the shared branding/profile crop dialog was drag-first. All P1 and P2 findings, plus MN-003 and MN-005, have since been fixed on main or in this audit suite and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because MN-007 and several untested areas remain.
 
 | Metric | Result |
 | --- | --- |
@@ -31,9 +31,11 @@ The continuation found two P1 blockers and four P2 findings that prevented calli
 | P0 findings | 0 observed, not a complete proof because some authenticated print/export surfaces remain untested |
 | P1 findings | 0 |
 | P2 findings | 0 |
-| P3 findings | 2 |
+| P3 findings | 1 |
 | Fixed P1 findings | 2 |
-| Fixed findings | 7 |
+| Fixed findings | 8 |
+| Fixed finding IDs | MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, MN-009 |
+| Remaining P3 finding | MN-007 |
 | Blocked or not-tested areas | 8 |
 
 ## Environment Tested
@@ -104,8 +106,9 @@ Executed in Chromium:
 | Dashboard resize | PASS with caveat | Size controls are visible in focused mobile dashboard smoke; drag resize still needs manual touch confirmation. | Manual touch-resize confirmation remains pending. |
 | POS | PASS with caveat | Focused POS mobile controls visible; service-sale and settlement regressions passed; full manual POS matrix not complete. | Real-device and fuller manual checkout layout coverage remain pending. |
 | Held bills | PASS | Focused physical-product held bill safety rerun passed 1/1 after clean local reset. | Keep manual real-device confirmation pending. |
-| Products/catalog | PARTIAL | The Products route completed in the current authenticated owner matrix. Full product image upload, crop, modal, and mobile keyboard interaction were not rerun. | Continue product image upload/mobile-keyboard workflow separately. MN-005 is the shared `ImageUpload` crop dialog used by branding/profile/onboarding, not the product image field. |
+| Products/catalog | PARTIAL | The Products route completed in the current authenticated owner matrix. Full product image upload, modal, and mobile keyboard interaction were not rerun. | Continue product image upload/mobile-keyboard workflow separately. MN-005 is the shared `ImageUpload` crop dialog used by branding/profile/onboarding, not the product image field. Product image upload remains a separate partially tested workflow. |
 | Product images | PARTIAL | Prior QA history and code inventory inspected; no fresh upload mutation in this continuation. | Re-run image upload mobile matrix. |
+| Shared branding/profile crop controls | FIXED ON MAIN — VERIFIED | PR #293 added explicit Move image up/left/right/down and Reset crop controls, 5-point nudge step, 0-100 clamp, reset to X 50 / Y 50 / zoom 1, visible/screen-reader crop status, keyboard activation, 44 px controls, and portal rendering to `document.body` above mobile tabs. Square Profile Picture crop at 390x844 and landscape Invoice Logo crop at 375x667 passed focused browser evidence with zero page errors, visible framework errors, native dialogs, and storage writes. | The no-write regression did not click Use crop. Persisted upload completion remains covered by unchanged source/callback contracts, not by this MN-005 closure. |
 | Invoices | PASS with caveat | Local invoice screen and print-media artifacts captured; cookie banner no longer covers invoice print/PDF output. | Continue return/repair/cash drawer/report print QA. |
 | PDFs/printing | PASS with caveat | Invoice A4/80mm PDF generated locally; cookie banner hidden in print media; Share Invoice action now says Print / Save as PDF while retaining browser print/save-to-PDF behavior. | Generate print artifacts for returns/repairs/daily-closing/reports/supplier statements. |
 | Print/share touch targets | FIXED ON MAIN — VERIFIED | PR #292 normalized reports, repairs, daily closing, and supplier statement print/share controls to an explicit `min-h-[44px]`. Returns already used `min-h-[44px]` and remained unchanged. Browser-rendered checks passed for Reports, Daily Closing, and Supplier Statement at 320x568, 390x844, and 430x932. Repair detail, return detail, and conditional daily shift-report controls were verified by source-contract test because deterministic local fixtures were unavailable. | Re-run repair/return detail pages visually when safe fixtures exist. |
@@ -149,7 +152,7 @@ Executed in Chromium:
 | Dashboard widgets | `react-grid-layout` drag and resize handles plus Move Earlier / Move Later controls | FIXED: touch-friendly reorder controls verified; size controls still need broader mobile browser confirmation |
 | Desktop sidebar nav order | Pointer drag reorder plus Move Earlier / Move Later buttons in Rearrange mode | FIXED: keyboard and button reorder controls added; existing drag retained |
 | Mobile drawer nav order | Up/down buttons in customize mode | Better mobile alternative present |
-| Shared branding/profile image crop | Pointer drag reposition plus zoom in the shared `ImageUpload` crop dialog | P3: touch drag likely works, but nudge/reset controls would improve accessibility for shop logos, invoice logos, and profile images |
+| Shared branding/profile image crop | Pointer drag reposition plus zoom plus explicit direction and reset controls in the shared `ImageUpload` crop dialog | FIXED: PR #293 added non-drag controls, keyboard activation, reset, 44 px controls, and portal stacking above the mobile tab bar while retaining pointer drag and zoom |
 | Shop map location | Draggable marker and location adjustment | Needs mobile verification |
 | Backup import upload | Drag/drop copy plus file picker | Needs browser verification; do not run destructive import |
 
@@ -259,22 +262,30 @@ Executed in Chromium:
 | Field | Detail |
 | --- | --- |
 | Severity | P3 |
-| Status | OPEN |
+| Status | FIXED ON MAIN — VERIFIED |
 | Module | Shared image upload, branding, profile picture, and onboarding |
 | Device/browser | Mobile touch and keyboard users |
 | Viewport | 375x667 and 390x844 targets |
 | User role | Owner/Admin/Manager |
 | Steps | Upload an image through a current shared `ImageUpload` surface, open the crop dialog, and try to position the image without dragging. |
 | Expected | The user can reposition the crop by touch drag and by clear button/keyboard controls, and can restore a known default position and zoom. |
-| Actual | The crop dialog supports pointer drag and a zoom range, but lacks explicit directional nudge and reset controls. |
-| Evidence | `src/components/shared/image-upload.tsx` |
-| Console/network error | None observed. |
-| Environment | Local/code audit. |
-| Risk to shop user | Users who cannot drag precisely may struggle to position shop logos, invoice logos, or profile images on small screens. |
+| Actual (original) | The crop dialog supported pointer drag and a zoom range, but lacked explicit directional nudge and reset controls. |
+| Evidence (original) | `src/components/shared/image-upload.tsx` |
+| Console/network error | None observed in final focused verification. |
+| Environment | Local/code audit, localhost focused browser E2E, and source-contract regression. |
+| Risk to shop user (original) | Users who cannot drag precisely may struggle to position shop logos, invoice logos, or profile images on small screens. |
 | Recommended fix scope | Add non-drag directional nudge controls and a reset action inside the shared crop dialog without changing upload, storage, URL, bucket, image-processing, or form-save behavior. |
 | Suggested branch | `fix/shared-image-crop-accessible-controls` |
 | Suggested regression test | `tests/e2e/shared-image-crop-accessible-controls.spec.ts` |
 | Call sites verified | `ImageUpload` is used in `src/app/settings/settings-form.tsx` for app/shop logo, invoice logo, and profile picture; and in `src/app/onboarding/onboarding-wizard.tsx` for profile picture and shop logo. `src/app/products/product-image-field.tsx` does **not** use `ImageUpload` and is not the affected surface. |
+| Resolution | Fixed on main in merge commit `12cddabc28bf49d58af5e30fbb8d4f7f04a42af1` from PR #293, reviewed head `5395bef310abc950e5275b27e6bdc465371840da`. The shared crop dialog now has Move image up, Move image left, Reset crop, Move image right, and Move image down controls. The nudge step is 5, clamping remains 0 through 100, and reset restores X 50 / Y 50 / zoom 1. Crop status is visible and screen-reader-accessible. Controls are keyboard operable and at least 44 px. The overlay renders through `createPortal(..., document.body)` above the mobile tab bar. |
+| Direction contract | Move image right decreases X, Move image left increases X, Move image down decreases Y, and Move image up increases Y. This intentionally matches the retained pointer-drag behavior, where CSS `object-position` moves the alignment point inversely to the visible image. |
+| Retained behavior | Pointer drag, zoom range 1-3, zoom step 0.05, selected file preservation, Cancel, Escape, backdrop close, and the Use crop production path remain available. |
+| Square crop evidence | Settings Profile Picture crop at 390x844 passed. Enter and Space keyboard operation worked, reset returned to 50 / 50 / 1, the square mask remained active, the focus ring was visible, and all five controls were at least 44 px with no clipping or horizontal overflow. |
+| Landscape crop evidence | Settings Invoice Logo crop at 375x667 passed. Drag and button directions agreed, the landscape mask remained active, and all five controls were at least 44 px with no clipping or horizontal overflow. |
+| Portal evidence | Browser verification confirmed the overlay is a direct child of `document.body`, overlay z-index 80 is above mobile-tab z-index 40, the bottom-tab hit area resolves inside the crop overlay while open, and normal tab interaction returns after close. |
+| Safety evidence | No framework error portal was removed or hidden. Page errors: 0. Visible framework errors: 0. Native browser dialogs: 0. Storage monitoring began before Settings navigation and file selection. Supabase Storage object writes: 0. No saved-settings success state and no uploaded-success state appeared. |
+| Use crop limitation | The automated no-write crop regression did not click Use crop. It intentionally verified positioning, accessibility, portal behavior, reset, close paths, and absence of unintended storage writes. Existing upload, canvas, storage, callback, bucket, folder, and save behavior was unchanged by source review and regression contracts. Actual persisted upload completion was not required to close MN-005 because MN-005 concerned the absence of non-drag positioning controls. Product image upload remains a separate partially tested workflow. |
 
 ### MN-006 - Full authenticated viewport matrix is too heavy as one dev-server test
 
@@ -511,14 +522,31 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | Focused rerun of failed group: `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1 -g "owner matrix: tablet viewports / operations routes"` | PASS - 1/1 in 41.5s. The `/daily-closing` timeout did not reproduce in the focused group. |
 | Local visual spot-check at 320x568 and 390x844 | PASS for `/reports`, `/daily-closing`, and `/suppliers/00000000-0000-4000-8000-000000002001/statement`; measured controls at 44 px, no horizontal overflow, no clipped labels, and print/share controls hidden in print media |
 
+## Commands Run During MN-005 Main Sync
+
+| Command | Result |
+| --- | --- |
+| `git fetch origin --prune` | PASS - origin/main at `12cddabc28bf49d58af5e30fbb8d4f7f04a42af1`; audit branch pre-rebase head at `259c1e4d71dfb0975cba23a32fc7fbc459d823ec` |
+| `git switch qa/mobile-native-full-product-audit` | PASS - switched from `fix/shared-image-crop-accessible-controls` to the verified audit branch |
+| `git rebase origin/main` | PASS - no conflicts; rebased audit head before this documentation update was `30aa691357f0372f0a535d169ecdf84b4988b49f` |
+| `git diff --check` | PASS |
+| `npm run lint` | PASS - 0 errors, 2 existing Privacy Center hook warnings |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS |
+| `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs tests/dashboard-widget-reorder.test.mjs tests/print-action-touch-targets.test.mjs tests/shared-image-crop-accessible-controls.test.mjs` | PASS - 77/77 tests passed, including 17/17 shared crop source-contract checks |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/shared-image-crop-accessible-controls.spec.ts --project=chromium --workers=1` | PASS - 6/6 tests passed in 50.7s; page errors 0, visible framework errors 0, native dialogs 0, Supabase Storage object writes 0 |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium --workers=1` | PASS - 9/9 tests passed in 47.3s |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1` | PASS - 16/16 tests passed in 3.8m; no skips, retries, failures, or timeouts |
+| Historical supplemental JSON timing experiment | NOT RERUN - the previous intermittent tablet `/daily-closing` timeout remains recorded above as audit history |
+
 ## Known Limitations
 
-- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-003 (print/share touch targets), MN-004 (desktop sidebar drag-only reorder), MN-006 (heavy authenticated viewport matrix), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main or in the audit suite and verified with focused regression tests.
+- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-003 (print/share touch targets), MN-004 (desktop sidebar drag-only reorder), MN-005 (shared branding/profile crop non-drag controls), MN-006 (heavy authenticated viewport matrix), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main or in the audit suite and verified with focused regression tests.
 - The authenticated owner route/viewport matrix now completes locally in split tests, but production remains read-only and not used for mutation testing.
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
 - Browser zoom at 125 percent was not run in this pass.
-- Invoice PDF/print artifacts were regenerated and passed. Print/share touch-target browser checks passed for reports, daily closing, and supplier statement. Return and repair print artifacts were not regenerated because deterministic local detail fixtures were unavailable.
+- Invoice PDF/print artifacts were regenerated and passed. Print/share touch-target browser checks passed for reports, daily closing, and supplier statement. Shared branding/profile crop controls were verified for square and landscape crop shapes without clicking Use crop. Return and repair print artifacts were not regenerated because deterministic local detail fixtures were unavailable.
 - A supplemental JSON timing run of the full mobile audit exposed one intermittent local `/daily-closing` tablet operations timeout after the required line-reporter full audit had already passed. The exact focused group passed on rerun in 41.5s. Treat the broader full-file timing as not perfectly clean, while MN-003 remains closed by the focused touch-target contract and rendered-route evidence.
 - No product, invoice, cash drawer, return, settlement, or stock mutation was performed in production.
 - The `fix/mobile-drawer-close-and-duplicate-dialog` branch was not deleted during this audit; it is safe to delete once Fardan approves.
@@ -527,9 +555,9 @@ The authenticated tests deliberately skip instead of guessing when local login i
 
 ## Top Priority Focused Fix PRs
 
-1. `fix/shared-image-crop-accessible-controls` - add non-drag nudge/reset controls to the shared `ImageUpload` crop dialog used for branding, profile, and onboarding images.
-2. `fix/csp-nonce-hydration-warning` - verify and address the local CSP nonce hydration warning if it reproduces outside dev.
-3. `qa/mobile-native-authenticated-remainder` - finish the remaining blocked authenticated print/export, dark-mode, zoom, slow-network, and real-device checks.
+1. `fix/csp-nonce-hydration-warning` - verify and address the local CSP nonce hydration warning if it reproduces outside dev.
+2. `qa/mobile-native-authenticated-remainder` - finish the remaining blocked authenticated print/export, dark-mode, zoom, slow-network, and real-device checks.
+3. `qa/product-image-upload-mobile-e2e` - finish product image upload mobile/browser coverage separately from MN-005, including persisted upload completion where safe local fixtures allow it.
 
 ## Fardan Live-Site Eyeball Checklist
 
@@ -557,6 +585,6 @@ Production should stay read-only unless a specific QA transaction is approved.
 
 ## Risk Position
 
-The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The P2 dashboard reorder, invoice wording, desktop sidebar reorder, and authenticated matrix findings are also resolved and verified. MN-003 print/share touch targets are fixed on main through PR #292. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, the cookie/privacy banner is hidden from invoice print/PDF output, the dashboard and desktop sidebar now provide Move Earlier / Move Later controls alongside existing drag, invoice print wording matches browser behavior, print/share controls have a 44 px source contract, and the owner viewport matrix no longer runs as one brittle 224-navigation test. The audit no longer recommends blocking the mobile/PDF surface on these issues.
+The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The P2 dashboard reorder, invoice wording, desktop sidebar reorder, and authenticated matrix findings are also resolved and verified. MN-003 print/share touch targets are fixed on main through PR #292. MN-005 shared branding/profile crop controls are fixed on main through PR #293. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, the cookie/privacy banner is hidden from invoice print/PDF output, the dashboard and desktop sidebar now provide Move Earlier / Move Later controls alongside existing drag, invoice print wording matches browser behavior, print/share controls have a 44 px source contract, the shared crop dialog has keyboard/touch nudge and reset controls above the mobile tab bar, and the owner viewport matrix no longer runs as one brittle 224-navigation test. The audit no longer recommends blocking the mobile/PDF surface on these issues.
 
-Risk remains open for P3 findings and unverified areas including shared branding/profile image crop nudge/reset controls, CSP nonce dev warnings, unavailable repair/return print artifacts, unavailable visible daily shift-report fixture, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, and full dark-mode matrix. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.
+Risk remains open for the remaining P3 finding and unverified areas including CSP nonce dev warnings, unavailable repair/return print artifacts, unavailable visible daily shift-report fixture, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, full dark-mode matrix, and broader product-image upload persistence coverage. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.
