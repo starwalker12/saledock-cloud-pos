@@ -4,17 +4,17 @@ Date: 2026-07-07
 
 Branch: `qa/mobile-native-full-product-audit`
 
-Base main SHA: `12cddabc28bf49d58af5e30fbb8d4f7f04a42af1`
+Base main SHA: `6ccca9b7f9e1127a848890fe2918ee54501f6507`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
-Final recommendation: MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST
+Final recommendation: TRACKED FINDINGS DISPOSITIONED — 8 BLOCKED/NOT-TESTED AREAS REMAIN
 
 ## Executive Summary
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers, four P2 findings, and several P3 polish gaps that prevented calling the mobile/PDF audit passed. The mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, dashboard widget reorder was drag-only, the Share Invoice modal used misleading print/PDF wording, the desktop sidebar reorder lacked a non-drag alternative, the authenticated viewport matrix was too heavy as one 224-navigation test, print/share touch targets were undersized, and the shared branding/profile crop dialog was drag-first. All P1 and P2 findings, plus MN-003 and MN-005, have since been fixed on main or in this audit suite and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because MN-007 and several untested areas remain.
+The continuation found two P1 blockers, four P2 findings, and several P3 polish gaps that prevented calling the mobile/PDF audit passed. The mobile navigation close button was intercepted by the drawer overlay, the cookie banner appeared in invoice print/PDF output and covered invoice totals, dashboard widget reorder was drag-only, the Share Invoice modal used misleading print/PDF wording, the desktop sidebar reorder lacked a non-drag alternative, the authenticated viewport matrix was too heavy as one 224-navigation test, print/share touch targets were undersized, and the shared branding/profile crop dialog was drag-first. All P1 and P2 findings, plus MN-003, MN-005, MN-006, MN-008, and MN-009, have since been fixed on main or in this audit suite and verified with focused regression tests. The audit still does not claim full mobile or PDF readiness because several untested areas remain, but all tracked findings are now dispositioned.
 
 | Metric | Result |
 | --- | --- |
@@ -31,11 +31,13 @@ The continuation found two P1 blockers, four P2 findings, and several P3 polish 
 | P0 findings | 0 observed, not a complete proof because some authenticated print/export surfaces remain untested |
 | P1 findings | 0 |
 | P2 findings | 0 |
-| P3 findings | 1 |
+| P3 findings | 0 |
 | Fixed P1 findings | 2 |
 | Fixed findings | 8 |
 | Fixed finding IDs | MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, MN-009 |
-| Remaining P3 finding | MN-007 |
+| Verified development-only findings | 1 |
+| Verified development-only finding IDs | MN-007 |
+| Total tracked findings dispositioned | 9 |
 | Blocked or not-tested areas | 8 |
 
 ## Environment Tested
@@ -43,7 +45,7 @@ The continuation found two P1 blockers, four P2 findings, and several P3 polish 
 | Item | Result |
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
-| Starting main | `b240ae533351917f846fe240daf602f39ca4abe1` |
+| Starting main | `6ccca9b7f9e1127a848890fe2918ee54501f6507` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -129,6 +131,7 @@ Executed in Chromium:
 | Dark mode | BLOCKED | Not fully browser-verified. | Re-run light/dark matrix. |
 | Desktop sidebar reorder | FIXED ON MAIN — VERIFIED | PR #291 added visible Move Earlier and Move Later controls inside the existing desktop Rearrange mode. Controls work by mouse click and keyboard Enter/Space. First/last visible items disable the boundary controls. Existing pointer drag remains available. Reorder moves one visible item by one visible position, persists after reload, preserves archived items, stored collapsed state, and cookie-consent values. English, Urdu, and Roman Urdu labels verified. Dark mode and reduced motion verified. No href duplicates or missing links introduced. | P3 areas remain open. |
 | Cross-browser behavior | PARTIAL | Public/auth viewport matrix passed in WebKit and Firefox; authenticated cross-browser not run. | Authenticated WebKit/Firefox coverage remains pending. |
+| CSP / public pages | VERIFIED — DEVELOPMENT-ONLY | PR #294 merged; CSP nonce hydration warning reproduced 10/10 in `next dev` only; local production 0/10; production 0/10; no CSP violation reports observed in production; preview remains SSO-protected and could not be exercised. | No source change; treat dev-only warning as a known Next.js dev-mode observation. |
 
 ## PDF, Print, Download, and Export Surfaces
 
@@ -312,25 +315,29 @@ Executed in Chromium:
 | Business safety | No application source, auth, permission, route visibility, tenant scope, business-data, database, financial, stock, or report logic changed. |
 | Remaining limitations | Real-device hardware, WebKit/Firefox authenticated runs, 125% zoom, slow network, and full dark-mode matrix were not re-run. |
 
-### MN-007 - Local dev console shows CSP nonce hydration warning on public pages
+### MN-007 - Local dev console shows CSP nonce hydration warning on public pages (development-only)
 
 | Field | Detail |
 | --- | --- |
 | Severity | P3 |
+| Status | VERIFIED — DEVELOPMENT-ONLY / NO PRODUCTION IMPACT OBSERVED |
 | Module | Public/auth pages, app root layout |
-| Device/browser | Chromium local dev |
+| Device/browser | Chromium local dev, Chromium local production build, Chromium production |
 | Viewport | Multiple viewport matrix entries |
 | User role | Logged-out |
-| Steps | Run public/auth Playwright viewport smoke against local Next dev server. |
-| Expected | No console hydration warnings during clean page load. |
-| Actual | Local dev server emitted React hydration warnings for a script nonce attribute mismatch. The pages still loaded and the viewport smoke passed. |
-| Evidence | Local dev server logs during `tests/e2e/mobile-native-audit.spec.ts`; nonce values are intentionally not recorded. |
-| Console/network error | React hydration warning, local dev only in this run. |
-| Environment | Local read-only browser smoke. |
-| Risk to shop user | Likely low if production build behaves differently, but console noise can hide real frontend issues and should be verified on preview/production. |
-| Recommended fix scope | Confirm on Vercel preview; if reproducible, align server/client nonce handling in a focused security-safe PR. |
-| Suggested branch | `fix/csp-nonce-hydration-warning` |
-| Suggested regression test | Console-clean public route smoke that ignores known framework dev-only noise only when explicitly justified. |
+| Steps | Run public/auth Playwright viewport smoke against local Next dev server; run local production build; run live production curl; inspect Vercel preview authentication barrier. |
+| Expected | Hydration warning should be absent in production and local production builds; dev-only console noise is acceptable if documented. |
+| Actual | Warning reproduced 10/10 against local dev server; not reproduced in local production build (0/10); not observed in production (0/10); Vercel preview requires SSO authentication so application tests could not be exercised. |
+| Evidence | Local dev logs during `tests/e2e/mobile-native-audit.spec.ts`; PR #294 (`docs/qa/csp-nonce-hydration-verification.md` and `tests/e2e/csp-nonce-hydration-verification.spec.ts`); `tests/csp-nonce-flow.test.mjs` source-contract check; no CSP violation reports collected from production. |
+| Console/network error | React hydration warning, local dev only. |
+| Environment | Local dev, local production build, live production, SSO-protected preview. |
+| Risk to shop user | No observed production risk. The warning only appears in local dev mode where Next.js uses a different hydration path. |
+| Recommended fix scope | None. No source change justified. |
+| Suggested branch | N/A |
+| Suggested regression test | N/A |
+| Resolution | Classified as a known development-only observation. PR #294 provides a reproducible verification record and the test file `tests/csp-nonce-flow.test.mjs` enforces the CSP nonce propagation source contract. |
+| Regression evidence | `tests/csp-nonce-flow.test.mjs` source-contract check passed; `tests/e2e/csp-nonce-hydration-verification.spec.ts` public route smoke passed; `tests/e2e/mobile-native-audit.spec.ts` public route smoke passed; production curl returned 200 with no observed CSP violations. |
+| Remaining limitations | Vercel preview application tests were blocked by SSO protection (1 preflight 200, 10 application tests skipped). External `_next` scripts without an explicit nonce were observed in dev/local production HTML but were not proven safe under an enforced CSP. |
 
 ### MN-008 - Mobile navigation drawer close button is blocked by overlay
 
@@ -539,9 +546,30 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1` | PASS - 16/16 tests passed in 3.8m; no skips, retries, failures, or timeouts |
 | Historical supplemental JSON timing experiment | NOT RERUN - the previous intermittent tablet `/daily-closing` timeout remains recorded above as audit history |
 
+## Commands Run During MN-007 Final Refresh
+
+| Command | Result |
+| --- | --- |
+| `git fetch origin main qa/mobile-native-full-product-audit` | PASS - origin/main at `6ccca9b7f9e1127a848890fe2918ee54501f6507`; PR #294 merge commit reachable on main |
+| `git switch qa/mobile-native-full-product-audit` | PASS - working tree clean except for intended audit doc edits |
+| `git rebase origin/main` | PASS - no conflicts; rebased audit head before this documentation update was `4c8bba535a2512ac1b27e07477c8e042ecb947e5` |
+| `git diff --check` | PASS |
+| `git diff origin/main...HEAD --name-only` | PASS - exactly the six established PR #286 files |
+| `npm run lint` | PASS - 0 errors, 2 existing Privacy Center hook warnings |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS |
+| `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs tests/dashboard-widget-reorder.test.mjs tests/print-action-touch-targets.test.mjs tests/shared-image-crop-accessible-controls.test.mjs tests/csp-nonce-flow.test.mjs` | PASS - 96/96 tests passed, including 26/26 CSP nonce source-contract checks |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium --workers=1` | PASS - 9/9 tests passed |
+| `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1` | PASS - 16/16 tests passed in 3.4m; no skips, retries, failures, or timeouts |
+| `CSP_TEST_ENV=dev PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/csp-nonce-hydration-verification.spec.ts --project=chromium --workers=1` | PASS - 10/10 dev application tests passed; 1 preview SSO preflight skipped |
+| `npx next start -p 3001` + `CSP_TEST_ENV=local-production PLAYWRIGHT_BASE_URL=http://localhost:3001 npx playwright test tests/e2e/csp-nonce-hydration-verification.spec.ts --project=chromium --workers=1` | PASS - 10/10 local-production application tests passed; 1 preview SSO preflight skipped |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 (SSO-protected; application tests not exercised) |
+
 ## Known Limitations
 
-- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-003 (print/share touch targets), MN-004 (desktop sidebar drag-only reorder), MN-005 (shared branding/profile crop non-drag controls), MN-006 (heavy authenticated viewport matrix), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main or in the audit suite and verified with focused regression tests.
+- MN-001 (dashboard drag-only reorder), MN-002 (invoice print/save-to-PDF wording), MN-003 (print/share touch targets), MN-004 (desktop sidebar drag-only reorder), MN-005 (shared branding/profile crop non-drag controls), MN-006 (heavy authenticated viewport matrix), MN-008 (mobile drawer), and MN-009 (cookie banner in invoice print) were fixed on main or in the audit suite and verified with focused regression tests. MN-007 (CSP nonce hydration warning) was verified as development-only with no observed production impact.
 - The authenticated owner route/viewport matrix now completes locally in split tests, but production remains read-only and not used for mutation testing.
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
@@ -553,11 +581,11 @@ The authenticated tests deliberately skip instead of guessing when local login i
 - The `fix/dashboard-mobile-reorder-controls` branch was merged through PR #289 and can be deleted after Fardan approves.
 - The `fix/sidebar-rearrange-accessible-controls` branch was merged through PR #291 and can be deleted after Fardan approves.
 
-## Top Priority Focused Fix PRs
+## Top Priority Follow-up Work
 
-1. `fix/csp-nonce-hydration-warning` - verify and address the local CSP nonce hydration warning if it reproduces outside dev.
-2. `qa/mobile-native-authenticated-remainder` - finish the remaining blocked authenticated print/export, dark-mode, zoom, slow-network, and real-device checks.
-3. `qa/product-image-upload-mobile-e2e` - finish product image upload mobile/browser coverage separately from MN-005, including persisted upload completion where safe local fixtures allow it.
+1. `qa/mobile-native-authenticated-remainder` - finish the remaining blocked authenticated print/export, dark-mode, zoom, slow-network, and real-device checks.
+2. `qa/product-image-upload-mobile-e2e` - finish product image upload mobile/browser coverage separately from MN-005, including persisted upload completion where safe local fixtures allow it.
+3. `qa/csp-enforced-preview-verification` - if an enforced CSP is ever deployed, verify `_next` scripts and preview behavior with a real bypass token or public preview.
 
 ## Fardan Live-Site Eyeball Checklist
 
@@ -585,6 +613,6 @@ Production should stay read-only unless a specific QA transaction is approved.
 
 ## Risk Position
 
-The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The P2 dashboard reorder, invoice wording, desktop sidebar reorder, and authenticated matrix findings are also resolved and verified. MN-003 print/share touch targets are fixed on main through PR #292. MN-005 shared branding/profile crop controls are fixed on main through PR #293. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, the cookie/privacy banner is hidden from invoice print/PDF output, the dashboard and desktop sidebar now provide Move Earlier / Move Later controls alongside existing drag, invoice print wording matches browser behavior, print/share controls have a 44 px source contract, the shared crop dialog has keyboard/touch nudge and reset controls above the mobile tab bar, and the owner viewport matrix no longer runs as one brittle 224-navigation test. The audit no longer recommends blocking the mobile/PDF surface on these issues.
+The two P1 blockers (MN-008 and MN-009) are resolved on main and verified with focused regression tests. The P2 dashboard reorder, invoice wording, desktop sidebar reorder, and authenticated matrix findings are also resolved and verified. MN-003 print/share touch targets are fixed on main through PR #292. MN-005 shared branding/profile crop controls are fixed on main through PR #293. MN-007 (CSP nonce hydration warning) is dispositioned as development-only with no observed production impact through merged PR #294. The mobile navigation drawer now renders a single accessible dialog, the close/backdrop/Escape controls work, the cookie/privacy banner is hidden from invoice print/PDF output, the dashboard and desktop sidebar now provide Move Earlier / Move Later controls alongside existing drag, invoice print wording matches browser behavior, print/share controls have a 44 px source contract, the shared crop dialog has keyboard/touch nudge and reset controls above the mobile tab bar, and the owner viewport matrix no longer runs as one brittle 224-navigation test. The audit no longer recommends blocking the mobile/PDF surface on these issues.
 
-Risk remains open for the remaining P3 finding and unverified areas including CSP nonce dev warnings, unavailable repair/return print artifacts, unavailable visible daily shift-report fixture, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, full dark-mode matrix, and broader product-image upload persistence coverage. The overall recommendation is therefore MOBILE AUDIT FOUND FIXES — REVIEW PRIORITY LIST, not a blanket pass.
+Risk remains open for unverified areas including unavailable repair/return print artifacts, unavailable visible daily shift-report fixture, real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, slow network, full dark-mode matrix, enforced-CSP preview behavior, and broader product-image upload persistence coverage. The overall recommendation is therefore TRACKED FINDINGS DISPOSITIONED — 8 BLOCKED/NOT-TESTED AREAS REMAIN, not a blanket pass.
