@@ -35,8 +35,8 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 |-------------|----------|--------|-------------------|-------|
 | Local dev   | `http://localhost:3000` | Pass (observed) | **Yes** — color-theme script nonce mismatch | Full details below |
 | Local production | `http://localhost:3001` | Pass | No | Full details below |
-| Vercel preview | TBD | Pending | TBD | URL will be added after Vercel deploys the branch |
-| Production `https://saledock.site` | TBD | Pending | TBD | Will run after preview verification |
+| Vercel preview | `https://saledock-cloud-pos-git-qa-csp-non-e4e51f-fardan-aatirs-projects.vercel.app` | **Blocked** | N/A | Vercel SSO redirect to `vercel.com/sso-api`; requires bypass token or public access to run E2E |
+| Production `https://saledock.site` | `https://saledock.site` | Pass | No | Full details below |
 
 ## Local Dev Results
 
@@ -58,6 +58,24 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 - **No hydration warning is observed.**
 - Some external `_next` scripts do not carry a nonce attribute (recorded in test annotations). This does not trigger a hydration warning because those scripts are loaded via `src` and are covered by the bootstrap script’s `strict-dynamic` trust propagation.
 - `net::ERR_ABORTED` requests for `_rsc` (React Server Components) and Vercel analytics scripts were observed during context teardown and are filtered out as noise.
+
+## Vercel Preview Results
+
+- **Preview URL:** `https://saledock-cloud-pos-git-qa-csp-non-e4e51f-fardan-aatirs-projects.vercel.app`
+- **Status:** Blocked by Vercel SSO. Any request to the preview URL returns `HTTP 302` to `https://vercel.com/sso-api` and sets a `_vercel_sso_nonce` cookie.
+- **Impact:** The E2E spec cannot verify CSP headers or hydration on the preview deployment without a Vercel protection-bypass token or temporarily disabling the SSO requirement.
+- No CSP nonce or hydration data was collected from this environment.
+
+## Production Results
+
+- `Content-Security-Policy-Report-Only` header present on every route.
+- `unsafe-eval` absent (expected for production builds).
+- Nonces are unique per request.
+- No `x-nonce` response header leak.
+- The color-theme inline script and Next.js root inline scripts carry a matching nonce.
+- **No hydration warning is observed.**
+- Some external `_next` scripts do not carry a nonce attribute (recorded in test annotations); no mismatch observed.
+- `/api/csp-report` POSTs were blocked by the test harness.
 
 ## Files Added
 
@@ -81,13 +99,18 @@ All 19 assertions in `tests/csp-nonce-flow.test.mjs` pass:
 
 - **Dev:** MN-007 is reproducible. The color-theme script hydration warning appears because the server and client render different nonce values for the same inline script. This is consistent with a per-request nonce that the client cannot deterministically recompute.
 - **Local production:** MN-007 is **not** reproducible in the static production build under the tested routes. The server-rendered inline scripts hydrate cleanly.
-- **Preview / production:** Pending.
+- **Vercel preview:** MN-007 verification is **blocked** by Vercel SSO. The preview deployment requires a protection-bypass token or public access before the E2E spec can collect CSP/hydration data.
+- **Production:** MN-007 is **not** reproducible on `https://saledock.site`. The server-rendered inline scripts hydrate cleanly and no nonce-mismatch warnings are emitted.
 
 ## Next Steps
 
-1. Push this branch and open a DRAFT PR.
-2. Wait for the Vercel preview URL.
-3. Run the E2E spec against the preview URL with `CSP_TEST_ENV=preview`.
-4. Run the E2E spec against `https://saledock.site` with `CSP_TEST_ENV=production`.
-5. Update this document with the preview and production results.
-6. Request review from the owner before marking the PR ready or merging.
+1. Keep this PR in DRAFT state.
+2. Obtain a Vercel preview protection-bypass token, or temporarily disable preview SSO, so the preview environment can be tested.
+3. Re-run the preview E2E with `CSP_TEST_ENV=preview PLAYWRIGHT_BASE_URL=<preview-url>`.
+4. Update this document and the PR body with the preview result.
+5. Request review from the owner before marking the PR ready or merging.
+
+## Known Limitations
+
+- The Vercel preview URL discovered in this PR is currently protected by SSO, so the environment matrix is incomplete until access is provided.
+- The test does not fix the underlying nonce mismatch; it only records and classifies it.
