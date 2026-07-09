@@ -10,7 +10,7 @@
 - Test-and-documentation only; no CSP, middleware, auth, database, or production config changes.
 - Public routes only: `/`, `/login`, `/privacy`, `/terms`, `/auth/invite?error=otp_expired`.
 - No login, no production mutation, no checkout/stock/money/report logic touched.
-- CSP report endpoint (`/api/csp-report`) is intercepted and aborted in preview and production tests; no report bodies are recorded.
+- Production application-route tests install a query-safe interceptor for `/api/csp-report`. Preview application-route tests are skipped because Vercel SSO prevents access, so CSP-report interception is not applicable to the preview run. No report body is recorded or stored.
 - All nonce values are redacted in this document and in test output.
 - Preview protection is retained; no Vercel protection-bypass token was requested, stored, or used.
 
@@ -29,7 +29,7 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 5. The color-theme inline script and the Next.js root inline scripts (`_R_` / `__NEXT_DATA__`) have a non-empty nonce that matches the response header nonce.
 6. External `_next` scripts are counted and recorded, but not treated as a hard failure if they lack a nonce.
 7. Console warnings, page errors, native dialogs, and framework error overlays are captured and classified.
-8. CSP report attempts are intercepted, counted, and blocked.
+8. CSP report attempts are intercepted, counted, and blocked on successfully executed SaleDock application-route tests in read-only environments. In the current completed matrix this applies to production; the preview application-route tests are skipped before their bodies execute, so no CSP-report interception occurs in the preview run.
 
 ## Environment Matrix
 
@@ -89,6 +89,11 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 - **Impact:** Vercel preview application verification is blocked by deployment protection; no SaleDock CSP or hydration response was inspected.
 - **Skipped tests:** 10 (all route/viewport combinations).
 - **Preview pass/skip count:** 1 passed (SSO preflight), 10 skipped (application routes), 0 failed.
+- **CSP report interception:** not applicable.
+- **CSP report attempts observed:** 0.
+- **CSP reports blocked:** 0.
+- **CSP reports stored:** 0.
+- **Reason:** no SaleDock application response was inspected and application tests were skipped before their bodies executed.
 - No CSP nonce or hydration data was collected from this environment.
 
 ## Production Results
@@ -101,7 +106,7 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 - **No hydration warning is observed.**
 - No framework error overlays detected (checked across light DOM and `nextjs-portal` shadow DOM, with visibility checks).
 - Some external `_next` scripts were observed without an explicit DOM nonce attribute (recorded in test annotations). No hydration mismatch or runtime failure resulted under the current report-only policy. This observation does not prove compatibility with a future enforced CSP and is outside the MN-007 classification.
-- `/api/csp-report` POSTs were intercepted, counted, and blocked by the test harness. Zero attempts observed.
+- The query-safe `/api/csp-report` interceptor was installed and ready. Zero POST requests to `/api/csp-report` were observed. Because no report attempt occurred, zero requests were aborted. No report bodies were recorded or stored.
 - Hydration-warning count: 0/10 production route/viewport tests.
 - Nonce-mismatch count: 0/10 production route/viewport tests.
 
@@ -109,7 +114,7 @@ For every route and viewport (mobile 390x844 and desktop 1440x900) we verify:
 
 1. **Environment-specific classification enforcement:** The E2E spec now asserts that `hasHydrationWarning` and `hasNonceMismatch` are true for `dev` and false for `local-production` and `production`. Preview application routes remain skipped. Assertion messages include environment, route, and viewport only.
 2. **Shadow-DOM framework-overlay check:** `assertNoFrameworkErrorOverlay` inspects the normal document DOM, each `nextjs-portal`, and `nextjs-portal.shadowRoot` when present. It checks `role="dialog"` elements and visible text for known error patterns. Visibility is verified (display not none, visibility not hidden, opacity not zero, rendered rectangle positive). The portal is not removed, hidden, or modified.
-3. **Robust CSP report matching:** The read-only E2E routes now use a query-safe regular expression (`/\/api\/csp-report(?:\?.*)?$/`) to intercept `/api/csp-report` and `/api/csp-report?...`. Only POST requests with pathname `/api/csp-report` are recorded. The interceptor records environment, tested route, HTTP method, and attempt number, then aborts the request. No bodies, headers, cookies, nonce values, or query parameter values are recorded.
+3. **Robust CSP report matching:** The read-only E2E routes use a query-safe regular expression (`/\/api\/csp-report(?:\?.*)?$/`) to intercept `/api/csp-report` and `/api/csp-report?...`. Only POST requests with pathname `/api/csp-report` are recorded. The interceptor records environment, tested route, HTTP method, and attempt number, then aborts the request. No bodies, headers, cookies, nonce values, or query parameter values are recorded. Because the preview application-route tests are skipped before their bodies execute, this interceptor was never installed in the preview run; CSP-report interception is therefore recorded as not applicable for preview.
 4. **Preview SSO preflight:** For `CSP_TEST_ENV=preview`, a dedicated preflight test verifies the Vercel SSO redirect and skips all application-route assertions with a precise reason.
 5. **JSON-LD source honesty:** The source-contract test no longer asserts that the JSON-LD script lacks a nonce. It asserts the script exists, records whether an explicit nonce is present via a diagnostic message, and does not fail on either state.
 
@@ -178,7 +183,7 @@ All 19 assertions in `tests/csp-nonce-flow.test.mjs` pass:
 - `node --test tests/csp-nonce-flow.test.mjs`: 19 passed.
 - Local dev E2E: 10 passed, 1 skipped (preview preflight), 0 failed; hydration warnings 10/10, nonce mismatches 10/10, framework overlays none, CSP report attempts 0.
 - Local production E2E: 10 passed, 1 skipped (preview preflight), 0 failed; hydration warnings 0/10, nonce mismatches 0/10, framework overlays none, CSP report attempts 0.
-- Preview E2E: 1 passed (SSO preflight), 10 skipped (application routes blocked by SSO), 0 failed.
+- Preview E2E: 1 passed (SSO preflight), 10 skipped (application routes blocked by SSO), 0 failed. CSP report interception was not applicable because the application-route test bodies did not execute.
 - Production E2E: 10 passed, 1 skipped (preview preflight), 0 failed; hydration warnings 0/10, nonce mismatches 0/10, framework overlays none, CSP report attempts 0.
 - No raw nonce values appear in output.
 - No CSP reports were stored.
