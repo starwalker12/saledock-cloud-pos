@@ -129,9 +129,9 @@ Executed in Chromium:
 | Modals/drawers | PASS with blocked app modals | Public drawer route smoke passed; authenticated modals blocked. | Re-run product/POS/settings modals. |
 | Loading/success/errors | BLOCKED | Code-level inspection only for most app pages. | Re-run slow-network browser QA. |
 | Dark mode | BLOCKED | Not fully browser-verified. | Re-run light/dark matrix. |
-| Desktop sidebar reorder | FIXED ON MAIN — VERIFIED | PR #291 added visible Move Earlier and Move Later controls inside the existing desktop Rearrange mode. Controls work by mouse click and keyboard Enter/Space. First/last visible items disable the boundary controls. Existing pointer drag remains available. Reorder moves one visible item by one visible position, persists after reload, preserves archived items, stored collapsed state, and cookie-consent values. English, Urdu, and Roman Urdu labels verified. Dark mode and reduced motion verified. No href duplicates or missing links introduced. | P3 areas remain open. |
+| Desktop sidebar reorder | FIXED ON MAIN — VERIFIED | PR #291 added visible Move Earlier and Move Later controls inside the existing desktop Rearrange mode. Controls work by mouse click and keyboard Enter/Space. First/last visible items disable the boundary controls. Existing pointer drag remains available. Reorder moves one visible item by one visible position, persists after reload, preserves archived items, stored collapsed state, and cookie-consent values. English, Urdu, and Roman Urdu labels verified. Dark mode and reduced motion verified. No href duplicates or missing links introduced. | No active tracked P3 finding remains; broader blocked/not-tested areas remain listed below. |
 | Cross-browser behavior | PARTIAL | Public/auth viewport matrix passed in WebKit and Firefox; authenticated cross-browser not run. | Authenticated WebKit/Firefox coverage remains pending. |
-| CSP / public pages | VERIFIED — DEVELOPMENT-ONLY | PR #294 merged; CSP nonce hydration warning reproduced 10/10 in `next dev` only; local production 0/10; production 0/10; no CSP violation reports observed in production; preview remains SSO-protected and could not be exercised. | No source change; treat dev-only warning as a known Next.js dev-mode observation. |
+| CSP / public pages | VERIFIED — DEVELOPMENT-ONLY | PR #294 merged; CSP nonce hydration warning reproduced 10/10 in `next dev` only; local production 0/10; production 0/10; no CSP violation reports observed in production; protected branch preview redirected to Vercel SSO. | No source change; treat dev-only warning as a documented development-only observation in the tested environments. |
 
 ## PDF, Print, Download, and Export Surfaces
 
@@ -327,17 +327,17 @@ Executed in Chromium:
 | User role | Logged-out |
 | Steps | Run public/auth Playwright viewport smoke against local Next dev server; run local production build; run live production curl; inspect Vercel preview authentication barrier. |
 | Expected | Hydration warning should be absent in production and local production builds; dev-only console noise is acceptable if documented. |
-| Actual | Warning reproduced 10/10 against local dev server; not reproduced in local production build (0/10); not observed in production (0/10); Vercel preview requires SSO authentication so application tests could not be exercised. |
-| Evidence | Local dev logs during `tests/e2e/mobile-native-audit.spec.ts`; PR #294 (`docs/qa/csp-nonce-hydration-verification.md` and `tests/e2e/csp-nonce-hydration-verification.spec.ts`); `tests/csp-nonce-flow.test.mjs` source-contract check; no CSP violation reports collected from production. |
+| Actual | Warning reproduced 10/10 against local dev server; not reproduced in local production build (0/10); not observed in production Playwright classification (0/10). The protected branch preview (`https://saledock-cloud-pos-git-qa-csp-non-e4e51f-fardan-aatirs-projects.vercel.app`) redirected to `https://vercel.com/sso-api`, so SaleDock application tests could not be exercised. |
+| Evidence | Local dev logs during `tests/e2e/mobile-native-audit.spec.ts`; PR #294 (`docs/qa/csp-nonce-hydration-verification.md` and `tests/e2e/csp-nonce-hydration-verification.spec.ts`) browser classification evidence on `https://saledock.site/`; `tests/csp-nonce-flow.test.mjs` source-contract check; no CSP violation reports collected from production. HTTP 200 curl checks against `https://saledock.site/` and `https://saledock-cloud-pos.vercel.app/login` verify public availability only, not browser hydration or CSP behavior. |
 | Console/network error | React hydration warning, local dev only. |
 | Environment | Local dev, local production build, live production, SSO-protected preview. |
-| Risk to shop user | No observed production risk. The warning only appears in local dev mode where Next.js uses a different hydration path. |
+| Risk to shop user | No observed production risk. The warning was observed only under the tested `next dev` environment. It was not reproduced under `next build` plus `next start` or production. No source cause was proven. |
 | Recommended fix scope | None. No source change justified. |
 | Suggested branch | N/A |
 | Suggested regression test | N/A |
-| Resolution | Classified as a known development-only observation. PR #294 provides a reproducible verification record and the test file `tests/csp-nonce-flow.test.mjs` enforces the CSP nonce propagation source contract. |
-| Regression evidence | `tests/csp-nonce-flow.test.mjs` source-contract check passed; `tests/e2e/csp-nonce-hydration-verification.spec.ts` public route smoke passed; `tests/e2e/mobile-native-audit.spec.ts` public route smoke passed; production curl returned 200 with no observed CSP violations. |
-| Remaining limitations | Vercel preview application tests were blocked by SSO protection (1 preflight 200, 10 application tests skipped). External `_next` scripts without an explicit nonce were observed in dev/local production HTML but were not proven safe under an enforced CSP. |
+| Resolution | Classified as a documented development-only observation in the tested environments. PR #294 provides a reproducible verification record and the test file `tests/csp-nonce-flow.test.mjs` enforces the CSP nonce propagation source contract. |
+| Regression evidence | `tests/csp-nonce-flow.test.mjs` source-contract check passed; `tests/e2e/csp-nonce-hydration-verification.spec.ts` public route smoke passed; `tests/e2e/mobile-native-audit.spec.ts` public route smoke passed. PR #294 production E2E on `https://saledock.site/` observed 0 hydration warnings, 0 nonce mismatches, 0 framework overlays, 0 page errors, 0 native dialogs, 0 CSP report attempts, 0 blocked scripts, and 0 stored scripts across 10/10 public routes. Subsequent curl checks confirmed endpoint availability only: `https://saledock.site/` returned HTTP 200, `https://saledock.site/login` returned HTTP 200, and `https://saledock-cloud-pos.vercel.app/login` returned HTTP 200. The HTTP 200 checks do not independently inspect browser hydration, console warnings, nonce equality, or CSP reports. |
+| Remaining limitations | Vercel preview application tests were blocked by SSO protection. The protected branch preview URL was `https://saledock-cloud-pos-git-qa-csp-non-e4e51f-fardan-aatirs-projects.vercel.app`; unauthenticated requests redirected to `https://vercel.com/sso-api`. The SSO preflight test passed by confirming the HTTP 302 redirect; 10 SaleDock application tests were skipped. No SaleDock application response was inspected on the protected preview. The public Vercel alias `https://saledock-cloud-pos.vercel.app/login` was used only for an HTTP availability check, not as a preview or as browser classification evidence. External `_next` scripts without an explicit nonce were observed in dev/local production HTML but were not proven safe under an enforced CSP. |
 
 ### MN-008 - Mobile navigation drawer close button is blocked by overlay
 
@@ -456,7 +456,7 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `gh pr comment 288 --body "..."` | PASS - traceability comment added to PR #288 |
 | `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/` | 200 |
 | `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 |
-| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 (public Vercel production alias; availability only) |
 
 ## Commands Run During MN-002 Rebase Update
 
@@ -493,7 +493,7 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium` | PASS - 4/4 tests passed; the full owner route/viewport matrix completed in this run, but the suite has historically timed out (MN-006 remains open as a test-infrastructure finding). |
 | `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/` | 200 |
 | `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 |
-| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 (public Vercel production alias; availability only) |
 
 ## Commands Run During MN-006 Audit Suite Split
 
@@ -561,11 +561,11 @@ The authenticated tests deliberately skip instead of guessing when local login i
 | `node --test tests/pos-held-bills.test.mjs tests/catalog-validation.test.mjs tests/karachi-business-day.test.mjs tests/pos-service-checkout.test.mjs tests/customer-settlement-validation.test.mjs tests/dashboard-widget-reorder.test.mjs tests/print-action-touch-targets.test.mjs tests/shared-image-crop-accessible-controls.test.mjs tests/csp-nonce-flow.test.mjs` | PASS - 96/96 tests passed, including 26/26 CSP nonce source-contract checks |
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/auth-role-smoke.spec.ts --project=chromium --workers=1` | PASS - 9/9 tests passed |
 | `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/mobile-native-audit.spec.ts --project=chromium --workers=1` | PASS - 16/16 tests passed in 3.4m; no skips, retries, failures, or timeouts |
-| `CSP_TEST_ENV=dev PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/csp-nonce-hydration-verification.spec.ts --project=chromium --workers=1` | PASS - 10/10 dev application tests passed; 1 preview SSO preflight skipped |
-| `npx next start -p 3001` + `CSP_TEST_ENV=local-production PLAYWRIGHT_BASE_URL=http://localhost:3001 npx playwright test tests/e2e/csp-nonce-hydration-verification.spec.ts --project=chromium --workers=1` | PASS - 10/10 local-production application tests passed; 1 preview SSO preflight skipped |
-| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/` | 200 |
-| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 |
-| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 (SSO-protected; application tests not exercised) |
+| `CSP_TEST_ENV=dev PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/csp-nonce-hydration-verification.spec.ts --project=chromium --workers=1` | PASS - 10/10 dev application tests passed; 1 preview SSO preflight test skipped because `CSP_TEST_ENV=dev` |
+| `npx next start -p 3001` + `CSP_TEST_ENV=local-production PLAYWRIGHT_BASE_URL=http://localhost:3001 npx playwright test tests/e2e/csp-nonce-hydration-verification.spec.ts --project=chromium --workers=1` | PASS - 10/10 local-production application tests passed; 1 preview SSO preflight test skipped because `CSP_TEST_ENV=local-production` |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/` | 200 (production custom domain; availability only, no browser test) |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock.site/login` | 200 (production custom domain; availability only, no browser test) |
+| `curl -sS -o /dev/null -w '%{http_code}' https://saledock-cloud-pos.vercel.app/login` | 200 (public Vercel production alias; availability only, no browser test) |
 
 ## Known Limitations
 
