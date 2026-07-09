@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { loginWithCredentials } from "./helpers/auth";
 
 const OWNER_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL || "owner@saledock.local";
 const LOCAL_PASSWORD = "Password123!";
@@ -17,11 +18,8 @@ async function loginOwner(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
 
-  await page.goto("/login");
-  await page.fill('input[name="email"]', OWNER_EMAIL);
-  await page.fill('input[name="password"]', LOCAL_PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(3000);
+  const ok = await loginWithCredentials(page, OWNER_EMAIL, LOCAL_PASSWORD);
+  if (!ok) throw new Error("Failed to log in as owner for drawer test");
 
   await page.goto("/dashboard");
   await page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 10000 });

@@ -13,6 +13,7 @@ type LocalStatus = {
   SERVICE_ROLE_KEY?: string;
   serviceRoleKey?: string;
   service_role_key?: string;
+  PUBLISHABLE_KEY?: string;
 };
 
 let localAdmin: PostgrestClient | null = null;
@@ -70,6 +71,21 @@ export function getLocalAdminClient(): PostgrestClient {
   return localAdmin;
 }
 
+export function getLocalAuthConfig(): { url: string; anonKey: string } {
+  const status = readLocalStatus();
+  const url = status.API_URL ?? status.apiUrl ?? status.api_url ?? "";
+  const anonKey =
+    status.PUBLISHABLE_KEY ??
+    status.ANON_KEY ??
+    status.anonKey ??
+    status.anon_key ??
+    "";
+  if (!isLocalUrl(url) || !anonKey) {
+    throw new Error("A running local Supabase instance is required for direct local login.");
+  }
+  return { url, anonKey };
+}
+
 export const LOCAL_QA_ORG_ID = "00000000-0000-4000-8000-000000000001";
 export const SEEDED_PHYSICAL_PRODUCT_ID = "00000000-0000-4000-8000-000000003001";
 
@@ -106,7 +122,12 @@ export async function loginLocalOwnerDirectly(
 
   const status = readLocalStatus();
   const supabaseUrl = status.API_URL ?? status.apiUrl ?? status.api_url ?? "";
-  const anonKey = status.ANON_KEY ?? status.anonKey ?? status.anon_key ?? "";
+  const anonKey =
+    status.PUBLISHABLE_KEY ??
+    status.ANON_KEY ??
+    status.anonKey ??
+    status.anon_key ??
+    "";
   const appUrl = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 
   if (!isLocalUrl(supabaseUrl) || !isLocalUrl(appUrl) || !anonKey) {
