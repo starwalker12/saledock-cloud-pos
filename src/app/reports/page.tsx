@@ -272,6 +272,7 @@ export default async function ReportsPage({
         <div className="col-span-1">
           <StatCard
             label="Gross sales"
+            wrapLabel
             value={formatCurrency(data.sales.grossSales, currency)}
             detail={`${formatNumber(data.sales.invoiceCount)} active invoice${data.sales.invoiceCount === 1 ? "" : "s"}.`}
             tooltip="Total sales billed before any order-level discounts, customer returns, or operating expenses are subtracted."
@@ -281,6 +282,7 @@ export default async function ReportsPage({
         <div className="col-span-1">
           <StatCard
             label="Net Sales (Revenue)"
+            wrapLabel
             value={formatCurrency(data.profit.salesRevenue, currency)}
             detail="Total sales after discounts, before cost deductions."
             tooltip="Gross sales minus order-level discounts. This represents your actual sales revenue before cost deductions."
@@ -317,6 +319,7 @@ export default async function ReportsPage({
         <div className="col-span-1">
           <StatCard
             label="Gross Profit Margin"
+            wrapLabel
             value={`${formatNumber(data.profit.grossMarginPercent)}%`}
             detail={`Asset Cost of Sales: ${formatCurrency(data.profit.productCost, currency)}`}
             tooltip="Direct profit percentage on product sales. Shows how much sales revenue is left after product purchase costs."
@@ -326,6 +329,7 @@ export default async function ReportsPage({
         <div className="col-span-1">
           <StatCard
             label="Service Revenue / Profit"
+            wrapLabel
             value={formatCurrency(data.profit.serviceProfit, currency)}
             detail="Service billing total (assumes zero inventory cost)."
             tooltip="Total income from repairs and service billing (assumed to have zero inventory cost)."
@@ -335,6 +339,7 @@ export default async function ReportsPage({
         <div className="col-span-2 lg:col-span-1">
           <StatCard
             label="Total Operating Expenses"
+            wrapLabel
             value={formatCurrency(data.expenses.totalExpenses, currency)}
             detail="From active business expenses registry."
             tooltip="The total sum of all recorded shop expenses (rent, salaries, utility bills, etc.) for this period."
