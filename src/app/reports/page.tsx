@@ -146,7 +146,7 @@ export default async function ReportsPage({
   ];
 
   return (
-    <AppShell pageTitle="Reports">
+    <AppShell pageTitle="Reports" printFullDocument>
       {/* CSS overrides for print view */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
