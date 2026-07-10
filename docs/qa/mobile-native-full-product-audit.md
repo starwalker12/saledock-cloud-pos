@@ -1,22 +1,22 @@
 # SaleDock Mobile-Native Full Product Audit
 
-Date: 2026-07-10
+Date: 2026-07-11
 
-Branch: `qa/reports-audit-refresh`
+Branch: `qa/reports-mobile-audit-refresh`
 
-Base main SHA: `30400475202eeb2bbeb126abe3e5a281efebb95d`
+Base main SHA: `0e85a47561b073236c5297d629927c8684fcc889`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
-This 2026-07-10 documentation refresh inherits the reviewed local Reports browser/PDF evidence from merged PR #295. It does not imply that the full audit or browser matrix was rerun on this date; the original audit history remains recorded below.
+This 2026-07-11 documentation-only refresh inherits reviewed local browser, screenshot, print-media, and PDF evidence from merged PR #297. It does not imply that the full mobile/native audit or browser matrix was rerun on this date; the original audit history remains recorded below.
 
-Final recommendation: 10 FINDINGS DISPOSITIONED — 1 ACTIVE P3 AND 7 BLOCKED/NOT-TESTED AREAS REMAIN
+Final recommendation: 11 FINDINGS DISPOSITIONED — 7 BLOCKED/NOT-TESTED AREAS REMAIN
 
 ## Executive Summary
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers, four P2 findings, and several P3 polish gaps that prevented calling the mobile/PDF audit passed. All nine original MN findings now retain a recorded disposition: eight are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. Subsequent focused Reports verification found two supplemental presentation findings. RPT-PRINT-001 was fixed through PR #295, and local production-mode Chromium evidence confirms the complete Reports A4 document now spans five pages with later and final sections present. RPT-MOBILE-001 remains an active P3 because three primary metric labels are still ellipsized at 390x844. Reports desktop A4 printing is therefore no longer blocked, but Reports mobile readability and seven broader blocked/not-tested areas remain incomplete. The audit does not claim full mobile, Reports, PDF, or production-PDF readiness.
+The continuation found two P1 blockers, four P2 findings, and several P3 polish gaps that prevented calling the mobile/PDF audit passed. All nine original MN findings retain a recorded disposition: eight are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. Subsequent focused Reports verification found two supplemental presentation findings. PR #295 fixed RPT-PRINT-001 full-document A4 pagination, and PR #297 fixed RPT-MOBILE-001 metric-label readability through a Reports-only StatCard wrapping opt-in. Local production-mode Chromium evidence confirms complete labels across three mobile viewports, desktop, and print media while the Reports PDF remains five A4 pages with later and final sections present. All eleven tracked findings are now dispositioned, while seven broader blocked/not-tested areas remain. The audit does not claim full product, mobile, real-device, every-print-surface, financial-formula, authenticated production Reports, or authenticated WebKit/Firefox certification.
 
 | Metric | Result |
 | --- | --- |
@@ -33,18 +33,18 @@ The continuation found two P1 blockers, four P2 findings, and several P3 polish 
 | P0 active | 0 |
 | P1 active | 0 |
 | P2 active | 0 |
-| P3 active | 1 |
-| Active tracked findings | 1 |
-| Active finding ID | RPT-MOBILE-001 |
+| P3 active | 0 |
+| Active tracked findings | 0 |
+| Active finding IDs | None |
 | Fixed P1 findings | 2 |
-| Fixed findings | 9 |
-| Fixed finding IDs | MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, MN-009, RPT-PRINT-001 |
+| Fixed findings | 10 |
+| Fixed finding IDs | MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, MN-009, RPT-PRINT-001, RPT-MOBILE-001 |
 | Verified development-only findings | 1 |
 | Verified development-only finding IDs | MN-007 |
 | Total tracked findings | 11 |
-| Total tracked findings dispositioned | 10 |
+| Total tracked findings dispositioned | 11 |
 | Original MN finding set | 9/9 dispositioned |
-| Supplemental Reports findings | RPT-PRINT-001 fixed; RPT-MOBILE-001 active |
+| Supplemental Reports findings | RPT-PRINT-001 fixed; RPT-MOBILE-001 fixed |
 | Blocked or not-tested areas | 7 |
 
 ## Environment Tested
@@ -53,7 +53,7 @@ The continuation found two P1 blockers, four P2 findings, and several P3 polish 
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
 | Previous merged audit base | `6ccca9b7f9e1127a848890fe2918ee54501f6507` |
-| Current documentation refresh base | `30400475202eeb2bbeb126abe3e5a281efebb95d` |
+| Current documentation refresh base | `0e85a47561b073236c5297d629927c8684fcc889` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -120,7 +120,7 @@ Executed in Chromium:
 | Product images | PARTIAL | Prior QA history and code inventory inspected; no fresh upload mutation in this continuation. | Re-run image upload mobile matrix. |
 | Shared branding/profile crop controls | FIXED ON MAIN — VERIFIED | PR #293 added explicit Move image up/left/right/down and Reset crop controls, 5-point nudge step, 0-100 clamp, reset to X 50 / Y 50 / zoom 1, visible/screen-reader crop status, keyboard activation, 44 px controls, and portal rendering to `document.body` above mobile tabs. Square Profile Picture crop at 390x844 and landscape Invoice Logo crop at 375x667 passed focused browser evidence with zero page errors, visible framework errors, native dialogs, and storage writes. | The no-write regression did not click Use crop. Persisted upload completion remains covered by unchanged source/callback contracts, not by this MN-005 closure. |
 | Invoices | PASS with caveat | Local invoice screen and print-media artifacts captured; cookie banner no longer covers invoice print/PDF output. | Continue return/repair/cash drawer print QA. |
-| PDFs/printing | PASS with caveat | Invoice A4/80mm output was verified. Reports full-document A4 pagination was verified locally through PR #295: output expanded from one truncated page to five A4 pages with later and final sections present. | Returns, repairs, daily closing, and supplier-statement physical artifacts remain incomplete or blocked. Do not treat this row as verification of every print surface. |
+| PDFs/printing | PASS with caveat | Invoice A4/80mm output was verified. Reports full-document A4 pagination remains verified locally through PR #295, and PR #297 retained the five-page A4 output with later and final sections present while mobile and print StatCard labels remained complete. | Returns, repairs, daily closing, and supplier-statement physical artifacts remain incomplete or blocked. Do not treat this row as verification of every print surface. |
 | Print/share touch targets | FIXED ON MAIN — VERIFIED | PR #292 normalized reports, repairs, daily closing, and supplier statement print/share controls to an explicit `min-h-[44px]`. Returns already used `min-h-[44px]` and remained unchanged. Browser-rendered checks passed for Reports, Daily Closing, and Supplier Statement at 320x568, 390x844, and 430x932. Repair detail, return detail, and conditional daily shift-report controls were verified by source-contract test because deterministic local fixtures were unavailable. | Re-run repair/return detail pages visually when safe fixtures exist. |
 | Invoice PDF wording | FIXED ON MAIN — VERIFIED | PR #290 changed the Share Invoice modal wording from Download PDF to Print / Save as PDF, retained existing A4 browser print behavior, passed desktop 1440x900 and mobile 390x844 localhost review, passed focused invoice wording E2E, and passed cookie-print regression. | Do not claim direct PDF download was added; behavior remains browser print/save-to-PDF. |
 | Returns | BLOCKED | Print/share surface inspected; local return print artifact not generated after invoice blocker was resolved. | Re-run returns mobile/print QA. |
@@ -129,7 +129,7 @@ Executed in Chromium:
 | Repairs | BLOCKED | Detail/print surfaces inspected; local repair print artifact not generated after invoice blocker was resolved. | Re-run repairs mobile/print QA. |
 | Expenses | BLOCKED | Route and validation surface inspected; expense mobile workflow not rerun after blockers. | Re-run expenses mobile QA. |
 | Cash Drawer | BLOCKED | Print surface inspected; cash drawer close/print workflow not rerun after invoice blocker was resolved. | Re-run cash drawer close/print QA. |
-| Reports | PARTIAL — PRINT FIX VERIFIED / MOBILE P3 OPEN | RPT-PRINT-001 was fixed through PR #295, merge commit `30400475202eeb2bbeb126abe3e5a281efebb95d`. Reports alone opts into the optional full-document AppShell print contract; the default remains off. Local production-mode Chromium evidence changed output from one truncated page to five A4 pages with later and final sections present, no visual truncation, retained screen scrolling, matching in-memory screen/print value signatures, and zero unexpected writes. Financial formulas were not verified or changed, and no authenticated production Reports test occurred. RPT-MOBILE-001 remains active at 390x844: Net Sales (Revenue), Gross Profit Margin, and Service Revenue / Profit are ellipsized while StatCard still uses truncation. | Fix RPT-MOBILE-001 separately on `fix/reports-mobile-card-label-wrapping`; do not change report formulas or assume every StatCard consumer can use the same wrapping treatment. |
+| Reports | FIXED ON MAIN — MOBILE LABELS AND PRINT PAGINATION VERIFIED LOCALLY | RPT-PRINT-001 was fixed through PR #295, merge commit `30400475202eeb2bbeb126abe3e5a281efebb95d`: the optional Reports-only AppShell print contract changed one truncated A4 page to five pages with later/final sections present, retained screen scrolling, and zero unexpected writes. RPT-MOBILE-001 was fixed through PR #297, merge commit `0e85a47561b073236c5297d629927c8684fcc889`: typed `wrapLabel?: boolean` defaults false, unrelated StatCard consumers retain truncation, and exactly five shared Reports StatCards opt into wrapping. Net Sales (Revenue), Gross Profit Margin, and Service Revenue / Profit remain unchanged and passed at 320x568, 390x844, 430x932, desktop 1440x900, and print media 390x844 with no tooltip/value overlap, clipping, horizontal overflow, or unexpected writes. The local PDF remained five A4 pages. Evidence is authenticated local QA only; GitHub CI did not independently rerun browser/screenshots/PDF, financial formulas were not tested, and no authenticated production Reports test occurred. | Continue the seven blocked/not-tested coverage areas separately and monitor Reports during future design changes. |
 | Users/permissions | PASS with caveat | Auth-role smoke passed for all five local roles; focused cashier mobile user-page restriction passed. | Full mobile direct URL matrix still pending. |
 | Settings | PARTIAL | `/settings` and `/settings/permissions` completed in the authenticated owner route matrix. Full interactive settings-panel, form, modal, mobile keyboard, and role-specific mutation coverage remains incomplete. | Run focused settings interaction coverage in the authenticated remainder audit. |
 | Responsive tables | PARTIAL | Route matrix and code inventory cover tables, but not every table was manually interacted with. | Re-run with local data. |
@@ -137,7 +137,7 @@ Executed in Chromium:
 | Modals/drawers | PASS with blocked app modals | Public drawer route smoke passed; authenticated modals blocked. | Re-run product/POS/settings modals. |
 | Loading/success/errors | BLOCKED | Code-level inspection only for most app pages. | Re-run slow-network browser QA. |
 | Dark mode | BLOCKED | Not fully browser-verified. | Re-run light/dark matrix. |
-| Desktop sidebar reorder | FIXED ON MAIN — VERIFIED | PR #291 added visible Move Earlier and Move Later controls inside the existing desktop Rearrange mode. Controls work by mouse click and keyboard Enter/Space. First/last visible items disable the boundary controls. Existing pointer drag remains available. Reorder moves one visible item by one visible position, persists after reload, preserves archived items, stored collapsed state, and cookie-consent values. English, Urdu, and Roman Urdu labels verified. Dark mode and reduced motion verified. No href duplicates or missing links introduced. | RPT-MOBILE-001 remains the one active tracked P3; broader blocked/not-tested areas remain listed below. |
+| Desktop sidebar reorder | FIXED ON MAIN — VERIFIED | PR #291 added visible Move Earlier and Move Later controls inside the existing desktop Rearrange mode. Controls work by mouse click and keyboard Enter/Space. First/last visible items disable the boundary controls. Existing pointer drag remains available. Reorder moves one visible item by one visible position, persists after reload, preserves archived items, stored collapsed state, and cookie-consent values. English, Urdu, and Roman Urdu labels verified. Dark mode and reduced motion verified. No href duplicates or missing links introduced. | Broader blocked/not-tested areas remain listed below. |
 | Cross-browser behavior | PARTIAL | Public/auth viewport matrix passed in WebKit and Firefox; authenticated cross-browser not run. | Authenticated WebKit/Firefox coverage remains pending. |
 | CSP / public pages | VERIFIED — DEVELOPMENT-ONLY | PR #294 merged; CSP nonce hydration warning reproduced 10/10 in `next dev` only; local production 0/10; production 0/10; no CSP violation reports observed in production; protected branch preview redirected to Vercel SSO. | No source change; treat dev-only warning as a documented development-only observation in the tested environments. |
 
@@ -149,7 +149,7 @@ Executed in Chromium:
 | Returns detail | A4/80mm `window.print`, WhatsApp share | Code inspected; visual output blocked |
 | Repair detail | A4/80mm `window.print`, WhatsApp share | Code inspected; visual output blocked |
 | Daily closing | A4/80mm/shift thermal `window.print` | Code inspected; visual output blocked |
-| Reports | `window.print` with Reports-only full-document AppShell print opt-in | Desktop A4 full-document pagination fixed and verified locally through PR #295. Five A4 pages were generated with later and final sections present. RPT-MOBILE-001 remains open for ellipsized mobile card labels. |
+| Reports | `window.print` with Reports-only full-document AppShell print opt-in | Desktop A4 full-document pagination and mobile/print StatCard label readability are fixed and verified locally through PRs #295 and #297. Five A4 pages were generated after both fixes with later and final sections present. |
 | Supplier statement | A4/80mm `window.print`, WhatsApp share | Code inspected; visual output blocked |
 | Replenishment | CSV/XLSX export | Code inspected; browser download blocked |
 | Purchase order planner | CSV/XLSX export | Code inspected; browser download blocked |
@@ -414,26 +414,29 @@ Executed in Chromium:
 | Before | 1 A4 page, truncated. |
 | After | 5 A4 pages, with later sections and the final Supplier Dues & Purchases Snapshot section present. |
 | Validation | Source contract passed 8/8; focused Reports pagination E2E passed 1/1; existing print-control E2E passed 1/1; all five locally rendered PDF pages were inspected; unexpected business-data writes were 0. |
+| Regression after PR #297 | The existing pagination regression was rerun locally. The Reports PDF remained five A4 pages with later and final sections present and no truncation. |
 | Behavior retained | Normal Reports screen scrolling remained active. Screen and print value signatures matched in memory. No report formula, value, query, auth, permission, database, or business-data behavior changed. |
 | Limitations | Evidence was authenticated locally only. GitHub CI verified lint, typecheck, and build but did not render or visually inspect the five PDF pages. Financial formula correctness was not tested. No authenticated production Reports login or PDF generation occurred. |
 
-### RPT-MOBILE-001 - Reports metric labels are ellipsized on mobile
+### RPT-MOBILE-001 - Reports metric labels were ellipsized on mobile
 
 | Field | Detail |
 | --- | --- |
 | Severity | P3 |
-| Status | OPEN |
+| Status | FIXED ON MAIN — VERIFIED LOCALLY |
 | Route | `/reports?range=this_month` |
-| Device/browser | Chromium mobile emulation |
-| Viewport | 390x844 |
-| Modes | Screen and print-media layout |
-| Issue | Three primary report-card labels are ellipsized. |
+| Device/browser | Chromium against a local production-mode Next server |
+| Original viewport | 390x844 |
+| Original issue | Three shared Reports StatCard labels were visually truncated with ellipses. |
 | Affected labels | Net Sales (Revenue); Gross Profit Margin; Service Revenue / Profit |
-| Observed behavior | Required label text exists in the DOM but is visually truncated with ellipses. |
-| Likely source | The shared StatCard label uses `truncate`. This is not yet a fully proven fix scope because other StatCard consumers must be inspected before changing shared behavior. |
-| Impact | Mobile users cannot read the complete financial metric labels. |
-| Financial values | Unchanged and not implicated. |
-| Recommendation | Address separately on `fix/reports-mobile-card-label-wrapping` without changing report formulas or unrelated StatCard consumers. |
+| Original source condition | Shared StatCard placed `truncate` directly on every label. |
+| Fix | Typed opt-in `wrapLabel?: boolean`, default false. Reports opts all five shared StatCards into wrapping while unrelated consumers retain truncation. |
+| PR | #297 - `fix: show complete reports card labels on mobile` |
+| Reviewed head | `e37303e04c2fefaa7b83b5a1b0b9662f4147cad7` |
+| Merge commit | `0e85a47561b073236c5297d629927c8684fcc889` |
+| Regression evidence | Source contract passed 8/8; focused label E2E passed 5/5; mobile 320x568, 390x844, and 430x932 passed; desktop 1440x900 passed; print media 390x844 passed; pagination E2E passed 1/1; local PDF remained five A4 pages; tooltip overlap, value overlap, horizontal overflow, and unexpected writes were all 0. |
+| Business safety | Labels, values, formulas, queries, authentication, permissions, and database behavior were unchanged. |
+| Limitations | Evidence was authenticated locally only. No production Reports login or PDF was performed. Unrelated StatCard consumers were source-contract protected but were not all visually revisited. Financial formula correctness was not tested. |
 
 ## Automated Audit Coverage Added
 
@@ -631,6 +634,23 @@ The authenticated tests deliberately skip instead of guessing when local login i
 
 No authenticated browser or PDF suite was rerun for this documentation-only refresh. The local five-page Chromium PDF generation and visual inspection are inherited from the reviewed and merged PR #295 evidence. GitHub CI independently passed lint, typecheck, and build for exact reviewed head `95b23ace6281611d4821bc55cb63ce7f8b07e29a`. Vercel reported the Production deployment Ready for merge commit `30400475202eeb2bbeb126abe3e5a281efebb95d`. Previously reported public HTTP 200 checks prove availability only; they were not rerun here and do not certify authenticated Reports or PDF behavior.
 
+## Commands Run During Reports Mobile Audit Refresh
+
+| Command | Result |
+| --- | --- |
+| Evidence worktree `git status --short`, `git branch --show-current`, `git rev-parse HEAD`, and SHA-256 checks | PASS - branch remained `qa/reports-print-pdf-verification` at `82db6ecca5f13439cf6bb624556dd921c1dcd5d3`; only the two expected untracked evidence files were present and both hashes were unchanged. |
+| `git fetch origin --prune` and GitHub PR/branch state checks | PASS - origin/main was `0e85a47561b073236c5297d629927c8684fcc889`; PRs #295, #296, and #297 were merged; no audit-refresh branch or PR already existed. |
+| `git worktree add /Users/sw12/Projects/saledock-reports-mobile-audit-refresh -b qa/reports-mobile-audit-refresh origin/main` | PASS - clean documentation worktree created from exact main. |
+| `git status --short`, `git diff --check`, `git diff --stat`, and `git diff --name-only` | PASS - only `docs/qa/mobile-native-full-product-audit.md` changed. |
+| `npm ci` | PASS - dependencies installed; package and lockfiles remained unchanged. |
+| `npm run lint` | PASS - 0 errors and 2 existing Privacy Center hook warnings. |
+| `npm run typecheck` | PASS. |
+| `npm run build` | PASS - production build completed. |
+| `node --test tests/reports-mobile-card-label-wrapping.test.mjs tests/reports-print-full-document-pagination.test.mjs tests/print-action-touch-targets.test.mjs` | PASS - 29/29 source-contract tests passed: mobile labels 8/8, Reports pagination 8/8, and print touch targets 13/13. |
+| GitHub check/deployment API reads for PR #297 | PASS - exact reviewed head `e37303e04c2fefaa7b83b5a1b0b9662f4147cad7` had successful CI and Vercel status; Production deployment for merge commit `0e85a47561b073236c5297d629927c8684fcc889` was successful. |
+
+No authenticated browser, screenshot, print-media, or PDF suite was rerun for this documentation-only refresh. That evidence is inherited from the reviewed and merged PR #297. GitHub CI independently covered lint, typecheck, and build; the local browser and five-page PDF results remain reported local evidence rather than CI or production evidence. Previously reported public HTTP 200 checks prove availability only and were not rerun here. No production authentication occurred.
+
 ## Blocked / Not-Tested Areas
 
 Seven broader areas remain blocked or not tested:
@@ -643,17 +663,16 @@ Seven broader areas remain blocked or not tested:
 - Loading/success/error states
 - Dark mode
 
-Reports desktop A4 generation is no longer included in this count. Reports remains PARTIAL because RPT-MOBILE-001 is one active P3 presentation defect.
+Reports is not included in this blocked/not-tested count. RPT-PRINT-001 and RPT-MOBILE-001 are fixed on main and verified locally; the seven unrelated coverage areas above remain unchanged.
 
 ## Known Limitations
 
-- All nine original MN findings are dispositioned: MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, and MN-009 were fixed on main or in the audit suite, while MN-007 was verified as development-only with no observed production impact. Supplemental RPT-PRINT-001 is fixed; supplemental RPT-MOBILE-001 remains active.
+- All eleven tracked findings are dispositioned. The nine original MN findings retain their recorded outcomes: MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, and MN-009 were fixed on main or in the audit suite, while MN-007 was verified as development-only with no observed production impact. Supplemental RPT-PRINT-001 and RPT-MOBILE-001 are fixed on main and verified locally.
 - The authenticated owner route/viewport matrix now completes locally in split tests, but production remains read-only and not used for mutation testing.
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
 - Browser zoom at 125 percent was not run in this pass.
-- Invoice PDF/print artifacts were regenerated and passed. Reports A4 full-document pagination is verified locally through PR #295: five A4 pages were generated and inspected with later and final sections present. No production Reports login or PDF generation occurred, and the five-page inspection remains local reported evidence. Financial formula correctness remains outside this presentation audit.
-- RPT-MOBILE-001 remains open because three primary Reports labels are ellipsized at 390x844. Reports is not fully passed.
+- Invoice PDF/print artifacts were regenerated and passed. Both Reports presentation findings are fixed locally: PR #295 verified five-page A4 full-document pagination with later and final sections present, and PR #297 verified complete mobile and print StatCard labels while retaining five-page output. No authenticated production Reports login or PDF generation occurred; browser, screenshot, print-media, and PDF inspection remain local reported evidence. Financial formula correctness remains outside this presentation audit.
 - Print/share touch-target browser checks passed for reports, daily closing, and supplier statement. Shared branding/profile crop controls were verified for square and landscape crop shapes without clicking Use crop. Return and repair print artifacts were not regenerated because deterministic local detail fixtures were unavailable. Daily closing and supplier-statement physical artifacts remain incomplete as previously documented.
 - A supplemental JSON timing run of the full mobile audit exposed one intermittent local `/daily-closing` tablet operations timeout after the required line-reporter full audit had already passed. The exact focused group passed on rerun in 41.5s. Treat the broader full-file timing as not perfectly clean, while MN-003 remains closed by the focused touch-target contract and rendered-route evidence.
 - No product, invoice, cash drawer, return, settlement, or stock mutation was performed in production.
@@ -663,10 +682,14 @@ Reports desktop A4 generation is no longer included in this count. Reports remai
 
 ## Top Priority Follow-up Work
 
-1. `fix/reports-mobile-card-label-wrapping` - fix RPT-MOBILE-001 without changing report formulas or unrelated StatCard consumers.
-2. `qa/mobile-native-authenticated-remainder` - finish the remaining blocked authenticated print/export, dark-mode, zoom, slow-network, and real-device checks.
-3. `qa/product-image-upload-mobile-e2e` - finish product image upload mobile/browser coverage separately from MN-005, including persisted upload completion where safe local fixtures allow it.
-4. `qa/csp-enforced-preview-verification` - if an enforced CSP is ever deployed, verify `_next` scripts and preview behavior with a real bypass token or public preview.
+1. Generate Returns and Repairs print artifacts using safe local fixtures.
+2. Complete the Expenses mobile workflow.
+3. Complete the Cash Drawer close/print workflow using disposable local data and review-first safeguards.
+4. Add forms/mobile-keyboard coverage.
+5. Add loading, success, and error-state coverage.
+6. Run the dark-mode matrix.
+
+Cash Drawer and any business-data mutation remain review-first. Do not start these tasks automatically from this documentation refresh.
 
 ## Fardan Live-Site Eyeball Checklist
 
@@ -677,7 +700,7 @@ Production should stay read-only unless a specific QA transaction is approved. T
 3. Open POS on phone; confirm Products/Cart tabs, Held Bills, and checkout controls are not covered by browser bars.
 4. Open Products on phone; open Add/Edit Product and image upload; confirm modal does not clip.
 5. Open one invoice; tap Print/Download/Share actions; confirm wording matches what happens.
-6. Reports desktop A4 pagination has local verification only; no authenticated production PDF verification occurred. On a phone, note that Net Sales (Revenue), Gross Profit Margin, and Service Revenue / Profit remain ellipsized pending RPT-MOBILE-001. Continue human-only read-only review of returns, repairs, daily closing, and supplier statement print actions.
+6. Reports has local mobile-label verification at 320x568, 390x844, and 430x932, local desktop sanity at 1440x900, local print-media verification at 390x844, and local five-page A4 evidence. No authenticated production Reports verification occurred; public HTTP checks prove availability only. Continue human-only read-only review of returns, repairs, daily closing, and supplier statement print actions.
 7. Test dark mode on phone for POS, Products, Dashboard, Invoices, and Settings.
 
 ## Safety Confirmation
@@ -698,6 +721,6 @@ Production should stay read-only unless a specific QA transaction is approved. T
 
 ## Risk Position
 
-All nine original MN findings are dispositioned: eight are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. Supplemental RPT-PRINT-001 is fixed on main through PR #295 and verified locally. Reports alone opts into the optional full-document AppShell print contract, normal screen scrolling remains intact, and the locally generated output expanded from one truncated page to five A4 pages with later and final sections present. Reports A4 completeness no longer blocks the print surface.
+All eleven tracked findings have a recorded disposition: ten are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. The original nine MN findings remain 9/9 dispositioned. Supplemental RPT-PRINT-001 is fixed through PR #295, and supplemental RPT-MOBILE-001 is fixed through PR #297. Reports mobile labels and full-document A4 pagination are verified locally, normal screen scrolling remains intact, and the PDF remained five A4 pages with later and final sections present.
 
-RPT-MOBILE-001 remains one active P3 because three primary Reports labels are ellipsized at 390x844. Reports mobile readability is therefore incomplete. Seven broader blocked/not-tested areas remain: returns print artifact, repairs print artifact, expenses mobile workflow, cash drawer close/print workflow, forms/mobile keyboard, loading/success/error states, and dark mode. Financial formulas, report queries, authentication, permissions, database behavior, and production data were not changed by PR #295 or this documentation refresh. The overall recommendation is 10 FINDINGS DISPOSITIONED — 1 ACTIVE P3 AND 7 BLOCKED/NOT-TESTED AREAS REMAIN, not a blanket pass.
+Zero active P0 through P3 tracked findings remain, but seven broader blocked/not-tested areas remain: returns print artifact, repairs print artifact, expenses mobile workflow, cash drawer close/print workflow, forms/mobile keyboard, loading/success/error states, and dark mode. Real-device hardware, authenticated WebKit/Firefox, 125 percent zoom, every print surface, financial formulas, authenticated production Reports, and full product certification remain outside the completed evidence. Financial formulas, report queries, authentication, permissions, database behavior, and production data were not changed by PR #295, PR #297, or this documentation refresh. The overall recommendation is 11 FINDINGS DISPOSITIONED — 7 BLOCKED/NOT-TESTED AREAS REMAIN, not a blanket pass.
