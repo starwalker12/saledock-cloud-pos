@@ -7,6 +7,12 @@ type PrintButtonProps = {
   whatsappHref: string;
 };
 
+type PrintAttempt = {
+  id: number;
+  cancelled: boolean;
+  timeoutId: number | null;
+};
+
 const CSS_PX_TO_MM = 25.4 / 96;
 const THERMAL_PAGE_WIDTH_MM = 80;
 const THERMAL_CONTENT_WIDTH_MM = 72;
@@ -65,27 +71,42 @@ async function waitForReceiptReadiness(receipt: HTMLElement): Promise<void> {
 
 export function PrintButton({ whatsappHref }: PrintButtonProps) {
   const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  const attemptSequenceRef = useRef(0);
+  const activeAttemptRef = useRef<PrintAttempt | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const timeoutRef = useRef<number | null>(null);
   const [thermalError, setThermalError] = useState<string | null>(null);
 
-  const createCleanup = useCallback(() => {
+  const isAttemptActive = useCallback(
+    (attempt: PrintAttempt) =>
+      mountedRef.current &&
+      !attempt.cancelled &&
+      activeAttemptRef.current === attempt,
+    [],
+  );
+
+  const createCleanup = useCallback((attempt: PrintAttempt) => {
     let cleaned = false;
     const cleanup = () => {
       if (cleaned) return;
       cleaned = true;
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
+      attempt.cancelled = true;
+      if (attempt.timeoutId !== null) {
+        window.clearTimeout(attempt.timeoutId);
+        attempt.timeoutId = null;
       }
-      document
-        .querySelectorAll<HTMLElement>('[data-returns-thermal-measuring="true"]')
-        .forEach((element) => delete element.dataset.returnsThermalMeasuring);
-      document.getElementById(THERMAL_PAGE_STYLE_ID)?.remove();
-      delete document.body.dataset.printMode;
-      delete document.body.dataset.returnsThermalPrint;
+      const ownsActiveState = activeAttemptRef.current === attempt;
+      if (ownsActiveState) {
+        activeAttemptRef.current = null;
+        document
+          .querySelectorAll<HTMLElement>('[data-returns-thermal-measuring="true"]')
+          .forEach((element) => delete element.dataset.returnsThermalMeasuring);
+        document.getElementById(THERMAL_PAGE_STYLE_ID)?.remove();
+        delete document.body.dataset.printMode;
+        delete document.body.dataset.returnsThermalPrint;
+        inFlightRef.current = false;
+      }
       window.removeEventListener("afterprint", cleanup);
-      inFlightRef.current = false;
       if (cleanupRef.current === cleanup) cleanupRef.current = null;
     };
     cleanupRef.current = cleanup;
@@ -93,38 +114,56 @@ export function PrintButton({ whatsappHref }: PrintButtonProps) {
     return cleanup;
   }, []);
 
-  useEffect(() => () => cleanupRef.current?.(), []);
+  useEffect(
+    () => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+        if (activeAttemptRef.current) activeAttemptRef.current.cancelled = true;
+        cleanupRef.current?.();
+      };
+    },
+    [],
+  );
 
   const beginPrint = useCallback(() => {
     if (inFlightRef.current) return null;
     inFlightRef.current = true;
+    const attempt: PrintAttempt = {
+      id: ++attemptSequenceRef.current,
+      cancelled: false,
+      timeoutId: null,
+    };
+    activeAttemptRef.current = attempt;
     document.getElementById(THERMAL_PAGE_STYLE_ID)?.remove();
     document
       .querySelectorAll<HTMLElement>('[data-returns-thermal-measuring="true"]')
       .forEach((element) => delete element.dataset.returnsThermalMeasuring);
     delete document.body.dataset.printMode;
     delete document.body.dataset.returnsThermalPrint;
-    return createCleanup();
+    return { attempt, cleanup: createCleanup(attempt) };
   }, [createCleanup]);
 
   const printA4 = useCallback(() => {
-    const cleanup = beginPrint();
-    if (!cleanup) return;
+    const print = beginPrint();
+    if (!print) return;
+    const { attempt, cleanup } = print;
     document.body.dataset.printMode = "a4";
     try {
       window.print();
-      if (inFlightRef.current) {
-        timeoutRef.current = window.setTimeout(cleanup, PRINT_CLEANUP_DELAY_MS);
+      if (isAttemptActive(attempt)) {
+        attempt.timeoutId = window.setTimeout(cleanup, PRINT_CLEANUP_DELAY_MS);
       }
     } catch {
       cleanup();
     }
-  }, [beginPrint]);
+  }, [beginPrint, isAttemptActive]);
 
   const printThermal = useCallback(async () => {
     setThermalError(null);
-    const cleanup = beginPrint();
-    if (!cleanup) return;
+    const print = beginPrint();
+    if (!print) return;
+    const { attempt, cleanup } = print;
 
     try {
       const receipt = document.querySelector<HTMLElement>(".thermal-print");
@@ -132,9 +171,13 @@ export function PrintButton({ whatsappHref }: PrintButtonProps) {
 
       receipt.dataset.returnsThermalMeasuring = "true";
       await waitForReceiptReadiness(receipt);
+      if (!isAttemptActive(attempt)) return;
       await nextAnimationFrame();
+      if (!isAttemptActive(attempt)) return;
       await nextAnimationFrame();
+      if (!isAttemptActive(attempt)) return;
 
+      if (!isAttemptActive(attempt)) return;
       const receiptBounds = receipt.getBoundingClientRect();
       const measuredWidthMm = receiptBounds.width * CSS_PX_TO_MM;
       if (Math.abs(measuredWidthMm - THERMAL_CONTENT_WIDTH_MM) > 0.5) {
@@ -155,23 +198,29 @@ export function PrintButton({ whatsappHref }: PrintButtonProps) {
       }
 
       delete receipt.dataset.returnsThermalMeasuring;
+      if (!isAttemptActive(attempt)) return;
       const style = document.createElement("style");
       style.id = THERMAL_PAGE_STYLE_ID;
       style.textContent = `@page returnsThermalReceipt { size: ${THERMAL_PAGE_WIDTH_MM}mm ${pageHeightMm.toFixed(1)}mm; margin: 4mm; }`;
+      if (!isAttemptActive(attempt)) return;
       document.head.append(style);
+      if (!isAttemptActive(attempt)) return;
       document.body.dataset.printMode = "thermal";
       document.body.dataset.returnsThermalPrint = "true";
       await nextAnimationFrame();
+      if (!isAttemptActive(attempt)) return;
 
+      if (!isAttemptActive(attempt)) return;
       window.print();
-      if (inFlightRef.current) {
-        timeoutRef.current = window.setTimeout(cleanup, PRINT_CLEANUP_DELAY_MS);
+      if (isAttemptActive(attempt)) {
+        attempt.timeoutId = window.setTimeout(cleanup, PRINT_CLEANUP_DELAY_MS);
       }
     } catch {
+      if (!isAttemptActive(attempt)) return;
       cleanup();
-      setThermalError(THERMAL_ERROR_MESSAGE);
+      if (mountedRef.current) setThermalError(THERMAL_ERROR_MESSAGE);
     }
-  }, [beginPrint]);
+  }, [beginPrint, isAttemptActive]);
 
   return (
     <div className="print:hidden">

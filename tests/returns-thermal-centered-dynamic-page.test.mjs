@@ -125,9 +125,96 @@ test("thermal preparation is guarded and prints exactly once", () => {
   const begin = functionBody("beginPrint");
   const thermal = functionBody("printThermal");
   assert.match(begin, /if \(inFlightRef\.current\) return null/);
-  assert.match(thermal, /const cleanup = beginPrint\(\)/);
+  assert.match(thermal, /const print = beginPrint\(\)/);
+  assert.match(thermal, /const \{ attempt, cleanup \} = print/);
   assert.equal((thermal.match(/window\.print\(\)/g) ?? []).length, 1);
   assert.match(thermal, /dataset\.returnsThermalPrint\s*=\s*"true"/);
+});
+
+test("each accepted print owns an explicit unique attempt identity", () => {
+  const begin = functionBody("beginPrint");
+  assert.match(printButton, /type PrintAttempt = \{[\s\S]*id: number;[\s\S]*cancelled: boolean;/);
+  assert.match(printButton, /attemptSequenceRef = useRef\(0\)/);
+  assert.match(printButton, /activeAttemptRef = useRef<PrintAttempt \| null>\(null\)/);
+  assert.match(begin, /id: \+\+attemptSequenceRef\.current/);
+  assert.match(begin, /activeAttemptRef\.current = attempt/);
+  assert.match(begin, /createCleanup\(attempt\)/);
+});
+
+test("cleanup invalidates only its own attempt before removing owned DOM state", () => {
+  const cleanup = functionBody("createCleanup");
+  const cancelPosition = cleanup.indexOf("attempt.cancelled = true");
+  const ownershipPosition = cleanup.indexOf("activeAttemptRef.current === attempt");
+  const styleRemovalPosition = cleanup.indexOf("getElementById(THERMAL_PAGE_STYLE_ID)?.remove()");
+  assert.ok(cancelPosition >= 0, "cleanup must cancel its exact attempt");
+  assert.ok(ownershipPosition > cancelPosition, "ownership is checked after cancellation");
+  assert.ok(styleRemovalPosition > ownershipPosition, "DOM cleanup is restricted to the active owner");
+  assert.match(cleanup, /if \(ownsActiveState\) \{/);
+  assert.match(cleanup, /if \(cleanupRef\.current === cleanup\) cleanupRef\.current = null/);
+});
+
+test("mounted state is tracked and unmount invalidates and cleans the active attempt", () => {
+  assert.match(printButton, /mountedRef = useRef\(true\)/);
+  const effectStart = printButton.indexOf("useEffect(");
+  const beginStart = printButton.indexOf("const beginPrint", effectStart);
+  const effect = printButton.slice(effectStart, beginStart);
+  assert.match(effect, /mountedRef\.current = true/);
+  assert.match(effect, /mountedRef\.current = false/);
+  assert.match(effect, /activeAttemptRef\.current\.cancelled = true/);
+  assert.match(effect, /cleanupRef\.current\?\.\(\)/);
+});
+
+test("thermal preparation checks cancellation after readiness and animation frames", () => {
+  const thermal = functionBody("printThermal");
+  const readiness = thermal.indexOf("await waitForReceiptReadiness(receipt)");
+  const firstFrame = thermal.indexOf("await nextAnimationFrame()", readiness);
+  const secondFrame = thermal.indexOf("await nextAnimationFrame()", firstFrame + 1);
+  const measurement = thermal.indexOf("const receiptBounds = receipt.getBoundingClientRect()");
+  const checks = [...thermal.matchAll(/if \(!isAttemptActive\(attempt\)\) return;/g)].map(
+    (match) => match.index,
+  );
+  assert.ok(checks.some((position) => position > readiness && position < firstFrame));
+  assert.ok(checks.some((position) => position > firstFrame && position < secondFrame));
+  assert.ok(checks.some((position) => position > secondFrame && position < measurement));
+});
+
+test("thermal cancellation is checked before style insertion, markers, and printing", () => {
+  const thermal = functionBody("printThermal");
+  const createStyle = thermal.indexOf('document.createElement("style")');
+  const appendStyle = thermal.indexOf("document.head.append(style)");
+  const markers = thermal.indexOf('document.body.dataset.printMode = "thermal"');
+  const finalFrame = thermal.lastIndexOf("await nextAnimationFrame()");
+  const print = thermal.indexOf("window.print()");
+  const checks = [...thermal.matchAll(/if \(!isAttemptActive\(attempt\)\) return;/g)].map(
+    (match) => match.index,
+  );
+  assert.ok(checks.some((position) => position < createStyle));
+  assert.ok(checks.some((position) => position > createStyle && position < appendStyle));
+  assert.ok(checks.some((position) => position > appendStyle && position < markers));
+  assert.ok(checks.some((position) => position > finalFrame && position < print));
+});
+
+test("cancelled attempts neither report preparation errors nor schedule stale cleanup", () => {
+  const thermal = functionBody("printThermal");
+  const catchPosition = thermal.indexOf("} catch {");
+  const catchBody = thermal.slice(catchPosition);
+  assert.match(catchBody, /if \(!isAttemptActive\(attempt\)\) return;/);
+  assert.ok(
+    catchBody.indexOf("if (!isAttemptActive(attempt)) return;") <
+      catchBody.indexOf("setThermalError(THERMAL_ERROR_MESSAGE)"),
+    "cancelled attempts must return before the error setter",
+  );
+  assert.match(thermal, /if \(isAttemptActive\(attempt\)\) \{\s*attempt\.timeoutId = window\.setTimeout/);
+  assert.equal(printButton.includes("timeoutRef"), false, "no global timeout state remains");
+});
+
+test("attempt cancellation state remains component-local", () => {
+  const componentStart = printButton.indexOf("export function PrintButton");
+  const moduleScope = printButton.slice(0, componentStart);
+  assert.equal(moduleScope.includes("activeAttempt"), false);
+  assert.equal(moduleScope.includes("attemptSequence"), false);
+  assert.match(printButton.slice(componentStart), /activeAttemptRef/);
+  assert.match(printButton.slice(componentStart), /attemptSequenceRef/);
 });
 
 test("safe non-native thermal error UI is present", () => {

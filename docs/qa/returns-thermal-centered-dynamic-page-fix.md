@@ -5,6 +5,7 @@
 - Base SHA: `2b24fcf7b88812987ed415426e5f5a715c6e6ea4`
 - Branch: `fix/returns-thermal-centered-dynamic-page`
 - Finding: `RET-PRINT-001`
+- Amendment finding: `RET-PRINT-001-LIFECYCLE`
 - Environment: local production build, loopback Supabase, Chromium, Poppler, and pdfplumber
 - Production access: none
 
@@ -46,7 +47,7 @@ Readiness is bounded to five seconds. Failures clean all temporary state and sho
 
 The algorithm measures `getBoundingClientRect().height`, converts CSS pixels with `25.4 / 96`, adds 8mm for physical margins and a 1mm upward allowance, then rounds upward to 0.1mm. Invalid, non-finite, implausibly small, or unreasonably large heights are rejected without calling `window.print()`.
 
-The temporary style ID is `returns-thermal-page-size`. It contains two absolute page dimensions and is removed by afterprint, timeout fallback, failure cleanup, or component unmount.
+The temporary style ID is `returns-thermal-page-size`. It contains two absolute page dimensions and is removed by afterprint, timeout fallback, failure cleanup, or component unmount. The lifecycle amendment verifies that cancellation invalidates the exact asynchronous preparation attempt before this cleanup occurs.
 
 ## Standard Receipt
 
@@ -98,6 +99,32 @@ The longer synthetic notes increase physical page height while horizontal positi
 
 Cleanup removes the print mode, Returns marker, measurement marker, dynamic style, listener, timer, and in-flight lock idempotently.
 
+## Async Lifecycle Amendment
+
+Review found that the original cleanup closure was one-shot but thermal preparation had no cancellation identity. If afterprint or component unmount ran while image readiness was held, the old async continuation could resume after cleanup. The deterministic pre-amendment regression against head `e160dc10ec53c124855a5fd690e2f92e0a569829` resumed into the failure path and displayed one false generic role-alert. That run produced zero print calls and did not recreate styles or body markers, but it proved that cleanup alone did not stop the stale continuation.
+
+The amendment gives every accepted print activation a unique component-local attempt object. Cleanup marks that exact attempt cancelled before removing DOM state. It removes shared print state only when the cleanup still owns the active attempt, so an old cleanup cannot invalidate a newer attempt. Mounted state is tracked separately, and unmount invalidates and cleans the current attempt before pending preparation can resume.
+
+Thermal preparation checks attempt identity and mounted state after receipt readiness, after both measurement animation frames, before measurement, before dynamic style creation and insertion, before body markers, after the final animation frame, and immediately before `window.print()`. Cancelled attempts return silently, do not set the preparation error, and cannot schedule timeout cleanup.
+
+Deterministic local results:
+
+- Cleanup-during-readiness regression: PASS.
+- Client-navigation unmount regression: PASS.
+- Print calls after cancellation: 0.
+- Dynamic styles after cancellation: 0.
+- Body print-mode markers after cancellation: 0.
+- Returns thermal markers after cancellation: 0.
+- Measurement markers after cancellation: 0.
+- Cleanup fallback timers scheduled after cancellation: 0.
+- Cancellation role-alert: absent.
+- Page errors: 0.
+- Console errors: 0.
+- Native dialogs: 0.
+- Browser business writes: 0.
+
+The lifecycle amendment changes no page names, CSS selectors, page dimensions, margins, content width, height calculation, conversion constants, physical acceptance thresholds, A4 behavior, or Reports behavior.
+
 ## A4 And Screen Regression
 
 - A4 artifact: `/tmp/saledock-returns-thermal-production-fix/fixed-a4.pdf`
@@ -127,8 +154,8 @@ Cleanup removes the print mode, Returns marker, measurement marker, dynamic styl
 
 ## Reports And Shared Regression
 
-- Source contracts: PASS, 43/43 total.
-- New Returns source contract: PASS, 14/14.
+- Source contracts: PASS, 50/50 total.
+- New Returns source contract: PASS, 21/21.
 - Existing print, Reports pagination, and Reports label contracts: PASS, 29/29.
 - Deterministic print-control E2E: PASS, 1/1.
 - Reports pagination runs: 3 isolated processes.
@@ -147,10 +174,13 @@ Cleanup removes the print mode, Returns marker, measurement marker, dynamic styl
 - `npm run build`: PASS.
 - Standard Returns production E2E: PASS, 1/1.
 - Long Returns production E2E: PASS, 1/1.
+- Cleanup-during-readiness E2E: PASS, 1/1.
+- Client-navigation unmount E2E: PASS, 1/1.
 - Print-control E2E: PASS, 1/1.
 - Reports pagination E2E: PASS, 3/3.
 - Automatic retries, skips, timeouts, and flakes in accepted runs: 0.
 - Expected pre-source baseline failures: invalid CSS page fallback and clipped valid-page-only output reproduced.
+- Expected pre-amendment lifecycle failure: stale continuation displayed one false role-alert after afterprint cleanup; print calls and stale styles/markers were 0 in that held-readiness path.
 - Test-harness correction: the first production run reached the final safe-error assertion but used a broad role-alert locator that also matched Next.js's route announcer; the locator was narrowed and the complete standard run then passed cleanly.
 
 ## Limitations
@@ -166,4 +196,4 @@ Cleanup removes the print mode, Returns marker, measurement marker, dynamic styl
 
 ## Recommended Next Action
 
-Open a draft PR for review. Do not update the main audit until this focused fix is separately reviewed and merged.
+Continue review on draft PR #299. Do not update the main audit until this focused fix is separately reviewed and merged.

@@ -716,18 +716,20 @@ type PrintObservation = {
   calls: PrintCall[];
   measurementSeen: boolean;
   maxStyleCount: number;
+  cleanupTimeoutsScheduled: number;
 };
 
 async function installPrintObservation(
   page: Page,
-  options: { holdCleanup?: boolean; delayImageDecode?: boolean } = {},
+  options: { holdCleanup?: boolean; delayImageDecode?: boolean; holdImageDecode?: boolean } = {},
 ): Promise<void> {
-  await page.evaluate(({ holdCleanup, delayImageDecode }) => {
+  await page.evaluate(({ holdCleanup, delayImageDecode, holdImageDecode }) => {
     type ObservationState = typeof window & {
       __returnsPrintObservation?: PrintObservation;
       __returnsPrintObserver?: MutationObserver;
       __returnsOriginalSetTimeout?: typeof window.setTimeout;
       __returnsOriginalImageDecode?: typeof HTMLImageElement.prototype.decode;
+      __returnsImageDecodeResolvers?: Array<() => void>;
     };
     const state = window as ObservationState;
     state.__returnsPrintObserver?.disconnect();
@@ -735,6 +737,7 @@ async function installPrintObservation(
       calls: [],
       measurementSeen: false,
       maxStyleCount: 0,
+      cleanupTimeoutsScheduled: 0,
     };
     const sample = () => {
       const evidence = state.__returnsPrintObservation!;
@@ -773,14 +776,27 @@ async function installPrintObservation(
       });
     };
 
-    if (holdCleanup) {
+    if (holdCleanup || holdImageDecode) {
       const original = window.setTimeout.bind(window);
       state.__returnsOriginalSetTimeout = window.setTimeout;
-      window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
-        original(handler, timeout === 1200 ? 30_000 : timeout, ...args)) as typeof window.setTimeout;
+      window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+        if (timeout === 1200) {
+          state.__returnsPrintObservation!.cleanupTimeoutsScheduled += 1;
+        }
+        return original(handler, holdCleanup && timeout === 1200 ? 30_000 : timeout, ...args);
+      }) as typeof window.setTimeout;
     }
 
-    if (delayImageDecode) {
+    if (holdImageDecode) {
+      const originalDecode = HTMLImageElement.prototype.decode;
+      state.__returnsOriginalImageDecode = originalDecode;
+      state.__returnsImageDecodeResolvers = [];
+      HTMLImageElement.prototype.decode = function decodeWhenReleased() {
+        return new Promise<void>((resolve) => {
+          state.__returnsImageDecodeResolvers!.push(resolve);
+        });
+      };
+    } else if (delayImageDecode) {
       const originalDecode = HTMLImageElement.prototype.decode;
       state.__returnsOriginalImageDecode = originalDecode;
       HTMLImageElement.prototype.decode = function decodeWithDelay() {
@@ -788,6 +804,33 @@ async function installPrintObservation(
       };
     }
   }, options);
+}
+
+async function releaseHeldImageDecode(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const state = window as typeof window & {
+      __returnsImageDecodeResolvers?: Array<() => void>;
+    };
+    const resolvers = state.__returnsImageDecodeResolvers ?? [];
+    state.__returnsImageDecodeResolvers = [];
+    resolvers.forEach((resolve) => resolve());
+  });
+}
+
+async function advanceAnimationFrames(page: Page, frameCount = 6): Promise<void> {
+  await page.evaluate(
+    (count) =>
+      new Promise<void>((resolve) => {
+        let remainingFrames = count;
+        const advance = () => {
+          remainingFrames -= 1;
+          if (remainingFrames === 0) resolve();
+          else requestAnimationFrame(advance);
+        };
+        requestAnimationFrame(advance);
+      }),
+    frameCount,
+  );
 }
 
 async function readPrintObservation(page: Page): Promise<PrintObservation> {
@@ -798,6 +841,7 @@ async function readPrintObservation(page: Page): Promise<PrintObservation> {
         calls: [],
         measurementSeen: false,
         maxStyleCount: 0,
+        cleanupTimeoutsScheduled: 0,
       }
     );
   });
@@ -809,6 +853,7 @@ async function restorePrintObservation(page: Page): Promise<void> {
       __returnsPrintObserver?: MutationObserver;
       __returnsOriginalSetTimeout?: typeof window.setTimeout;
       __returnsOriginalImageDecode?: typeof HTMLImageElement.prototype.decode;
+      __returnsImageDecodeResolvers?: Array<() => void>;
     };
     const state = window as ObservationState;
     state.__returnsPrintObserver?.disconnect();
@@ -820,6 +865,7 @@ async function restorePrintObservation(page: Page): Promise<void> {
       HTMLImageElement.prototype.decode = state.__returnsOriginalImageDecode;
       delete state.__returnsOriginalImageDecode;
     }
+    delete state.__returnsImageDecodeResolvers;
   });
 }
 
@@ -1316,7 +1362,9 @@ test.describe("Returns A4 and 80mm print artifacts", () => {
       await expect(page.locator('p[role="alert"]')).toHaveText(
         "Unable to prepare the thermal receipt. Please try again.",
       );
-      expect((await readPrintObservation(page)).calls).toEqual([]);
+      const cancelledObservation = await readPrintObservation(page);
+      expect(cancelledObservation.calls).toEqual([]);
+      expect(cancelledObservation.cleanupTimeoutsScheduled).toBe(0);
       await expectPrintStateClean(page, "missing receipt failure");
       await restorePrintObservation(page);
 
@@ -1349,6 +1397,133 @@ test.describe("Returns A4 and 80mm print artifacts", () => {
       }
       const afterSafety = await captureSafetySnapshot(admin);
       expect(afterSafety, "Unrelated safety snapshots remain identical").toEqual(beforeSafety);
+    }
+  });
+
+  test("cancels thermal preparation without stale continuation", async ({ page }) => {
+    test.setTimeout(120_000);
+    const { url: supabaseUrl } = getLocalAuthConfig();
+    expect(
+      ["localhost", "127.0.0.1", "::1"].includes(new URL(supabaseUrl).hostname),
+      "Supabase must be loopback-only",
+    ).toBe(true);
+
+    const admin = getLocalAdminClient();
+    const fixture = makeFixture();
+    const beforeSafety = await captureSafetySnapshot(admin);
+    let fixtureCreated = false;
+
+    try {
+      await createFixture(admin, fixture);
+      fixtureCreated = true;
+      const evidence = observeBrowser(page);
+      await installRejectedConsent(page);
+      await loginLocalOwnerDirectly(page);
+      guardBrowserWrites(page, evidence);
+      const response = await page.goto(`/returns/${fixture.returnId}`, {
+        waitUntil: "domcontentloaded",
+      });
+      expect(response?.status()).toBeLessThan(400);
+      await page.waitForLoadState("networkidle");
+      const beforePath = await page.evaluate(() => location.pathname);
+
+      await installPrintObservation(page, { holdImageDecode: true });
+      await page.getByRole("button", { name: "Print 80mm", exact: true }).click();
+      await expect
+        .poll(async () => (await readPrintObservation(page)).measurementSeen)
+        .toBe(true);
+      await expect(
+        page.locator('[data-returns-thermal-measuring="true"]'),
+        "measurement is held before cancellation",
+      ).toHaveCount(1);
+
+      await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+      await expectPrintStateClean(page, "preparation cancellation");
+      await releaseHeldImageDecode(page);
+      await advanceAnimationFrames(page);
+
+      const unmountedObservation = await readPrintObservation(page);
+      expect(unmountedObservation.calls).toEqual([]);
+      expect(unmountedObservation.cleanupTimeoutsScheduled).toBe(0);
+      await expectPrintStateClean(page, "released cancelled preparation");
+      await expect(page.locator('p[role="alert"]')).toHaveCount(0);
+      expect(await page.evaluate(() => location.pathname)).toBe(beforePath);
+      expect(await visibleFrameworkErrors(page)).toEqual([]);
+      expect(evidence).toEqual({
+        pageErrors: 0,
+        consoleErrors: 0,
+        requestFailures: [],
+        dialogs: [],
+        writes: [],
+      });
+      await restorePrintObservation(page);
+    } finally {
+      if (fixtureCreated) await cleanupWithRetry(admin, fixture);
+      else await cleanupWithRetry(admin, fixture);
+      const afterSafety = await captureSafetySnapshot(admin);
+      expect(afterSafety, "Cancellation safety snapshots remain identical").toEqual(beforeSafety);
+    }
+  });
+
+  test("cancels thermal preparation when the print controls unmount", async ({ page }) => {
+    test.setTimeout(120_000);
+    const { url: supabaseUrl } = getLocalAuthConfig();
+    expect(
+      ["localhost", "127.0.0.1", "::1"].includes(new URL(supabaseUrl).hostname),
+      "Supabase must be loopback-only",
+    ).toBe(true);
+
+    const admin = getLocalAdminClient();
+    const fixture = makeFixture();
+    const beforeSafety = await captureSafetySnapshot(admin);
+    let fixtureCreated = false;
+
+    try {
+      await createFixture(admin, fixture);
+      fixtureCreated = true;
+      const evidence = observeBrowser(page);
+      await installRejectedConsent(page);
+      await loginLocalOwnerDirectly(page);
+      guardBrowserWrites(page, evidence);
+      const response = await page.goto(`/returns/${fixture.returnId}`, {
+        waitUntil: "domcontentloaded",
+      });
+      expect(response?.status()).toBeLessThan(400);
+      await page.waitForLoadState("networkidle");
+
+      await installPrintObservation(page, { holdImageDecode: true });
+      await page.getByRole("button", { name: "Print 80mm", exact: true }).click();
+      await expect
+        .poll(async () => (await readPrintObservation(page)).measurementSeen)
+        .toBe(true);
+      await expect(
+        page.locator('[data-returns-thermal-measuring="true"]'),
+        "measurement is held before unmount",
+      ).toHaveCount(1);
+
+      await page.getByRole("link", { name: /Back to returns/i }).click();
+      await expect(page).toHaveURL(/\/returns(?:\?.*)?$/);
+      await expectPrintStateClean(page, "client-navigation unmount");
+      await releaseHeldImageDecode(page);
+      await advanceAnimationFrames(page);
+
+      expect((await readPrintObservation(page)).calls).toEqual([]);
+      await expectPrintStateClean(page, "released unmounted preparation");
+      await expect(page.locator('p[role="alert"]')).toHaveCount(0);
+      expect(await visibleFrameworkErrors(page)).toEqual([]);
+      expect(evidence).toEqual({
+        pageErrors: 0,
+        consoleErrors: 0,
+        requestFailures: [],
+        dialogs: [],
+        writes: [],
+      });
+      await restorePrintObservation(page);
+    } finally {
+      if (fixtureCreated) await cleanupWithRetry(admin, fixture);
+      else await cleanupWithRetry(admin, fixture);
+      const afterSafety = await captureSafetySnapshot(admin);
+      expect(afterSafety, "Unmount safety snapshots remain identical").toEqual(beforeSafety);
     }
   });
 });
