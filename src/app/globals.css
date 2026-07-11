@@ -614,6 +614,20 @@ body {
   }
 }
 
+.thermal-print[data-returns-thermal-measuring="true"] {
+  display: block !important;
+  position: fixed !important;
+  left: -10000px !important;
+  top: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 72mm !important;
+  max-width: 72mm !important;
+  height: auto !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
 @media print {
   :root,
   .dark,
@@ -635,6 +649,10 @@ body {
   }
   @page thermalReceipt {
     size: 80mm auto;
+    margin: 4mm;
+  }
+  @page returnsThermalReceipt {
+    size: 80mm 297mm;
     margin: 4mm;
   }
   body {
@@ -736,6 +754,25 @@ body {
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 9px !important;
     page: thermalReceipt;
+  }
+  body[data-print-mode="thermal"][data-returns-thermal-print="true"] {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 !important;
+  }
+  body[data-print-mode="thermal"][data-returns-thermal-print="true"] main {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: none !important;
+  }
+  body[data-print-mode="thermal"][data-returns-thermal-print="true"] .thermal-print {
+    display: block !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 !important;
+    page: returnsThermalReceipt;
   }
   body[data-print-mode="shift-thermal"] .shift-thermal-print {
     display: block !important;
