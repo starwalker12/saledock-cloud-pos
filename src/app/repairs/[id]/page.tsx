@@ -101,7 +101,7 @@ export default async function RepairDetailPage({
       ];
 
   return (
-    <AppShell pageTitle={`Repair Job ${repair.job_no}`}>
+    <AppShell pageTitle={`Repair Job ${repair.job_no}`} printFullDocument>
       {/* CSS Print Styles Override */}
       <style
         dangerouslySetInnerHTML={{
