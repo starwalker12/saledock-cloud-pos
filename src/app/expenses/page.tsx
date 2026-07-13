@@ -186,7 +186,7 @@ export default async function ExpensesPage({
         <div className="space-y-5 p-5 sm:p-6">
           {canWrite && (
             <details open={isEdit} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <summary className="cursor-pointer text-sm font-bold text-slate-800">
+              <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold text-slate-800">
                 {isEdit ? `Edit expense: ${editing!.category}` : "Add a new expense"}
               </summary>
               <div className="mt-4">
@@ -217,7 +217,7 @@ export default async function ExpensesPage({
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-900"
                 />
               </label>
-              <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer">
+              <button type="submit" className="h-11 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer">
                 Apply
               </button>
             </div>
@@ -457,7 +457,7 @@ function ExpenseActions({ id, status }: { id: string; status: "active" | "archiv
     <div className="flex flex-wrap items-center justify-end gap-2">
       <Link
         href={`/expenses?edit=${id}`}
-        className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
       >
         Edit
       </Link>
@@ -468,7 +468,7 @@ function ExpenseActions({ id, status }: { id: string; status: "active" | "archiv
           <input type="hidden" name="id" value={id} />
           <button
             type="submit"
-            className="min-h-9 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+            className="min-h-11 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
           >
             Restore
           </button>
