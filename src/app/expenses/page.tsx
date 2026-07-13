@@ -127,6 +127,7 @@ export default async function ExpensesPage({
       <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <StatCard
           label="Today expenses"
+          wrapLabel
           value={formatCurrency(counts.todayTotal, currency)}
           detail={
             counts.todayCount === 0
@@ -137,6 +138,7 @@ export default async function ExpensesPage({
         />
         <StatCard
           label="This month"
+          wrapLabel
           value={formatCurrency(counts.monthTotal, currency)}
           detail={
             counts.monthCount === 0
@@ -147,6 +149,7 @@ export default async function ExpensesPage({
         />
         <StatCard
           label="Top category (month)"
+          wrapLabel
           value={counts.topCategoryThisMonth?.name ?? "—"}
           detail={
             counts.topCategoryThisMonth
@@ -157,6 +160,7 @@ export default async function ExpensesPage({
         />
         <StatCard
           label="Latest expense"
+          wrapLabel
           value={counts.latest ? formatCurrency(counts.latest.amount, currency) : "—"}
           detail={
             counts.latest

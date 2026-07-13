@@ -65,8 +65,16 @@ test("action wiring and pending behavior remain unchanged", () => {
   assert.match(pageSource, /action=\{restoreExpenseAction\}/);
 });
 
-test("EXP-MOBILE-003 surfaces are not altered by this fix", () => {
-  assert.doesNotMatch(pageSource, /wrapLabel/);
+test("EXP-MOBILE-003 summary labels opt into wrapping without changing the payment filter", () => {
+  const labels = ["Today expenses", "This month", "Top category (month)", "Latest expense"];
+  assert.equal((pageSource.match(/<StatCard\b/g) ?? []).length, labels.length);
+  for (const label of labels) {
+    const labelIndex = pageSource.indexOf(`label="${label}"`);
+    assert.notEqual(labelIndex, -1, `Missing Expenses summary label: ${label}`);
+    const cardEnd = pageSource.indexOf("/>", labelIndex);
+    assert.match(pageSource.slice(labelIndex, cardEnd), /\bwrapLabel\b/, `${label} opts into wrapping`);
+  }
+  assert.match(pageSource, /name="payment_method"/);
   assert.match(pageSource, /ariaLabel="Payment method"/);
-  assert.match(pageSource, /label="Top category \(month\)"/);
+  assert.equal(pageSource.split('label="Top category (month)"').length - 1, 1);
 });
