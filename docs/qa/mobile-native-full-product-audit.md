@@ -1,22 +1,22 @@
 # SaleDock Mobile-Native Full Product Audit
 
-Date: 2026-07-12
+Date: 2026-07-14
 
-Branch: `qa/repairs-print-audit-refresh`
+Branch: `docs/expenses-pr303-handoff-audit-sync`
 
-Base main SHA: `a9ddb9bc1c905089604e559856c1aff9d392e62e`
+Base main SHA: `1a71a12ab5e00570fb66830570e80b8175f4fef4`
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
-This 2026-07-12 documentation-only refresh inherits reviewed local browser, print-media, PDF, coordinate, lifecycle, cleanup, and fixture-safety evidence from merged PR #301. It does not imply that the entire mobile/native audit, authenticated browser matrix, or all print surfaces were rerun on this date; the original audit history remains recorded below.
+This 2026-07-14 documentation-only refresh inherits reviewed local responsive-browser, touch-geometry, keyboard, owner/cashier, workflow, cleanup, and fixture-safety evidence from merged PR #303. It also preserves the earlier evidence inherited through prior audit refreshes. It does not imply that the entire mobile/native audit, authenticated browser matrix, Expenses workflow, or all print surfaces were rerun on this date; the original audit history remains recorded below.
 
-Final recommendation: 14 FINDINGS DISPOSITIONED — 5 BLOCKED/NOT-TESTED AREAS REMAIN
+Final recommendation: 16 FINDINGS DISPOSITIONED — 1 ACTIVE P3 AND 5 BLOCKED/NOT-TESTED AREAS REMAIN
 
 ## Executive Summary
 
 This pass created a route and feature inventory, added a repeatable Playwright mobile-native smoke suite, performed code-level inspection of responsive/touch/drag/resize/print/export surfaces, then continued into authenticated local browser QA after Docker and local Supabase were restored.
 
-The continuation found two P1 blockers, four P2 findings, and several P3 polish gaps that prevented calling the mobile/PDF audit passed. All nine original MN findings retain a recorded disposition: eight are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. Both supplemental Reports findings remain fixed through PRs #295 and #297, and both supplemental Returns findings remain fixed through PR #299. Focused Repairs verification then found REP-PRINT-001, covering both the missing A4 footer and miniature 80mm output. PR #301 fixed the A4 full-document boundary, Repairs-specific thermal geometry, content-derived page height, and cancellation-safe print preparation. Local production-mode Chromium evidence covers two-page A4 output, standard and longer single-page 80mm receipts, cancellation, and client-navigation unmount behavior. All fourteen tracked findings are now dispositioned, while five broader blocked/not-tested areas remain. The audit does not claim full product, mobile, real-device, every-print-surface, production Repairs, accounting, estimate, advance, balance, payment, customer, stock/FIFO, or authenticated WebKit/Firefox certification.
+The continuation found two P1 blockers, four P2 findings, and several P3 polish gaps that prevented calling the mobile/PDF audit passed. All nine original MN findings retain a recorded disposition: eight are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. Both supplemental Reports findings remain fixed through PRs #295 and #297, both supplemental Returns findings remain fixed through PR #299, and REP-PRINT-001 remains fixed through PR #301. Focused local Expenses verification then reproduced three supplemental P3 findings. PR #303 fixed EXP-MOBILE-001 and EXP-MOBILE-002 by raising nine important controls to 44px at the tested phone widths and replacing misleading irreversible Void copy with accurate archive-and-Restore guidance. EXP-MOBILE-003 remains open for mobile payment-filter instability and truncated summary headings, so Expenses remains incomplete and Cash Drawer has not begun. Sixteen of seventeen tracked findings are dispositioned, while five broader blocked/not-tested areas remain. The audit does not claim full product, mobile, real-device, every-print-surface, production Expenses/Repairs, accounting, reports, balance, payment, stock/FIFO, or authenticated WebKit/Firefox certification.
 
 | Metric | Result |
 | --- | --- |
@@ -33,20 +33,21 @@ The continuation found two P1 blockers, four P2 findings, and several P3 polish 
 | P0 active | 0 |
 | P1 active | 0 |
 | P2 active | 0 |
-| P3 active | 0 |
-| Active tracked findings | 0 |
-| Active finding IDs | None |
+| P3 active | 1 |
+| Active tracked findings | 1 |
+| Active finding IDs | EXP-MOBILE-003 |
 | Fixed P1 findings | 2 |
-| Fixed findings | 13 |
-| Fixed finding IDs | MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, MN-009, RPT-PRINT-001, RPT-MOBILE-001, RET-PRINT-001, RET-PRINT-001-LIFECYCLE, REP-PRINT-001 |
+| Fixed findings | 15 |
+| Fixed finding IDs | MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, MN-009, RPT-PRINT-001, RPT-MOBILE-001, RET-PRINT-001, RET-PRINT-001-LIFECYCLE, REP-PRINT-001, EXP-MOBILE-001, EXP-MOBILE-002 |
 | Verified development-only findings | 1 |
 | Verified development-only finding IDs | MN-007 |
-| Total tracked findings | 14 |
-| Total tracked findings dispositioned | 14 |
+| Total tracked findings | 17 |
+| Total tracked findings dispositioned | 16 |
 | Original MN finding set | 9/9 dispositioned |
 | Supplemental Reports findings | RPT-PRINT-001 fixed; RPT-MOBILE-001 fixed |
 | Supplemental Returns findings | RET-PRINT-001 fixed; RET-PRINT-001-LIFECYCLE fixed |
 | Supplemental Repairs finding | REP-PRINT-001 fixed |
+| Supplemental Expenses findings | EXP-MOBILE-001 fixed; EXP-MOBILE-002 fixed; EXP-MOBILE-003 open, P3 |
 | Blocked or not-tested areas | 5 |
 
 ## Environment Tested
@@ -55,7 +56,7 @@ The continuation found two P1 blockers, four P2 findings, and several P3 polish 
 | --- | --- |
 | Git remote | `https://github.com/starwalker12/saledock-cloud-pos.git` |
 | Previous merged audit base | `6ccca9b7f9e1127a848890fe2918ee54501f6507` |
-| Current documentation refresh base | `a9ddb9bc1c905089604e559856c1aff9d392e62e` |
+| Current documentation refresh base | `1a71a12ab5e00570fb66830570e80b8175f4fef4` |
 | Local app | `http://localhost:3000` |
 | Local Supabase | Restored; local reset, seed, QA user setup, and local-only grants completed |
 | Production | Read-only only; no production mutation testing performed |
@@ -129,7 +130,7 @@ Executed in Chromium:
 | Customers | PARTIAL | Customer settlement flow passed locally; full customers list/detail mobile matrix not rerun. | Re-run customer mobile QA. |
 | Settlement | PASS | Customer settlement optional-field E2E passed 1/1 locally. | Manual mobile keyboard check still useful. |
 | Repairs | FIXED ON MAIN — A4 AND 80MM PRINT VERIFIED LOCALLY | PR #301, reviewed head `71f3dd393a97717f28d033d217c55092d64b2ae0`, merged as `a9ddb9bc1c905089604e559856c1aff9d392e62e`. Local authenticated testing used a disposable fixture limited to `repairs` and `repair_status_history`, with 0 RPCs and no production access. The baseline A4 artifact was one page with its footer missing; the fixed output produced two complete A4 pages with the footer on page two, no clipping, and no blank pages. Standard and longer thermal receipts produced centered, unclipped, single-page artifacts at approximately 80mm by 179.2mm and 80mm by 235.0mm with 89.9% horizontal span and bounds of approximately 11.25 to 215.34 points. Wrapping, terms, and footer were complete. Cancellation and client-navigation unmount tests passed; generated rows remaining and forbidden writes were 0. | Monitor Repairs printing during future browser and layout changes. Repair accounting, estimates, advances, balances, payments, stock, and FIFO correctness remain outside this presentation verification. |
-| Expenses | BLOCKED | Route and validation surface inspected; expense mobile workflow not rerun after blockers. | Re-run expenses mobile QA. |
+| Expenses | PARTIAL — TOUCH TARGETS AND VOID GUIDANCE FIXED / FILTER AND LABEL P3 OPEN | PR #303 reviewed head `f8478a7daf1df16acdf5726e5b75be3ee469c196`, merged as `1a71a12ab5e00570fb66830570e80b8175f4fef4`. Local authenticated QA measured all nine targeted controls at 44px at 320x568, 390x844, and 430x932; ordinary center hit-testing passed; labels were not clipped; and no horizontal overflow or bottom-navigation obstruction appeared. Void guidance now accurately describes archive, normal-list/report visibility, and Restore through Show voided. Owner/cashier behavior passed locally with exactly four create/update/void/restore submissions, zero generated expense rows, zero matching audit rows, zero unexpected business writes, and equal unrelated signatures. The shared sign-out confirmation regression passed. Exact-head and main-commit CI passed; exact-merge Vercel deployment succeeded. No authenticated production Expenses workflow ran, and HTTP 200 proves availability only. | Fix `EXP-MOBILE-003` separately on `fix/expenses-mobile-filter-and-summary-labels`, then rerun the complete Expenses workflow and synchronize the audit before removing Expenses from blocked coverage or beginning Cash Drawer. |
 | Cash Drawer | BLOCKED | Print surface inspected; cash drawer close/print workflow not rerun after invoice blocker was resolved. | Re-run cash drawer close/print QA. |
 | Reports | FIXED ON MAIN — MOBILE LABELS AND PRINT PAGINATION VERIFIED LOCALLY | RPT-PRINT-001 was fixed through PR #295, merge commit `30400475202eeb2bbeb126abe3e5a281efebb95d`: the optional Reports-only AppShell print contract changed one truncated A4 page to five pages with later/final sections present, retained screen scrolling, and zero unexpected writes. RPT-MOBILE-001 was fixed through PR #297, merge commit `0e85a47561b073236c5297d629927c8684fcc889`: typed `wrapLabel?: boolean` defaults false, unrelated StatCard consumers retain truncation, and exactly five shared Reports StatCards opt into wrapping. Net Sales (Revenue), Gross Profit Margin, and Service Revenue / Profit remain unchanged and passed at 320x568, 390x844, 430x932, desktop 1440x900, and print media 390x844 with no tooltip/value overlap, clipping, horizontal overflow, or unexpected writes. The local PDF remained five A4 pages. Evidence is authenticated local QA only; GitHub CI did not independently rerun browser/screenshots/PDF, financial formulas were not tested, and no authenticated production Reports test occurred. | Continue the five blocked/not-tested coverage areas separately and monitor Reports during future design changes. |
 | Users/permissions | PASS with caveat | Auth-role smoke passed for all five local roles; focused cashier mobile user-page restriction passed. | Full mobile direct URL matrix still pending. |
@@ -510,6 +511,67 @@ Executed in Chromium:
 | Business safety | Repair values, estimates, advances, balances, payments, customer-data behavior, repair queries, stock/FIFO, authentication, permissions, and database behavior were unchanged. |
 | Limitations | Local authenticated evidence only. No production Repairs login or PDF, physical printer-hardware test, repair-accounting verification, estimate verification, advance verification, balance verification, payment verification, customer correctness verification, or stock/FIFO verification was performed. |
 
+### EXP-MOBILE-001 - Important Expenses controls were below the mobile touch-target guideline
+
+| Field | Detail |
+| --- | --- |
+| Severity | P3 |
+| Status | FIXED ON MAIN — VERIFIED LOCALLY |
+| Module | Expenses responsive workflow and shared confirmation actions |
+| Route | `/expenses` |
+| Device/browser | Chromium against a local production-mode Next server |
+| Viewports | 320x568, 390x844, 430x932, and desktop sanity at 1440x900 |
+| User roles | Local disposable QA owner and cashier |
+| Original issue | Nine important controls rendered below the project's approximately 44px mobile guideline: the disclosure at 20px, Add/Update/mobile Apply at 40px, Edit/Void/Restore at 36px, and shared dialog actions without a 44px minimum. |
+| Impact | Common create, update, filter, edit, void, confirmation, restore, and disclosure actions were harder to operate reliably by touch. |
+| Root cause | Expenses controls used smaller fixed/minimum heights, while shared ConfirmDialog buttons relied on vertical padding without an explicit 44px minimum. |
+| Resolution | Expenses actions use `h-11` or `min-h-11`; shared confirmation Cancel/Confirm actions use `min-h-11`. The visible controls themselves are tappable; no invisible hit-area workaround was used. |
+| PR | #303 - `fix: improve Expenses mobile actions and void guidance` |
+| Reviewed head | `f8478a7daf1df16acdf5726e5b75be3ee469c196` |
+| Merge commit | `1a71a12ab5e00570fb66830570e80b8175f4fef4` |
+| Regression evidence | All nine controls measured 44px at 320x568, 390x844, and 430x932. Ordinary center-point hit tests resolved to the intended control or child; labels remained visible and unclipped; no page-level horizontal overflow or mobile-bottom-navigation obstruction appeared; desktop remained usable. |
+| Shared-component evidence | ConfirmDialog consumers were inventoried before the shared minimum changed. Escape, Enter, Tab trapping, Shift+Tab, focus restoration, light/dark presentation, and the shared sign-out confirmation regression passed. Callbacks, labels, ordering, variants, and focus behavior were unchanged. |
+| Workflow and cleanup | Owner/cashier behavior passed locally. Exactly four expected create/update/void/restore submissions occurred. Cleanup left 0 generated expense rows and 0 matching audit rows; unexpected business writes were 0; unrelated signatures remained equal. |
+| Business safety | Expense actions, amounts, accounting, queries, filters, audit behavior, reports, balances, payments, stock/FIFO, authentication, permissions, RLS, and database behavior were unchanged. |
+| Limitations | Authenticated browser evidence is local only. GitHub CI covered lint, typecheck, and build, not the browser workflow. No authenticated production Expenses workflow ran. Expense accounting, reports, balances, payment correctness, stock, and FIFO were not certified. |
+
+### EXP-MOBILE-002 - Expenses Void guidance incorrectly described a reversible archive as irreversible
+
+| Field | Detail |
+| --- | --- |
+| Severity | P3 |
+| Status | FIXED ON MAIN — VERIFIED LOCALLY |
+| Module | Expenses Void/Restore guidance |
+| Route | `/expenses` |
+| Original issue | The Void dialog said the action could not be undone even though Void archives rather than deletes, Show voided exposes the row, and Restore returned it to active state. |
+| Impact | Shop users received misleading irreversible-action guidance for a reversible archive operation. |
+| Root cause | Stale confirmation copy contradicted the existing archive-and-Restore product behavior. |
+| Resolution | The dialog explains that the expense is marked void, hidden from normal expense lists and reports, and restorable later through Show voided. It does not claim permanent deletion. |
+| PR | #303 - `fix: improve Expenses mobile actions and void guidance` |
+| Reviewed head | `f8478a7daf1df16acdf5726e5b75be3ee469c196` |
+| Merge commit | `1a71a12ab5e00570fb66830570e80b8175f4fef4` |
+| Regression evidence | Void Cancel submitted 0 actions and changed no row. Void Confirm submitted exactly once. Show voided exposed Restore, Restore submitted exactly once, and the row returned to active state without duplication. No native dialog appeared. |
+| Business safety | Archive/Restore action contracts, server actions, data queries, values, audit side effects, permissions, authentication, RLS, and database behavior were unchanged. |
+| Limitations | Local authenticated evidence only. No authenticated production Expenses workflow or financial-correctness verification occurred. |
+
+### EXP-MOBILE-003 - Expenses mobile payment filtering and summary-label readability remain incomplete
+
+| Field | Detail |
+| --- | --- |
+| Severity | P3 |
+| Status | OPEN |
+| Module | Expenses mobile filters and summary cards |
+| Route | `/expenses` |
+| Original viewport evidence | Payment-filter instability at 390x844; summary-label truncation at 320x568 and for Top category (month) at 390x844. |
+| Issue | The mobile payment-method filter option became unstable/non-visible during an ordinary tap. Expenses summary headings were also truncated at narrow widths. |
+| Impact | Mobile users cannot reliably complete payment-method filtering through the rendered control and cannot read every summary heading in full. |
+| PR #303 boundary | PR #303 did not change AppSelect, payment-filter behavior, StatCard, filter meanings, or summary-label layout. |
+| Next branch | `fix/expenses-mobile-filter-and-summary-labels` |
+| Required review | Deterministically reproduce the ordinary tap failure, record menu/option geometry and hit testing, compare Expenses and shared AppSelect consumers, and review existing StatCard `wrapLabel` consumers before any shared change. |
+| Completion boundary | After the focused source fix merges, rerun the complete owner/cashier Expenses workflow with exactly four expected action submissions, cleanup, and unrelated signatures. Perform another documentation-only audit synchronization before removing Expenses from blocked coverage. |
+| Cash Drawer boundary | Cash Drawer remains blocked until EXP-MOBILE-003 is fixed, the full Expenses workflow passes, and the audit/handoff files are synchronized. |
+| Business safety | No expense accounting, report formula, balance, payment, stock/FIFO, authentication, permission, RLS, or database correctness claim is made. |
+
 ## Automated Audit Coverage Added
 
 New file:
@@ -759,21 +821,39 @@ PR #299 browser, print-media, PDF, visual, lifecycle, cleanup, and fixture-safet
 
 PR #301 browser, print-media, PDF, coordinate, visual, lifecycle, cleanup, fixture, and write-guard evidence is inherited from the reviewed and merged PR. No authenticated browser, Repairs PDF, screenshot, cancellation browser, unmount browser, Returns browser/PDF, Reports browser, or production-authentication suite was rerun for this documentation-only refresh. GitHub CI independently covered repository checks on the reviewed head; local authenticated browser and PDF evidence remains reported local evidence rather than CI or production evidence. Public HTTP 200 checks prove availability only. No production authentication occurred.
 
+## Commands Run During Expenses PR #303 Handoff Audit Synchronization
+
+| Command | Result |
+| --- | --- |
+| Exact-path `test`, `shasum -a 256`, and `unzip -l` for `/Users/sw12/Downloads/SaleDock_Handoff_Bundle_2026-07-12.zip` | PASS - SHA-256 matched `0dd1ce8015cb139490c8d622d293cbfa346aa876b1ca8f0fe866f35e7b004977`; required files and headers were verified; extraction used a temporary directory outside every worktree; the original ZIP remained unchanged. |
+| Eighteen protected-worktree branch, HEAD, status, and SHA-256 inventories before and after editing | PASS - all 18 protected worktrees, 22 dirty/untracked files, and all 22 full fingerprints matched exactly. The protected Expenses document/test hashes remained `7dc4dafc10c834aee01e71ea36b42b67c73b308270016c5e999bc2309f78c8b7` and `760f480c4794488146c80183f1f30e2128272c7c1376c55f895c02c40a8bc469`. |
+| `git fetch origin --prune`, PR #303 state reads, merge-scope inspection, and branch/worktree-name checks | PASS - origin/main was `1a71a12ab5e00570fb66830570e80b8175f4fef4`; PR #303 was merged from reviewed head `f8478a7daf1df16acdf5726e5b75be3ee469c196` with the exact seven-file scope; the documentation branch/worktree did not already exist. |
+| `git worktree add /Users/sw12/Projects/saledock-expenses-pr303-handoff-audit-sync -b docs/expenses-pr303-handoff-audit-sync origin/main` | PASS - clean documentation worktree created from exact main. |
+| `git status --short`, `git diff --check`, `git diff --stat`, `git diff --name-only`, per-file diffs, and focused documentation assertions | PASS - exactly `02_CURRENT_STATE.md`, `03_REMEMBER.md`, `CHATGPT_CONTINUATION_BRIEF.md`, and this audit document changed; target counts and evidence boundaries passed focused assertions. |
+| `node --test tests/expenses-mobile-touch-and-void-copy.test.mjs` | PASS - 5/5 source-contract tests passed. |
+| `npm ci` | PASS - locked dependencies installed; package and lockfiles remained unchanged. npm reported 1 low and 3 moderate dependency advisories; no remediation was attempted in this documentation-only task. |
+| `npm run lint` | PASS - 0 errors and 2 pre-existing Privacy Center hook warnings. |
+| `npm run typecheck` | PASS. |
+| `npm run build` | PASS - Next.js 16.2.6 production build completed. |
+| GitHub checks for PR #303 reviewed head and squash merge | PASS - pull-request CI succeeded on `f8478a7daf1df16acdf5726e5b75be3ee469c196`; push/main CI succeeded on `1a71a12ab5e00570fb66830570e80b8175f4fef4`; Vercel succeeded for both exact commits. |
+
+PR #303 local authenticated responsive-browser, touch-geometry, keyboard, owner/cashier, workflow, cleanup, and signature evidence is inherited from the reviewed and merged PR. No browser, Expenses workflow, screenshot, Supabase mutation, or production-authentication suite was rerun for this documentation-only synchronization. GitHub CI independently covered lint, typecheck, and build; Vercel status proves deployment only. Previously reported public HTTP 200 checks prove availability only and were not rerun here. No authenticated production Expenses workflow occurred.
+
 ## Blocked / Not-Tested Areas
 
 Five broader areas remain blocked or not tested:
 
-- Expenses mobile workflow
+- Expenses mobile workflow completion (`EXP-MOBILE-003` plus the complete post-fix rerun)
 - Cash Drawer close/print workflow
 - Forms/mobile keyboard
 - Loading/success/error states
 - Dark mode
 
-Reports, Returns, and Repairs are not included in this blocked/not-tested count. RPT-PRINT-001, RPT-MOBILE-001, RET-PRINT-001, RET-PRINT-001-LIFECYCLE, and REP-PRINT-001 are fixed on main and verified locally; the five unrelated coverage areas above remain unfinished.
+Reports, Returns, and Repairs are not included in this blocked/not-tested count. RPT-PRINT-001, RPT-MOBILE-001, RET-PRINT-001, RET-PRINT-001-LIFECYCLE, and REP-PRINT-001 are fixed on main and verified locally. Expenses remains included because EXP-MOBILE-003 is open and the complete workflow must be rerun after all three Expenses findings are fixed. Cash Drawer has not begun.
 
 ## Known Limitations
 
-- All fourteen tracked findings are dispositioned. The nine original MN findings retain their recorded outcomes: MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, and MN-009 were fixed on main or in the audit suite, while MN-007 was verified as development-only with no observed production impact. Supplemental RPT-PRINT-001, RPT-MOBILE-001, RET-PRINT-001, RET-PRINT-001-LIFECYCLE, and REP-PRINT-001 are fixed on main and verified locally.
+- Sixteen of seventeen tracked findings are dispositioned. The nine original MN findings retain their recorded outcomes: MN-001, MN-002, MN-003, MN-004, MN-005, MN-006, MN-008, and MN-009 were fixed on main or in the audit suite, while MN-007 was verified as development-only with no observed production impact. Supplemental RPT-PRINT-001, RPT-MOBILE-001, RET-PRINT-001, RET-PRINT-001-LIFECYCLE, REP-PRINT-001, EXP-MOBILE-001, and EXP-MOBILE-002 are fixed on main and verified locally. EXP-MOBILE-003 remains the one active P3 finding.
 - The authenticated owner route/viewport matrix now completes locally in split tests, but production remains read-only and not used for mutation testing.
 - Production was not used for mutation testing.
 - WebKit and Firefox authenticated routes were not re-run after the fixes; public/auth routes previously passed.
@@ -781,6 +861,7 @@ Reports, Returns, and Repairs are not included in this blocked/not-tested count.
 - Invoice PDF/print artifacts were regenerated and passed. Both Reports presentation findings are fixed locally: PR #295 verified five-page A4 full-document pagination with later and final sections present, and PR #297 verified complete mobile and print StatCard labels while retaining five-page output. No authenticated production Reports login or PDF generation occurred; browser, screenshot, print-media, and PDF inspection remain local reported evidence. Financial formula correctness remains outside this presentation audit.
 - Returns A4 and 80mm presentation is fixed and verified locally through PR #299. Standard and longer thermal receipts were centered, unclipped, complete, and single-page; cancellation and unmount behavior also passed. No authenticated production Returns verification or physical thermal-printer hardware test occurred. Financial, refund, stock-restoration, and FIFO correctness remain outside this presentation audit.
 - Repairs A4 and 80mm presentation is fixed and verified locally through PR #301. The two-page A4 artifact included the final footer; standard and longer thermal receipts were centered, unclipped, complete, and single-page; cancellation and unmount behavior also passed. No authenticated production Repairs verification or physical thermal-printer hardware test occurred. Repair accounting, estimates, advances, balances, payments, customer correctness, stock, and FIFO correctness remain outside this presentation audit.
+- Expenses touch targets and Void guidance are fixed on main and verified locally through PR #303. Nine controls measured 44px at 320x568, 390x844, and 430x932; owner/cashier behavior, exactly four expected submissions, cleanup, and shared sign-out confirmation regression passed locally. No authenticated production Expenses workflow was run, and public HTTP 200 checks prove availability only. EXP-MOBILE-003 remains open. Expense accounting, report formulas, balances, payment correctness, stock, and FIFO remain outside this presentation audit.
 - Print/share touch-target browser checks passed for reports, daily closing, and supplier statement. Shared branding/profile crop controls were verified for square and landscape crop shapes without clicking Use crop. Daily Closing/Cash Drawer and Supplier Statement physical artifacts remain incomplete as previously documented.
 - A supplemental JSON timing run of the full mobile audit exposed one intermittent local `/daily-closing` tablet operations timeout after the required line-reporter full audit had already passed. The exact focused group passed on rerun in 41.5s. Treat the broader full-file timing as not perfectly clean, while MN-003 remains closed by the focused touch-target contract and rendered-route evidence.
 - Real-device hardware, authenticated WebKit/Firefox, and 125% browser zoom remain untested. Five blocked/not-tested areas remain.
@@ -791,8 +872,8 @@ Reports, Returns, and Repairs are not included in this blocked/not-tested count.
 
 ## Top Priority Follow-up Work
 
-1. Complete the Expenses mobile workflow.
-2. Complete the Cash Drawer close/print workflow using disposable local data and review-first safeguards.
+1. Fix `EXP-MOBILE-003` on `fix/expenses-mobile-filter-and-summary-labels`, then rerun the complete Expenses workflow and synchronize the audit.
+2. Complete the Cash Drawer close/print workflow using disposable local data and review-first safeguards only after Expenses is complete and synchronized.
 3. Add forms/mobile-keyboard coverage.
 4. Add loading, success, and error-state coverage.
 5. Run the dark-mode matrix.
@@ -811,7 +892,8 @@ Production should stay read-only unless a specific QA transaction is approved. T
 6. Reports has local mobile-label verification at 320x568, 390x844, and 430x932, local desktop sanity at 1440x900, local print-media verification at 390x844, and local five-page A4 evidence. No authenticated production Reports verification occurred; public HTTP checks prove availability only.
 7. Returns has local authenticated A4, standard 80mm, longer 80mm, cancellation, and unmount evidence. No authenticated production Returns verification or production thermal PDF exists. Public HTTP checks prove availability only, and financial, refund, stock-restoration, and FIFO behavior was not tested.
 8. Repairs has local authenticated A4, standard 80mm, longer 80mm, cancellation, and unmount evidence. No authenticated production Repairs verification or production Repair PDF exists. Public HTTP checks prove availability only, and repair accounting, estimates, advances, balances, payments, stock, and FIFO behavior was not tested. Continue human-only read-only review of Daily Closing/Cash Drawer and Supplier Statement print actions.
-9. Test dark mode on phone for POS, Products, Dashboard, Invoices, and Settings.
+9. Expenses has local authenticated evidence for 44px touch targets, accurate Void/Restore guidance, owner/cashier behavior, four expected submissions, and complete cleanup. EXP-MOBILE-003 remains open for payment-filter stability and summary labels. No authenticated production Expenses workflow occurred; financial, reports, balances, payment, stock, and FIFO behavior was not certified.
+10. Test dark mode on phone for POS, Products, Dashboard, Invoices, and Settings.
 
 ## Safety Confirmation
 
@@ -827,10 +909,11 @@ Production should stay read-only unless a specific QA transaction is approved. T
 - No package or lockfile changes.
 - No workflow or configuration changes.
 - No native browser dialog introduced.
+- No browser or Supabase mutation suite rerun for this documentation-only synchronization.
 - No merge.
 
 ## Risk Position
 
-All fourteen tracked findings have a recorded disposition: thirteen are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. The original nine MN findings remain 9/9 dispositioned. Supplemental RPT-PRINT-001 and RPT-MOBILE-001 remain fixed through PRs #295 and #297. Supplemental RET-PRINT-001 and RET-PRINT-001-LIFECYCLE remain fixed through PR #299. Supplemental REP-PRINT-001 is fixed through PR #301. Reports mobile labels and full-document A4 pagination remain verified locally. Returns A4 and 80mm presentation, content-derived thermal sizing, cancellation, and unmount behavior remain verified locally. Repairs A4 and 80mm presentation, content-derived thermal sizing, cancellation, and unmount behavior are verified locally.
+Sixteen of seventeen tracked findings have a recorded disposition: fifteen are fixed on main or in the audit suite, and MN-007 is verified as development-only in the tested environments. The original nine MN findings remain 9/9 dispositioned. Supplemental Reports, Returns, and Repairs findings retain their fixed status. Supplemental EXP-MOBILE-001 and EXP-MOBILE-002 are fixed through PR #303 with reviewed local evidence. EXP-MOBILE-003 remains one active P3 finding, so Expenses is partial rather than passed and Cash Drawer has not begun.
 
-Zero active P0 through P3 tracked findings remain, but five broader blocked/not-tested areas remain: expenses mobile workflow, cash drawer close/print workflow, forms/mobile keyboard, loading/success/error states, and dark mode. Real-device hardware, authenticated WebKit/Firefox, 125% zoom, every print surface, authenticated production Reports/Returns/Repairs, physical thermal-printer hardware, financial, accounting, estimate, advance, balance, payment, customer, refund, stock/FIFO correctness, and full product certification remain outside the completed evidence. No financial, accounting, advance, balance, payment, customer, refund, stock, FIFO, query, authentication, permission, database, or production-data behavior changed through PR #301 or this documentation refresh. The overall recommendation is 14 FINDINGS DISPOSITIONED — 5 BLOCKED/NOT-TESTED AREAS REMAIN, not a blanket pass.
+Five broader blocked/not-tested areas remain: Expenses mobile workflow completion, Cash Drawer close/print workflow, forms/mobile keyboard, loading/success/error states, and dark mode. Real-device hardware, authenticated WebKit/Firefox, 125% zoom, every print surface, authenticated production Reports/Returns/Repairs/Expenses, physical thermal-printer hardware, financial, accounting, report-formula, advance, balance, payment, customer, refund, stock/FIFO correctness, and full product certification remain outside the completed evidence. No financial, accounting, report, balance, payment, stock, FIFO, query, authentication, permission, database, migration, RLS, or production-data behavior changed through PR #303 or this documentation refresh. The overall recommendation is 16 FINDINGS DISPOSITIONED — 1 ACTIVE P3 AND 5 BLOCKED/NOT-TESTED AREAS REMAIN, not a blanket pass.
