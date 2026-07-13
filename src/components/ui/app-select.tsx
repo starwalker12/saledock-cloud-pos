@@ -71,6 +71,15 @@ export function AppSelect({
   const displayLabel = selectedOption?.label || placeholder;
 
   useEffect(() => {
+    if (value !== undefined) return;
+    // Adopt a new server-derived default after client navigation without remounting the control.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInternalValue(defaultValue);
+    setIsOpen(false);
+    setQuery("");
+  }, [defaultValue, value]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
     function handlePointerDown(event: PointerEvent) {

@@ -5,13 +5,13 @@ import { test } from "node:test";
 
 const statCard = readFileSync("src/components/ui/stat-card.tsx", "utf8");
 const reportsPage = readFileSync("src/app/reports/page.tsx", "utf8");
+const expensesPage = readFileSync("src/app/expenses/page.tsx", "utf8");
 const reportsData = readFileSync("src/lib/data/reports.ts");
 
 const reportStatCardConsumers = [
   "src/app/customers/[id]/page.tsx",
   "src/app/customers/page.tsx",
   "src/app/daily-closing/page.tsx",
-  "src/app/expenses/page.tsx",
   "src/app/products/page.tsx",
   "src/app/repairs/page.tsx",
   "src/app/suppliers/dues/page.tsx",
@@ -25,6 +25,13 @@ const reportLabels = [
   "Gross Profit Margin",
   "Service Revenue / Profit",
   "Total Operating Expenses",
+];
+
+const expenseLabels = [
+  "Today expenses",
+  "This month",
+  "Top category (month)",
+  "Latest expense",
 ];
 
 function conditionalBranch(source, marker, endMarker) {
@@ -115,6 +122,17 @@ test("Reports keeps the affected labels and value expressions unchanged", () => 
     "value={formatCurrency(data.expenses.totalExpenses, currency)}",
   ]) {
     assert.ok(reportsPage.includes(valueExpression), `Reports retains ${valueExpression}`);
+  }
+});
+
+test("Expenses deliberately opts all four summary StatCards into wrapping", () => {
+  assert.equal((expensesPage.match(/<StatCard\b/g) ?? []).length, 4);
+  assert.equal((expensesPage.match(/\bwrapLabel\b/g) ?? []).length, 4);
+  for (const label of expenseLabels) {
+    const labelIndex = expensesPage.indexOf(`label="${label}"`);
+    assert.notEqual(labelIndex, -1, `Expenses retains label: ${label}`);
+    const cardEnd = expensesPage.indexOf("/>", labelIndex);
+    assert.match(expensesPage.slice(labelIndex, cardEnd), /\bwrapLabel\b/, `${label} opts into wrapping`);
   }
 });
 
