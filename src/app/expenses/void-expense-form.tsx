@@ -25,7 +25,7 @@ export function VoidExpenseForm({ id }: { id: string }) {
 
     const shouldVoid = await confirm({
       title: "Void this expense?",
-      message: "This expense will be hidden from reports. This action cannot be undone.",
+      message: "This expense will be marked as void and hidden from normal expense lists and reports. You can restore it later by turning on Show voided.",
       confirmLabel: "Void expense",
       cancelLabel: "Cancel",
       variant: "destructive",
@@ -46,7 +46,7 @@ export function VoidExpenseForm({ id }: { id: string }) {
       <button
         type="submit"
         disabled={isConfirming || isSubmitting}
-        className="min-h-9 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-55"
+        className="min-h-11 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-55"
       >
         {isSubmitting ? "Voiding..." : "Void"}
       </button>

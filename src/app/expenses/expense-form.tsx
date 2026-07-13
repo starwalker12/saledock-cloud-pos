@@ -149,7 +149,7 @@ export function ExpenseForm({
         <button
           type="submit"
           disabled={pending || !canWrite}
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-60 cursor-pointer"
+          className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-60 cursor-pointer"
         >
           {pending ? (
             <>
