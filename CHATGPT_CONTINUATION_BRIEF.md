@@ -25,8 +25,10 @@ Production:
 Vercel alias:
 `https://saledock-cloud-pos.vercel.app`
 
-Current production main:
+Latest behavior-changing production baseline:
 `1a71a12ab5e00570fb66830570e80b8175f4fef4`
+
+This is PR #303's application-behavior merge commit. GitHub `main` must always be verified live. After documentation PR #304 merges, the current repository `main` will be PR #304's actual merge commit even though the latest application-behavior baseline remains PR #303's merge commit. Do not guess or reuse a provisional merge SHA.
 
 Stack:
 Next.js 16 App Router, TypeScript, Tailwind CSS v4, Supabase, Vercel.
@@ -114,6 +116,8 @@ Expenses is still partial. The full post-merge completion rerun and final audit 
 ## Immediate next action
 
 After this documentation-only PR is reviewed and merged, create one separate review-first source PR:
+
+The next task must use the actual PR #304 merge SHA reported by GitHub as its exact base/main. Do not reuse `1a71a12ab5e00570fb66830570e80b8175f4fef4` as the expected repository HEAD after PR #304 merges.
 
 `fix/expenses-mobile-filter-and-summary-labels`
 

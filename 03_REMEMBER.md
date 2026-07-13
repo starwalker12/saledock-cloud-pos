@@ -161,9 +161,13 @@ Presentation verification does not prove financial calculations, refund logic, r
 
 ## 📋 Audit state — official versus newest QA
 
-Current production main:
+Latest application-behavior production commit before the documentation synchronization:
 
 `1a71a12ab5e00570fb66830570e80b8175f4fef4`
+
+This is PR #303's application-behavior merge commit. GitHub `main` must always be verified live. After documentation PR #304 merges, the current repository `main` will be PR #304's actual merge commit even though the latest application-behavior baseline remains PR #303's merge commit. Do not guess or reuse a provisional merge SHA.
+
+The next coding task must use the actual PR #304 merge SHA reported by GitHub as its exact base/main. Do not reuse `1a71a12ab5e00570fb66830570e80b8175f4fef4` as the expected repository HEAD after PR #304 merges.
 
 Synchronized audit state after PR #303:
 

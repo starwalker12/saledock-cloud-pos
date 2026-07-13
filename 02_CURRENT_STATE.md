@@ -3,9 +3,11 @@
 
 ## ▶️ WHERE THE NEXT CHAT PICKS UP
 
-Current production `main`:
+Latest behavior-changing production baseline:
 
 `1a71a12ab5e00570fb66830570e80b8175f4fef4`
+
+This is PR #303's application-behavior merge commit. GitHub `main` must always be verified live. After documentation PR #304 merges, the current repository `main` will be PR #304's actual merge commit even though the latest application-behavior baseline remains PR #303's merge commit. Do not guess or reuse a provisional merge SHA.
 
 Latest merged work:
 
@@ -83,6 +85,8 @@ PR #303 did not change AppSelect, payment-filter behavior, StatCard, or Expenses
 ## 🎯 IMMEDIATE NEXT TASK
 
 After this documentation-only synchronization is reviewed and merged, create the separate review-first `EXP-MOBILE-003` source PR:
+
+The next task must use the actual PR #304 merge SHA reported by GitHub as its exact base/main. Do not reuse `1a71a12ab5e00570fb66830570e80b8175f4fef4` as the expected repository HEAD after PR #304 merges.
 
 - Branch: `fix/expenses-mobile-filter-and-summary-labels`.
 - Deterministically reproduce the ordinary mobile payment-filter tap failure.
