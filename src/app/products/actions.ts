@@ -312,7 +312,6 @@ export async function saveProductAction(
     type: isService ? ("service" as const) : ("product" as const),
     purchase_price: isService ? 0 : parsed.data.purchase_price,
     sale_price: parsed.data.sale_price,
-    stock_quantity: isService ? 0 : parsed.data.stock_quantity,
     minimum_stock: isService ? 0 : parsed.data.minimum_stock,
     allow_sell_at_loss: isService ? false : parsed.data.allow_sell_at_loss,
     sell_at_loss_reason: isService ? "" : (parsed.data.sell_at_loss_reason ?? ""),
@@ -326,13 +325,37 @@ export async function saveProductAction(
     // Query old state for comparative override audit logs
     const { data: oldProduct, error: fetchErr } = await supabase
       .from("products")
-      .select("allow_sell_at_loss, sell_at_loss_reason, name, image_path")
+      .select("allow_sell_at_loss, sell_at_loss_reason, name, image_path, type, stock_quantity")
       .eq("id", id)
       .eq("organization_id", orgId)
       .maybeSingle();
 
     if (fetchErr || !oldProduct) {
       return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+    }
+
+    if (oldProduct.type === "product" && isService) {
+      const [{ count: lotCount, error: lotError }, { count: movementCount, error: movementError }] =
+        await Promise.all([
+          supabase
+            .from("product_stock_lots")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", orgId)
+            .eq("product_id", id),
+          supabase
+            .from("stock_movements")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", orgId)
+            .eq("product_id", id),
+        ]);
+      if (lotError || movementError) {
+        return err("We couldn't verify this product's inventory history. Please try again.");
+      }
+      if (oldProduct.stock_quantity !== 0 || (lotCount ?? 0) > 0 || (movementCount ?? 0) > 0) {
+        return err(
+          "Products with stock or inventory history cannot be converted to services. Adjust stock through FIFO tools or create a separate service.",
+        );
+      }
     }
 
     let nextImagePath = oldProduct.image_path;
@@ -397,10 +420,23 @@ export async function saveProductAction(
       imagePath = upload.path;
     }
 
-    const { error } = await supabase.from("products").insert({
-      id: productId,
-      ...payload,
-      image_path: imagePath,
+    const { error } = await supabase.rpc("create_product_with_opening_stock", {
+      p_product_id: productId,
+      p_name: payload.name,
+      p_sku: payload.sku,
+      p_barcode: payload.barcode,
+      p_category_id: payload.category_id,
+      p_supplier_id: payload.supplier_id,
+      p_product_type: payload.type,
+      p_purchase_price: payload.purchase_price,
+      p_sale_price: payload.sale_price,
+      p_opening_stock: isService ? 0 : parsed.data.stock_quantity,
+      p_minimum_stock: payload.minimum_stock,
+      p_allow_sell_at_loss: payload.allow_sell_at_loss,
+      p_sell_at_loss_reason: payload.sell_at_loss_reason,
+      p_image_path: imagePath,
+      p_notes: payload.notes,
+      p_is_active: payload.is_active,
     });
     if (error) {
       await removeProductImage(supabase, imagePath);
