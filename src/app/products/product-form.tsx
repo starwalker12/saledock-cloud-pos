@@ -409,8 +409,8 @@ export function ProductForm({
               Stock and availability
             </h3>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Services do not track stock. Product stock and FIFO tools remain
-              separate.
+              Opening stock creates the first FIFO lot. Later stock changes use
+              Restock or Stock Adjustment.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -435,18 +435,34 @@ export function ProductForm({
               />
               <span className={labelClass}>Active and available for sale</span>
             </label>
-            <label className={isService ? "block opacity-60" : "block"}>
-              <span className={labelClass}>Stock quantity</span>
-              <input
-                type="number"
-                min={0}
-                step="1"
-                name="stock_quantity"
-                defaultValue={initialValues?.stock_quantity ?? 0}
-                disabled={!canWrite || isService}
-                className={inputClass}
-              />
-            </label>
+            {initialValues?.id ? (
+              <div className="block">
+                <span className={labelClass}>Current stock</span>
+                <output
+                  data-testid="product-current-stock"
+                  className={`${inputClass} flex items-center`}
+                >
+                  {isService ? "Not tracked for services" : initialValues.stock_quantity ?? 0}
+                </output>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Close this form and use Inventory Restock or Stock Adjustment
+                  to change stock safely.
+                </p>
+              </div>
+            ) : (
+              <label className={isService ? "block opacity-60" : "block"}>
+                <span className={labelClass}>Opening stock</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  name="stock_quantity"
+                  defaultValue={0}
+                  disabled={!canWrite || isService}
+                  className={inputClass}
+                />
+              </label>
+            )}
             <label className={isService ? "block opacity-60" : "block"}>
               <span className={labelClass}>Reorder level</span>
               <input
