@@ -137,13 +137,50 @@ returns, supplier purchases, restock, stock adjustment, authentication, RLS,
 and organization/branch permissions are unchanged. This work does not repair
 historical mismatches and does not certify unrelated inventory paths.
 
-## Deployment and live verification boundary
+## Production deployment and live verification
 
-At source-review time, GitHub merge, production migration, Vercel production
-deployment, and authenticated live blocker verification are pending. The
-reviewed additive migration must be the only pending production migration and
-must be applied only after the focused source PR is merged. Public HTTP success
-alone is not live stock/FIFO evidence.
+PR #306 was squash-merged as
+`da40ad2ef5594267f75c3ad2576c6ac3aea89d35`. The established Supabase GitHub
+integration applied migration version `20260720093639` exactly once. The
+production function retained the reviewed `security invoker` mode,
+`search_path = public`, and authenticated-only execute grant. Vercel production
+deployment `dpl_DNjtzSbm78CLBx2KpzQYrW9XXKKd` reached Ready for the same merge
+SHA. Public endpoints returned HTTP 200, which was treated only as availability
+evidence.
+
+The authenticated live blocker retest used marker
+`LIVE-FIFO-20260720-1515-BJUK` with the dedicated Owner account for Star Shop,
+Main Branch. Normal product creation produced exactly one active physical
+product at stock 10, one FIFO opening lot with 10 received and 10 remaining,
+one `opening_stock` movement for quantity 10, and one product-created audit.
+The product, lot, and movement all used unit cost PKR 100. Products, POS, and
+the FIFO ledger displayed the same quantity, with no duplicate product, lot,
+movement, or audit.
+
+The live edit form displayed current stock 10 read-only, exposed no ordinary
+stock input, and directed inventory changes to Restock or Stock Adjustment. A
+notes-only edit preserved product stock 10, FIFO remaining 10, one active lot,
+and one opening movement, and created no adjustment movement.
+
+One ordinary, fully paid Card checkout for quantity one then succeeded. Product
+stock, POS stock, and FIFO remaining all changed from 10 to 9. The retained
+financial and inventory history contains exactly one invoice, one invoice item,
+one Card payment, one FIFO allocation, and one sale movement. The invoice item,
+allocation, and movement retained unit cost PKR 100. No duplicate write,
+customer-ledger entry, new cash shift, browser error, or reload inconsistency
+was observed.
+
+Cleanup archived the marked product through the normal UI. The product remains
+inactive at stock 9 while its truthful invoice, payment, FIFO lot, allocation,
+opening movement, sale movement, and product audit history remain retained.
+No unrelated record was modified and no QA cash shift or unsettled customer
+balance was created.
+
+This authenticated production result closes only the P1 opening-stock/FIFO
+blocker. The historical Expenses settlement risk, missing customer lifecycle
+audit coverage, cashier acceptance, and the remaining comprehensive live
+finishing matrix are unrelated and remain open. Canonical finishing documents
+must not be synchronized until that full live run passes.
 
 ## Rollback
 
