@@ -6,7 +6,7 @@ Finding: `LIVE-SUPPLIER-PURCHASE-001`
 
 Severity: P1
 
-Status: Purchase-number correction proven locally and authorized for independent delivery. Supplier payment client settlement remains an accepted, unresolved P2 risk.
+Status: Purchase-number correction merged, migrated, and verified through an authenticated production purchase and Card settlement. Supplier payment client settlement remains an accepted, unresolved P2 risk.
 
 ## Live blocker
 
@@ -200,9 +200,74 @@ After the focused unpaid-purchase E2E and complete local SQL/RPC gate pass witho
 7. accept the payment result only when it settles normally or satisfies every owner-waiver business-truth and recovery condition;
 8. retain truthful purchase/payment/FIFO/ledger history, archive the disposable product and supplier, and record the live outcome in a separate one-file documentation PR.
 
+## Production delivery and live verification
+
+The focused correction was delivered through PR `#308`, `fix: generate supplier purchase numbers safely`.
+
+- Reviewed source head: `d92967e55647b0961e6c6143a0323ce2034c4ed1`
+- Squash merge commit: `857556f173383efd66cbbf3f96448d0562cc8bc6`
+- Source PR scope: the replacement migration, focused source contract, focused browser test, and this QA report only
+- GitHub main check: successful for the exact squash commit
+- Vercel production deployment: Ready and Current for the exact squash commit
+- Production domain: `https://saledock.site`
+
+The Supabase production project was visibly confirmed in the authenticated dashboard as `gadget-zone-online-pos`, project `bvxyxrdskjryepwjmsvc`, main/Production, Healthy, and linked to `starwalker12/saledock-cloud-pos`. The dashboard identified `fix_supplier_purchase_number_ambiguity` as the latest migration. Database migration history contained exactly one `20260720135013_fix_supplier_purchase_number_ambiguity` entry, so no second manual application was attempted.
+
+The deployed `public.create_supplier_purchase` remained owned by `postgres`, `security invoker`, and restricted to `authenticated`. Its qualified numbering query, organization lock, role guard, active branch/supplier/product guards, return shape, and grants matched the reviewed migration.
+
+Authenticated live verification used the dedicated Owner account for Fardan Aatir in Star Shop / Main Branch, PKR, on `saledock.site`. No credentials were entered into chat. Browser verification used the Codex Chrome session; database reads were supporting evidence and were not substituted for the live workflow.
+
+The unique live marker was `LIVE-PURCHASE-20260723-2224-K9Q4`. Before purchase creation:
+
+- one active disposable supplier existed with outstanding balance PKR 0;
+- one active physical product existed with SKU `LSP0723K9Q4`;
+- product cost was PKR 100, sale price was PKR 150, and stock was 5;
+- one opening-stock FIFO lot remained at quantity 5;
+- one opening-stock movement existed;
+- no Cash Drawer shift was open.
+
+The first mobile-browser attempt to reach the purchase submit control was intercepted by the fixed bottom navigation and opened Invoices. It did not submit the form: the marker still had zero supplier purchases and zero business writes. The purchase was then performed once in the authenticated desktop Chrome session without retrying a business submission.
+
+The unpaid purchase result was:
+
+- generated number: `PUR-000001`;
+- one purchase header and one item;
+- quantity 3 at PKR 100, subtotal/grand total PKR 300;
+- amount paid PKR 0, balance due PKR 300, status unpaid;
+- supplier outstanding balance PKR 300;
+- product stock 5 to 8;
+- two total FIFO lots with aggregate remaining quantity 8;
+- one opening-stock movement plus one quantity-3 purchase movement;
+- one PKR 300 purchase-credit ledger entry;
+- one `supplier_purchase.created` audit;
+- zero supplier payments;
+- unchanged Cash Drawer signature;
+- complete persisted detail after reload.
+
+One Card payment of PKR 300 was then submitted through the visible payment form. `Payment recorded.` rendered while the original form briefly remained disabled on `Recording...` and its server-rendered detail was stale. No second submission was made. The original page subsequently reconciled, and the accepted P2 recovery evidence also passed:
+
+- exactly one Card payment for PKR 300;
+- exactly one PKR 300 payment-debit ledger entry;
+- exactly one `supplier_payment.recorded` audit;
+- purchase status paid;
+- amount paid PKR 300 and balance due PKR 0;
+- supplier outstanding balance PKR 0;
+- unchanged Cash Drawer signature and zero open QA shift;
+- an independent authenticated SaleDock tab showed one payment, paid status, and due PKR 0;
+- one manual reload of the original tab showed the same paid state;
+- no duplicate purchase, payment, ledger entry, audit, stock movement, or submission.
+
+The retained production history is truthful: one purchase, one item, one payment, two supplier-ledger entries, two FIFO lots, two stock movements, and the exact purchase/payment audits. Cleanup archived only the disposable product and supplier. Final verification found both fixtures inactive, product stock/FIFO still 8, supplier balance PKR 0, the paid purchase/payment history intact, and the Cash Drawer signature unchanged.
+
+The payment result satisfies the owner's production settlement waiver but does not close the client-settlement finding. The brief success/pending mismatch remains:
+
+`KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+
+Local screenshots are retained outside the repository under `saledock-local-evidence/supplier-purchase-live-verification`. Public HTTP availability was not treated as authenticated workflow, migration, accounting, FIFO, or payment evidence.
+
 ## Remaining findings
 
-This fix does not address the known residual supplier-payment client-settlement P2 risk, `LIVE-CUSTOMER-LEDGER-001`, `LIVE-CUSTOMER-AUDIT-001`, `LIVE-CONSOLE-001`, or the historical Expenses client-settlement risk. Comprehensive finishing may resume only after the production migration and authenticated supplier-purchase/payment retest pass; SaleDock must not be described as audit-ready while these risks and coverage gaps remain.
+This fix does not address the known residual supplier-payment client-settlement P2 risk, `LIVE-CUSTOMER-LEDGER-001`, `LIVE-CUSTOMER-AUDIT-001`, `LIVE-CONSOLE-001`, or the historical Expenses client-settlement risk. The production migration and authenticated supplier-purchase/payment retest have passed, so comprehensive finishing may resume as a separate task. SaleDock must not be described as audit-ready while these risks and coverage gaps remain.
 
 ## Rollback
 
