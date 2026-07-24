@@ -19,6 +19,8 @@ export const BUSINESS_TIMEZONE = "Asia/Karachi";
 
 // PKT is UTC+5 all year (no DST). Anchors a Karachi calendar day to UTC instants.
 const KARACHI_UTC_OFFSET = "+05:00";
+const KARACHI_LOCAL_DATE_TIME =
+  /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)$/;
 
 // `en-CA` formats as `YYYY-MM-DD`, which is exactly the calendar-date shape used
 // across the app (date inputs, closing_date, day-grouping keys).
@@ -28,6 +30,59 @@ const karachiDateFormatter = new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit",
 });
+
+const karachiDateTimeFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function dateTimeParts(date: Date): Record<string, string> {
+  return Object.fromEntries(
+    karachiDateTimeFormatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+}
+
+/** Whether a value is an exact, valid `YYYY-MM-DDTHH:mm` Karachi wall time. */
+export function isKarachiDateTimeLocal(value: string): boolean {
+  const match = KARACHI_LOCAL_DATE_TIME.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (year < 1 || month < 1 || month > 12) return false;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day >= 1 && day <= lastDay;
+}
+
+/** Convert a Karachi `datetime-local` wall time to its UTC `timestamptz` instant. */
+export function parseKarachiDateTimeLocal(value: string): string {
+  if (!isKarachiDateTimeLocal(value)) {
+    throw new RangeError("Invalid Karachi local date and time.");
+  }
+  return new Date(`${value}:00.000${KARACHI_UTC_OFFSET}`).toISOString();
+}
+
+/** Format a UTC instant for a Karachi `datetime-local` input, independent of browser timezone. */
+export function formatKarachiDateTimeLocal(
+  iso?: string,
+  fallback: Date = new Date(),
+): string {
+  const date = iso ? new Date(iso) : fallback;
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError("Invalid UTC date and time.");
+  }
+  const parts = dateTimeParts(date);
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
 
 /** The Asia/Karachi calendar date for an instant (default: now), as `YYYY-MM-DD`. */
 export function getKarachiBusinessDate(date: Date = new Date()): string {

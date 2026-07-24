@@ -14,7 +14,11 @@ import {
   type ExpenseFilters,
 } from "@/lib/data/expenses";
 import { EXPENSE_PAYMENT_METHODS } from "@/lib/validation/expenses";
-import { getKarachiDayEndIso, getKarachiDayStartIso } from "@/lib/datetime";
+import {
+  BUSINESS_TIMEZONE,
+  getKarachiDayEndIso,
+  getKarachiDayStartIso,
+} from "@/lib/datetime";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { ExpenseForm } from "./expense-form";
@@ -33,6 +37,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-PK", {
+    timeZone: BUSINESS_TIMEZONE,
     year: "numeric",
     month: "short",
     day: "2-digit",

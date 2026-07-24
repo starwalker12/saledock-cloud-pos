@@ -181,10 +181,10 @@ test("AppSelect public props remain backward compatible", () => {
   assert.equal((props.match(/^\s{2}\w+\??:/gm) ?? []).length, expectedProps.length);
 });
 
-test("Expenses action, data, and validation sources match the reviewed base", () => {
-  assert.equal(sourceHash(expenseActions), "2d3d8ef4dba9cdfb0f29ed4e147f54272def7676c62190003f0dbc6f330072c7");
+test("Expenses action, data, and validation sources match the reviewed contracts", () => {
+  assert.equal(sourceHash(expenseActions), "9c0ca906b2cbfcb0d6636324111b285e1ca14f72fef841aaeb710217a75f86d6");
   assert.equal(sourceHash(expenseData), "67da4220b65152d0bd3803c96cf947ba19c1279d0e9441d5456229ad31307b2e");
-  assert.equal(sourceHash(expenseValidation), "f23a217eca614e8a904476b40041fa9776e1cf8f548f9176017128ec643f74e9");
+  assert.equal(sourceHash(expenseValidation), "8c878d6b175e80d63e668013eaee99d54ecae3ce3f8328d0e0eb7891afa9e46e");
 });
 
 test("Expenses permission and data wiring remain unchanged", () => {

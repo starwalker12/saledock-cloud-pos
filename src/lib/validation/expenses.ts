@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/validation/pos";
+import {
+  isKarachiDateTimeLocal,
+  parseKarachiDateTimeLocal,
+} from "@/lib/datetime";
 
 export const EXPENSE_PAYMENT_METHODS = PAYMENT_METHODS.filter(
   (m) => m !== "customer_credit",
@@ -23,8 +27,10 @@ export const expenseSchema = z.object({
   spent_at: z
     .preprocess((v) => {
       if (typeof v !== "string" || !v.trim()) return undefined;
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? v : d.toISOString();
+      const value = v.trim();
+      return isKarachiDateTimeLocal(value)
+        ? parseKarachiDateTimeLocal(value)
+        : value;
     }, z.string().datetime({ offset: true, message: "Invalid date." }).optional()),
 });
 
