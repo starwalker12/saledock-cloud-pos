@@ -1,6 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { addKarachiDays, getKarachiRangeIso } from "@/lib/datetime";
+import { calculateEstimatedNetProfit } from "@/lib/return-profit";
+import { getRestoredProductCostForReturns } from "./return-profit";
 
 export type InvoiceItemReportRow = {
   invoice_id: string;
@@ -45,6 +47,7 @@ export type ProfitSummaryReport = {
   serviceProfit: number;
   servicePrincipalHandled: number;
   creditWriteOffs: number;
+  restoredProductCost: number;
   estimatedNetProfit: number;
 };
 
@@ -214,6 +217,11 @@ export async function getReportsData(
 
   const completedReturns = returnsData ?? [];
   const returnIds = completedReturns.map((r) => r.id);
+  const restoredProductCost = await getRestoredProductCostForReturns(
+    supabase,
+    orgId,
+    returnIds,
+  );
 
   // 5. Return items in range
   let returnedProductQty = 0;
@@ -221,6 +229,7 @@ export async function getReportsData(
     const { data: retItems, error: retItemsError } = await supabase
       .from("return_items")
       .select("quantity")
+      .eq("organization_id", orgId)
       .in("return_id", returnIds);
 
     if (retItemsError) throw new Error(`Return items query error: ${retItemsError.message}`);
@@ -431,7 +440,13 @@ export async function getReportsData(
   const refundTotal = completedReturns.reduce((sum, ret) => sum + Number(ret.refund_amount ?? 0), 0);
 
   const totalExpenses = activeExpenses.reduce((sum, exp) => sum + Number(exp.amount ?? 0), 0);
-  const estimatedNetProfit = grossProfit - totalExpenses - refundTotal - creditWriteOffs;
+  const estimatedNetProfit = calculateEstimatedNetProfit({
+    grossProfit,
+    expenses: totalExpenses,
+    refunds: refundTotal,
+    restoredProductCost,
+    writeOffs: creditWriteOffs,
+  });
 
   const refundsByMethodMap = new Map<string, number>();
   for (const ret of completedReturns) {
@@ -644,6 +659,7 @@ export async function getReportsData(
       serviceProfit,
       servicePrincipalHandled,
       creditWriteOffs,
+      restoredProductCost,
       estimatedNetProfit,
     },
     returns: {
