@@ -9,6 +9,7 @@ import {
 import type { ExpenseRow } from "@/lib/data/expenses";
 import { Loader2 } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
+import { formatKarachiDateTimeLocal } from "@/lib/datetime";
 
 const initial: ActionState = { error: null, success: null };
 
@@ -19,12 +20,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   jazzcash: "JazzCash",
   bank_transfer: "Bank transfer",
 };
-
-function toLocalDateTimeInput(iso?: string): string {
-  const d = iso ? new Date(iso) : new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 16);
-}
 
 export function ExpenseForm({
   initialValues,
@@ -107,7 +102,7 @@ export function ExpenseForm({
         <input
           type="datetime-local"
           name="spent_at"
-          defaultValue={toLocalDateTimeInput(initialValues?.spent_at)}
+          defaultValue={formatKarachiDateTimeLocal(initialValues?.spent_at)}
           disabled={!canWrite}
           className={input}
         />

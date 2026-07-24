@@ -8,6 +8,7 @@ import { canManageExpenses } from "@/lib/permissions";
 import { expenseSchema } from "@/lib/validation/expenses";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
+import { formatKarachiDateTimeLocal } from "@/lib/datetime";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -43,6 +44,27 @@ export async function saveExpenseAction(
   const branchId = w.ctx.profile!.branch_id;
   if (!branchId) return err("No branch assigned for your profile.");
 
+  let spentAt = parsed.data.spent_at ?? new Date().toISOString();
+  if (id) {
+    const { data: existing, error: existingError } = await supabase
+      .from("expenses")
+      .select("spent_at")
+      .eq("id", id)
+      .eq("organization_id", w.ctx.profile!.organization_id!)
+      .maybeSingle();
+    if (existingError) {
+      return err(getSafeActionError(existingError, "We couldn't save this expense. Please try again."));
+    }
+    if (!existing) return err("We couldn't save this expense. Please try again.");
+    if (
+      !parsed.data.spent_at ||
+      formatKarachiDateTimeLocal(existing.spent_at) ===
+        formatKarachiDateTimeLocal(parsed.data.spent_at)
+    ) {
+      spentAt = existing.spent_at;
+    }
+  }
+
   const payload = {
     organization_id: w.ctx.profile!.organization_id!,
     branch_id: branchId,
@@ -51,7 +73,7 @@ export async function saveExpenseAction(
     payment_method: parsed.data.payment_method,
     vendor_name: parsed.data.vendor_name ?? null,
     notes: parsed.data.notes ?? null,
-    spent_at: parsed.data.spent_at ?? new Date().toISOString(),
+    spent_at: spentAt,
   };
 
   if (id) {
