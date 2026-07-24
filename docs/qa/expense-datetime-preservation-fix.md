@@ -10,7 +10,13 @@ Finding: `LIVE-EXPENSE-DATETIME-001`
 
 Severity: P1
 
-Status: FIXED IN DRAFT PR - VERIFIED LOCALLY
+Status: FIXED ON MAIN - VERIFIED LOCALLY AND IN PRODUCTION
+
+Source PR: #310
+
+Reviewed source head: `f7a9eadb132aa4c6736061c8003dcda4ca7e0748`
+
+Squash merge / resulting main: `03eeda4a014852d294bc790b81c308d716802221`
 
 ## Production evidence inherited from the live audit
 
@@ -142,7 +148,7 @@ Discarded harness and environment launches are not hidden:
   hash and missing loopback fixtures were corrected;
 - no automatic Playwright retry was used.
 
-## Cleanup and safety
+## Local cleanup and safety
 
 - Marked expenses remaining: 0.
 - Matching task audits remaining: 0.
@@ -163,10 +169,78 @@ expense was created or mutated. This public inspection is availability and rende
 evidence only; the complete local production-mode E2E remains the business-workflow
 evidence.
 
+## Authenticated production verification
+
+PR #310 was squash-merged at `2026-07-24T08:31:58Z`. GitHub main CI passed, and
+Vercel production deployment `dpl_BzokG4NtV3B54E1V7g7bNn7BSdg9` reached Ready for the
+exact merge SHA `03eeda4a014852d294bc790b81c308d716802221`.
+
+Codex Chrome computer use exercised `https://saledock.site` through the authenticated
+dedicated Owner test account:
+
+- User: Fardan Aatir.
+- Organization: Star Shop.
+- Branch: Main Branch.
+- Currency: PKR.
+- Timezone: Asia/Karachi.
+- Marker: `LIVE-EXP-DT-20260724-1652-6QBI`.
+
+The supported Expenses UI created one non-cash Card expense at local
+`2026-07-24T00:17`. The list and edit form displayed `00:17`, and read-only production
+database verification found the exact expected UTC instant:
+`2026-07-23T19:17:00.000Z`.
+
+Each unrelated edit was submitted once through the visible form:
+
+- Notes-only update: timestamp preserved byte-for-byte.
+- Amount-only update from PKR 75 to PKR 80: timestamp preserved byte-for-byte.
+- Payment-only update from Card to Bank transfer: timestamp preserved byte-for-byte.
+- Category/payment update to Marketing and Card: timestamp preserved byte-for-byte.
+
+After those four updates, the row remained unique, the list and edit form still displayed
+`00:17`, and the stored instant remained `2026-07-23T19:17:00.000Z`. The July 24
+Expenses filter found the row, the Dashboard showed one PKR 80 expense for the Karachi
+day, and Reports included PKR 80 under Marketing and Card.
+
+The intentional local edit to `2026-07-24T05:30` stored exactly
+`2026-07-24T00:30:00.000Z`. The edit form and list displayed `05:30`; reopening and an
+ordinary reload preserved it. The July 24 filter, Dashboard, and Reports continued to
+place the expense in the correct Karachi date.
+
+The notes-only update briefly remained on `Saving...` after the database and audit had
+committed, but it completed truthfully before the 30-second failure boundary. It was not
+resubmitted, no diagnostic reload was required, and no duplicate resulted. The historical
+Expenses client-settlement risk remains open as P3; this production result does not claim
+that risk is fixed.
+
+The fixture was then voided once through the supported confirmation dialog. Final
+production truth was:
+
+- One archived expense row, retaining `2026-07-24T00:30:00.000Z` / `05:30` Karachi.
+- One `expenses.created` audit.
+- Five `expenses.updated` audits.
+- One `expenses.voided` audit.
+- Duplicate expenses and audits: 0.
+- Active July 24 expense total returned to PKR 0.
+- Reports returned to PKR 0 operating expenses for the period.
+- Cash-shift and daily-closing rows were unchanged.
+- Unrelated expense and audit fingerprints matched the opening baseline.
+- No schema change or migration.
+
+Sanitized screenshots and results are stored at
+`/Users/sw12/Projects/saledock-local-evidence/expense-datetime-live-verification`.
+The evidence manifest SHA-256 is
+`ad79acf460bd173122428b855e862a8b5faf27c1363913a24dbb401143f56148`.
+Database reads were used only to verify exact persisted truth; authenticated workflow
+evidence came from the production UI and was not inferred from public HTTP checks.
+
+Live decision: PASS - `LIVE-EXPENSE-DATETIME-001` is fixed on main and verified in
+production. The Expense timestamp P1 count is now zero.
+
 ## Remaining risk and open findings
 
-This draft fixes only `LIVE-EXPENSE-DATETIME-001`. Expenses are not declared fully
-accepted.
+PR #310 fixes only `LIVE-EXPENSE-DATETIME-001`. Expenses and the product as a whole are
+not declared fully accepted.
 
 - `LIVE-REPORT-RETURN-PROFIT-001` remains open, P1.
 - `LIVE-DASHBOARD-NET-CASH-001` remains open, P1.
@@ -178,15 +252,14 @@ accepted.
 - Cashier production coverage remains limited, P2.
 - Historical Expenses client settlement remains open, P3.
 
-Canonical project synchronization remains blocked until this draft is reviewed and
-merged. The draft PR is not merged, and production was not modified.
+Canonical project synchronization remains blocked until both reporting P1 findings are
+resolved and reverified.
 
-## Production delivery plan
+## Production delivery result
 
-After senior approval, merge the exact reviewed head, verify main CI and Vercel production
-deployment, then run one separately authorized authenticated production timestamp check
-with a disposable marked expense and exact cleanup. Do not combine that delivery with
-either remaining reporting P1.
+The exact reviewed source head was delivered, production deployment and authenticated
+timestamp behavior were verified, and the marked expense was safely archived. Neither
+remaining reporting P1 was investigated or changed.
 
 ## Rollback
 
