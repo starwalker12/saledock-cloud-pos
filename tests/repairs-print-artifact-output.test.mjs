@@ -278,8 +278,7 @@ test("Returns source remains unchanged", () => {
   }
 });
 
-test("Reports source remains unchanged", () => {
-  for (const path of ["src/app/reports/page.tsx", "src/app/reports/print-button.tsx"]) {
-    assert.equal(readFileSync(path, "utf8"), sourceAtHead(path));
-  }
+test("Reports print control remains unchanged", () => {
+  const path = "src/app/reports/print-button.tsx";
+  assert.equal(readFileSync(path, "utf8"), sourceAtHead(path));
 });

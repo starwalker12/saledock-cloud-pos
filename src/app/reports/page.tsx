@@ -297,7 +297,7 @@ export default async function ReportsPage({
               <div className="relative group/profittooltip inline-block shrink-0">
                 <HelpCircle className="size-3.5 text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-help transition-colors" />
                 <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-48 -translate-x-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/profittooltip:translate-y-0 group-hover/profittooltip:scale-100 group-hover/profittooltip:opacity-100 bg-slate-900 px-2.5 py-1.5 text-[10px] md:text-xs font-bold text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 rounded-lg text-center leading-relaxed normal-case tracking-normal">
-                  Remaining shop profit after subtracting product costs, operating expenses, customer refunds, and write-offs.
+                  Remaining shop profit after subtracting product costs, operating expenses, customer refunds, and write-offs, with the exact FIFO cost of restocked returns restored.
                 </div>
               </div>
             </div>
@@ -305,7 +305,7 @@ export default async function ReportsPage({
               {formatCurrency(data.profit.estimatedNetProfit, currency)}
             </p>
             <p className="mt-2 md:mt-3 text-[10px] md:text-xs font-semibold text-emerald-700 dark:text-emerald-400 leading-4 md:leading-5">
-              Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) − Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) − Refunds ({formatCurrency(data.returns.refundTotal, currency)}){data.profit.creditWriteOffs > 0 ? ` − Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
+              Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) − Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) − Refunds ({formatCurrency(data.returns.refundTotal, currency)}) + Restocked FIFO Cost ({formatCurrency(data.profit.restoredProductCost, currency)}){data.profit.creditWriteOffs > 0 ? ` − Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
             </p>
           </div>
           <div className="rounded-xl bg-emerald-500 p-2 md:p-3 text-white shrink-0">
@@ -396,7 +396,7 @@ export default async function ReportsPage({
                 <span className="font-bold text-slate-900 dark:text-slate-200 block mb-0.5">Estimated Net Profit</span>
                 Final remaining shop profit for the period:
                 <div className="mt-1 font-mono text-[11px] text-emerald-800 dark:text-emerald-300 font-bold bg-emerald-50/50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded inline-block">
-                  Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) - Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) - Refunds ({formatCurrency(data.returns.refundTotal, currency)}){data.profit.creditWriteOffs > 0 ? ` - Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
+                  Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) - Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) - Refunds ({formatCurrency(data.returns.refundTotal, currency)}) + Restocked FIFO Cost ({formatCurrency(data.profit.restoredProductCost, currency)}){data.profit.creditWriteOffs > 0 ? ` - Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
                 </div>
               </div>
             </div>
@@ -445,6 +445,12 @@ export default async function ReportsPage({
               <span className="text-sm font-semibold text-slate-600">Refund/Return Outflow Impact</span>
               <span className="text-sm font-bold text-red-700">-{formatCurrency(data.returns.refundTotal, currency)}</span>
             </div>
+            {data.profit.restoredProductCost > 0 && (
+              <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">
+                <span className="text-sm font-semibold text-slate-600">Restocked Product Cost (Original FIFO)</span>
+                <span className="text-sm font-bold text-emerald-700">+{formatCurrency(data.profit.restoredProductCost, currency)}</span>
+              </div>
+            )}
             {data.profit.creditWriteOffs > 0 && (
               <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">
                 <span className="text-sm font-semibold text-slate-600">Credit Write-offs / Bad Debt</span>

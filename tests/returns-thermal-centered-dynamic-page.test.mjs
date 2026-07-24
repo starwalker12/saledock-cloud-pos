@@ -239,12 +239,11 @@ test("no transform, scale, or zoom workaround is used in the Returns fix", () =>
   assert.doesNotMatch(printButton, /style\.(?:transform|scale|zoom)|\.scale\s*\(/);
 });
 
-test("AppShell, Returns data and page, and Reports source remain at HEAD", () => {
+test("AppShell, Returns data and page, and Reports print control remain at HEAD", () => {
   for (const path of [
     "src/components/layout/app-shell.tsx",
     "src/app/returns/[id]/page.tsx",
     "src/lib/data/returns.ts",
-    "src/app/reports/page.tsx",
     "src/app/reports/print-button.tsx",
   ]) {
     assert.equal(readFileSync(path, "utf8"), sourceAtHead(path), `${path}: changed outside scope`);

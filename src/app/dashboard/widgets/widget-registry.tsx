@@ -422,6 +422,14 @@ export function renderWidgetContent(
                 <span className="text-slate-500">Returns:</span>
                 <span className="font-bold text-rose-600">-{formatCurrency(state.dashSummary.returnsTotal, currency)}</span>
               </div>
+              {state.dashSummary.restoredProductCost > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Restocked cost:</span>
+                  <span className="font-bold text-emerald-600">
+                    +{formatCurrency(state.dashSummary.restoredProductCost, currency)}
+                  </span>
+                </div>
+              )}
               {size === "XL" && (
                 <div className="flex justify-between border-t border-dashed border-slate-200/50 pt-1 mt-1 dark:border-slate-700/50">
                   <span className="text-slate-500">Invoices:</span>

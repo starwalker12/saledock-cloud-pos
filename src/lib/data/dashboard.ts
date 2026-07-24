@@ -9,6 +9,8 @@ import {
   getKarachiTodayDateString,
   getKarachiWeekday,
 } from "@/lib/datetime";
+import { calculateEstimatedNetProfit } from "@/lib/return-profit";
+import { getRestoredProductCostForReturns } from "./return-profit";
 
 export type TopProduct = {
   productName: string;
@@ -21,6 +23,7 @@ export type DashboardSummary = {
   grossSales: number;
   returnsTotal: number;
   returnsCount: number;
+  restoredProductCost: number;
   expensesTotal: number;
   lowStockCount: number;
   topSellingProducts: TopProduct[];
@@ -65,7 +68,7 @@ export async function getDashboardSummary(
   // Today's completed returns
   let returnsQuery = supabase
     .from("returns")
-    .select("refund_amount")
+    .select("id, refund_amount")
     .eq("organization_id", organizationId)
     .eq("status", "completed")
     .gte("created_at", todayStart)
@@ -147,6 +150,11 @@ export async function getDashboardSummary(
   const returns = returnsRes.data ?? [];
   const returnsTotal = returns.reduce((s, r) => s + Number(r.refund_amount ?? 0), 0);
   const returnsCount = returns.length;
+  const restoredProductCost = await getRestoredProductCostForReturns(
+    supabase,
+    organizationId,
+    returns.map((returnedSale) => returnedSale.id),
+  );
 
   const expenses = expensesRes.data ?? [];
   const expensesTotal = expenses.reduce((s, r) => s + Number(r.amount ?? 0), 0);
@@ -242,13 +250,19 @@ export async function getDashboardSummary(
     }
   }
 
-  const todayProfit = profitFromItems - expensesTotal - returnsTotal;
+  const todayProfit = calculateEstimatedNetProfit({
+    grossProfit: profitFromItems,
+    expenses: expensesTotal,
+    refunds: returnsTotal,
+    restoredProductCost,
+  });
 
   return {
     todayProfit,
     grossSales,
     returnsTotal,
     returnsCount,
+    restoredProductCost,
     expensesTotal,
     lowStockCount,
     topSellingProducts,
