@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const statCard = readFileSync("src/components/ui/stat-card.tsx", "utf8");
 const reportsPage = readFileSync("src/app/reports/page.tsx", "utf8");
 const expensesPage = readFileSync("src/app/expenses/page.tsx", "utf8");
-const reportsData = readFileSync("src/lib/data/reports.ts");
+const reportsData = readFileSync("src/lib/data/reports.ts", "utf8");
 
 const reportStatCardConsumers = [
   "src/app/customers/[id]/page.tsx",
@@ -144,10 +143,9 @@ test("Other StatCard consumers retain the default truncation mode", () => {
   }
 });
 
-test("Reports data query remains unchanged", () => {
-  assert.equal(
-    createHash("sha256").update(reportsData).digest("hex"),
-    "8a55577eb7a2e195f4c312f928045a6bd47cb6725b12477b4ea59b74358e3b43",
-  );
+test("Reports retains its data contract while reconciling restocked FIFO cost", () => {
   assert.match(reportsPage, /getReportsData\(orgId, branchId, start, end\)/);
+  assert.match(reportsData, /getRestoredProductCostForReturns/);
+  assert.match(reportsData, /restoredProductCost/);
+  assert.match(reportsData, /calculateEstimatedNetProfit/);
 });
