@@ -155,10 +155,13 @@ Discarded harness and environment launches are not hidden:
 
 ## Preview verification
 
-Preview deployment and GitHub checks are draft-PR gates. Authenticated preview mutation is
-not permitted unless its data environment is proven isolated from production. Public
-preview inspection alone is availability and rendering evidence, not business-workflow
-proof.
+GitHub CI passed and Vercel reported the draft deployment Ready for the reviewed source
+head. Computer Use confirmed that the public preview rendered the SaleDock landing page
+and exposed the expected preview-host sign-in route. The preview was not authenticated
+because its data environment was not proven isolated from production, so no preview
+expense was created or mutated. This public inspection is availability and rendering
+evidence only; the complete local production-mode E2E remains the business-workflow
+evidence.
 
 ## Remaining risk and open findings
 
