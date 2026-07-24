@@ -201,7 +201,7 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: "avg-order-value", type: "avg-order-value", category: "sales", title: "Average Order Value", description: "Average invoice value this month", defaultSize: "S", defaultColor: "success", icon: Percent },
   { id: "recent-activity", type: "recent-activity", category: "activity", title: "Recent Activity", description: "Live audit logs of recent system activities", defaultSize: "L", defaultColor: "neutral", icon: Clock },
   { id: "credit-collected-today", type: "credit-collected-today", category: "money", title: "Credit Collected", description: "Credit settlements collected from customers today", defaultSize: "S", defaultColor: "success", icon: CreditCard },
-  { id: "today-net", type: "today-net", category: "money", title: "Today's Net Cash", description: "Net operational cash flow (sales minus expenses)", defaultSize: "S", defaultColor: "success", icon: Wallet },
+  { id: "today-net", type: "today-net", category: "money", title: "Today's Net Cash", description: "Physical cash received minus cash refunds and cash expenses for this branch today", defaultSize: "S", defaultColor: "success", icon: Wallet },
   { id: "today-closing", type: "today-closing", category: "money", title: "Drawer/Closing Status", description: "Current status of the daily drawer closing", defaultSize: "S", defaultColor: "neutral", icon: CalendarCheck },
   { id: "today-expenses", type: "today-expenses", category: "money", title: "Expenses Count", description: "Number of expense entries logged today", defaultSize: "S", defaultColor: "danger", icon: Wallet },
   { id: "stock-valuation", type: "stock-valuation", category: "inventory", title: "Stock Valuation", description: "Current inventory valuation at purchase cost", defaultSize: "S", defaultColor: "neutral", icon: Boxes },
@@ -1099,37 +1099,62 @@ export function renderWidgetContent(
     }
 
     case "today-net": {
-      const net = state.invoices.todaySalesTotal - state.expenses.todayTotal;
+      if (!state.todayActivity) {
+        return (
+          <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
+            <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
+              Unavailable
+            </p>
+            <p className="text-[13px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
+              Assign a branch to calculate physical cash flow.
+            </p>
+          </div>
+        );
+      }
+
+      const cashPayments = state.todayActivity.paymentsByMethod.cash;
+      const cashSettlements = state.todayActivity.creditCollectionCash;
+      const cashRefunds = state.todayActivity.refundsByMethod.cash;
+      const cashExpenses = state.todayActivity.expensesCash;
+      const net = state.todayActivity.expectedCash;
       return (
         <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-1">
           <div>
-            <p className="truncate text-2xl font-black leading-tight text-slate-900 dark:text-white">
+            <p className={`truncate font-black leading-tight text-slate-900 dark:text-white ${size === "S" ? "text-xl" : "text-2xl"}`}>
               {formatCurrency(net, currency)}
             </p>
           </div>
           {size === "S" && (
             <p className="truncate text-[13px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
-              Operational net cash flow
+              Cash flow today
             </p>
           )}
           {size === "M" && (
-            <p className="truncate text-[13px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
-              Calculated as today&apos;s invoices minus expenses.
+            <p className="text-[13px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
+              Cash received less cash refunds and cash expenses.
             </p>
           )}
           {(size === "L" || size === "XL") && (
             <div className="mt-2 space-y-1 text-xs border-t border-slate-200/50 pt-2 dark:border-slate-700/50">
               <div className="flex justify-between">
-                <span className="text-slate-500">Sales Inflow:</span>
-                <span className="font-bold text-emerald-600">+{formatCurrency(state.invoices.todaySalesTotal, currency)}</span>
+                <span className="text-slate-500">Cash payments:</span>
+                <span className="font-bold text-emerald-600">+{formatCurrency(cashPayments, currency)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Expenses Outflow:</span>
-                <span className="font-bold text-rose-600">-{formatCurrency(state.expenses.todayTotal, currency)}</span>
+                <span className="text-slate-500">Cash settlements:</span>
+                <span className="font-bold text-emerald-600">+{formatCurrency(cashSettlements, currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cash refunds:</span>
+                <span className="font-bold text-rose-600">-{formatCurrency(cashRefunds, currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cash expenses:</span>
+                <span className="font-bold text-rose-600">-{formatCurrency(cashExpenses, currency)}</span>
               </div>
               {size === "XL" && (
                 <p className={tinyMutedClass}>
-                  Net result: {net >= 0 ? "positive operational flow" : "expense-heavy day"}.
+                  Net cash flow: {formatCurrency(net, currency)} for this branch today.
                 </p>
               )}
             </div>
