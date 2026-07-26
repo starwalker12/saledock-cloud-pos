@@ -1,308 +1,217 @@
 # 03 — Remember For The Future — SaleDock Cloud POS
-*Durable memory. Last updated: 14 July 2026, after PR #303 fixed EXP-MOBILE-001 and EXP-MOBILE-002 while EXP-MOBILE-003 remained open.*
-
-## 👤 Who Fardan is
-
-- Fardan is a non-technical shop owner, product director and final product decision-maker.
-- He uses ChatGPT as his AI handoff manager, reviewer and safety gate.
-- He pastes prompts into Codex/Claude/Gemini and returns their reports for review.
-- Explain technical matters in plain English and practical shop terms.
-- Do not assume he can inspect code, Git diffs, Supabase rows or CI details himself.
-- Give exact copy/paste prompts for coding agents.
-- Keep one main task at a time.
-- Do not say “done” without evidence and a clear production/live-site boundary.
-
-## 🧠 How we work
-
-- Begin from the real shop workflow and user intent.
-- Verify confident agent claims independently where possible.
-- Use separate branches, worktrees and draft PRs.
-- Keep audits, source fixes and audit-document refreshes separate.
-- Review exact main SHA, PR head, file list, CI, Vercel, mergeability, draft status and review threads before merge.
-- Use expected-head protection for merges.
-- When a coding agent sees existing dirty/untracked work, it must stop and preserve it.
-- Never blindly clean, reset, stash, delete, overwrite or switch a protected worktree.
-- Every meaningful session refreshes `02_CURRENT_STATE.md`.
-- Durable truths and major history updates go in this file.
-
-## 🏗️ Product and architecture facts
-
-- Product: SaleDock Cloud POS.
-- Repo: `github.com/starwalker12/saledock-cloud-pos`.
-- Production: `https://saledock.site`.
-- Vercel alias: `https://saledock-cloud-pos.vercel.app`.
-- Stack: Next.js 16 App Router, TypeScript, Tailwind CSS v4, Supabase, Vercel.
-- Next.js 16 uses `src/proxy.ts`, not `middleware.ts`.
-- Currency/timezone: PKR / Asia-Karachi.
-- Main auto-deploys.
-- Supported languages: English, Urdu and Roman Urdu.
-- Mobile should feel like a dedicated app, not a shrunken desktop.
-- Dark mode uses the white logo.
-- True white surfaces may need `bg-[#fff]` because broad dark rules can override `bg-white`.
-- Harmless UI preferences generally belong in existing JSON preference storage instead of new columns.
-
-## 💰 Business truths that must not drift
-
-- Tenant isolation uses `organization_id`.
-- Product cost uses FIFO stock lots.
-- Stock changes must be atomic.
-- Service principal is pass-through, not profit.
-- Service commission is profit.
-- Customer pays total charged.
-- Customer credit means debt; there is no stored customer-advance/deposit feature.
-- Overpayment is change given, not additional revenue.
-- POS totals are recomputed server-side.
-- Old invoices and reports must remain historically stable.
-- Supplier payment is money movement, not a second cost.
-- Real invoice numbers use `INV-*`; prefix changes require separate reviewed migration.
-- Below-cost live sales are blocked and overrides logged.
-
-## 🧾 Held Bills
-
-- Held bills are not invoices.
-- They must not consume invoice numbers.
-- They must not deduct or reserve stock.
-- They must not create payments, customer-ledger entries, cash-drawer changes, daily-closing effects, report effects or completed sales.
-- All business effects happen only at final checkout.
-
-## 🧾 Service sales
-
-- Blank, null or zero service `unit_price` means missing and must fall back to `service_total_charged` or principal plus commission.
-- Principal stays pass-through.
-- Commission stays profit.
-- PR #284 fixed the zero-value service invoice/payment defect.
-
-## ⚡ Cache and speed rules
-
-Never serve stale-sensitive data for:
-
-- checkout and payment calculations;
-- invoice totals, paid and due;
-- returns and refunds;
-- customer balances and ledger;
-- supplier dues, purchases and payments;
-- stock and FIFO;
-- repairs pricing and payment;
-- expenses where stale values affect daily operations;
-- cash drawer and daily closing;
-- reports and Dashboard money values;
-- authentication and permissions;
-- OTP, password and invite tokens;
-- service-role results.
-
-Optional Redis/Upstash support is invite-cooldown-only, server-side, fail-open and stores hashed keys/counters only.
-
-## 🔐 Auth and staff facts
-
-- Owner/admin can invite staff.
-- Staff choose their own password; the owner never sees it.
-- The wrong signed-in email is blocked server-side from accepting an invite.
-- Same-shop staff and duplicate pending invites are protected.
-- Completed accounts must not be silently overwritten or moved.
-- Fardan uses Google OAuth; password/reset/factory-reset changes require extra care.
-- Canonical owner email for verification before destructive work: `fardan.aatir@outlook.com`.
-- Never ask Fardan to paste secrets into chat.
-
-## 📱 UI and accessibility rules
-
-- Do not use native `alert`, `confirm` or `prompt`.
-- Use in-app dialogs and role-alerts.
-- Important mobile controls should generally be about 44px high.
-- Respect reduced motion.
-- Touch, keyboard and focus behavior must be verified, not inferred from CSS alone.
-- A shared component fix requires consumer regression testing.
-- Mobile summary labels must be readable; truncation must be intentional and justified.
-
-## 🧾 Durable Expenses facts
-
-- Expense Void is an archive operation, not hard delete; Show voided exposes Restore.
-- PR #303 merged as `1a71a12ab5e00570fb66830570e80b8175f4fef4`.
-- Important Expenses mobile controls now meet the approximately 44px guideline at the three tested phone widths.
-- Shared ConfirmDialog Cancel/Confirm actions now have a 44px minimum.
-- PR #303 did not change confirmation callbacks, focus behavior, keyboard behavior, action ordering, expense actions, or archive/Restore contracts.
-- Void guidance now states that the expense is hidden from normal lists/reports and can be restored through Show voided.
-- `EXP-MOBILE-003` remains open for payment-filter stability and narrow summary-label readability.
-- Expenses remains incomplete in the whole-app audit until EXP-MOBILE-003 is fixed, the complete workflow is rerun, and a later audit synchronization passes.
-- Cash Drawer must not begin before Expenses is fixed and synchronized.
-
-## 🖨️ Durable print facts
-
-### Reports
-
-- `RPT-PRINT-001`: one-page PDF truncation.
-- PR #295 fixed it using optional `AppShell.printFullDocument`.
-- The option defaults off and Reports opts in.
-- Local output changed to five complete A4 pages.
-- Screen scrolling stayed intact.
-- `RPT-MOBILE-001`: Reports label truncation.
-- PR #297 added `StatCard.wrapLabel?: boolean`.
-- Default is false; only selected Reports cards opt in.
-
-### Returns
-
-- `RET-PRINT-001`: miniature/clipped 80mm output.
-- `RET-PRINT-001-LIFECYCLE`: stale asynchronous preparation.
-- PR #299 fixed both.
-- Returns uses a Returns-only named page, 72mm printable context and content-derived height.
-- Standard and long local receipts are one page, centered and unclipped.
-- Cancellation and unmount cannot print, show false errors or recreate stale state.
-
-### Repairs
-
-- `REP-PRINT-001`: missing A4 footer and miniature thermal output.
-- PR #301 fixed both.
-- Repairs opts into existing full-document A4 behavior; AppShell source was not changed.
-- Fixed A4 is two complete pages with footer on the final page.
-- Repairs uses a Repairs-only thermal page and content-derived height.
-- Standard and long local receipts are centered, unclipped and single-page.
-- Exact-attempt cancellation and unmount cleanup pass.
-
-Presentation verification does not prove financial calculations, refund logic, repair balances, stock or FIFO correctness.
-
-## 📋 Audit state — official versus newest QA
-
-Latest application-behavior production commit before the documentation synchronization:
-
-`1a71a12ab5e00570fb66830570e80b8175f4fef4`
-
-This is PR #303's application-behavior merge commit. GitHub `main` must always be verified live. After documentation PR #304 merges, the current repository `main` will be PR #304's actual merge commit even though the latest application-behavior baseline remains PR #303's merge commit. Do not guess or reuse a provisional merge SHA.
-
-The next coding task must use the actual PR #304 merge SHA reported by GitHub as its exact base/main. Do not reuse `1a71a12ab5e00570fb66830570e80b8175f4fef4` as the expected repository HEAD after PR #304 merges.
-
-Synchronized audit state after PR #303:
-
-- 15 fixed findings.
-- 1 development-only finding (`MN-007`).
-- 17 total tracked findings.
-- 16 dispositioned findings.
-- 1 active P3 finding (`EXP-MOBILE-003`).
-- 5 blocked/not-tested areas.
-
-Expenses finding state:
-
-- `EXP-MOBILE-001`: FIXED ON MAIN — VERIFIED LOCALLY through PR #303.
-- `EXP-MOBILE-002`: FIXED ON MAIN — VERIFIED LOCALLY through PR #303.
-- `EXP-MOBILE-003`: OPEN, P3.
-- Expenses remains partial/blocked pending the separate EXP-MOBILE-003 fix and a complete post-fix workflow rerun.
-
-Do not say the project has zero known open defects or that Expenses is complete. `EXP-MOBILE-003` remains active, and Cash Drawer has not begun.
-
-## 🧪 Expenses verification facts
-
-- Worktree: `/Users/sw12/Projects/saledock-expenses-mobile-verification`.
-- Branch: `qa/expenses-mobile-workflow-verification`.
-- Base/HEAD: `756631a1d8e0b1506030207f631b1265a95d2f34`.
-- Uncommitted files:
-  - `tests/e2e/expenses-mobile-workflow-verification.spec.ts`
-  - `docs/qa/expenses-mobile-workflow-verification.md`
-- Classification: `C. DEFECT FOUND`.
-- One synthetic expense went through create, update, void and restore through the real UI.
-- Four expected submissions; four successful.
-- Three matching audit rows observed.
-- Owner management and cashier read-only behavior passed.
-- Cleanup left zero matching expense rows and zero matching audit rows.
-- Unrelated signatures remained equal.
-- No production access.
-- No financial/payment/report/stock/FIFO correctness claim.
-- Uploaded QA-document hash in this handoff: `7dc4dafc10c834aee01e71ea36b42b67c73b308270016c5e999bc2309f78c8b7`.
-- Protected evidence-test hash: `760f480c4794488146c80183f1f30e2128272c7c1376c55f895c02c40a8bc469`.
-- PR #303 reviewed head: `f8478a7daf1df16acdf5726e5b75be3ee469c196`.
-- PR #303 repeated the workflow with exactly four successful create/update/void/restore submissions.
-- Nine controls measured 44px at 320x568, 390x844, and 430x932; center hit-testing, clipping, overflow, and bottom-nav checks passed.
-- Cleanup left zero generated expense rows and zero matching audit rows; unrelated signatures remained equal.
-- No authenticated production Expenses workflow was run.
-
-## 🛡️ CSP/hydration
-
-- CSP is report-only.
-- `MN-007` reproduced in local `next dev`.
-- It did not reproduce in local `next start` or the tested production path.
-- Classification: development-only/no production impact observed in tested environments.
-- No speculative CSP weakening was justified.
-- Future enforced-CSP compatibility is not certified.
-
-## 🗂️ Protected worktree rule
-
-There were 18 protected worktrees before the PR #303 handoff synchronization began. Always enumerate them from Git rather than relying on a stale fixed list. Especially protect:
-
-- `/Users/sw12/Projects/saledock-expenses-mobile-verification` — uncommitted original Expenses evidence.
-- `/Users/sw12/Projects/saledock-expenses-mobile-touch-and-void-copy` — clean PR #303 source worktree at reviewed head `f8478a7daf1df16acdf5726e5b75be3ee469c196`.
-
-Before another task:
-
-- enumerate every worktree;
-- record branch and HEAD;
-- record dirty/untracked scope;
-- calculate SHA-256 for dirty/untracked files;
-- compare after the task.
-
-Known full evidence hashes:
-
-Reports:
-- `9777cee8cc68832ab99105b82d8b25e14f54e5ffe620b7d4dec7322da383832e`
-- `69a12b830dff17e5e32fc51e5b2e246afe756d3a714062dcc23e9799a2aa7f5a`
-
-Original Returns:
-- `f8bfc3bed3b60a247c1ed37e216b71814ea814a74721465e8d5b311e1aacf888`
-- `84de4bd66815578a8ac11f0e9c9a08667573057da1df943ead2c973dfdb663b0`
-
-Repairs:
-- `af21811292c93691bfa6a8157efa2877b706172ca5a40ccfc62f7f9bfeaeb803`
-- `aedfa5ae81b28cb55cbef835a5bf3b7e90e97084102a831cb57e0accd6cff032`
-
-Never invent a missing hash.
-
-## ✅ Evidence reality
-
-- GitHub CI normally covers lint, typecheck and build.
-- Local browser, screenshot, PDF, coordinate, fixture and lifecycle results remain local evidence.
-- HTTP 200 is availability only.
-- Vercel Ready is deployment status, not authenticated workflow proof.
-- Production remains read-only unless a specific reviewed transaction is approved.
-- Real-device, authenticated WebKit/Firefox and 125% zoom remain explicit gaps.
-- A pass after retry is a flake and must be reported.
-- Local analytics/instrumentation failures must be recorded separately, not hidden.
-
-## 🎯 Whole-app audit standard
-
-Fardan wants every page and user-facing function audited like a genuine shop user and an experienced principal engineer.
-
-The program must:
-
-- inventory every route, server action, route handler, form, dialog, table, print/export/upload/share surface and permission;
-- test roles and direct URLs;
-- use disposable local data and exact mutation boundaries;
-- verify mobile/tablet/desktop, dark mode, loading, empty, success and error states;
-- verify duplicate submissions, cleanup, tenant isolation, business invariants, accessibility, keyboard and touch;
-- create a durable finding register and function matrix;
-- fix one root-cause cluster per focused review-first PR;
-- never put all fixes in one giant PR;
-- keep a continuation checkpoint so the same master prompt can resume.
-
-## ⏱️ MVP meaning and timing
-
-- Functional MVP: live now.
-- Audit-ready MVP: not ready.
-- Earliest responsible target: 2–3 weeks if remaining work is straightforward.
-- Realistic expanded whole-app audit target: 4–6 weeks.
-- These are planning estimates, not promises.
-- Release is evidence-gated, not date-gated.
-
-## ☎️ Canonical public contact details
-
-Email `fardan.aatir@outlook.com` · WhatsApp/Call/SMS `+92 310 4666026` · IG `fardan.aatir` · LinkedIn `fardanaatir` · X `FardanAatir` · GitHub `starwalker12` · FB `fardan.aatir` · Linktree `linktr.ee/Fardan.Aatir` · Location: BNU, Lahore.
-
-## 🗒️ Remember log — newest first
-
-- **14 Jul 2026** — PR #303 merged as `1a71a12ab5e00570fb66830570e80b8175f4fef4`: `EXP-MOBILE-001` and `EXP-MOBILE-002` fixed on main and verified locally; shared dialog action minimum is 44px; `EXP-MOBILE-003` remains open; Expenses remains incomplete; Cash Drawer has not begun.
-- **12 Jul 2026** — PR #302 merged at `756631a1d8e0b1506030207f631b1265a95d2f34`: Repairs audit synchronized; merged audit records 14/14 dispositions and five blocked areas.
-- **12 Jul 2026** — Expenses local workflow reproduced `EXP-MOBILE-001`, `EXP-MOBILE-002` and `EXP-MOBILE-003`; no source fix or PR.
-- **12 Jul 2026** — PR #301 merged at `a9ddb9bc1c905089604e559856c1aff9d392e62e`: Repairs A4 and thermal output fixed.
-- **12 Jul 2026** — PR #300 merged at `c651a7f6a5477f29b083c72aca06147d5b14559a`: Returns audit synchronized.
-- **11 Jul 2026** — PR #299 merged at `09e1df96ccb571872ba0c3f46bd457723bfdae53`: Returns thermal geometry and lifecycle fixed.
-- **11 Jul 2026** — PR #298 merged at `2b24fcf7b88812987ed415426e5f5a715c6e6ea4`: Reports audit synchronized.
-- **10 Jul 2026** — PR #297 merged at `0e85a47561b073236c5297d629927c8684fcc889`: Reports mobile labels fixed.
-- **10 Jul 2026** — PR #295 merged at `30400475202eeb2bbeb126abe3e5a281efebb95d`: Reports pagination fixed.
-- **9 Jul 2026** — PR #294 merged at `6ccca9b7f9e1127a848890fe2918ee54501f6507`: CSP warning classified development-only.
-- **8–9 Jul 2026** — PRs #287–#293 merged.
-- **30 Jun 2026** — PR #284 merged: service total-charged fallback.
+*Durable memory. Last updated: 26 July 2026 after authenticated production finishing acceptance.*
+
+## Who Fardan Is
+
+- Fardan Aatir is the non-technical owner of SaleDock Cloud POS.
+- Production identity: Owner, Star Shop, Main Branch, PKR, Asia/Karachi.
+- Explain business and safety impact plainly.
+- Use review-first branches and pull requests for source changes.
+- Never ask for credentials in chat.
+
+## Current Durable Status
+
+- Canonical synchronization base: `0b94dcb072a204539aa4608d53e0237a77c058fe`.
+- Latest application-behavior commit: `8f8202a428a88bd8d72d178facbafb775eb1abf8`.
+- Production deployment: `dpl_5zVLpG4mTcvgxr3Xd76voXxY6CNA`, Ready/current at acceptance.
+- Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**.
+- P0 active: **0**.
+- P1 active: **0**.
+- P2 findings or coverage limits: **9**.
+- P3 observations: **5**.
+- Audit-ready: **NO**.
+- MVP-live: **NO**.
+
+The limitation is authenticated cashier production acceptance. Permission
+contracts were reviewed, but no approved cashier credentials or authenticated
+cashier session existed. No cashier account was created, reset, invited, or
+impersonated. Accepted limited coverage is never equivalent to audit-ready.
+
+## Business Truths That Must Not Drift
+
+- Every organization and branch query remains scoped.
+- Money uses PKR and exact decimal-safe database values.
+- Asia/Karachi controls business-day boundaries and explicit datetime conversion.
+- Cash and non-cash payment methods must remain distinct in Dashboard, Cash Drawer, Daily Closing, refunds, expenses, customer settlements, and supplier settlements.
+- Starting cash is a float, not sales revenue or Dashboard net cash.
+- Card sale/refund and Card expense/payment activity must not move physical expected cash.
+- FIFO uses exact lots and exact allocation costs. Never substitute catalog price, average cost, refund amount, or an invented fallback.
+- Opening stock, stock movement, and opening FIFO lot must remain atomic.
+- Completed restocked returns add back exact restored FIFO cost to profit.
+- Non-restocked returns preserve their loss.
+- Financial history is retained truthfully; archive operations are not hard deletes.
+- Expense Void is reversible through Restore.
+- Customer and supplier balances must reconcile to transaction truth.
+
+## Cash Drawer And Net-Cash Truth
+
+Authenticated production verification established:
+
+- Card sale PKR 150: Dashboard net-cash delta PKR 0.
+- Card refund PKR 150: Dashboard net-cash delta PKR 0.
+- Cash sale PKR 150: Dashboard relative delta +PKR 150.
+- Cash refund PKR 150: Dashboard relative delta -PKR 150.
+- Starting float PKR 1,000 stayed excluded from Dashboard net cash.
+- The task-owned shift closed at starting/expected/counted PKR 1,000 with difference PKR 0.
+- The July 26 Card expense had PKR 0 Cash Drawer effect.
+
+Do not change payment creation, refund creation, Cash Drawer mutation sources,
+Daily Closing formulas, or shift formulas without a focused accounting review.
+
+## Active P2 Register
+
+Keep all nine items independently visible:
+
+1. `LIVE-CUSTOMER-LEDGER-001`
+   - Balances reconcile, but return/refund presentation is absent.
+   - `INV-100361` targets a ledger-entry UUID instead of the invoice ID.
+2. `LIVE-CUSTOMER-AUDIT-001`
+   - Credit Payment audit exists; customer create, update, and archive audits are absent.
+3. `LIVE-REPAIR-OPTIONAL-001`
+   - Blank fields presented as optional can fail with `Invalid UUID`; rejected attempts wrote nothing.
+4. `LIVE-EXPENSE-RESTORE-AUDIT-001`
+   - Restore committed once and recovered after reload, but emitted no Restore audit.
+5. `LIVE-INVOICE-FILTER-001`
+   - Search/date/payment/status/Reset controls are absent or materially incomplete.
+6. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+   - 80mm content is correct on page one, with one blank trailing page; A4 is complete.
+7. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+   - Truth may commit once while the connected page stays on `Processing...`; independent read and reload recover it.
+8. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+   - Truth may commit once while the original page stays on `Recording...`; independent read and reload recover it.
+9. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+   - Source permissions were reviewed, but authenticated cashier production acceptance was unavailable.
+
+## Settlement Waiver Boundaries
+
+Customer settlement and supplier payment are not fixed.
+
+A residual settlement is acceptable only when:
+
+- exactly one server action succeeds;
+- exact accounting truth commits once;
+- exactly one expected audit/ledger entry exists;
+- no duplicate write exists;
+- an independent authenticated read shows the truth;
+- one manual reload recovers the original page;
+- no money, organization, permission, or tenant error exists.
+
+Never resubmit a transaction merely because the original connected page remains
+pending. A missing, duplicate, incorrect, or unrecoverable business state is not
+covered by the waiver.
+
+Historical/intermittent Expense client completion also remains a P3 observation.
+The July 26 Restore operation additionally exposed the separate P2 missing-audit
+finding; do not merge the audit correction with settlement or Reset presentation
+work.
+
+## Active P3 Observations
+
+1. Historical/intermittent Expenses original-page settlement delay with correct server truth.
+2. Expense Restore original-page settlement recovered after reload.
+3. Expense Reset visible date fields can retain stale presentation after route reset.
+4. Daily Closing hydration and print-footer noise can appear while cash truth remains correct.
+5. Narrow mobile invoice-title ellipsis and summary-label wrapping.
+
+These are not P1 findings unless new evidence shows money, tenant, permission,
+stock, or recovery harm.
+
+## Durable Auth And Permission Rules
+
+- Next.js 16 uses `src/proxy.ts`; do not create `middleware.ts`.
+- Never infer production role coverage from source contracts alone.
+- Owner routes passed authenticated production acceptance without cross-organization exposure.
+- Cashier policy remains restrictive: POS and invoice viewing are allowed; catalog and customers are read-only; Repair creation is allowed while Repair editing/status is restricted; Expenses is restricted/read-only; Reports, Users, Settings, Audit Log, Returns, and Cash Drawer open/close remain unavailable as defined.
+- No authenticated cashier production session was available on July 26.
+- Never invite, reset, or impersonate an account merely to fill a coverage gap.
+
+## Cache And Server-Action Rules
+
+- A successful database commit does not prove client settlement.
+- Retain evidence before classifying a stalled Server Action.
+- Do not use open RSC stream completion, `requestfinished`, or `response.finished()` as business success gates.
+- Verify one submission, one write, one audit, pending settlement, success/error state, rendered truth, independent truth, and duplicates separately.
+- Do not force-clear pending with timers, fake success, or resubmit automatically.
+- Revalidation and refresh changes require focused regression across the affected Dashboard and list/detail surfaces.
+
+## UI, Mobile, And Print Rules
+
+- Important mobile controls should provide a visible approximately 44px touch target.
+- Preserve keyboard focus, Enter/Space activation, Escape behavior, focus restoration, disabled state, and pending state.
+- Avoid page-level horizontal overflow and bottom-navigation obstruction.
+- True authenticated 390×844 and 320×568 acceptance passed without page-level horizontal overflow.
+- Soft-keyboard overlap was unavailable to measure and remains a coverage boundary.
+- Invoice A4 preview is complete and unclipped.
+- Invoice 80mm preview currently adds one blank trailing page.
+- Reports, Returns, and Repairs retain their focused print contracts and historical evidence.
+- Physical printer behavior must never be inferred from browser preview alone.
+
+## Protected Worktrees And Archives
+
+- Always enumerate worktrees and dirty/untracked files before work.
+- Required historical protection: 21 worktrees and 26 dirty/untracked files.
+- Broader July 26 opening inventory: 33 worktrees and 28 dirty/untracked files.
+- Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
+- Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`.
+- Twenty-nine historical archives were verified before their ephemeral `/tmp` copies expired.
+- Forty-three historical archives remain unavailable.
+- Do not restore, reconstruct, or claim physical availability for missing archives.
+- Never reset, clean, stash, switch, delete, overwrite, or reuse a protected worktree.
+
+## Primary Finishing Evidence
+
+- Path: `/Users/sw12/Projects/saledock-local-evidence/live-finishing-continuation-2026-07-26`
+- Marker: `FINISHING-CONT-20260726-2022-2B42`
+- Manifest SHA-256: `90f9cd57b810a29eb554a283b43a11281e0e1f6c5c7fab3f60bdb949eca34429`
+- Manifested files: 58
+- Screenshots: 42
+- Secret scan: passed
+
+Supporting evidence confirms chronology. Do not rewrite earlier workflows as if
+every one was rerun on July 26.
+
+## Recent Fixed P1 Chronology
+
+Do not reopen these results without contradictory evidence:
+
+- Opening stock/FIFO atomicity: source `da40ad2b846f69736231dfba9f8e46f013f6d247`, docs `2f71c5c0db0e2e799032087cd3077ab8c204e058`.
+- Supplier purchase number generation: source `857556f173383efd66cbbf3f96448d0562cc8bc6`, docs `afaef696aa7df08cd1e18965e5770f7e00189bb9`. Supplier-payment settlement remains P2.
+- Expense timestamp preservation: source `03eeda4a014852d294bc790b81c308d716802221`, docs `191c1a83229c0ad4aaeab97922b07be499e60f54`.
+- Return-profit reconciliation: source `68a86398f91cbfd240f8d3818c6bb866a4da2266`, docs `6542ab0577a02feaca26df9ac9dcb528f0caa564`.
+- Dashboard net-cash reconciliation: source `8f8202a428a88bd8d72d178facbafb775eb1abf8`, docs `0b94dcb072a204539aa4608d53e0237a77c058fe`.
+
+## Historical Facts Worth Keeping
+
+- PR #303 fixed the Expenses mobile touch targets and Void guidance. It is historical, not the current production baseline or next task.
+- Reports, Returns, and Repairs print fixes retain their recorded local evidence.
+- MN-007 remains a development-only CSP/hydration observation in the environments tested.
+- Older mobile-native audit counts describe their dated finding set. They are not the current finishing P2/P3 register.
+
+## Immediate Next Task
+
+Perform one focused review-first investigation and correction of
+`LIVE-EXPENSE-RESTORE-AUDIT-001`.
+
+Keep it separate from:
+
+- Expense Restore client settlement;
+- Expense Reset presentation;
+- customer settlement;
+- supplier payment;
+- invoice filters or print;
+- Repairs optional-field behavior;
+- cashier coverage.
+
+The missing audit is the bounded priority because it concerns a money-bearing
+expense state transition while amount, timestamp, Reports, and Cash Drawer truth
+were correct.
+
+## Standing Safety Rules
+
+- Review first; change the smallest proven source surface.
+- Never weaken accounting, permission, tenant, cleanup, or duplicate assertions.
+- Never mutate production unless the owner explicitly authorizes the exact bounded workflow.
+- Never print or store secrets, credentials, cookies, tokens, private contact details, or raw authorization metadata.
+- Public HTTP proves availability only.
+- Keep documentation-only, source, migration, and production-verification work in separate pull requests.
+- Current classification remains **FINISHING ACCEPTED WITH LIMITED COVERAGE**, not audit-ready and not MVP-live.
