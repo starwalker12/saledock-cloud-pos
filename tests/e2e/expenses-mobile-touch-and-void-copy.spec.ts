@@ -587,10 +587,10 @@ test.describe("Expenses mobile touch targets and Void guidance", () => {
       const deadline = Date.now() + 6_000;
       while (Date.now() < deadline) {
         observedAuditRows = (await matchingAuditRows(admin, marker, expenseId)).length;
-        if (observedAuditRows >= 3) break;
+        if (observedAuditRows >= 4) break;
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
-      expect(observedAuditRows, "create/update/void audit rows").toBe(3);
+      expect(observedAuditRows, "create/update/void/restore audit rows").toBe(4);
 
       const cashier = await newLocalPage(browser, { width: 390, height: 844 }, "cashier@saledock.local");
       try {

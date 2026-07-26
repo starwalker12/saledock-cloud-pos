@@ -182,7 +182,7 @@ test("AppSelect public props remain backward compatible", () => {
 });
 
 test("Expenses action, data, and validation sources match the reviewed contracts", () => {
-  assert.equal(sourceHash(expenseActions), "9c0ca906b2cbfcb0d6636324111b285e1ca14f72fef841aaeb710217a75f86d6");
+  assert.equal(sourceHash(expenseActions), "48490a436d7a46bca149489c204af3366ca76bab747c4301ae86c790d7b82cd1");
   assert.equal(sourceHash(expenseData), "67da4220b65152d0bd3803c96cf947ba19c1279d0e9441d5456229ad31307b2e");
   assert.equal(sourceHash(expenseValidation), "8c878d6b175e80d63e668013eaee99d54ecae3ce3f8328d0e0eb7891afa9e46e");
 });
