@@ -257,6 +257,44 @@ represented as an error-free first-pass result. The event does not change cash,
 shift, payment, return, or cleanup state and remains outside this focused source
 correction.
 
+## Delivery Gate Test Correction
+
+The first owner-authorized delivery confirmation stopped at 265/266 Node tests.
+No application, accounting, Cash Drawer, or net-cash behavior failed. The failure
+was an older return-profit scope guard that ran `git diff --name-only origin/main`
+and rejected any current branch path containing `cash`. That made a historical
+return-profit contract depend on whichever unrelated feature branch happened to
+be under development.
+
+The owner rejected a waiver and authorized one fifth PR file:
+
+`tests/return-profit-reconciliation.test.mjs`
+
+The branch-dependent guard was replaced with a hermetic semantic contract over
+`src/lib/return-profit.ts`, `src/lib/data/return-profit.ts`, and their narrowly
+relevant Dashboard and Reports consumers. The replacement verifies exact
+allocation quantity and unit-cost use, organization and completed-return scope,
+read-only helper behavior, independence from cash-flow sources, absence of a
+catalog-cost fallback, and continued shared Dashboard/Reports calculation calls.
+It uses no Git command, branch, remote ref, commit hash, or repository-history
+assumption.
+
+All existing returned-profit accounting cases remain unchanged, including full
+restocked and non-restocked returns, partial returns and refunds, multiple FIFO
+costs, service returns, date/range behavior, organization and branch scope, and
+Dashboard/Reports restored-cost presentation.
+
+The corrected return-profit file passed 19/19 directly. The complete Node suite
+then passed 266/266 with zero failures or skips. Focused net-cash contracts passed
+29/29. The focused production-mode browser gate passed 2/2 with zero retries,
+cleanup retries, or cleanup failures. The new exact PR head is recorded in the
+updated PR delivery metadata because a commit cannot truthfully contain its own
+hash.
+
+No business mutation, schema, migration, package, production, Cash Drawer, Daily
+Closing, payment, refund, settlement, or return-profit source changed during this
+test-only delivery correction.
+
 Visual checks covered:
 
 - S at 320x568, light mode;

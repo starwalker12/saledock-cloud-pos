@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
@@ -17,6 +16,10 @@ const reportsSource = readFileSync(
 );
 const returnProfitDataSource = readFileSync(
   new URL("../src/lib/data/return-profit.ts", import.meta.url),
+  "utf8",
+);
+const returnProfitSource = readFileSync(
+  new URL("../src/lib/return-profit.ts", import.meta.url),
   "utf8",
 );
 const reportsPage = readFileSync(
@@ -214,19 +217,34 @@ test("visible Dashboard and Reports breakdowns explain restored FIFO cost", () =
   assert.match(reportsPage, /Restocked Product Cost \(Original FIFO\)/);
 });
 
-test("return-profit change does not touch net-cash, return mutation, package, or migration files", () => {
-  const changed = execFileSync("git", ["diff", "--name-only", "origin/main"], {
-    encoding: "utf8",
-  })
-    .trim()
-    .split("\n")
-    .filter(Boolean);
-  assert.equal(
-    changed.some((file) =>
-      /cash|daily-closing|returns\/actions|return-form|package(?:-lock)?\.json|supabase\/migrations/.test(
-        file,
-      ),
-    ),
-    false,
+test("return-profit helpers remain read-only and independent of cash-flow sources", () => {
+  const helperSources = `${returnProfitSource}\n${returnProfitDataSource}`;
+
+  assert.match(returnProfitDataSource, /\.from\("return_stock_allocations"\)/);
+  assert.match(returnProfitDataSource, /\.select\("quantity, unit_cost"\)/);
+  assert.match(
+    returnProfitDataSource,
+    /\.eq\("organization_id", organizationId\)/,
   );
+  assert.match(
+    returnProfitDataSource,
+    /\.in\("return_id", completedReturnIds\)/,
+  );
+  assert.match(returnProfitSource, /row\.quantity/);
+  assert.match(returnProfitSource, /row\.unit_cost/);
+
+  assert.doesNotMatch(
+    helperSources,
+    /\.(?:insert|update|upsert|delete|rpc)\(/,
+  );
+  assert.doesNotMatch(
+    helperSources,
+    /cash_shifts|cash_movements|daily_closings|expectedCash|paymentsByMethod|refundsByMethod|expensesCash|creditCollectionCash/,
+  );
+  assert.doesNotMatch(helperSources, /purchase_price|catalog/i);
+
+  for (const source of [dashboardSource, reportsSource]) {
+    assert.match(source, /getRestoredProductCostForReturns/);
+    assert.match(source, /calculateEstimatedNetProfit/);
+  }
 });
