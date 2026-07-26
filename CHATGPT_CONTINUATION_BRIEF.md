@@ -1,192 +1,129 @@
 # SaleDock Cloud POS — Continuation Brief
-*Use this in a new ChatGPT project chat. Updated 14 July 2026.*
+*Canonical handoff after the authenticated 26 July 2026 finishing acceptance.*
 
-## Who I am
+## Who Fardan Is
 
-I am **Fardan Aatir**, a non-technical shop owner and the product director for SaleDock Cloud POS.
+Fardan Aatir is the non-technical owner of SaleDock Cloud POS. Production is
+Star Shop, Main Branch, PKR, Asia/Karachi. Use plain language, review-first
+pull requests, strict evidence boundaries, and no credentials in chat.
 
-I use ChatGPT as:
+## Current Repository And Production
 
-- my AI handoff manager;
-- a reviewer of Codex/Claude/Gemini reports;
-- a safety gate for money, stock, auth, database and production work;
-- the person who writes exact copy/paste prompts for coding agents.
+- Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
+- Canonical synchronization base: `0b94dcb072a204539aa4608d53e0237a77c058fe`
+- Latest application-behavior commit: `8f8202a428a88bd8d72d178facbafb775eb1abf8`
+- Latest behavior change: `fix: reconcile dashboard net cash by payment method`
+- Production deployment: `dpl_5zVLpG4mTcvgxr3Xd76voXxY6CNA`, Ready/current
+- Verified production identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
 
-Please use plain English. Do not assume I can inspect code or database rows myself.
+This documentation PR completes the canonical synchronization. It does not
+change application behavior or production data.
 
-## Project
+## Current Classification
 
-Repo:
-`github.com/starwalker12/saledock-cloud-pos`
+**FINISHING ACCEPTED WITH LIMITED COVERAGE**
 
-Production:
-`https://saledock.site`
+- P0: **0**
+- P1: **0**
+- P2 findings or coverage limits: **9**
+- P3 observations: **5**
+- Audit-ready: **NO**
+- MVP-live: **NO**
 
-Vercel alias:
-`https://saledock-cloud-pos.vercel.app`
+Limited coverage means no authenticated cashier production session or approved
+cashier credentials were available. Permission contracts were reviewed. No
+cashier account was created, reset, invited, or impersonated, and no cashier
+financial mutation was performed.
 
-Latest behavior-changing production baseline:
-`1a71a12ab5e00570fb66830570e80b8175f4fef4`
+## Exact P2 Register
 
-This is PR #303's application-behavior merge commit. GitHub `main` must always be verified live. After documentation PR #304 merges, the current repository `main` will be PR #304's actual merge commit even though the latest application-behavior baseline remains PR #303's merge commit. Do not guess or reuse a provisional merge SHA.
+1. `LIVE-CUSTOMER-LEDGER-001` — balances reconcile, but return/refund presentation is absent and `INV-100361` targets a ledger-entry UUID.
+2. `LIVE-CUSTOMER-AUDIT-001` — Credit Payment audit exists; customer create, update, and archive audits are absent.
+3. `LIVE-REPAIR-OPTIONAL-001` — blank fields presented as optional can reject with `Invalid UUID`; rejected attempts wrote nothing.
+4. `LIVE-EXPENSE-RESTORE-AUDIT-001` — Restore committed once and recovered after reload, but emitted no Restore audit.
+5. `LIVE-INVOICE-FILTER-001` — search/date/payment/status/Reset controls are absent or materially incomplete.
+6. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` — 80mm content is correct on page one with one blank trailing page; A4 is complete.
+7. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` — one server/accounting commit can leave the connected page on `Processing...`; independent read and reload recover the truth.
+8. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2` — one server/accounting commit can leave the original page on `Recording...`; independent read and reload recover the truth.
+9. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2` — source permissions were reviewed, but authenticated cashier acceptance was unavailable.
 
-Stack:
-Next.js 16 App Router, TypeScript, Tailwind CSS v4, Supabase, Vercel.
+Customer and supplier settlement are not fixed. Never resubmit solely because
+the original page remains pending. The waiver covers only one exact successful
+commit with correct independent truth, no duplicate, and recovery after one
+reload.
 
-Currency/timezone:
-PKR / Asia-Karachi.
+## P3 Register
 
-Next.js fact:
-use `src/proxy.ts`, not `middleware.ts`.
+1. Historical/intermittent Expenses original-page settlement delay with correct server truth.
+2. Expense Restore original-page settlement recovered after reload.
+3. Expense Reset visible date-field synchronization.
+4. Daily Closing hydration and print-footer noise with correct cash truth.
+5. Narrow mobile invoice-title ellipsis and summary-label wrapping.
 
-## Current merged audit
+## Finishing Evidence
 
-After PR #303 and this documentation synchronization:
+- Path: `/Users/sw12/Projects/saledock-local-evidence/live-finishing-continuation-2026-07-26`
+- Marker: `FINISHING-CONT-20260726-2022-2B42`
+- Manifest SHA-256: `90f9cd57b810a29eb554a283b43a11281e0e1f6c5c7fab3f60bdb949eca34429`
+- Manifested files: 58
+- Screenshots: 42
+- Secret scan: passed
 
-- fixed: 15;
-- development-only: 1 (`MN-007`);
-- active: 1 (`EXP-MOBILE-003`);
-- tracked: 17;
-- dispositioned: 16;
-- blocked/not-tested: 5.
+Key production truth:
 
-Blocked areas in the merged audit:
+- Customer balance reconciled; ledger and lifecycle-audit gaps remain P2.
+- Repair `RJ-000003` completed its lifecycle and ended cancelled with no duplicate.
+- One expense create and five update shapes completed once each; final PKR 80 Marketing/Card expense was archived with no Cash Drawer effect.
+- Expense Restore truth committed but its audit was missing.
+- `INV-100364` detail/payment/return/reload and A4 preview passed; filters and 80mm trailing blank page remain P2.
+- The retained shift reconciled starting/expected/counted PKR 1,000 with PKR 0 difference.
+- Reports returned to estimated profit PKR 150 after the active PKR 80 expense was archived.
+- Final Dashboard matched its exact opening baseline: Net Profit 0, Gross Sales 300, Expenses 0, Returns 300, Net Cash 0, Pending Repairs 1, Supplier Dues 0, Customer Dues 405, stock valuation 325,340, FIFO valuation 308,965.
+- True authenticated 390×844 and 320×568 coverage had no page-level horizontal overflow.
 
-1. Expenses mobile workflow.
-2. Cash Drawer close/print workflow.
-3. Forms/mobile keyboard.
-4. Loading/success/error states.
-5. Dark mode.
+## Fixed P1 History
 
-## Latest merged work
+These are fixed, merged, deployed, and authenticated-production verified:
 
-PR #303 — `fix: improve Expenses mobile actions and void guidance`
+- Opening stock/FIFO atomicity: source `da40ad2b846f69736231dfba9f8e46f013f6d247`, docs `2f71c5c0db0e2e799032087cd3077ab8c204e058`.
+- Supplier purchase number generation: source `857556f173383efd66cbbf3f96448d0562cc8bc6`, docs `afaef696aa7df08cd1e18965e5770f7e00189bb9`.
+- Expense timestamp preservation: source `03eeda4a014852d294bc790b81c308d716802221`, docs `191c1a83229c0ad4aaeab97922b07be499e60f54`.
+- Return-profit reconciliation: source `68a86398f91cbfd240f8d3818c6bb866a4da2266`, docs `6542ab0577a02feaca26df9ac9dcb528f0caa564`.
+- Dashboard net-cash reconciliation: source `8f8202a428a88bd8d72d178facbafb775eb1abf8`, docs `0b94dcb072a204539aa4608d53e0237a77c058fe`.
 
-- Reviewed head: `f8478a7daf1df16acdf5726e5b75be3ee469c196`.
-- Squash merge: `1a71a12ab5e00570fb66830570e80b8175f4fef4`.
-- Merged at: `2026-07-13T20:09:40Z` / `2026-07-14 01:09:40` Asia/Karachi.
-- `EXP-MOBILE-001` and `EXP-MOBILE-002` are fixed on main and verified locally.
-- PR-head and main-commit CI succeeded; the exact merge commit deployed successfully on Vercel.
-- Public HTTP 200 checks prove availability only. No authenticated production Expenses workflow ran.
-- No migration, schema, RLS, accounting, query, auth, permission, or database behavior changed.
+Supplier-payment settlement remains P2 despite its accounting result.
 
-## Current Expenses position
+## Protection And Archives
 
-Expenses mobile workflow verification originally found three defects. PR #303 fixed two; one remains open.
+- Required historical protection: 21 worktrees and 26 dirty/untracked files.
+- Broader July 26 opening inventory: 33 worktrees and 28 dirty/untracked files.
+- Expenses diagnostic: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
+- Customer-settlement diagnostic: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`.
+- Twenty-nine previously verified temporary archives expired from `/tmp`.
+- Forty-three historical archives remain unavailable.
+- None was restored or reconstructed.
 
-Worktree:
-`/Users/sw12/Projects/saledock-expenses-mobile-verification`
+Never reset, clean, stash, switch, delete, overwrite, or reuse a protected
+worktree.
 
-Branch:
-`qa/expenses-mobile-workflow-verification`
+## Immediate Next Task
 
-Base/HEAD:
-`756631a1d8e0b1506030207f631b1265a95d2f34`
+Perform one focused review-first investigation and correction of:
 
-Uncommitted files:
+`LIVE-EXPENSE-RESTORE-AUDIT-001`
 
-- `tests/e2e/expenses-mobile-workflow-verification.spec.ts`
-- `docs/qa/expenses-mobile-workflow-verification.md`
+Keep it separate from Expense settlement, Reset presentation, and every other
+P2 finding. The bounded priority is the missing audit for a money-bearing
+expense transition; amount, timestamp, Reports, and Cash Drawer truth were
+correct.
 
-Classification:
-`C. DEFECT FOUND`
+## Files A New Chat Should Read
 
-Finding dispositions:
+1. `02_CURRENT_STATE.md`
+2. `03_REMEMBER.md`
+3. `CHATGPT_CONTINUATION_BRIEF.md`
+4. `docs/qa/live-finishing-continuation-acceptance-2026-07-26.md`
+5. Relevant focused QA documents only as needed
 
-- `EXP-MOBILE-001`: FIXED ON MAIN — VERIFIED LOCALLY. Nine important controls now measure 44px at 320x568, 390x844, and 430x932.
-- `EXP-MOBILE-002`: FIXED ON MAIN — VERIFIED LOCALLY. Void guidance now accurately describes archive, normal-list/report visibility, and Restore through Show voided.
-- `EXP-MOBILE-003`: OPEN, P3. Mobile payment-method filter option instability and truncated summary headings remain.
-
-The PR #303 create/update/void/restore workflow retained exactly four successful submissions. Owner/cashier behavior passed locally, cleanup left zero generated expense and matching audit rows, unexpected writes were zero, and unrelated signatures remained equal.
-
-Safety:
-
-- one disposable local expense;
-- owner authorized and cashier read-only;
-- four expected action submissions and four observed;
-- three matching audit rows;
-- zero unexpected writes;
-- cleanup left zero matching expense and audit rows;
-- unrelated signatures equal;
-- no production login or mutation;
-- no accounting/payment/report/stock/FIFO correctness claim.
-
-Expenses is still partial. The full post-merge completion rerun and final audit closure must wait for `EXP-MOBILE-003`.
-
-## Immediate next action
-
-After this documentation-only PR is reviewed and merged, create one separate review-first source PR:
-
-The next task must use the actual PR #304 merge SHA reported by GitHub as its exact base/main. Do not reuse `1a71a12ab5e00570fb66830570e80b8175f4fef4` as the expected repository HEAD after PR #304 merges.
-
-`fix/expenses-mobile-filter-and-summary-labels`
-
-Scope it only to:
-
-- deterministic payment-filter stability through an ordinary mobile tap;
-- readable Expenses summary labels at narrow widths.
-
-Keep AppSelect and StatCard consumer review explicit. Do not combine all whole-app work into one PR.
-
-After `EXP-MOBILE-003` merges, rerun the complete Expenses workflow, verify all three finding dispositions, and perform another documentation-only audit synchronization. Remove Expenses from blocked coverage only after that rerun passes. Cash Drawer has not begun and must remain blocked until then.
-
-## Whole-app objective
-
-I want every page and every function audited and debugged.
-
-Use the attached reusable master Codex program.
-
-It must:
-
-- inventory every route/action/function;
-- test genuine user workflows;
-- test roles, direct URLs and tenant boundaries;
-- test mobile/tablet/desktop, dark mode, loading/success/error, touch and keyboard;
-- use disposable local data with cleanup and safety signatures;
-- create a finding report;
-- fix one root-cause cluster per review-first draft PR;
-- maintain a finding register and continuation checkpoint;
-- never create one giant all-fixes PR.
-
-## MVP status
-
-The functional MVP is already live.
-
-The audit-ready MVP is not ready.
-
-Planning estimate:
-
-- earliest 2–3 weeks if remaining work is straightforward;
-- realistic 4–6 weeks for the expanded all-pages/all-functions audit;
-- longer if serious money/auth/tenant/data defects appear.
-
-This is an evidence-gated estimate, not a promise.
-
-## Standing safety rules
-
-- One main task at a time.
-- Review-first for money, stock, FIFO, checkout, payment, balances, expenses, cash drawer, reports, auth, permissions, database and migrations.
-- No production mutation unless separately approved.
-- No secrets in chat.
-- No native alert/confirm/prompt.
-- Verify exact main/base/head/file scope/CI/Vercel/reviews before merge.
-- Use expected-head protection.
-- Preserve all dirty worktrees.
-- Distinguish local, CI, Vercel and production evidence.
-- End major work with “Risk closed because…” or “Risk remains open because…”.
-
-## Files to attach in the new chat
-
-Required:
-
-- `SALEDOCK_MASTER_CONTEXT.md`
-- `02_CURRENT_STATE.md`
-- `03_REMEMBER.md`
-- `CHATGPT_CONTINUATION_BRIEF.md`
-- `expenses-mobile-workflow-verification.md`
-
-Useful:
-
-- `UI:UX guide.md`
-- `CODEX_WHOLE_APP_AUDIT_AND_FIX_PROGRAM.md`
-- `HOW_TO_CONTINUE_IN_NEW_CHAT.md`
+Do not require nonexistent attachments. Do not call SaleDock audit-ready or
+MVP-live.
