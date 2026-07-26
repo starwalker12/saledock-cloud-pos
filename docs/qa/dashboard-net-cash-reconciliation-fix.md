@@ -1,18 +1,28 @@
 # Dashboard Net Cash Reconciliation Fix
 
-Date: 2026-07-25
+Date: 2026-07-26
 
 Finding: `LIVE-DASHBOARD-NET-CASH-001`
 
 Severity: P1
 
-Status: Fixed only on draft branch `fix/dashboard-net-cash-reconciliation`
+Status: Fixed on main and verified in production
 
 Base main: `6542ab0577a02feaca26df9ac9dcb528f0caa564`
 
-Production remains unchanged. This report does not authorize a merge, a production
-mutation, canonical synchronization, finishing, or an audit-ready/MVP-live
-classification.
+Source PR: `#314`
+
+Original four-file head: `9107c3fef289af0b8954fcb6781fba90bcad6442`
+
+Final five-file head: `95344c8d9faf857761dd122820b08638760a820c`
+
+Squash commit: `8f8202a428a88bd8d72d178facbafb775eb1abf8`
+
+Production deployment: `dpl_4SL8ZvyugA81TRmHoPgFJQAhbnMs`
+
+Canonical synchronization remains deferred until the authorized finishing
+continuation is complete. This report does not classify SaleDock as audit-ready or
+MVP-live.
 
 ## Production Evidence
 
@@ -322,6 +332,7 @@ Changed files are limited to:
 - `src/app/dashboard/widgets/widget-registry.tsx`
 - `tests/dashboard-net-cash-reconciliation.test.mjs`
 - `tests/e2e/dashboard-net-cash-reconciliation.spec.ts`
+- `tests/return-profit-reconciliation.test.mjs`
 - `docs/qa/dashboard-net-cash-reconciliation-fix.md`
 
 The local workflow used one disposable organization, branch, owner, product,
@@ -329,7 +340,105 @@ customer, two invoices, two returns, and one shift. Cleanup removed the exact
 generated rows, UI preferences, and matching audit history. Seed stock/FIFO and
 unrelated table signatures remained equal.
 
-No production login or production mutation occurred in this source-fix task.
+No production login or production mutation occurred before the exact reviewed source
+head was merged and the exact production deployment was Ready.
+
+## Authenticated Production Verification
+
+Codex Chrome computer use verified the deployed production workflow on
+`saledock.site` as Fardan Aatir, Owner, Star Shop, Main Branch, PKR, and
+Asia/Karachi. Public HTTP checks were treated only as availability evidence.
+
+Live marker:
+
+`LIVE-NET-CASH-2026-07-26-1921-60DF`
+
+Starting Dashboard values:
+
+- Today's Net Cash: PKR 0
+- Today's Net Profit: PKR 0
+- Gross Sales: PKR 0
+- Returns & Refunds: PKR 0
+- Expenses: PKR 0
+
+One task-owned shift opened with starting cash PKR 1,000.
+
+The marked physical product used purchase cost PKR 100, sale price PKR 150, and
+opening stock four. The marked customer started with balance PKR 0.
+
+### Card path
+
+One PKR 150 Card sale produced:
+
+- Dashboard net-cash delta: PKR 0
+- physical-cash delta: PKR 0
+- one invoice and one Card payment
+- one exact FIFO allocation at PKR 100
+- stock and FIFO: four to three
+- customer balance: PKR 0
+
+One complete PKR 150 Card refund with restock produced:
+
+- Dashboard net-cash delta: PKR 0
+- physical-cash delta: PKR 0
+- one completed return
+- one return stock allocation at quantity one and unit cost PKR 100
+- stock and FIFO: three to four
+- customer balance: PKR 0
+- duplicate operations: zero
+
+### Cash path
+
+One PKR 150 Cash sale produced:
+
+- Dashboard net cash: PKR 0 to PKR 150
+- expected drawer cash: PKR 1,000 to PKR 1,150
+- one invoice and one Cash payment
+- one exact FIFO allocation at PKR 100
+- stock and FIFO: four to three
+- customer balance: PKR 0
+
+One complete PKR 150 Cash refund with restock produced:
+
+- Dashboard net cash: PKR 150 to PKR 0
+- expected drawer cash: PKR 1,150 to PKR 1,000
+- one completed return
+- one return stock allocation at quantity one and unit cost PKR 100
+- stock and FIFO: three to four
+- customer balance: PKR 0
+- duplicate operations: zero
+
+The Dashboard finished at net cash PKR 0, net profit PKR 0, gross sales PKR 300,
+returns PKR 300, and expenses PKR 0. Reload preserved the result.
+
+The task-owned shift closed with:
+
+- starting cash: PKR 1,000
+- net cash flow: PKR 0
+- expected cash: PKR 1,000
+- counted cash: PKR 1,000
+- difference: PKR 0
+- task-owned open shifts remaining: zero
+
+The marked product and customer were archived. The two invoices, two payments, two
+returns, two return items, two return stock allocations, five stock movements, and
+audit history were retained. Customer balance remained PKR 0. No unrelated
+production record was changed.
+
+Sanitized evidence:
+
+`/Users/sw12/Projects/saledock-local-evidence/dashboard-net-cash-live-verification`
+
+Evidence manifest SHA-256:
+
+`e957372477ce5599cd62d4ffd98a9309fc684baae8e24dcb7dfbf9324804d64c`
+
+Live classification:
+
+`PASS - LIVE-DASHBOARD-NET-CASH-001 FIXED`
+
+No migration, schema change, Cash Drawer mutation-source change, settlement-source
+change, package change, or unrelated production change occurred.
 
 ## Remaining Risk
 
@@ -348,30 +457,20 @@ Still open:
 - unfinished mobile coverage;
 - Daily Closing print-footer hydration mismatch.
 
-Preview rendering may be checked read-only after Vercel is Ready. Preview mutation
-is prohibited unless its database is independently proven isolated from production.
-Complete production delivery and authenticated verification require a separate owner
-authorization after draft review.
+Active P0 findings: 0.
 
-## Delivery Plan
+Active P1 findings: 0.
 
-1. Keep the pull request in draft.
-2. Complete exact-head senior review, GitHub CI, and read-only Vercel Preview review.
-3. Obtain owner review and explicit delivery authorization.
-4. Merge and deploy only in a separate delivery task.
-5. Perform bounded authenticated production verification only after exact-main
-   deployment is Ready.
-6. Synchronize canonical documents only after successful production delivery.
-
-Cash Drawer mutation behavior was not changed. Canonical synchronization and
-finishing remain blocked pending owner review and production delivery.
+The bounded finishing continuation is authorized. Canonical synchronization remains
+deferred until that continuation completes. Cash Drawer mutation behavior was not
+changed, and SaleDock remains below audit-ready.
 
 ## Rollback
 
-Before merge:
+Source rollback:
 
-`git branch -D fix/dashboard-net-cash-reconciliation`
+`git revert 8f8202a428a88bd8d72d178facbafb775eb1abf8 && git push origin main`
 
-After a later squash merge:
+Documentation rollback:
 
-`git revert <merge_commit_sha> && git push origin main`
+`git revert <documentation_squash_sha> && git push origin main`
