@@ -25,7 +25,12 @@ async function requireAuthorizedUser() {
   if (!ctx.profile?.organization_id) redirect("/setup");
   // General management requires admin/owner/manager roles, which match catalog write permissions.
   if (!canWriteCatalog(ctx.profile.role)) {
-    logAudit({ module: "customers", action: "permission.denied", details: "Attempted customer management action without catalog write permission" });
+    logAudit({
+      module: "customers",
+      action: "permission.denied",
+      details:
+        "Attempted customer management action without catalog write permission",
+    });
     return { ctx, denied: true as const };
   }
   return { ctx, denied: false as const };
@@ -58,7 +63,7 @@ export async function saveCustomerAction(
 
   const id = (formData.get("id") as string | null) || null;
   const supabase = await createClient();
-  const payload = {
+  const basePayload = {
     organization_id: w.ctx.profile!.organization_id!,
     branch_id: w.ctx.profile!.branch_id ?? null,
     name: parsed.data.name,
@@ -68,30 +73,109 @@ export async function saveCustomerAction(
     notes: parsed.data.notes ?? null,
     credit_limit: parsed.data.credit_limit,
     is_archived: parsed.data.is_archived,
-    archived_at: parsed.data.is_archived ? new Date().toISOString() : null,
   };
 
   if (id) {
     const { data: existingCustomer, error: fetchErr } = await supabase
       .from("customers")
-      .select("id")
+      .select(
+        "id, branch_id, name, phone, email, address, notes, credit_limit, is_archived, archived_at",
+      )
       .eq("id", id)
       .eq("organization_id", w.ctx.profile!.organization_id!)
       .maybeSingle();
 
     if (fetchErr || !existingCustomer) {
-      return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+      return err(
+        "We could not find this record for your shop. It may have been removed or you may not have access.",
+      );
     }
 
-    const { error } = await supabase
+    const changedFields = [
+      existingCustomer.branch_id !== basePayload.branch_id ? "branch_id" : null,
+      existingCustomer.name !== basePayload.name ? "name" : null,
+      existingCustomer.phone !== basePayload.phone ? "phone" : null,
+      existingCustomer.email !== basePayload.email ? "email" : null,
+      existingCustomer.address !== basePayload.address ? "address" : null,
+      existingCustomer.notes !== basePayload.notes ? "notes" : null,
+      Number(existingCustomer.credit_limit) !== basePayload.credit_limit
+        ? "credit_limit"
+        : null,
+      existingCustomer.is_archived !== basePayload.is_archived
+        ? "is_archived"
+        : null,
+    ].filter((field): field is string => field !== null);
+
+    if (changedFields.length === 0) {
+      return ok("Customer details updated.");
+    }
+
+    const previousStatus = existingCustomer.is_archived ? "archived" : "active";
+    const newStatus = basePayload.is_archived ? "archived" : "active";
+    const archivedAt = basePayload.is_archived
+      ? existingCustomer.is_archived
+        ? existingCustomer.archived_at
+        : new Date().toISOString()
+      : null;
+    const { data: updatedCustomer, error } = await supabase
       .from("customers")
-      .update(payload)
+      .update({ ...basePayload, archived_at: archivedAt })
       .eq("id", id)
-      .eq("organization_id", w.ctx.profile!.organization_id!);
-    if (error) return err(getSafeActionError(error, "We couldn't save this customer. Please try again."));
+      .eq("organization_id", w.ctx.profile!.organization_id!)
+      .select("id")
+      .maybeSingle();
+    if (error || !updatedCustomer) {
+      return err(
+        error
+          ? getSafeActionError(
+              error,
+              "We couldn't save this customer. Please try again.",
+            )
+          : "We couldn't save this customer. Please try again.",
+      );
+    }
+
+    await logAudit({
+      module: "customers",
+      action: "customers.updated",
+      details: `Updated customer ${updatedCustomer.id}`,
+      metadata: {
+        customer_id: updatedCustomer.id,
+        changed_fields: changedFields,
+        ...(previousStatus !== newStatus
+          ? { previous_status: previousStatus, new_status: newStatus }
+          : {}),
+      },
+    });
   } else {
-    const { error } = await supabase.from("customers").insert(payload);
-    if (error) return err(getSafeActionError(error, "We couldn't save this customer. Please try again."));
+    const { data: createdCustomer, error } = await supabase
+      .from("customers")
+      .insert({
+        ...basePayload,
+        archived_at: basePayload.is_archived ? new Date().toISOString() : null,
+      })
+      .select("id")
+      .single();
+    if (error || !createdCustomer) {
+      return err(
+        error
+          ? getSafeActionError(
+              error,
+              "We couldn't save this customer. Please try again.",
+            )
+          : "We couldn't save this customer. Please try again.",
+      );
+    }
+
+    await logAudit({
+      module: "customers",
+      action: "customers.created",
+      details: `Created customer ${createdCustomer.id}`,
+      metadata: {
+        customer_id: createdCustomer.id,
+        new_status: basePayload.is_archived ? "archived" : "active",
+      },
+    });
   }
 
   revalidatePath("/customers");
@@ -109,25 +193,27 @@ export async function archiveCustomerAction(formData: FormData) {
   if (!id) return;
   const supabase = await createClient();
 
-  const { data: existingCustomer, error: fetchErr } = await supabase
-    .from("customers")
-    .select("id")
-    .eq("id", id)
-    .eq("organization_id", w.ctx.profile!.organization_id!)
-    .maybeSingle();
-
-  if (fetchErr || !existingCustomer) {
-    return;
-  }
-
-  const { error } = await supabase
+  const { data: archivedCustomer, error } = await supabase
     .from("customers")
     .update({ is_archived: true, archived_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("organization_id", w.ctx.profile!.organization_id!);
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .eq("is_archived", false)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return;
+  if (error || !archivedCustomer) return;
 
+  await logAudit({
+    module: "customers",
+    action: "customers.archived",
+    details: `Archived customer ${archivedCustomer.id}`,
+    metadata: {
+      customer_id: archivedCustomer.id,
+      previous_status: "active",
+      new_status: "archived",
+    },
+  });
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
   revalidatePath("/dashboard");
@@ -140,25 +226,27 @@ export async function restoreCustomerAction(formData: FormData) {
   if (!id) return;
   const supabase = await createClient();
 
-  const { data: existingCustomer, error: fetchErr } = await supabase
-    .from("customers")
-    .select("id")
-    .eq("id", id)
-    .eq("organization_id", w.ctx.profile!.organization_id!)
-    .maybeSingle();
-
-  if (fetchErr || !existingCustomer) {
-    return;
-  }
-
-  const { error } = await supabase
+  const { data: restoredCustomer, error } = await supabase
     .from("customers")
     .update({ is_archived: false, archived_at: null })
     .eq("id", id)
-    .eq("organization_id", w.ctx.profile!.organization_id!);
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .eq("is_archived", true)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return;
+  if (error || !restoredCustomer) return;
 
+  await logAudit({
+    module: "customers",
+    action: "customers.restored",
+    details: `Restored customer ${restoredCustomer.id}`,
+    metadata: {
+      customer_id: restoredCustomer.id,
+      previous_status: "archived",
+      new_status: "active",
+    },
+  });
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
   revalidatePath("/dashboard");
@@ -174,8 +262,17 @@ export async function recordCreditPaymentAction(
 
   // Owner, admin, manager, and cashier can record credit payments. Only technician is blocked.
   // This uses the same positive-role-set pattern as other permission checks in permissions.ts.
-  if (ctx.profile.role !== "owner" && ctx.profile.role !== "admin" && ctx.profile.role !== "manager" && ctx.profile.role !== "cashier") {
-    logAudit({ module: "customers", action: "permission.denied", details: "Attempted credit payment without permission" });
+  if (
+    ctx.profile.role !== "owner" &&
+    ctx.profile.role !== "admin" &&
+    ctx.profile.role !== "manager" &&
+    ctx.profile.role !== "cashier"
+  ) {
+    logAudit({
+      module: "customers",
+      action: "permission.denied",
+      details: "Attempted credit payment without permission",
+    });
     return err("You do not have permission to log payments.");
   }
 
@@ -195,7 +292,9 @@ export async function recordCreditPaymentAction(
     .maybeSingle();
 
   if (fetchErr || !existingCustomer) {
-    return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+    return err(
+      "We could not find this record for your shop. It may have been removed or you may not have access.",
+    );
   }
 
   const { error } = await supabase.rpc("record_credit_payment", {
@@ -207,14 +306,23 @@ export async function recordCreditPaymentAction(
   });
 
   if (error) {
-    return err(getSafeActionError(error, "We couldn't record this payment. Please try again."));
+    return err(
+      getSafeActionError(
+        error,
+        "We couldn't record this payment. Please try again.",
+      ),
+    );
   }
 
   logAudit({
     module: "customers",
     action: "customer.credit_payment",
     details: `Credit payment of ${parsed.data.amount} recorded for customer ${customerId} via ${parsed.data.method}`,
-    metadata: { customer_id: customerId, amount: parsed.data.amount, method: parsed.data.method },
+    metadata: {
+      customer_id: customerId,
+      amount: parsed.data.amount,
+      method: parsed.data.method,
+    },
   });
 
   revalidatePath("/customers");
@@ -233,7 +341,11 @@ export async function recordWriteOffAction(
   if (!ctx.profile?.organization_id) redirect("/setup");
 
   if (ctx.profile.role !== "owner" && ctx.profile.role !== "admin") {
-    logAudit({ module: "customers", action: "permission.denied", details: "Attempted customer write-off without owner/admin role" });
+    logAudit({
+      module: "customers",
+      action: "permission.denied",
+      details: "Attempted customer write-off without owner/admin role",
+    });
     return err("Only owner or admin can write off customer credit.");
   }
 
@@ -253,7 +365,9 @@ export async function recordWriteOffAction(
     .maybeSingle();
 
   if (fetchErr || !existingCustomer) {
-    return err("We could not find this record for your shop. It may have been removed or you may not have access.");
+    return err(
+      "We could not find this record for your shop. It may have been removed or you may not have access.",
+    );
   }
 
   const { error } = await supabase.rpc("record_customer_write_off", {
@@ -263,14 +377,23 @@ export async function recordWriteOffAction(
   });
 
   if (error) {
-    return err(getSafeActionError(error, "We couldn't record this write-off. Please try again."));
+    return err(
+      getSafeActionError(
+        error,
+        "We couldn't record this write-off. Please try again.",
+      ),
+    );
   }
 
   logAudit({
     module: "customers",
     action: "customer.write_off",
     details: `Credit write-off of ${parsed.data.amount} for customer ${customerId}: ${parsed.data.reason}`,
-    metadata: { customer_id: customerId, amount: parsed.data.amount, reason: parsed.data.reason },
+    metadata: {
+      customer_id: customerId,
+      amount: parsed.data.amount,
+      reason: parsed.data.reason,
+    },
   });
 
   revalidatePath("/customers");
