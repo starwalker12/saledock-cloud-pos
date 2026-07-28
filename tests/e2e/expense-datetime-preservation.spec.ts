@@ -1061,7 +1061,7 @@ test.describe("expense datetime preservation", () => {
         intentionalStoredAt,
         browserErrors,
       );
-      await waitForStableAuditCount(admin, startedAt, 8);
+      await waitForStableAuditCount(admin, startedAt, 9);
 
       const verification = await newOwnerPage(browser);
       browserErrors.push(verification.errors);
@@ -1071,7 +1071,7 @@ test.describe("expense datetime preservation", () => {
           '[data-widget-id="widget-expenses"]',
         );
         await expect(dashboardExpenses).toBeVisible();
-        await expect(dashboardExpenses).toContainText(/PKR\s*80(?:\.00)?/);
+        await expect(dashboardExpenses).toContainText(/PKR\s*0(?:\.00)?/);
         await verification.page.goto(
           "/reports?range=custom&startDate=2026-07-24&endDate=2026-07-24",
         );

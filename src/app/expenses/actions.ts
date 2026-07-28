@@ -133,11 +133,25 @@ export async function restoreExpenseAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) return;
   const supabase = await createClient();
-  await supabase
+  const { data: restored, error } = await supabase
     .from("expenses")
     .update({ status: "active", archived_at: null, archived_by: null })
     .eq("id", id)
-    .eq("organization_id", w.ctx.profile!.organization_id!);
+    .eq("organization_id", w.ctx.profile!.organization_id!)
+    .eq("status", "archived")
+    .select("id")
+    .maybeSingle();
+  if (error || !restored) return;
+  await logAudit({
+    module: "expenses",
+    action: "expenses.restored",
+    details: `Restored expense ${restored.id}`,
+    metadata: {
+      expense_id: restored.id,
+      previous_status: "archived",
+      new_status: "active",
+    },
+  });
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
 }
