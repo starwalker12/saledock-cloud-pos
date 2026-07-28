@@ -344,7 +344,7 @@ The narrow presentation observations remain P3.
 The final values matched the exact opening baseline. This does not claim all
 retained historical totals were zero.
 
-## Severity Register
+## Original Severity Register — 2026-07-26
 
 ### P0
 
@@ -389,7 +389,7 @@ Exactly five active observations:
 4. Daily Closing hydration and print-footer noise with correct cash truth.
 5. Narrow mobile invoice-title ellipsis and summary-label wrapping.
 
-## Classification And Decision
+## Original Classification And Decision — 2026-07-26
 
 **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 
@@ -401,7 +401,7 @@ Exactly five active observations:
 - SaleDock is not MVP-live.
 - Canonical synchronization is completed by the documentation PR containing this record.
 
-## Risk Waivers
+## Original Risk Waivers — 2026-07-26
 
 Customer-settlement and supplier-payment client settlement remain open P2 risks.
 The waiver applies only when exact server/accounting truth commits once, no
@@ -412,13 +412,122 @@ unrecoverable business state.
 The historical Expenses settlement observation remains P3. The missing Expense
 Restore audit is a separate P2 and must receive its own source investigation.
 
-## Next Task
+## Original Next Task — 2026-07-26
 
 Perform one focused review-first investigation and correction of:
 
 `LIVE-EXPENSE-RESTORE-AUDIT-001`
 
 Do not combine it with settlement/reset presentation work or another P2 finding.
+
+## 2026-07-29 Post-Acceptance Closure — Expense Restore Audit
+
+The original July 26 finding `LIVE-EXPENSE-RESTORE-AUDIT-001` is closed.
+
+Source review established that `restoreExpenseAction` performed the
+organization-scoped archived-to-active update but discarded its update result
+and emitted no Restore audit. PR #317 retained authorization and organization
+scope, required an archived row, confirmed the exact transitioned row, awaited
+one truthful Restore audit, and returned without an audit for errors, missing
+rows, active rows, unmatched rows, denied access, or other no-op outcomes.
+
+Source delivery:
+
+- Source PR: #317
+- Original source head: `afde45b53ddbe8c03956327dbaf7bd9427c8db2a`
+- Owner-review test-correction head: `51137c4a749023ed3e2a5fa73d403a4590a1ad03`
+- Source squash: `c823af4552b4841d776533bdabb770c6abb93a00`
+- Source deployment used for authenticated verification:
+  `2HoXqm32LeSRZh89axEc6CDcr69h`
+- No migration, schema, settlement, Reset, Dashboard/Reports formula, or Cash
+  Drawer change
+
+Authenticated production verification:
+
+- Identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
+- Marker: `LIVE-EXP-RESTORE-AUDIT-20260729-0132-L8YQ`
+- Expense ID: `5238e320-869f-4b6f-b9a0-cd567647cc3e`
+- Timestamp: `2026-07-29T01:34` Asia/Karachi, stored as
+  `2026-07-28T20:34:00Z`
+- Restore: one genuine archived-to-active transition
+- Audit: exactly one `expenses.restored`
+- Actor/organization/branch: Fardan Aatir / Star Shop / Main Branch
+- Details: exact restored expense ID
+- Metadata: exact expense ID, `previous_status: archived`, and
+  `new_status: active`
+- Business values: amount, category, Card method, vendor, notes, creator, and
+  timestamp preserved
+- Dashboard and Reports: baseline + PKR 75 while active, exact baseline after
+  final archival
+- Net Cash and physical Cash Drawer: unchanged
+- No-op/duplicates: Restore control disappeared; no second transition or
+  Restore audit
+- Final state: archived
+- Final audit totals: one create, two Void, one Restore
+- Cleanup retries/failures: 0/0
+
+Evidence:
+
+- Path: `/Users/sw12/Projects/saledock-local-evidence/expense-restore-audit-live-verification`
+- Manifest SHA-256: `94ed2ece32d3bf795a45aee61586b8909ade59dd635a545606c8da65dcc742c4`
+- Manifest entries: 24
+- Focused QA record: `docs/qa/expense-restore-audit-fix.md`
+
+Focused documentation delivery:
+
+- PR: #318
+- Branch head: `98dff8d5b5f7847bf48adbbaf72f24e390ef91cb`
+- Documentation squash: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`
+- Current production deployment: `F2ukbJu7Q1TrSmc7pruom1YAQKyo`
+- Deployment state: Ready/current for
+  `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`
+
+Current severity register:
+
+- P0: 0
+- P1: 0
+- P2: 8
+- P3: 5
+
+The eight active P2 findings or coverage limits are:
+
+1. `LIVE-CUSTOMER-LEDGER-001`
+2. `LIVE-CUSTOMER-AUDIT-001`
+3. `LIVE-REPAIR-OPTIONAL-001`
+4. `LIVE-INVOICE-FILTER-001`
+5. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+6. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+7. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+8. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+
+The five active P3 observations remain:
+
+1. Historical/intermittent Expenses original-page settlement delay with correct server truth.
+2. Expense Restore original-page settlement recovery.
+3. Expense Reset date-field synchronization/presentation.
+4. Daily Closing hydration and print-footer noise with correct cash truth.
+5. Narrow mobile invoice-title ellipsis and summary-label wrapping.
+
+The latest production Restore settled normally. That does not close the
+intermittent Restore settlement P3 observation. Expense Reset presentation is
+also not fixed.
+
+Current classification:
+
+**FINISHING ACCEPTED WITH LIMITED COVERAGE**
+
+The cashier limitation is unchanged: no authenticated cashier production
+session or approved cashier credentials were available. SaleDock is not
+audit-ready and not MVP-live.
+
+Current next task:
+
+`LIVE-CUSTOMER-AUDIT-001`
+
+Keep that task limited to truthful customer create, update, and archive
+lifecycle audit coverage. Do not combine it with
+`LIVE-CUSTOMER-LEDGER-001`, customer-settlement client completion, or another
+P2/P3 finding.
 
 ## Rollback And Finalization
 
@@ -429,4 +538,7 @@ If the canonical documentation synchronization must later be reverted:
 
 `git revert <documentation_squash_sha> && git push origin main`
 
-Risk remains open because nine P2 findings or coverage limits and documented P3 observations remain, including missing audit/ledger coverage and unavailable authenticated cashier acceptance. No active P0 or P1 was found.
+Risk remains open because eight P2 findings or coverage limits and five P3
+observations remain, including missing customer lifecycle-audit and ledger
+coverage and unavailable authenticated cashier acceptance. No active P0 or P1
+was found.

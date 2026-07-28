@@ -1,5 +1,5 @@
 # SaleDock Cloud POS — Continuation Brief
-*Canonical handoff after the authenticated 26 July 2026 finishing acceptance.*
+*Canonical handoff after the authenticated 29 July 2026 Expense Restore audit closure.*
 
 ## Who Fardan Is
 
@@ -10,10 +10,11 @@ pull requests, strict evidence boundaries, and no credentials in chat.
 ## Current Repository And Production
 
 - Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
-- Canonical synchronization base: `0b94dcb072a204539aa4608d53e0237a77c058fe`
-- Latest application-behavior commit: `8f8202a428a88bd8d72d178facbafb775eb1abf8`
-- Latest behavior change: `fix: reconcile dashboard net cash by payment method`
-- Production deployment: `dpl_5zVLpG4mTcvgxr3Xd76voXxY6CNA`, Ready/current
+- Canonical synchronization base: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`
+- Latest application-behavior commit: `c823af4552b4841d776533bdabb770c6abb93a00`
+- Latest behavior change: `fix: audit restored expenses`
+- Latest focused documentation commit: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`
+- Production deployment: `F2ukbJu7Q1TrSmc7pruom1YAQKyo`, Ready/current
 - Verified production identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
 
 This documentation PR completes the canonical synchronization. It does not
@@ -25,7 +26,7 @@ change application behavior or production data.
 
 - P0: **0**
 - P1: **0**
-- P2 findings or coverage limits: **9**
+- P2 findings or coverage limits: **8**
 - P3 observations: **5**
 - Audit-ready: **NO**
 - MVP-live: **NO**
@@ -40,12 +41,11 @@ financial mutation was performed.
 1. `LIVE-CUSTOMER-LEDGER-001` — balances reconcile, but return/refund presentation is absent and `INV-100361` targets a ledger-entry UUID.
 2. `LIVE-CUSTOMER-AUDIT-001` — Credit Payment audit exists; customer create, update, and archive audits are absent.
 3. `LIVE-REPAIR-OPTIONAL-001` — blank fields presented as optional can reject with `Invalid UUID`; rejected attempts wrote nothing.
-4. `LIVE-EXPENSE-RESTORE-AUDIT-001` — Restore committed once and recovered after reload, but emitted no Restore audit.
-5. `LIVE-INVOICE-FILTER-001` — search/date/payment/status/Reset controls are absent or materially incomplete.
-6. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` — 80mm content is correct on page one with one blank trailing page; A4 is complete.
-7. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` — one server/accounting commit can leave the connected page on `Processing...`; independent read and reload recover the truth.
-8. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2` — one server/accounting commit can leave the original page on `Recording...`; independent read and reload recover the truth.
-9. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2` — source permissions were reviewed, but authenticated cashier acceptance was unavailable.
+4. `LIVE-INVOICE-FILTER-001` — search/date/payment/status/Reset controls are absent or materially incomplete.
+5. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` — 80mm content is correct on page one with one blank trailing page; A4 is complete.
+6. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` — one server/accounting commit can leave the connected page on `Processing...`; independent read and reload recover the truth.
+7. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2` — one server/accounting commit can leave the original page on `Recording...`; independent read and reload recover the truth.
+8. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2` — source permissions were reviewed, but authenticated cashier acceptance was unavailable.
 
 Customer and supplier settlement are not fixed. Never resubmit solely because
 the original page remains pending. The waiver covers only one exact successful
@@ -59,6 +59,33 @@ reload.
 3. Expense Reset visible date-field synchronization.
 4. Daily Closing hydration and print-footer noise with correct cash truth.
 5. Narrow mobile invoice-title ellipsis and summary-label wrapping.
+
+## Expense Restore Audit Closure
+
+`LIVE-EXPENSE-RESTORE-AUDIT-001` is closed.
+
+- Source PR #317: original head `afde45b53ddbe8c03956327dbaf7bd9427c8db2a`,
+  owner-review head `51137c4a749023ed3e2a5fa73d403a4590a1ad03`, squash
+  `c823af4552b4841d776533bdabb770c6abb93a00`.
+- Authenticated deployment: `2HoXqm32LeSRZh89axEc6CDcr69h`.
+- Marker: `LIVE-EXP-RESTORE-AUDIT-20260729-0132-L8YQ`.
+- One genuine archived-to-active Restore produced exactly one truthful
+  `expenses.restored` audit with the correct actor, organization, branch,
+  expense ID, details, and archived-to-active metadata.
+- Expense values and timestamp were preserved; Dashboard and Reports
+  reconciled; Net Cash and Cash Drawer were unchanged; duplicates were zero;
+  the final expense was archived.
+- Focused documentation PR #318: head
+  `98dff8d5b5f7847bf48adbbaf72f24e390ef91cb`, squash
+  `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`, final deployment
+  `F2ukbJu7Q1TrSmc7pruom1YAQKyo`.
+- Live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/expense-restore-audit-live-verification`;
+  manifest SHA-256
+  `94ed2ece32d3bf795a45aee61586b8909ade59dd635a545606c8da65dcc742c4`.
+
+The missing audit is fixed. Expense Restore settlement and Expense Reset
+presentation are not fixed and remain open P3 observations.
 
 ## Finishing Evidence
 
@@ -74,7 +101,9 @@ Key production truth:
 - Customer balance reconciled; ledger and lifecycle-audit gaps remain P2.
 - Repair `RJ-000003` completed its lifecycle and ended cancelled with no duplicate.
 - One expense create and five update shapes completed once each; final PKR 80 Marketing/Card expense was archived with no Cash Drawer effect.
-- Expense Restore truth committed but its audit was missing.
+- The July 26 Expense Restore truth committed while its audit was missing; that
+  historical finding was closed by PR #317 and the separate July 29
+  authenticated verification.
 - `INV-100364` detail/payment/return/reload and A4 preview passed; filters and 80mm trailing blank page remain P2.
 - The retained shift reconciled starting/expected/counted PKR 1,000 with PKR 0 difference.
 - Reports returned to estimated profit PKR 150 after the active PKR 80 expense was archived.
@@ -96,7 +125,9 @@ Supplier-payment settlement remains P2 despite its accounting result.
 ## Protection And Archives
 
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader July 26 opening inventory: 33 worktrees and 28 dirty/untracked files.
+- Broader pre-task inventory: 36 worktrees and 28 dirty/untracked files.
+- The authorized clean canonical synchronization worktree raises the in-task
+  worktree total to 37.
 - Expenses diagnostic: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`.
 - Twenty-nine previously verified temporary archives expired from `/tmp`.
@@ -108,14 +139,16 @@ worktree.
 
 ## Immediate Next Task
 
-Perform one focused review-first investigation and correction of:
+Perform one focused review-first investigation of:
 
-`LIVE-EXPENSE-RESTORE-AUDIT-001`
+`LIVE-CUSTOMER-AUDIT-001`
 
-Keep it separate from Expense settlement, Reset presentation, and every other
-P2 finding. The bounded priority is the missing audit for a money-bearing
-expense transition; amount, timestamp, Reports, and Cash Drawer truth were
-correct.
+Customer create, update, and archive lifecycle audits are absent. The existing
+Credit Payment audit proves actor and organization attribution can work, while
+customer balances and transactions are correct. Keep the task limited to
+truthful lifecycle audit coverage. Do not combine
+`LIVE-CUSTOMER-LEDGER-001`, customer-settlement client completion, or another
+P2/P3 finding.
 
 ## Files A New Chat Should Read
 
@@ -123,7 +156,8 @@ correct.
 2. `03_REMEMBER.md`
 3. `CHATGPT_CONTINUATION_BRIEF.md`
 4. `docs/qa/live-finishing-continuation-acceptance-2026-07-26.md`
-5. Relevant focused QA documents only as needed
+5. `docs/qa/expense-restore-audit-fix.md`
+6. Relevant focused QA documents only as needed
 
 Do not require nonexistent attachments. Do not call SaleDock audit-ready or
 MVP-live.
