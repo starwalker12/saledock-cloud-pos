@@ -2,9 +2,9 @@
 
 ## Finding
 
-`LIVE-EXPENSE-RESTORE-AUDIT-001` is a P2 audit-integrity finding. An Expense Restore changed an archived money-bearing record back to active, but the action did not record a Restore audit.
+`LIVE-EXPENSE-RESTORE-AUDIT-001` was a P2 audit-integrity finding. An Expense Restore changed an archived money-bearing record back to active, but the action did not record a Restore audit.
 
-This correction is present only on the draft branch. Production remains unchanged.
+PR #317 delivered the reviewed correction and the bounded authenticated production verification closed the finding.
 
 ## Retained production evidence
 
@@ -150,11 +150,64 @@ No migration, schema, package, lockfile, workflow, configuration, shared audit-h
 
 ## Evidence boundary
 
-The retained production evidence establishes the live missing-audit finding. The branch tests establish the local root cause and correction. GitHub CI and Vercel Preview, when available, are hosted build and preview evidence only. They are not authenticated production Restore evidence.
+The retained July 26 production evidence establishes the original live missing-audit finding. The branch tests establish the local root cause and correction. GitHub CI and Vercel Preview are hosted build and preview evidence only. The separate July 29 authenticated browser workflow below establishes the corrected production Restore behavior.
 
 The local Audit Log screenshot and sanitized baseline/post-fix JSON are retained outside Git at:
 
 `/Users/sw12/Projects/saledock-local-evidence/expense-restore-audit-fix`
+
+## Authenticated production verification
+
+PR #317 was delivered from the original reviewed source head `afde45b53ddbe8c03956327dbaf7bd9427c8db2a` plus the owner-review test correction at `51137c4a749023ed3e2a5fa73d403a4590a1ad03`. The reviewed pull request was squash-merged as `c823af4552b4841d776533bdabb770c6abb93a00`.
+
+Vercel production deployment `2HoXqm32LeSRZh89axEc6CDcr69h` reached Ready and was current for that exact main commit before the production workflow began. The authenticated Chrome session visibly confirmed Fardan Aatir, Owner, Star Shop, Main Branch, PKR, and the Asia/Karachi business context. No migration or schema change was required.
+
+The live marker was:
+
+`LIVE-EXP-RESTORE-AUDIT-20260729-0132-L8YQ`
+
+The starting current-day values were:
+
+- Dashboard Expenses: PKR 0
+- Reports active Expenses: PKR 0
+- Dashboard Net Cash: PKR 0
+- Cash Drawer expected/count/difference: PKR 0 / PKR 0 / PKR 0
+- Customer dues: PKR 405
+- Supplier dues: PKR 0
+- Stock valuation: PKR 325,340
+- Marker expenses and audits: zero
+
+One Utilities expense for PKR 75 was created through the production UI with Card payment, the marked vendor and notes, and local time `2026-07-29T01:34` in Asia/Karachi. It persisted as `2026-07-28T20:34:00Z`. The active expense increased Dashboard and Reports Expenses by PKR 75 while Dashboard Net Cash and physical Cash Drawer values remained unchanged. One `expenses.created` audit and no duplicate expense were recorded.
+
+The expense was voided once. Its exact row became archived, `archived_at` and `archived_by` were populated, one `expenses.voided` audit was recorded, and current-day Dashboard and Reports Expenses returned to their starting values.
+
+The same expense was restored once. The exact row returned to active, both archived fields cleared, and amount, category, Card method, vendor, notes, creator, organization, branch, and timestamp remained unchanged. Dashboard and Reports returned to baseline plus PKR 75. Dashboard Net Cash and Cash Drawer remained at PKR 0.
+
+The Restore produced exactly one Audit Log entry with:
+
+- module: `expenses`
+- action: `expenses.restored`
+- actor: Fardan Aatir
+- organization: Star Shop
+- branch: Main Branch
+- details: the exact restored expense ID
+- metadata: the exact expense ID, `previous_status: archived`, and `new_status: active`
+
+The restored active row exposed no second Restore control. A fresh authenticated tab independently displayed the exact active row and no duplicate transition or Restore audit existed. The original Restore page settled normally in this run, so no reload recovery was needed. The retained Expense Restore client-settlement observation remains open as P3; it was neither reproduced nor changed.
+
+For finalization, the marked expense was voided once more and retained as truthful archived financial history. The final state contained one expense, one create audit, two Void audits, and one Restore audit. Dashboard and Reports active Expenses returned to PKR 0. Net Cash, expected physical cash, customer dues, supplier dues, stock valuation, and open-shift state matched the captured baseline. Cleanup retries and failures were zero.
+
+Sanitized live evidence is retained outside Git at:
+
+`/Users/sw12/Projects/saledock-local-evidence/expense-restore-audit-live-verification`
+
+The evidence manifest SHA-256 is:
+
+`94ed2ece32d3bf795a45aee61586b8909ade59dd635a545606c8da65dcc742c4`
+
+Result:
+
+`PASS — LIVE-EXPENSE-RESTORE-AUDIT-001 FIXED`
 
 ## Remaining findings
 
@@ -177,12 +230,12 @@ The five P3 observations remain unchanged:
 - Daily Closing hydration/print-footer noise
 - narrow mobile wrapping
 
-Expense Restore settlement is not fixed. Expense Reset presentation is not fixed. `LIVE-EXPENSE-RESTORE-AUDIT-001` is corrected only on this draft branch. Finishing remains accepted with limited coverage. SaleDock remains below audit-ready and is not MVP-live. Canonical documents remain unchanged.
+Expense Restore settlement is not fixed. Expense Reset presentation is not fixed. `LIVE-EXPENSE-RESTORE-AUDIT-001` is closed by the merged correction and authenticated production verification. The P2 count is reduced from nine to eight; all five P3 observations remain open. Finishing remains accepted with limited coverage. SaleDock remains below audit-ready and is not MVP-live. Canonical documents remain stale until a separate owner-reviewed synchronization.
 
 ## Delivery and rollback
 
-This change is review-first. The draft pull request must remain unmerged until the owner authorizes delivery and production verification separately.
+The source correction was delivered through PR #317 and verified in production. This follow-up records evidence only.
 
-If a later merged correction must be rolled back:
+If the source correction must be rolled back:
 
-`git revert <expense-restore-audit-merge-sha> && git push origin main`
+`git revert c823af4552b4841d776533bdabb770c6abb93a00 && git push origin main`
