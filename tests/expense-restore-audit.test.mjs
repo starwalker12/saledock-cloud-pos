@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const actionSource = readFileSync("src/app/expenses/actions.ts", "utf8");
+const e2eSource = readFileSync(
+  "tests/e2e/expense-restore-audit.spec.ts",
+  "utf8",
+);
 const restoreStart = actionSource.indexOf(
   "export async function restoreExpenseAction",
 );
@@ -47,4 +51,42 @@ test("Restore records the audit before requesting page freshness", () => {
   assert.ok(auditIndex > -1);
   assert.ok(expensesIndex > auditIndex);
   assert.ok(dashboardIndex > expensesIndex);
+});
+
+test("Restore-audit E2E derives one Karachi date and isolates its own marker", () => {
+  assert.doesNotMatch(e2eSource, /2026-07-26/);
+  assert.doesNotMatch(e2eSource, /2026-07-26T20:35/);
+  assert.doesNotMatch(e2eSource, /2026-07-26T15:35:00\.000Z/);
+  assert.match(e2eSource, /const capturedInstant = new Date\(\)/);
+  assert.match(
+    e2eSource,
+    /getKarachiBusinessDate\(capturedInstant\)/,
+  );
+  assert.match(
+    e2eSource,
+    /formatKarachiDateTimeLocal\(startedAt\)/,
+  );
+  assert.match(
+    e2eSource,
+    /parseKarachiDateTimeLocal\(expectedLocalDateTime\)/,
+  );
+  assert.match(
+    e2eSource,
+    /startDate=\$\{karachiBusinessDate\}&endDate=\$\{karachiBusinessDate\}/,
+  );
+  assert.match(e2eSource, /minutesUntilKarachiMidnight/);
+  assert.doesNotMatch(e2eSource, /clean local expense fixture boundary/);
+  assert.doesNotMatch(e2eSource, /before\.expenses.*count/);
+  assert.match(
+    e2eSource,
+    /await markerExpenses\(admin, marker\),[\s\S]*?"marker expense precondition"[\s\S]*?\.toHaveLength\(0\)/,
+  );
+  assert.match(
+    e2eSource,
+    /await markerExpenses\(admin, marker\), "generated expense remaining"\)[\s\S]*?\.toHaveLength\(0\)/,
+  );
+  assert.match(
+    e2eSource,
+    /"generated audit rows remaining"[\s\S]*?\.toHaveLength\(0\)/,
+  );
 });

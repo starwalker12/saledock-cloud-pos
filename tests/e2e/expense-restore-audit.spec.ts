@@ -7,6 +7,11 @@ import {
   LOCAL_QA_ORG_ID,
   loginLocalOwnerDirectly,
 } from "./helpers/local-supabase";
+import {
+  formatKarachiDateTimeLocal,
+  getKarachiBusinessDate,
+  parseKarachiDateTimeLocal,
+} from "../../src/lib/datetime";
 
 const ARTIFACT_ROOT = "/tmp/saledock-expense-restore-audit";
 const SAFETY_TABLES = [
@@ -46,8 +51,15 @@ type BrowserEvidence = {
   dialogs: number;
   closing: boolean;
   expectedAuthTeardown: number;
+  expectedLocalAuthNavigationAborts: number;
 };
 type CapturedField = [name: string, value: string];
+
+function minutesUntilKarachiMidnight(localDateTime: string): number {
+  const [, time] = localDateTime.split("T");
+  const [hour, minute] = time!.split(":").map(Number);
+  return 24 * 60 - (hour! * 60 + minute!);
+}
 
 function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -90,6 +102,7 @@ function attachEvidence(page: Page): BrowserEvidence {
     dialogs: 0,
     closing: false,
     expectedAuthTeardown: 0,
+    expectedLocalAuthNavigationAborts: 0,
   };
   page.on("pageerror", (error) => evidence.pageErrors.push(error.name));
   page.on("console", (message) => {
@@ -102,6 +115,15 @@ function attachEvidence(page: Page): BrowserEvidence {
       /\/_next\/static\/chunks\//.test(value)
     ) {
       evidence.expectedAuthTeardown += 1;
+      return;
+    }
+    if (
+      /^TypeError: Failed to fetch[\s\S]*\._(?:getUser|useSession)/.test(value) &&
+      /^http:\/\/(?:127\.0\.0\.1|localhost):\d+\/_next\/static\/chunks\//.test(
+        message.location().url,
+      )
+    ) {
+      evidence.expectedLocalAuthNavigationAborts += 1;
       return;
     }
     evidence.consoleErrors.push(value.replace(
@@ -364,9 +386,18 @@ test.describe("expense Restore audit", () => {
 
   test("one Card expense records one truthful audit for one genuine Restore", async ({ browser }) => {
     mkdirSync(ARTIFACT_ROOT, { recursive: true });
+    const capturedInstant = new Date();
+    const startedAt = capturedInstant.toISOString();
+    const karachiBusinessDate = getKarachiBusinessDate(capturedInstant);
+    const expectedLocalDateTime = formatKarachiDateTimeLocal(startedAt);
+    const expectedStoredUtc = parseKarachiDateTimeLocal(expectedLocalDateTime);
+    test.skip(
+      minutesUntilKarachiMidnight(expectedLocalDateTime) <= 5,
+      "Requires more than five minutes before the captured Karachi day rolls over.",
+    );
+
     const admin = getLocalAdminClient();
     const marker = `REST-AUD-${randomUUID().slice(0, 8)}`;
-    const startedAt = new Date().toISOString();
     const before = await captureSafetySnapshot(admin);
     const { owner } = await ownerContext(admin);
     const browserEvidence: BrowserEvidence[] = [];
@@ -376,12 +407,11 @@ test.describe("expense Restore audit", () => {
     let screenshotPath: string | null = null;
     let actionFields: CapturedField[] = [];
     const responseStatuses: Record<string, number> = {};
-    const expectedLocalDateTime = "2026-07-26T20:35";
 
     expect(
-      "count" in before.expenses! ? before.expenses.count : -1,
-      "clean local expense fixture boundary",
-    ).toBe(0);
+      await markerExpenses(admin, marker),
+      "marker expense precondition",
+    ).toHaveLength(0);
 
     try {
       const session = await newSession(browser);
@@ -441,7 +471,7 @@ test.describe("expense Restore audit", () => {
           created_by: owner.id,
         });
         expect(new Date(created!.spent_at as string).toISOString()).toBe(
-          "2026-07-26T15:35:00.000Z",
+          expectedStoredUtc,
         );
         const createdAudits = await pollFor(
           "created audit",
@@ -455,7 +485,7 @@ test.describe("expense Restore audit", () => {
           session.page.locator('[data-widget-id="widget-expenses"]'),
         ).toContainText(/PKR\s*75(?:\.00)?/);
         await session.page.goto(
-          "/reports?range=custom&startDate=2026-07-26&endDate=2026-07-26",
+          `/reports?range=custom&startDate=${karachiBusinessDate}&endDate=${karachiBusinessDate}`,
         );
         await expect(
           session.page.locator("[data-stat-card]").filter({
@@ -500,7 +530,7 @@ test.describe("expense Restore audit", () => {
           session.page.locator('[data-widget-id="widget-expenses"]'),
         ).toContainText(/PKR\s*0(?:\.00)?/);
         await session.page.goto(
-          "/reports?range=custom&startDate=2026-07-26&endDate=2026-07-26",
+          `/reports?range=custom&startDate=${karachiBusinessDate}&endDate=${karachiBusinessDate}`,
         );
         await expect(
           session.page.locator("[data-stat-card]").filter({
@@ -624,7 +654,7 @@ test.describe("expense Restore audit", () => {
           session.page.locator('[data-widget-id="widget-expenses"]'),
         ).toContainText(/PKR\s*75(?:\.00)?/);
         await session.page.goto(
-          "/reports?range=custom&startDate=2026-07-26&endDate=2026-07-26",
+          `/reports?range=custom&startDate=${karachiBusinessDate}&endDate=${karachiBusinessDate}`,
         );
         await expect(
           session.page.locator("[data-stat-card]").filter({
@@ -737,6 +767,10 @@ test.describe("expense Restore audit", () => {
         `${ARTIFACT_ROOT}/post-fix.json`,
         JSON.stringify({
           finding: "LIVE-EXPENSE-RESTORE-AUDIT-001",
+          capturedInstant: capturedInstant.toISOString(),
+          karachiBusinessDate,
+          karachiLocalDateTime: expectedLocalDateTime,
+          expectedStoredUtc,
           startedAt,
           actionPosts,
           responseStatuses,

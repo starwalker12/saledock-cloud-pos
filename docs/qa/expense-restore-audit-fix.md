@@ -96,7 +96,28 @@ Existing regression updates are intentionally narrow:
 - the datetime workflow now expects the Restore audit and correctly excludes its fixed July 24 fixture from the current-day Dashboard while retaining it in the July 24 report range;
 - the reviewed Expenses action-source hash was updated without changing its mobile filter or summary assertions.
 
-The complete Node suite passed 270/270. The existing mobile workflow, datetime workflow, and filter/mobile workflow passed with zero Playwright automatic retries. The focused post-fix lifecycle passed cleanly. Lint, typecheck, and production build results are recorded in the pull request.
+The owner-review contract file passed 5/5 and the complete Node suite passed 271/271. Under a production server running with `TZ=UTC` and a browser using `Asia/Karachi`, the focused post-fix lifecycle passed 1/1. The existing mobile workflow, datetime workflow, and filter/mobile workflow each passed 1/1 with zero Playwright automatic retries. Lint, typecheck, and production build results are recorded in the pull request.
+
+## Owner-review E2E correction
+
+Owner review accepted the application correction and identified one test-only durability defect. The focused E2E had reused the retained July 26 evidence date as a fixed current-day fixture and required the entire local `expenses` table to be empty.
+
+The E2E now captures one runtime instant before any business mutation and uses the existing reviewed Asia/Karachi datetime helpers to derive:
+
+- the current Karachi `YYYY-MM-DD` business date;
+- the matching `datetime-local` form value;
+- the expected stored UTC instant;
+- the Reports custom start and end date.
+
+The same captured values drive the Expense form, database assertion, Dashboard current-day assertion, Reports range, and sanitized evidence JSON. A five-minute opening safeguard skips a run that begins too close to Karachi midnight instead of allowing a day rollover to create a misleading failure.
+
+The global zero-expense prerequisite was replaced with a marker-specific precondition. The E2E still requires exactly one matching expense after creation, no duplicate marker expense, zero matching expenses and audits after cleanup, and exact equality for every available complete before/after safety signature.
+
+The browser evidence also classifies only the repository's established loopback Supabase `getUser`/`useSession` abort signature during deliberate page navigation. These expected local navigation aborts are counted separately; page errors, unexpected console errors, request failures, framework overlays, dialogs, route loss, and business failures remain blocking. The final focused run counted two expected local Auth navigation aborts and zero unexpected browser errors.
+
+The retained production evidence dates remain unchanged. The historical July 24 datetime-preservation range remains unchanged. No application source, business behavior, settlement, Reset, datetime source, Dashboard formula, Reports formula, Cash Drawer behavior, permission, RLS, schema, migration, package, lockfile, workflow, configuration, or canonical document changed during this owner-review correction.
+
+The final correction commit and exact PR head are recorded in PR #317 metadata because a commit cannot contain its own SHA.
 
 ## Disclosed runs and warnings
 
@@ -107,6 +128,8 @@ The complete Node suite passed 270/270. The existing mobile workflow, datetime w
 - One complete baseline launch and three post-fix invocations were discarded after local Supabase Auth emitted `TypeError: Failed to fetch`; business cleanup succeeded. Separate bounded post-fix runs passed cleanly.
 - The first mobile workflow regression correctly failed because its old audit total omitted Restore; its expected count was updated from three to four.
 - The first datetime regression correctly failed because its old audit total omitted Restore. A subsequent run exposed a stale historical-date Dashboard expectation, which was corrected to current-day zero. One later run was discarded for the disclosed local Auth flake; the bounded rerun passed.
+- During this owner-review correction, three focused E2E launches were discarded after loopback Auth requests were aborted by deliberate page navigation. The trace showed adjacent `/auth/v1/user` responses returning HTTP 200 and cleanup succeeding. The final run used the narrow established local-navigation classification and passed with zero unexpected browser errors.
+- The first owner-review filter/mobile launch was discarded when its framework-error probe raced navigation and Playwright reported a destroyed execution context. The bounded rerun passed without changing that test.
 - Playwright emitted the existing `NO_COLOR` warning. Node emitted existing module-type warnings. Supabase CLI reported its update notice. `npm ci` reported existing dependency audit notices; no dependency or lockfile change was made.
 
 ## Safety and cleanup
