@@ -1,5 +1,5 @@
 # 03 — Remember For The Future — SaleDock Cloud POS
-*Durable memory. Last updated: 26 July 2026 after authenticated production finishing acceptance.*
+*Durable memory. Last updated: 29 July 2026 after authenticated Expense Restore audit closure.*
 
 ## Who Fardan Is
 
@@ -11,13 +11,14 @@
 
 ## Current Durable Status
 
-- Canonical synchronization base: `0b94dcb072a204539aa4608d53e0237a77c058fe`.
-- Latest application-behavior commit: `8f8202a428a88bd8d72d178facbafb775eb1abf8`.
-- Production deployment: `dpl_5zVLpG4mTcvgxr3Xd76voXxY6CNA`, Ready/current at acceptance.
+- Canonical synchronization base: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`.
+- Latest application-behavior commit: `c823af4552b4841d776533bdabb770c6abb93a00`.
+- Latest focused documentation commit: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`.
+- Production deployment: `F2ukbJu7Q1TrSmc7pruom1YAQKyo`, Ready/current for the synchronization base.
 - Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**.
 - P0 active: **0**.
 - P1 active: **0**.
-- P2 findings or coverage limits: **9**.
+- P2 findings or coverage limits: **8**.
 - P3 observations: **5**.
 - Audit-ready: **NO**.
 - MVP-live: **NO**.
@@ -60,7 +61,7 @@ Daily Closing formulas, or shift formulas without a focused accounting review.
 
 ## Active P2 Register
 
-Keep all nine items independently visible:
+Keep all eight items independently visible:
 
 1. `LIVE-CUSTOMER-LEDGER-001`
    - Balances reconcile, but return/refund presentation is absent.
@@ -69,18 +70,43 @@ Keep all nine items independently visible:
    - Credit Payment audit exists; customer create, update, and archive audits are absent.
 3. `LIVE-REPAIR-OPTIONAL-001`
    - Blank fields presented as optional can fail with `Invalid UUID`; rejected attempts wrote nothing.
-4. `LIVE-EXPENSE-RESTORE-AUDIT-001`
-   - Restore committed once and recovered after reload, but emitted no Restore audit.
-5. `LIVE-INVOICE-FILTER-001`
+4. `LIVE-INVOICE-FILTER-001`
    - Search/date/payment/status/Reset controls are absent or materially incomplete.
-6. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+5. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
    - 80mm content is correct on page one, with one blank trailing page; A4 is complete.
-7. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+6. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
    - Truth may commit once while the connected page stays on `Processing...`; independent read and reload recover it.
-8. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+7. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
    - Truth may commit once while the original page stays on `Recording...`; independent read and reload recover it.
-9. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+8. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
    - Source permissions were reviewed, but authenticated cashier production acceptance was unavailable.
+
+## Closed P2 Truth
+
+`LIVE-EXPENSE-RESTORE-AUDIT-001` is fixed and production-verified.
+
+- PR #317 delivered source squash `c823af4552b4841d776533bdabb770c6abb93a00`.
+- The original reviewed source head was `afde45b53ddbe8c03956327dbaf7bd9427c8db2a`.
+- The owner-review source head was `51137c4a749023ed3e2a5fa73d403a4590a1ad03`.
+- Authenticated deployment `2HoXqm32LeSRZh89axEc6CDcr69h` processed
+  marker `LIVE-EXP-RESTORE-AUDIT-20260729-0132-L8YQ`.
+- One genuine Restore produced exactly one `expenses.restored` audit with the
+  correct actor, organization, branch, expense ID, details, and metadata.
+- Amount, category, payment method, vendor, notes, creator, and timestamp were
+  preserved. Dashboard, Reports, Net Cash, and Cash Drawer reconciled.
+- Duplicates were zero and the final expense remained archived.
+- PR #318 recorded the live result from head
+  `98dff8d5b5f7847bf48adbbaf72f24e390ef91cb` in focused documentation
+  squash `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`.
+- Final focused deployment `F2ukbJu7Q1TrSmc7pruom1YAQKyo` is Ready/current.
+- Live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/expense-restore-audit-live-verification`,
+  manifest SHA-256
+  `94ed2ece32d3bf795a45aee61586b8909ade59dd635a545606c8da65dcc742c4`.
+
+Do not reopen the missing-audit finding without contradictory evidence.
+Expense Restore settlement and Reset presentation remain separate open P3
+observations.
 
 ## Settlement Waiver Boundaries
 
@@ -100,10 +126,9 @@ Never resubmit a transaction merely because the original connected page remains
 pending. A missing, duplicate, incorrect, or unrecoverable business state is not
 covered by the waiver.
 
-Historical/intermittent Expense client completion also remains a P3 observation.
-The July 26 Restore operation additionally exposed the separate P2 missing-audit
-finding; do not merge the audit correction with settlement or Reset presentation
-work.
+Historical/intermittent Expense client completion remains a P3 observation.
+The missing Restore audit is fixed; that closure does not change the settlement
+or Reset presentation boundaries.
 
 ## Active P3 Observations
 
@@ -150,7 +175,10 @@ stock, or recovery harm.
 
 - Always enumerate worktrees and dirty/untracked files before work.
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader July 26 opening inventory: 33 worktrees and 28 dirty/untracked files.
+- Broader pre-task inventory for the 29 July synchronization: 36 worktrees and
+  28 dirty/untracked files.
+- The new clean canonical synchronization worktree is authorized separately,
+  bringing the in-task worktree total to 37.
 - Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`.
 - Twenty-nine historical archives were verified before their ephemeral `/tmp` copies expired.
@@ -183,28 +211,34 @@ Do not reopen these results without contradictory evidence:
 ## Historical Facts Worth Keeping
 
 - PR #303 fixed the Expenses mobile touch targets and Void guidance. It is historical, not the current production baseline or next task.
+- PR #317 and source squash `c823af4552b4841d776533bdabb770c6abb93a00`
+  fixed the missing Expense Restore audit; PR #318 and documentation squash
+  `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d` recorded the authenticated
+  production pass.
 - Reports, Returns, and Repairs print fixes retain their recorded local evidence.
 - MN-007 remains a development-only CSP/hydration observation in the environments tested.
 - Older mobile-native audit counts describe their dated finding set. They are not the current finishing P2/P3 register.
 
 ## Immediate Next Task
 
-Perform one focused review-first investigation and correction of
-`LIVE-EXPENSE-RESTORE-AUDIT-001`.
+Perform one focused review-first investigation of
+`LIVE-CUSTOMER-AUDIT-001`.
 
 Keep it separate from:
 
-- Expense Restore client settlement;
-- Expense Reset presentation;
+- `LIVE-CUSTOMER-LEDGER-001`;
+- customer-settlement client completion;
+- Expense Restore settlement and Reset presentation;
 - customer settlement;
 - supplier payment;
 - invoice filters or print;
 - Repairs optional-field behavior;
 - cashier coverage.
 
-The missing audit is the bounded priority because it concerns a money-bearing
-expense state transition while amount, timestamp, Reports, and Cash Drawer truth
-were correct.
+Customer create, update, and archive lifecycle audits are absent. The existing
+Credit Payment audit shows that actor and organization attribution can work,
+while customer balances and transactions remain correct. Keep the investigation
+limited to truthful lifecycle audit coverage.
 
 ## Standing Safety Rules
 

@@ -1,14 +1,14 @@
 # SaleDock Mobile-Native Full Product Audit
 
-Current synchronization date: 2026-07-26
+Current synchronization date: 2026-07-29
 
-Branch: `docs/canonical-finishing-acceptance-sync`
+Branch: `docs/canonical-expense-restore-audit-sync`
 
-Base main SHA: `0b94dcb072a204539aa4608d53e0237a77c058fe`
+Base main SHA: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`
 
-Latest application-behavior SHA: `8f8202a428a88bd8d72d178facbafb775eb1abf8`
+Latest application-behavior SHA: `c823af4552b4841d776533bdabb770c6abb93a00`
 
-Production deployment: `dpl_5zVLpG4mTcvgxr3Xd76voXxY6CNA` (Ready/current)
+Production deployment: `F2ukbJu7Q1TrSmc7pruom1YAQKyo` (Ready/current)
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -16,7 +16,7 @@ This document preserves the original mobile-native audit chronology and adds a s
 
 Current recommendation: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 
-## 2026-07-26 Authenticated Production Finishing Acceptance
+## Current Executive Register — 2026-07-29
 
 ### Executive Status
 
@@ -25,20 +25,20 @@ Current recommendation: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 | Classification | **FINISHING ACCEPTED WITH LIMITED COVERAGE** |
 | P0 active | 0 |
 | P1 active | 0 |
-| P2 findings or coverage limits | 9 |
+| P2 findings or coverage limits | 8 |
 | P3 observations | 5 |
 | Exact limitation | No authenticated cashier production session or approved cashier credentials were available. |
 | Audit-ready | No |
 | MVP-live | No |
-| Next task | Focused review-first investigation and correction of `LIVE-EXPENSE-RESTORE-AUDIT-001` only. |
+| Next task | Focused review-first investigation of `LIVE-CUSTOMER-AUDIT-001` only. |
 
-The authenticated production identity was Fardan Aatir, Owner, Star Shop, Main
-Branch, PKR, Asia/Karachi. Production main was
-`0b94dcb072a204539aa4608d53e0237a77c058fe`; the latest application-behavior
-commit was `8f8202a428a88bd8d72d178facbafb775eb1abf8`; Vercel deployment
-`dpl_5zVLpG4mTcvgxr3Xd76voXxY6CNA` was Ready/current.
+The authenticated production identity remains Fardan Aatir, Owner, Star Shop,
+Main Branch, PKR, Asia/Karachi. Current production main is
+`2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`; the latest application-behavior
+commit was `c823af4552b4841d776533bdabb770c6abb93a00`; Vercel deployment
+`F2ukbJu7Q1TrSmc7pruom1YAQKyo` was Ready/current.
 
-Primary evidence:
+Primary July 26 finishing evidence:
 
 - path: `/Users/sw12/Projects/saledock-local-evidence/live-finishing-continuation-2026-07-26`;
 - marker: `FINISHING-CONT-20260726-2022-2B42`;
@@ -53,7 +53,6 @@ Primary evidence:
 | P2 | `LIVE-CUSTOMER-LEDGER-001` | Balances reconcile, but return/refund presentation is absent and `INV-100361` targets a ledger-entry UUID rather than the invoice ID. |
 | P2 | `LIVE-CUSTOMER-AUDIT-001` | Credit Payment audit exists with correct actor/organization; customer create, update, and archive audits are absent. |
 | P2 | `LIVE-REPAIR-OPTIONAL-001` | Blank fields presented as optional can reject with `Invalid UUID`; rejected attempts wrote nothing; a fully specified workflow passed. |
-| P2 | `LIVE-EXPENSE-RESTORE-AUDIT-001` | Restore committed once and recovered after reload without a duplicate, but no Restore audit was produced. |
 | P2 | `LIVE-INVOICE-FILTER-001` | Search, date, payment-method, status, and Reset controls are absent or materially incomplete; invoice detail truth is correct. |
 | P2 | `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` | 80mm content is correct on page one with one blank trailing page; A4 is complete and unclipped. |
 | P2 | `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` | Accounting truth can commit once while the connected page stays on `Processing...`; independent read and reload recover the truth. |
@@ -71,7 +70,7 @@ Primary evidence:
 | --- | --- | --- |
 | Customer | ACCEPTED WITH P2 GAPS | Final balance reconciled. Ledger return/refund presentation and lifecycle-audit coverage remain open. |
 | Repairs | ACCEPTED WITH P2 GAP | Blank optional submissions failed safely with zero writes. `RJ-000003` completed received → in progress → completed → cancelled with no duplicate. |
-| Expenses | ACCEPTED WITH P2/P3 GAPS | Create and five updates completed once each. Final PKR 80 Marketing/Card expense was archived; timestamp and Cash Drawer truth were correct. Restore audit is missing. |
+| Expenses | ACCEPTED WITH P3 OBSERVATIONS | Create and five updates completed once each. Final PKR 80 Marketing/Card expense was archived; timestamp and Cash Drawer truth were correct. The missing Restore audit was closed by PR #317 and authenticated production verification. |
 | Invoices | ACCEPTED WITH P2 GAPS | `INV-100364` detail/payment/return/reload and A4 passed. Filters are incomplete and 80mm adds one blank trailing page. |
 | Cash Drawer / Daily Closing | ACCEPTED WITH P3 PRESENTATION NOISE | Closed shift reconciled starting/expected/counted PKR 1,000 with PKR 0 difference. Cash paid/refunded 150/150; Card physical-cash effect 0; no task-owned open shift. |
 | Reports | ACCEPTED | Opening estimated profit 150; active expense produced expenses 80 and estimated profit 70; final estimated profit returned to 150 with zero unexplained delta. |
@@ -87,6 +86,46 @@ PKR 325,340, and FIFO valuation PKR 308,965.
 The current P2/P3 register is separate from the historical 17-finding
 mobile-native register below. The historical register retains its original
 dispositions and dated evidence.
+
+## 2026-07-29 Expense Restore Audit Closure
+
+The July 26 finishing acceptance originally identified
+`LIVE-EXPENSE-RESTORE-AUDIT-001` after one genuine Restore committed with
+correct business truth but no Restore audit.
+
+- Source PR: #317
+- Original source head: `afde45b53ddbe8c03956327dbaf7bd9427c8db2a`
+- Owner-review source head: `51137c4a749023ed3e2a5fa73d403a4590a1ad03`
+- Source squash: `c823af4552b4841d776533bdabb770c6abb93a00`
+- Authenticated deployment: `2HoXqm32LeSRZh89axEc6CDcr69h`
+- Live marker: `LIVE-EXP-RESTORE-AUDIT-20260729-0132-L8YQ`
+- Result: one genuine Restore and exactly one `expenses.restored` audit with
+  correct actor Fardan Aatir, organization Star Shop, branch Main Branch,
+  expense ID, details, and archived-to-active metadata.
+- Business safety: amount, category, Card method, vendor, notes, creator, and
+  timestamp were preserved; Dashboard and Reports reconciled; Net Cash and
+  Cash Drawer were unchanged; duplicates were zero; final state was archived.
+- Focused documentation PR: #318
+- Focused documentation head: `98dff8d5b5f7847bf48adbbaf72f24e390ef91cb`
+- Focused documentation squash: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`
+- Final deployment: `F2ukbJu7Q1TrSmc7pruom1YAQKyo`
+- Evidence: `/Users/sw12/Projects/saledock-local-evidence/expense-restore-audit-live-verification`
+- Manifest SHA-256: `94ed2ece32d3bf795a45aee61586b8909ade59dd635a545606c8da65dcc742c4`
+
+Current result:
+
+- `LIVE-EXPENSE-RESTORE-AUDIT-001`: closed
+- Active P2: 8
+- Active P3: 5
+- Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
+- Cashier limitation: unchanged
+- Audit-ready: no
+- MVP-live: no
+- Next task: `LIVE-CUSTOMER-AUDIT-001`
+
+Expense Restore client settlement and Expense Reset date-field presentation
+remain open P3 observations. This closure does not rewrite the dated July 26
+evidence below.
 
 ## Historical Executive Summary (through 2026-07-14)
 
@@ -934,7 +973,8 @@ They are not renumbered into the current finishing register.
 - Physical printer hardware was not tested.
 - Authenticated WebKit/Firefox, real-device hardware, and 125% browser zoom were not part of the July 26 acceptance.
 - Customer and supplier settlement client completion remain open P2 risks.
-- Expense Restore audit coverage remains open P2.
+- Expense Restore audit coverage is closed; Expense Restore settlement remains
+  open P3.
 - Invoice filters and the 80mm trailing blank page remain open P2.
 - Customer ledger/audit and Repairs optional-field behavior remain open P2.
 - Five P3 client-settlement, hydration, reset, and narrow-mobile presentation observations remain.
@@ -959,13 +999,13 @@ Current recommendation:
 
 Immediate next task:
 
-1. Perform one focused review-first investigation and correction of `LIVE-EXPENSE-RESTORE-AUDIT-001`.
-2. Keep it separate from Expense settlement, Reset presentation, and every other P2 finding.
+1. Perform one focused review-first investigation of `LIVE-CUSTOMER-AUDIT-001`.
+2. Keep it separate from `LIVE-CUSTOMER-LEDGER-001`, customer-settlement client completion, and every other P2/P3 finding.
 3. Do not begin another P2 source investigation from this documentation synchronization.
 
-The missing Restore audit is the bounded priority because it concerns a
-money-bearing Expense state transition while amount, timestamp, Reports, and
-Cash Drawer truth remained correct.
+Customer create, update, and archive lifecycle audits are absent. The existing
+Credit Payment audit proves actor and organization attribution can work while
+customer balances and transactions remain correct.
 
 ## Current Safety Confirmation
 
@@ -979,10 +1019,10 @@ Cash Drawer truth remained correct.
 
 ## Current Risk Position
 
-P0 and P1 are zero. Nine P2 findings or coverage limits and five P3 observations
+P0 and P1 are zero. Eight P2 findings or coverage limits and five P3 observations
 remain. Authenticated owner production acceptance passed across the recorded
 routes and bounded workflows, but authenticated cashier acceptance was
-unavailable. Customer/supplier settlement risks, missing customer/Expense audit
+unavailable. Customer/supplier settlement risks, missing customer lifecycle-audit
 coverage, customer-ledger presentation, Repairs optional-field behavior, invoice
 filters, and invoice thermal pagination remain explicit.
 
