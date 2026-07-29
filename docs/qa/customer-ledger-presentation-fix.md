@@ -2,18 +2,19 @@
 
 ## Status
 
-`LIVE-CUSTOMER-LEDGER-001` is corrected only on the draft branch
-`fix/customer-ledger-presentation`.
+`LIVE-CUSTOMER-LEDGER-001` is closed.
 
-Production remains unchanged. Customer financial source truth was not changed,
-and no debt-ledger entry was fabricated for a fully paid return. Customer
-settlement client completion is not fixed. Customer lifecycle auditing remains
-fixed. Canonical documents remain unchanged.
+PR #323 was squash-merged as
+`4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266` and deployed to production as
+`GuqL5ytTPBn93zHrXpxEsotPgX33`. Authenticated, read-only production
+verification confirmed the corrected invoice route and the new Returns &
+refunds history against the retained customer. No production row was mutated
+during verification.
 
 SaleDock remains `FINISHING ACCEPTED WITH LIMITED COVERAGE`, remains below
-audit-ready, and is not MVP-live. The active register remains P0 0, P1 0, P2 7,
-and P3 5 until a separately authorized production delivery and canonical
-synchronization close this finding.
+audit-ready, and is not MVP-live. The active register is P0 0, P1 0, P2 6, and
+P3 5. Customer settlement client completion remains open. Canonical
+documentation synchronization remains a separate, deferred task.
 
 ## Retained production finding
 
@@ -50,7 +51,7 @@ accessible, but the customer detail page exposed no returns/refunds history.
 The final customer balance remained PKR 0 and duplicate financial mutations
 were zero.
 
-## Read-only production confirmation
+## Pre-fix read-only production confirmation
 
 Codex Chrome computer use inspected the authenticated production customer
 without submitting any form or changing any record.
@@ -211,25 +212,128 @@ items, and audits remaining were all zero. Cleanup retries and failures were
 0/0. Cash Drawer, stock/FIFO, customer/supplier balances, and unrelated
 signatures were unchanged.
 
-## Delivery plan
+## Source delivery
 
-The focused branch may be committed and published only as a draft pull
-request. The draft must remain unmerged and not ready for review until owner
-delivery authorization.
+The reviewed source head
+`c94390bfbb6286cdadb3f3a5d733c3ef95dd67e8` was delivered through PR #323:
 
-After a separately authorized successful production delivery,
-`LIVE-CUSTOMER-LEDGER-001` may close and the active P2 register may reduce from
-seven to six. The five P3 observations remain unchanged.
+- pull request: `https://github.com/starwalker12/saledock-cloud-pos/pull/323`;
+- squash commit: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`;
+- squash title: `fix: correct customer ledger references`;
+- merge timestamp: `2026-07-29T11:10:44Z`;
+- resulting main: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`;
+- main CI run: `30446554461`, successful;
+- production deployment: `GuqL5ytTPBn93zHrXpxEsotPgX33`, Ready and
+  Current for the exact squash commit.
+
+The delivered five-file scope contained only the focused read model,
+presentation, regression tests, E2E, and this QA record. It included no
+migration, schema, mutation, settlement, accounting, Cash Drawer, package,
+workflow, configuration, or canonical-document change.
+
+## Authenticated production verification
+
+Codex Chrome computer use used the authenticated Fardan Aatir Owner session for
+Star Shop, Main Branch, PKR, and Asia/Karachi. The verification was strictly
+read-only and used retained customer
+`0dd1406a-ed51-4ff4-9f30-24a32b2d2ac4`.
+
+Evidence marker `LIVE-CUSTOMER-LEDGER-20260729-1615-C409` was metadata only. It
+was not written to production.
+
+### Invoice route
+
+The Ledger tab retained the financially correct entries:
+
+1. one PKR 150 `invoice_credit` debit with balance after PKR 150;
+2. one PKR 150 Credit Payment credit with final balance PKR 0.
+
+The rendered `INV-100361` href was:
+
+`/invoices/d78ef3f5-7480-4e40-a330-38ec7791028b`
+
+It did not contain the historical ledger-entry UUID
+`432d7aef-7214-41d7-ae05-0d04c228248e`. Opening the link in a separate
+authenticated tab rendered the correct retained invoice without a not-found
+result.
+
+### Returns and refunds
+
+The Returns & refunds tab rendered one truthful row:
+
+- return: `RET-001006`;
+- return route: `/returns/a473366e-6617-468b-981c-668169b2282e`;
+- status: completed;
+- invoice: `INV-100361`;
+- invoice route: `/invoices/d78ef3f5-7480-4e40-a330-38ec7791028b`;
+- subtotal: PKR 150;
+- refund paid: PKR 150;
+- method: Card.
+
+The return route opened the correct return, and the return's invoice route
+opened the correct invoice. No duplicate return row appeared.
+
+### Accounting and safety
+
+The customer outstanding balance remained PKR 0. No synthetic fully paid
+return debt row was added. Duplicate ledger rows and duplicate return rows
+were zero.
+
+Read-only before/after checks confirmed unchanged invoice, return, payment,
+Customer Dues, Net Cash, Cash Drawer, stock/FIFO, supplier dues, and open-shift
+truth. Cash-shift, customer-ledger, return, invoice, product, and FIFO
+signatures matched before and after browser navigation. Production mutations
+were zero.
+
+### Mobile presentation
+
+At both 390 x 844 and 320 x 568:
+
+- the Returns & refunds tab was reachable;
+- the return card, status, amount, and Card method were readable;
+- the exact return and invoice links were visible;
+- the Ledger invoice link remained reachable;
+- page-level horizontal overflow was absent;
+- hidden desktop rows did not appear alongside the mobile cards.
+
+### Evidence
+
+Sanitized evidence is retained at:
+
+`/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`
+
+The 14-entry evidence manifest has SHA-256:
+
+`85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
+
+The evidence and screenshots contain no credentials, cookies, tokens, keys,
+authorization headers, browser-profile data, private customer contact values,
+or unrelated customer records.
+
+## Live result
+
+`PASS - LIVE-CUSTOMER-LEDGER-001 FIXED`
+
+The active P2 register reduces from seven to six. The remaining P2 findings
+are:
+
+1. `LIVE-REPAIR-OPTIONAL-001`;
+2. `LIVE-INVOICE-FILTER-001`;
+3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`;
+4. customer-settlement client completion;
+5. supplier-payment client settlement;
+6. limited cashier coverage.
+
+The five P3 observations remain unchanged. Customer settlement was not fixed,
+canonical synchronization remains deferred, SaleDock is not audit-ready, and
+SaleDock is not MVP-live.
 
 ## Rollback
 
-Before merge, rollback is to close the draft pull request and delete the
-isolated branch/worktree after evidence is retained.
+Source rollback is:
 
-After a later authorized squash merge, rollback is:
-
-`git revert <customer-ledger-presentation-squash-sha> && git push origin main`
+`git revert 4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266 && git push origin main`
 
 Rollback does not require a migration or schema reversal. Production
 financial history, canonical state, settlement behavior, and Cash Drawer
-remain unchanged by this draft investigation.
+remain unchanged by the source or documentation delivery.
