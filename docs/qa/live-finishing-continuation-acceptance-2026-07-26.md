@@ -668,11 +668,12 @@ Current classification:
 
 **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 
-Customer lifecycle auditing is fixed. Customer ledger presentation and
-customer-settlement client completion remain open. The cashier limitation is
-unchanged. SaleDock is not audit-ready and not MVP-live.
+Customer lifecycle auditing was fixed at that dated point. Customer ledger
+presentation and customer-settlement client completion remained open then. The
+cashier limitation was unchanged. SaleDock was not audit-ready and not
+MVP-live.
 
-Current next task:
+Next task immediately after the customer lifecycle closure:
 
 `LIVE-CUSTOMER-LEDGER-001`
 
@@ -681,6 +682,130 @@ presentation and the `INV-100361` ledger-entry UUID link. Do not combine it
 with customer-settlement client completion, lifecycle auditing, or another
 P2/P3 finding. Do not create a financial production mutation merely to
 investigate presentation and reference-link behavior.
+
+## 2026-07-29 Post-Acceptance Closure — Customer Ledger Presentation
+
+The original July 26 finding `LIVE-CUSTOMER-LEDGER-001` is closed.
+
+The retained customer debt ledger was financially correct: one PKR 150 invoice
+debit, one PKR 150 Credit Payment, and a final PKR 0 balance. The presentation
+used ledger-entry ID `432d7aef-7214-41d7-ae05-0d04c228248e` for the
+`INV-100361` route and did not expose the retained completed return/refund on
+the customer page.
+
+Source delivery:
+
+- Source PR: #323
+- Reviewed source head: `c94390bfbb6286cdadb3f3a5d733c3ef95dd67e8`
+- Source squash: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
+- Merge timestamp: `2026-07-29T11:10:44Z`
+- Source deployment: `GuqL5ytTPBn93zHrXpxEsotPgX33`
+- Main CI: run `30446554461`, successful
+- Root cause: the ledger read model did not carry its nullable invoice ID, and
+  the customer page had no organization- and customer-scoped returns read.
+- Correction: route invoice references by their actual invoice IDs and add one
+  read-only Returns & refunds presentation using actual return and invoice IDs.
+- Accounting boundary: the Double-entry Ledger remains balance-affecting
+  history only; no synthetic customer debt row is created for a fully paid
+  return.
+- Scope: no customer mutation, settlement, Credit Payment, write-off, return
+  mutation, Cash Drawer, Dashboard, Reports, stock, FIFO, migration, or schema
+  change.
+
+Supporting source evidence:
+
+- Path:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-fix`
+- Manifest SHA-256:
+  `94285126c79f43809025beb761f664faa85cf6618a0bd4407c1bac5c1d1b7d11`
+- Manifest entries: 21
+
+Authenticated read-only production verification:
+
+- Identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
+- Marker: `LIVE-CUSTOMER-LEDGER-20260729-1615-C409` (evidence metadata only)
+- Retained customer: `0dd1406a-ed51-4ff4-9f30-24a32b2d2ac4`
+- Invoice: `INV-100361`
+- Invoice ID: `d78ef3f5-7480-4e40-a330-38ec7791028b`
+- Corrected invoice href:
+  `/invoices/d78ef3f5-7480-4e40-a330-38ec7791028b`
+- Return: `RET-001006`
+- Return ID: `a473366e-6617-468b-981c-668169b2282e`
+- Return href:
+  `/returns/a473366e-6617-468b-981c-668169b2282e`
+- Return truth: completed, PKR 150 subtotal, PKR 150 refund, Card method, and
+  correct invoice navigation.
+- Debt reconciliation: one PKR 150 invoice debit, one PKR 150 Credit Payment,
+  final PKR 0 balance.
+- Synthetic fully-paid-return debt rows: zero
+- Duplicate ledger rows: zero
+- Duplicate return rows: zero
+- Production mutations: zero
+- Safety: Customer Dues PKR 405, Net Cash PKR 0, Cash Drawer PKR 0/0/0,
+  stock 59, active FIFO quantity 2,005, valuation PKR 325,340, supplier dues
+  PKR 0, and open shifts zero were unchanged.
+- Mobile: desktop, 390×844, and 320×568 presentations passed; exact invoice
+  and return links remained visible without page-level horizontal overflow.
+- Evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`
+- Manifest SHA-256:
+  `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
+- Manifest entries: 14
+- Screenshots: 7
+
+Focused documentation delivery:
+
+- PR: #324
+- Branch head: `8d210692893d5010fcfafd12f44422ba451bc5dd`
+- Documentation squash: `d15530cca701b597c81778e7b984627d959fe6fc`
+- Merge timestamp: `2026-07-29T11:43:54Z`
+- Final production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`
+- Current main and canonical synchronization base:
+  `d15530cca701b597c81778e7b984627d959fe6fc`
+- Focused QA record: `docs/qa/customer-ledger-presentation-fix.md`
+
+Current severity register:
+
+- P0: 0
+- P1: 0
+- P2: 6
+- P3: 5
+
+The six active P2 findings or coverage limits are:
+
+1. `LIVE-REPAIR-OPTIONAL-001`
+2. `LIVE-INVOICE-FILTER-001`
+3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+4. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+5. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+6. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+
+The five active P3 observations remain:
+
+1. Historical/intermittent Expenses original-page settlement delay.
+2. Expense Restore original-page settlement recovery.
+3. Expense Reset date-field presentation.
+4. Daily Closing hydration and print-footer noise.
+5. Narrow mobile invoice-title and summary-label wrapping.
+
+Current classification:
+
+**FINISHING ACCEPTED WITH LIMITED COVERAGE**
+
+Customer ledger presentation and reference routing are fixed. Customer debt
+accounting was not changed, and customer-settlement client completion remains
+open. The cashier limitation is unchanged. SaleDock is not audit-ready and not
+MVP-live.
+
+Current next task:
+
+`LIVE-REPAIR-OPTIONAL-001`
+
+Keep the next task review-first and determine whether validation, form
+normalization, or persistence causes blank fields presented as optional to
+reject with `Invalid UUID`. Do not combine it with repair status redesign,
+customer or supplier settlement, or another P2/P3 finding. Do not mutate
+production during the initial investigation.
 
 ## Rollback And Finalization
 
@@ -691,8 +816,8 @@ If the canonical documentation synchronization must later be reverted:
 
 `git revert <documentation_squash_sha> && git push origin main`
 
-Risk remains open because seven P2 findings or coverage limits and five P3
-observations remain, including customer-ledger presentation,
-customer/supplier settlement client completion, and unavailable authenticated
-cashier acceptance. Customer lifecycle auditing is closed. No active P0 or P1
-was found.
+Risk remains open because six P2 findings or coverage limits and five P3
+observations remain, including Repairs optional-field behavior,
+customer/supplier settlement client completion, invoice presentation gaps, and
+unavailable authenticated cashier acceptance. Customer lifecycle auditing and
+customer ledger presentation are closed. No active P0 or P1 was found.

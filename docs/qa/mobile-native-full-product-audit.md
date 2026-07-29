@@ -2,15 +2,15 @@
 
 Current synchronization date: 2026-07-29
 
-Branch: `docs/canonical-customer-lifecycle-audit-sync`
+Branch: `docs/canonical-customer-ledger-sync`
 
-Base main SHA: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
+Base main SHA: `d15530cca701b597c81778e7b984627d959fe6fc`
 
-Latest application-behavior SHA: `31e20a58d36657d9bca00ed13aa09c5b07711059`
+Latest application-behavior SHA: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
 
-Latest focused documentation SHA: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
+Latest focused documentation SHA: `d15530cca701b597c81778e7b984627d959fe6fc`
 
-Production deployment: `DzCZELXPyhHwRBfZaH2MLwTUe58w` (Ready/current)
+Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC` (Ready/current)
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -27,18 +27,18 @@ Current recommendation: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 | Classification | **FINISHING ACCEPTED WITH LIMITED COVERAGE** |
 | P0 active | 0 |
 | P1 active | 0 |
-| P2 findings or coverage limits | 7 |
+| P2 findings or coverage limits | 6 |
 | P3 observations | 5 |
 | Exact limitation | No authenticated cashier production session or approved cashier credentials were available. |
 | Audit-ready | No |
 | MVP-live | No |
-| Next task | Focused review-first investigation of `LIVE-CUSTOMER-LEDGER-001` only. |
+| Next task | Focused review-first investigation of `LIVE-REPAIR-OPTIONAL-001` only. |
 
 The authenticated production identity remains Fardan Aatir, Owner, Star Shop,
 Main Branch, PKR, Asia/Karachi. Current production main is
-`157c0181fbe8c4cf79d0904e3a39a5443df57288`; the latest application-behavior
-commit was `31e20a58d36657d9bca00ed13aa09c5b07711059`; Vercel deployment
-`DzCZELXPyhHwRBfZaH2MLwTUe58w` was Ready/current.
+`d15530cca701b597c81778e7b984627d959fe6fc`; the latest application-behavior
+commit was `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`; Vercel deployment
+`Ayagpz9EfpCcYbX3fEYPR2jdpsyC` was Ready/current.
 
 Primary July 26 finishing evidence:
 
@@ -52,7 +52,6 @@ Primary July 26 finishing evidence:
 
 | Severity | Finding | Current truth |
 | --- | --- | --- |
-| P2 | `LIVE-CUSTOMER-LEDGER-001` | Balances reconcile, but return/refund presentation is absent and `INV-100361` targets a ledger-entry UUID rather than the invoice ID. |
 | P2 | `LIVE-REPAIR-OPTIONAL-001` | Blank fields presented as optional can reject with `Invalid UUID`; rejected attempts wrote nothing; a fully specified workflow passed. |
 | P2 | `LIVE-INVOICE-FILTER-001` | Search, date, payment-method, status, and Reset controls are absent or materially incomplete; invoice detail truth is correct. |
 | P2 | `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` | 80mm content is correct on page one with one blank trailing page; A4 is complete and unclipped. |
@@ -69,7 +68,7 @@ Primary July 26 finishing evidence:
 
 | Area | Current status | July 26 evidence |
 | --- | --- | --- |
-| Customer | ACCEPTED WITH P2 GAPS | Final balance reconciled and lifecycle auditing is fixed. Ledger return/refund presentation and customer-settlement client completion remain open. |
+| Customer | ACCEPTED WITH P2 CLIENT-SETTLEMENT RISK | Final balance reconciled, lifecycle auditing is fixed, and ledger references/return presentation are fixed. Customer-settlement client completion remains open. |
 | Repairs | ACCEPTED WITH P2 GAP | Blank optional submissions failed safely with zero writes. `RJ-000003` completed received → in progress → completed → cancelled with no duplicate. |
 | Expenses | ACCEPTED WITH P3 OBSERVATIONS | Create and five updates completed once each. Final PKR 80 Marketing/Card expense was archived; timestamp and Cash Drawer truth were correct. The missing Restore audit was closed by PR #317 and authenticated production verification. |
 | Invoices | ACCEPTED WITH P2 GAPS | `INV-100364` detail/payment/return/reload and A4 passed. Filters are incomplete and 80mm adds one blank trailing page. |
@@ -218,9 +217,82 @@ Current result:
 
 Customer lifecycle auditing is fixed. The first attempt did not prove a Credit
 Limit defect; the successful rerun proved persistence under a visibly
-confirmed browser value. Customer ledger presentation and customer-settlement
-client completion remain open. This section does not rewrite the dated July 26
-or earlier mobile-native evidence below.
+confirmed browser value. At that dated point, customer ledger presentation and
+customer-settlement client completion remained open. This section does not
+rewrite the dated July 26 or earlier mobile-native evidence below.
+
+## 2026-07-29 Customer Ledger Presentation Closure
+
+The original July 26 finding `LIVE-CUSTOMER-LEDGER-001` is closed.
+
+The retained customer debt truth was already correct: one PKR 150 invoice
+debit, one PKR 150 Credit Payment, and a final PKR 0 balance. The presentation
+defects were the `INV-100361` href using ledger-entry ID
+`432d7aef-7214-41d7-ae05-0d04c228248e` and the absence of customer return and
+refund history.
+
+Source delivery:
+
+- Source PR: #323
+- Reviewed source head: `c94390bfbb6286cdadb3f3a5d733c3ef95dd67e8`
+- Source squash: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
+- Source deployment: `GuqL5ytTPBn93zHrXpxEsotPgX33`
+- Correction: carry the actual nullable invoice ID through the read model,
+  route invoice references by that ID, and add an organization- and
+  customer-scoped read-only Returns & refunds presentation.
+- Accounting boundary: no customer balance, settlement, Credit Payment,
+  write-off, return mutation, Cash Drawer, stock, or FIFO behavior changed.
+- Schema boundary: no migration or schema change.
+
+Authenticated read-only production verification:
+
+- Identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
+- Marker: `LIVE-CUSTOMER-LEDGER-20260729-1615-C409` (evidence metadata only)
+- Retained customer: `0dd1406a-ed51-4ff4-9f30-24a32b2d2ac4`
+- Invoice: `INV-100361`, ID
+  `d78ef3f5-7480-4e40-a330-38ec7791028b`
+- Corrected invoice href:
+  `/invoices/d78ef3f5-7480-4e40-a330-38ec7791028b`
+- Return: `RET-001006`, ID
+  `a473366e-6617-468b-981c-668169b2282e`
+- Return href:
+  `/returns/a473366e-6617-468b-981c-668169b2282e`
+- Return truth: completed, PKR 150 subtotal, PKR 150 Card refund, and correct
+  invoice navigation.
+- Debt ledger: one PKR 150 debit, one PKR 150 Credit Payment, final balance
+  PKR 0, and zero synthetic fully-paid-return debt rows.
+- Duplicates and production mutations: zero.
+- Mobile: 390×844 and 320×568 passed without page-level horizontal overflow,
+  hidden desktop duplication, or inaccessible invoice/return links.
+- Evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`
+- Manifest SHA-256:
+  `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
+
+Focused documentation delivery:
+
+- PR: #324
+- Branch head: `8d210692893d5010fcfafd12f44422ba451bc5dd`
+- Documentation squash: `d15530cca701b597c81778e7b984627d959fe6fc`
+- Final deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`
+
+Current result:
+
+- `LIVE-CUSTOMER-LEDGER-001`: closed
+- Active P0/P1: 0/0
+- Active P2: 6
+- Active P3: 5
+- Customer debt accounting: unchanged
+- Customer-settlement client completion: open P2
+- Cashier limitation: unchanged
+- Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
+- Audit-ready: no
+- MVP-live: no
+- Next task: `LIVE-REPAIR-OPTIONAL-001`
+
+Customer ledger presentation and reference routing are fixed. The July 26
+transaction history was not recreated, and no production mutation was
+performed during closure. Customer settlement remains open.
 
 ## Historical Executive Summary (through 2026-07-14)
 
@@ -1071,7 +1143,8 @@ They are not renumbered into the current finishing register.
 - Expense Restore audit coverage is closed; Expense Restore settlement remains
   open P3.
 - Invoice filters and the 80mm trailing blank page remain open P2.
-- Customer ledger presentation and Repairs optional-field behavior remain open P2.
+- Repairs optional-field behavior remains open P2. Customer ledger
+  presentation and reference routing are closed.
 - Five P3 client-settlement, hydration, reset, and narrow-mobile presentation observations remain.
 
 These limits do not reopen fixed P1 results without new contradictory evidence.
@@ -1094,15 +1167,16 @@ Current recommendation:
 
 Immediate next task:
 
-1. Perform one focused review-first investigation of `LIVE-CUSTOMER-LEDGER-001`.
-2. Keep it separate from customer-settlement client completion, lifecycle
-   audits, and every other P2/P3 finding.
+1. Perform one focused review-first investigation of `LIVE-REPAIR-OPTIONAL-001`.
+2. Keep it separate from repair status redesign, customer or supplier
+   settlement, and every other P2/P3 finding.
 3. Do not begin another P2 source investigation from this documentation synchronization.
 
-Customer financial source truth and the final balance are correct.
-Return/refund ledger presentation is absent, and `INV-100361` links to a
-ledger-entry UUID rather than the invoice. Do not create a financial production
-mutation merely to investigate presentation and reference-link behavior.
+Blank fields presented as optional can reject with `Invalid UUID`; rejected
+attempts created zero repair rows and audits, while a fully populated repair
+lifecycle completed safely. Prove whether validation, form normalization, or
+persistence causes the rejection. Do not mutate production during the initial
+investigation.
 
 ## Current Safety Confirmation
 
@@ -1116,12 +1190,12 @@ mutation merely to investigate presentation and reference-link behavior.
 
 ## Current Risk Position
 
-P0 and P1 are zero. Seven P2 findings or coverage limits and five P3 observations
+P0 and P1 are zero. Six P2 findings or coverage limits and five P3 observations
 remain. Authenticated owner production acceptance passed across the recorded
 routes and bounded workflows, but authenticated cashier acceptance was
-unavailable. Customer/supplier settlement risks, customer-ledger presentation,
-Repairs optional-field behavior, invoice filters, and invoice thermal pagination
-remain explicit. Customer lifecycle auditing is closed.
+unavailable. Customer/supplier settlement risks, Repairs optional-field
+behavior, invoice filters, and invoice thermal pagination remain explicit.
+Customer lifecycle auditing and customer ledger presentation are closed.
 
 The current recommendation is **FINISHING ACCEPTED WITH LIMITED COVERAGE**, not
 a claim that the full product audit is complete without caveat.
