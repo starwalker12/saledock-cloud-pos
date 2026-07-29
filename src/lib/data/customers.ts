@@ -32,6 +32,20 @@ export type CustomerLedgerEntry = {
   description: string | null;
   reference_number: string | null;
   created_at: string;
+  invoice_id: string | null;
+  invoice_no: string | null;
+};
+
+export type CustomerReturn = {
+  id: string;
+  return_no: string;
+  created_at: string;
+  status: string;
+  subtotal: number;
+  refund_amount: number;
+  refund_method: string | null;
+  reference_number: string | null;
+  invoice_id: string;
   invoice_no: string | null;
 };
 
@@ -124,7 +138,7 @@ export async function listCustomerLedger(
   const { data, error } = await supabase
     .from("customer_ledger_entries")
     .select(`
-      id, entry_type, direction, amount, balance_after, description, reference_number, created_at,
+      id, entry_type, direction, amount, balance_after, description, reference_number, created_at, invoice_id,
       invoices(invoice_no)
     `)
     .eq("organization_id", organizationId)
@@ -145,8 +159,44 @@ export async function listCustomerLedger(
       description: r.description,
       reference_number: r.reference_number,
       created_at: r.created_at,
+      invoice_id: r.invoice_id,
       invoice_no: invoiceNo,
     } satisfies CustomerLedgerEntry;
+  });
+}
+
+export async function listCustomerReturns(
+  customerId: string,
+  organizationId: string,
+): Promise<CustomerReturn[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("returns")
+    .select(`
+      id, return_no, created_at, status, subtotal, refund_amount, refund_method,
+      reference_number, invoice_id, invoices(invoice_no)
+    `)
+    .eq("organization_id", organizationId)
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((r) => {
+    const invs = r.invoices as { invoice_no?: string } | { invoice_no?: string }[] | null;
+    const invoiceNo = Array.isArray(invs) ? invs[0]?.invoice_no ?? null : invs?.invoice_no ?? null;
+
+    return {
+      id: r.id,
+      return_no: r.return_no,
+      created_at: r.created_at,
+      status: r.status,
+      subtotal: Number(r.subtotal ?? 0),
+      refund_amount: Number(r.refund_amount ?? 0),
+      refund_method: r.refund_method,
+      reference_number: r.reference_number,
+      invoice_id: r.invoice_id,
+      invoice_no: invoiceNo,
+    } satisfies CustomerReturn;
   });
 }
 

@@ -9,6 +9,7 @@ import {
   MapPin,
   Phone,
   Mail,
+  RotateCcw,
   User,
   Wrench,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import {
   listCustomerCreditPayments,
   listCustomerInvoices,
   listCustomerLedger,
+  listCustomerReturns,
 } from "@/lib/data/customers";
 import { canWriteCatalog } from "@/lib/permissions";
 import { listCustomerRepairs } from "@/lib/data/repairs";
@@ -64,9 +66,10 @@ export default async function CustomerDetailPage({
   const customer = await getCustomerDetail(id, orgId);
   if (!customer) notFound();
 
-  const [invoices, ledger, payments, repairs] = await Promise.all([
+  const [invoices, ledger, returns, payments, repairs] = await Promise.all([
     listCustomerInvoices(id, orgId),
     listCustomerLedger(id, orgId),
+    listCustomerReturns(id, orgId),
     listCustomerCreditPayments(id, orgId),
     listCustomerRepairs(id, orgId),
   ]);
@@ -265,6 +268,7 @@ export default async function CustomerDetailPage({
           {[
             { id: "ledger", label: "Ledger", icon: History },
             { id: "invoices", label: "Invoice history", icon: Layers },
+            { id: "returns", label: "Returns & refunds", icon: RotateCcw },
             { id: "payments", label: "Settlement history", icon: CreditCard },
             { id: "repairs", label: "Repairs history", icon: Wrench },
           ].map((t) => {
@@ -335,8 +339,8 @@ export default async function CustomerDetailPage({
                             </td>
                             <td className="px-3 py-3 font-semibold text-slate-800">
                               {l.description}
-                              {l.invoice_no && (
-                                <Link href={`/invoices/${l.id}`} className="ml-1 text-xs text-blue-700 hover:underline">
+                              {l.invoice_id && l.invoice_no && (
+                                <Link href={`/invoices/${l.invoice_id}`} className="ml-1 text-xs text-blue-700 hover:underline">
                                   ({l.invoice_no})
                                 </Link>
                               )}
@@ -375,8 +379,8 @@ export default async function CustomerDetailPage({
                         </div>
                         <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-1">
                           {l.description}
-                          {l.invoice_no && (
-                            <Link href={`/invoices/${l.id}`} className="ml-1 text-xs text-blue-700 dark:text-blue-400 hover:underline">
+                          {l.invoice_id && l.invoice_no && (
+                            <Link href={`/invoices/${l.invoice_id}`} className="ml-1 text-xs text-blue-700 dark:text-blue-400 hover:underline">
                               ({l.invoice_no})
                             </Link>
                           )}
@@ -513,6 +517,124 @@ export default async function CustomerDetailPage({
                           >
                             View
                           </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === "returns" && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-bold text-slate-800">Returns & refunds</h4>
+
+              {returns.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-500">
+                  No returns or refunds recorded for this customer yet.
+                </div>
+              ) : (
+                <>
+                  {/* Desktop view */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-sm min-w-[760px]">
+                      <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 bg-slate-50">
+                        <tr>
+                          <th className="px-3 py-3">Return No</th>
+                          <th className="px-3 py-3">Date</th>
+                          <th className="px-3 py-3">Status</th>
+                          <th className="px-3 py-3">Invoice No</th>
+                          <th className="px-3 py-3 text-right">Subtotal</th>
+                          <th className="px-3 py-3 text-right">Refund Paid</th>
+                          <th className="px-3 py-3">Method</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {returns.map((ret) => (
+                          <tr key={ret.id} className="border-b border-slate-100 hover:bg-slate-50/55">
+                            <td className="px-3 py-3 font-bold">
+                              <Link href={`/returns/${ret.id}`} className="text-blue-700 hover:underline">
+                                {ret.return_no}
+                              </Link>
+                            </td>
+                            <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(ret.created_at)}</td>
+                            <td className="px-3 py-3">
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                                ret.status === "completed"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-slate-200 text-slate-700"
+                              }`}>
+                                {ret.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 font-semibold">
+                              {ret.invoice_no ? (
+                                <Link href={`/invoices/${ret.invoice_id}`} className="text-blue-700 hover:underline">
+                                  {ret.invoice_no}
+                                </Link>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right font-semibold text-slate-700">{formatCurrency(ret.subtotal, currency)}</td>
+                            <td className="px-3 py-3 text-right font-bold text-slate-900">{formatCurrency(ret.refund_amount, currency)}</td>
+                            <td className="px-3 py-3">
+                              {ret.refund_method ? (
+                                <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase text-slate-700">
+                                  {ret.refund_method.replace("_", " ")}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile view */}
+                  <div className="space-y-2 md:hidden">
+                    {returns.map((ret) => (
+                      <div key={ret.id} className="rounded-xl border border-slate-200 bg-[#fff] p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <Link href={`/returns/${ret.id}`} className="min-w-0 break-words text-sm font-bold text-blue-700 hover:underline dark:text-blue-400">
+                            {ret.return_no}
+                          </Link>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                            ret.status === "completed"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                              : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                          }`}>
+                            {ret.status}
+                          </span>
+                        </div>
+                        <div className="mb-2 text-[11px] text-slate-500">{fmtDate(ret.created_at)}</div>
+                        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 text-xs dark:border-slate-800">
+                          <div>
+                            <span className="text-slate-500">Invoice:</span>{" "}
+                            {ret.invoice_no ? (
+                              <Link href={`/invoices/${ret.invoice_id}`} className="break-words font-semibold text-blue-700 hover:underline dark:text-blue-400">
+                                {ret.invoice_no}
+                              </Link>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className="text-slate-500">Subtotal:</span>{" "}
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">{formatCurrency(ret.subtotal, currency)}</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3 border-t border-dashed border-slate-100 pt-2 text-xs dark:border-slate-800">
+                          <div>
+                            <span className="text-slate-500">Refund:</span>{" "}
+                            <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(ret.refund_amount, currency)}</span>
+                          </div>
+                          <span className="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            {ret.refund_method ? ret.refund_method.replace("_", " ") : "No payout"}
+                          </span>
                         </div>
                       </div>
                     ))}
