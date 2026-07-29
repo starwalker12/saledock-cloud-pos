@@ -59,6 +59,19 @@ export async function saveRepairAction(
   const shouldCreateCustomer = formData.get("create_customer_account") === "true";
   let finalCustomerId = parsed.data.customer_id || null;
 
+  if (finalCustomerId) {
+    const { data: selectedCustomer, error: customerLookupError } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", finalCustomerId)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    if (customerLookupError || !selectedCustomer) {
+      return err("The selected customer is unavailable.");
+    }
+  }
+
   if (shouldCreateCustomer && !finalCustomerId) {
     const customerPayload = {
       organization_id: orgId,
