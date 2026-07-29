@@ -1,5 +1,5 @@
 # SaleDock Cloud POS — Continuation Brief
-*Canonical handoff after the authenticated 29 July 2026 customer lifecycle audit closure.*
+*Canonical handoff after the authenticated read-only 29 July 2026 customer ledger presentation closure.*
 
 ## Owner And Production
 
@@ -11,14 +11,14 @@ boundaries, and no credentials in chat.
 ## Current Repository And Production
 
 - Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
-- Canonical synchronization base: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
-- Latest application-behavior commit: `31e20a58d36657d9bca00ed13aa09c5b07711059`
-- Latest behavior change: `fix: audit customer lifecycle changes`
-- Latest focused documentation commit: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
-- Production deployment: `DzCZELXPyhHwRBfZaH2MLwTUe58w`, Ready/current
+- Canonical synchronization base: `d15530cca701b597c81778e7b984627d959fe6fc`
+- Latest application-behavior commit: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
+- Latest behavior change: `fix: correct customer ledger references`
+- Latest focused documentation commit: `d15530cca701b597c81778e7b984627d959fe6fc`
+- Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`, Ready/current
 
 This canonical synchronization changes documentation only. It performs no
-production mutation and does not repeat either customer lifecycle workflow.
+production mutation and does not repeat the customer ledger inspection.
 
 ## Current Classification
 
@@ -26,7 +26,7 @@ production mutation and does not repeat either customer lifecycle workflow.
 
 - P0: **0**
 - P1: **0**
-- P2 findings or coverage limits: **7**
+- P2 findings or coverage limits: **6**
 - P3 observations: **5**
 - Audit-ready: **NO**
 - MVP-live: **NO**
@@ -38,23 +38,20 @@ financial mutation was performed.
 
 ## Exact Active P2 Register
 
-1. `LIVE-CUSTOMER-LEDGER-001` — balances and source transactions reconcile,
-   but return/refund presentation is absent and `INV-100361` links to a
-   ledger-entry UUID instead of the invoice ID.
-2. `LIVE-REPAIR-OPTIONAL-001` — blank fields presented as optional can reject
+1. `LIVE-REPAIR-OPTIONAL-001` — blank fields presented as optional can reject
    with `Invalid UUID`; rejected attempts wrote nothing and a fully populated
    repair completed safely.
-3. `LIVE-INVOICE-FILTER-001` — search, date, payment-method, status, and Reset
+2. `LIVE-INVOICE-FILTER-001` — search, date, payment-method, status, and Reset
    controls are absent or materially incomplete.
-4. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` — 80mm content is correct on page one
+3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` — 80mm content is correct on page one
    with one blank trailing page; A4 is complete.
-5. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` — one
+4. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` — one
    exact server/accounting commit can leave the connected page on
    `Processing...`; independent truth and one reload recover it.
-6. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2` — one exact
+5. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2` — one exact
    server/accounting commit can leave the page on `Recording...`; independent
    truth and one reload recover it.
-7. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2` — source permission contracts
+6. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2` — source permission contracts
    were reviewed, but authenticated cashier production acceptance was
    unavailable.
 
@@ -104,8 +101,38 @@ customer-settlement client-completion boundary.
   `157c0181fbe8c4cf79d0904e3a39a5443df57288`, final deployment
   `DzCZELXPyhHwRBfZaH2MLwTUe58w`.
 
-Customer lifecycle auditing is fixed. Customer ledger presentation and
-customer-settlement client completion are not fixed.
+Customer lifecycle auditing is fixed. Customer-settlement client completion is
+not fixed.
+
+## Customer Ledger Presentation Closure
+
+`LIVE-CUSTOMER-LEDGER-001` is closed.
+
+- Source PR #323: reviewed head
+  `c94390bfbb6286cdadb3f3a5d733c3ef95dd67e8`, squash
+  `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`.
+- Source deployment: `GuqL5ytTPBn93zHrXpxEsotPgX33`.
+- Read-only marker: `LIVE-CUSTOMER-LEDGER-20260729-1615-C409`.
+- Retained customer: `0dd1406a-ed51-4ff4-9f30-24a32b2d2ac4`.
+- `INV-100361` now links through invoice ID
+  `d78ef3f5-7480-4e40-a330-38ec7791028b`, not historical ledger-entry ID
+  `432d7aef-7214-41d7-ae05-0d04c228248e`.
+- Returns & refunds now shows completed `RET-001006`, return ID
+  `a473366e-6617-468b-981c-668169b2282e`, PKR 150 subtotal, and PKR 150 Card
+  refund with correct return and invoice routes.
+- Debt accounting remains one PKR 150 invoice debit, one PKR 150 Credit
+  Payment, and final balance PKR 0. No synthetic fully-paid-return debt row
+  was added.
+- Duplicate ledger and return rows were zero. Production mutations were zero.
+- Desktop, 390×844, and 320×568 presentation checks passed.
+- Focused documentation PR #324: head
+  `8d210692893d5010fcfafd12f44422ba451bc5dd`, squash
+  `d15530cca701b597c81778e7b984627d959fe6fc`, final deployment
+  `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`.
+
+Customer ledger presentation and reference routing are fixed. Customer debt
+accounting did not change, and customer-settlement client completion remains
+open.
 
 ## Evidence Boundaries
 
@@ -122,6 +149,16 @@ customer-settlement client completion are not fixed.
   manifest `d523c3a17c863e007df3d0c347cc8ec4d708b35e129fdfc990821de14008133e`
   with 22 verified entries and 12 screenshots.
 - Focused QA record: `docs/qa/customer-lifecycle-audit-fix.md`.
+- Customer ledger source evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-fix`;
+  manifest `94285126c79f43809025beb761f664faa85cf6618a0bd4407c1bac5c1d1b7d11`
+  with 21 verified entries.
+- Customer ledger read-only live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`;
+  manifest `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
+  with 14 verified entries and seven screenshots.
+- Customer ledger focused QA record:
+  `docs/qa/customer-ledger-presentation-fix.md`.
 
 Local evidence is not authenticated production proof. The incomplete first
 attempt and successful rerun must always remain distinct.
@@ -141,9 +178,9 @@ attempt and successful rerun must always remain distinct.
 ## Protection And Archives
 
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader pre-task inventory: 39 worktrees and 28 dirty/untracked files.
+- Broader pre-task inventory: 42 worktrees and 28 dirty/untracked files.
 - The authorized canonical synchronization worktree raises the in-task total
-  to 40 worktrees; dirty/untracked protected files remain 28.
+  to 43 worktrees; dirty/untracked protected files remain 28.
 - Expenses diagnostic:
   `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic:
@@ -159,13 +196,14 @@ worktree.
 
 Perform one focused review-first investigation of:
 
-`LIVE-CUSTOMER-LEDGER-001`
+`LIVE-REPAIR-OPTIONAL-001`
 
-Financial source truth and the final balance are correct. Investigate only the
-absent return/refund presentation and the `INV-100361` ledger-entry UUID link.
-Do not combine customer-settlement client completion, lifecycle auditing, or
-another P2/P3 finding. Do not create a financial production mutation merely to
-investigate presentation and reference-link behavior.
+Blank fields presented as optional can reject with `Invalid UUID`; rejected
+attempts wrote no repair row or audit, while a fully populated repair lifecycle
+completed safely. Determine whether validation, form normalization, or
+persistence causes the rejection. Do not combine repair status redesign,
+customer or supplier settlement, or another P2/P3 finding. Do not mutate
+production during the initial investigation.
 
 ## Files A New Chat Should Read
 
@@ -173,7 +211,7 @@ investigate presentation and reference-link behavior.
 2. `03_REMEMBER.md`
 3. `CHATGPT_CONTINUATION_BRIEF.md`
 4. `docs/qa/live-finishing-continuation-acceptance-2026-07-26.md`
-5. `docs/qa/customer-lifecycle-audit-fix.md`
+5. `docs/qa/customer-ledger-presentation-fix.md`
 6. Relevant focused QA records only as needed
 
 Do not require nonexistent attachments. Do not call SaleDock audit-ready or

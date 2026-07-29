@@ -1,19 +1,19 @@
 # 02 — Current State (LIVING — keep this updated)
-*Last updated: 29 July 2026 after authenticated customer lifecycle audit closure.*
+*Last updated: 29 July 2026 after customer ledger presentation closure.*
 
 ## Current Repository And Production
 
 - Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
-- Canonical synchronization base: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
-- Latest application-behavior commit: `31e20a58d36657d9bca00ed13aa09c5b07711059`
-- Latest behavior change: `fix: audit customer lifecycle changes`
-- Latest focused documentation commit: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
-- Production deployment: `DzCZELXPyhHwRBfZaH2MLwTUe58w`
+- Canonical synchronization base: `d15530cca701b597c81778e7b984627d959fe6fc`
+- Latest application-behavior commit: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
+- Latest behavior change: `fix: correct customer ledger references`
+- Latest focused documentation commit: `d15530cca701b597c81778e7b984627d959fe6fc`
+- Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`
 - Deployment state: Ready and current for the synchronization base
 - Production identity verified: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
 
-This documentation synchronization records the authenticated closure of
-`LIVE-CUSTOMER-AUDIT-001`. It changes documentation only.
+This documentation synchronization records the authenticated read-only closure
+of `LIVE-CUSTOMER-LEDGER-001`. It changes documentation only.
 
 ## Current Classification
 
@@ -21,7 +21,7 @@ This documentation synchronization records the authenticated closure of
 
 - P0 active: **0**
 - P1 active: **0**
-- P2 active findings or coverage limits: **7**
+- P2 active findings or coverage limits: **6**
 - P3 active observations: **5**
 - Audit-ready: **NO**
 - MVP-live: **NO**
@@ -36,30 +36,25 @@ remains active.
 
 ## Active P2 Register
 
-1. `LIVE-CUSTOMER-LEDGER-001`
-   - Source balances and transactions reconcile.
-   - Return/refund presentation is absent.
-   - The `INV-100361` reference targets a ledger-entry UUID instead of the invoice ID.
-   - No accounting or tenant-isolation error was found.
-2. `LIVE-REPAIR-OPTIONAL-001`
+1. `LIVE-REPAIR-OPTIONAL-001`
    - Fields presented as optional can reject blank input with `Invalid UUID`.
    - The rejected attempts created zero repair rows and zero audits.
    - A valid explicitly filled repair workflow completed safely.
-3. `LIVE-INVOICE-FILTER-001`
+2. `LIVE-INVOICE-FILTER-001`
    - Invoice search, date, payment-method, status, and Reset controls are absent or materially incomplete.
    - Invoice detail and retained financial truth are correct.
-4. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
    - The 80mm invoice preview contains correct content on page one and one blank trailing page.
    - The A4 preview is complete and unclipped.
-5. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+4. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
    - Server and accounting truth can commit exactly once while the original connected page remains on `Processing...`.
    - An independent page and one reload recover the correct truth.
    - The exact intermittent trigger remains unproven; the issue is not fixed.
-6. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+5. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
    - Server and accounting truth can commit exactly once while the original page remains on `Recording...`.
    - An independent page and one reload recover the correct truth.
    - The issue is not fixed.
-7. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+6. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
    - Permission contracts were reviewed.
    - No authenticated cashier session or approved credentials were available.
    - No cashier financial mutation was performed.
@@ -126,10 +121,49 @@ Expense Reset date-field presentation remain open P3 observations.
 - Focused documentation squash: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
 - Final focused deployment: `DzCZELXPyhHwRBfZaH2MLwTUe58w`
 
-Customer lifecycle auditing is fixed. Customer ledger presentation and
-customer-settlement client completion are not fixed. The first attempt did not
-prove a Credit Limit defect; the successful rerun proved persistence after the
-browser value was visibly confirmed.
+Customer lifecycle auditing is fixed. Customer-settlement client completion is
+not fixed. The first attempt did not prove a Credit Limit defect; the successful
+rerun proved persistence after the browser value was visibly confirmed.
+
+### `LIVE-CUSTOMER-LEDGER-001` — CLOSED
+
+- Original July 26 truth: customer debt already reconciled as one PKR 150
+  invoice debit, one PKR 150 Credit Payment, and a PKR 0 final balance.
+- Retained customer: `0dd1406a-ed51-4ff4-9f30-24a32b2d2ac4`
+- Invoice: `INV-100361`, ID
+  `d78ef3f5-7480-4e40-a330-38ec7791028b`
+- Historical wrong route ID:
+  `432d7aef-7214-41d7-ae05-0d04c228248e`
+- Source PR: #323
+- Reviewed source head: `c94390bfbb6286cdadb3f3a5d733c3ef95dd67e8`
+- Source squash: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
+- Source deployment: `GuqL5ytTPBn93zHrXpxEsotPgX33`
+- Read-only live marker: `LIVE-CUSTOMER-LEDGER-20260729-1615-C409`
+- Corrected invoice href:
+  `/invoices/d78ef3f5-7480-4e40-a330-38ec7791028b`
+- Return: `RET-001006`, ID
+  `a473366e-6617-468b-981c-668169b2282e`, linked through
+  `/returns/a473366e-6617-468b-981c-668169b2282e`
+- Presentation truth: the customer page now shows one truthful Returns &
+  refunds row with PKR 150 subtotal, PKR 150 Card refund, and correct return
+  and invoice navigation.
+- Accounting truth: no synthetic fully-paid-return debt row was created; final
+  balance stayed PKR 0; duplicate ledger and return rows were zero.
+- Safety: production mutations were zero; desktop, 390×844, and 320×568
+  presentations passed.
+- Live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`
+- Live manifest SHA-256:
+  `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
+- Focused live-verification PR: #324
+- Focused documentation head: `8d210692893d5010fcfafd12f44422ba451bc5dd`
+- Focused documentation squash:
+  `d15530cca701b597c81778e7b984627d959fe6fc`
+- Final focused deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`
+
+Customer ledger presentation and reference routing are fixed. Customer debt
+accounting was not changed, customer-settlement client completion is not fixed,
+and no financial production mutation, migration, or schema change was required.
 
 ## Authenticated Finishing Result
 
@@ -144,7 +178,8 @@ Primary evidence:
 
 Production phases:
 
-- Customer balance truth reconciled; the ledger and audit P2 gaps remain.
+- Customer balance truth reconciled; lifecycle auditing and ledger presentation
+  are closed while customer-settlement client completion remains open.
 - Repair `RJ-000003` moved received → in progress → completed → cancelled, with no duplicate.
 - Expenses create and five update shapes completed once each. The final PKR 80 Marketing/Card expense was archived. Timestamp and Cash Drawer truth stayed correct.
 - Invoice `INV-100364` detail, payment, return, reload, and A4 preview passed. Filter and 80mm trailing-blank-page P2 findings remain.
@@ -187,9 +222,9 @@ Do not reopen these findings without new contradictory evidence.
 ## Protection And Archive Reality
 
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader pre-task inventory: 39 worktrees and 28 dirty/untracked files.
-- The clean `docs/canonical-customer-lifecycle-audit-sync` worktree is
-  authorized separately and raises the in-task worktree total to 40.
+- Broader pre-task inventory: 42 worktrees and 28 dirty/untracked files.
+- The clean `docs/canonical-customer-ledger-sync` worktree is authorized
+  separately and raises the in-task worktree total to 43.
 - Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`
 - Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`
 - Twenty-nine historical archives were previously verified; their ephemeral `/tmp` copies expired.
@@ -203,19 +238,19 @@ clean, stash, switch, overwrite, or delete a protected worktree.
 
 Perform one focused review-first investigation of:
 
-`LIVE-CUSTOMER-LEDGER-001`
+`LIVE-REPAIR-OPTIONAL-001`
 
 Reason:
 
-- Financial source truth and the final customer balance are correct.
-- Return/refund ledger presentation is absent.
-- `INV-100361` links to a ledger-entry UUID rather than the invoice.
-- Keep the task review-first and limited to presentation and reference-link
-  behavior.
+- Repair fields presented as optional can reject blank values with
+  `Invalid UUID`.
+- Rejected submissions created zero repair rows and zero audits.
+- A fully populated repair lifecycle completed safely.
+- Prove whether the issue is validation, form normalization, or persistence.
 
-Do not combine customer-settlement client completion, lifecycle audits, or
-another P2/P3 finding into that task. Do not create a financial production
-mutation merely to investigate presentation and reference-link behavior.
+Do not combine repair status redesign, customer or supplier settlement, or
+another P2/P3 finding into that task. Do not mutate production during the
+review-first source investigation.
 
 ## Evidence Boundaries
 
@@ -228,8 +263,17 @@ mutation merely to investigate presentation and reference-link behavior.
 - First production manifest SHA-256: `3f82d47d3926524c910eab1f601f77d82cb193b7fa71c8efbff651695483a1c0`
 - Successful customer lifecycle rerun: `/Users/sw12/Projects/saledock-local-evidence/customer-lifecycle-audit-live-verification-rerun`
 - Successful rerun manifest SHA-256: `d523c3a17c863e007df3d0c347cc8ec4d708b35e129fdfc990821de14008133e`
+- Customer ledger source evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-fix`
+- Customer ledger source manifest SHA-256:
+  `94285126c79f43809025beb761f664faa85cf6618a0bd4407c1bac5c1d1b7d11`
+- Customer ledger live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`
+- Customer ledger live manifest SHA-256:
+  `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
 - Focused QA records: `docs/qa/expense-restore-audit-fix.md` and
-  `docs/qa/customer-lifecycle-audit-fix.md`
+  `docs/qa/customer-lifecycle-audit-fix.md`, plus
+  `docs/qa/customer-ledger-presentation-fix.md`
 - Supporting evidence confirms chronology; it does not mean every historical workflow was rerun on July 26.
 - Public HTTP availability does not prove an authenticated workflow.
 - The canonical synchronization itself performs no production mutation and changes no application source, test, migration, package, workflow, configuration, or schema.

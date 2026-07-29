@@ -1,5 +1,5 @@
 # 03 — Remember For The Future — SaleDock Cloud POS
-*Durable memory. Last updated: 29 July 2026 after authenticated customer lifecycle audit closure.*
+*Durable memory. Last updated: 29 July 2026 after customer ledger presentation closure.*
 
 ## Who Fardan Is
 
@@ -11,14 +11,15 @@
 
 ## Current Durable Status
 
-- Canonical synchronization base: `157c0181fbe8c4cf79d0904e3a39a5443df57288`.
-- Latest application-behavior commit: `31e20a58d36657d9bca00ed13aa09c5b07711059`.
-- Latest focused documentation commit: `157c0181fbe8c4cf79d0904e3a39a5443df57288`.
-- Production deployment: `DzCZELXPyhHwRBfZaH2MLwTUe58w`, Ready/current for the synchronization base.
+- Canonical synchronization base: `d15530cca701b597c81778e7b984627d959fe6fc`.
+- Latest application-behavior commit: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`.
+- Latest behavior change: `fix: correct customer ledger references`.
+- Latest focused documentation commit: `d15530cca701b597c81778e7b984627d959fe6fc`.
+- Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`, Ready/current for the synchronization base.
 - Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**.
 - P0 active: **0**.
 - P1 active: **0**.
-- P2 findings or coverage limits: **7**.
+- P2 findings or coverage limits: **6**.
 - P3 observations: **5**.
 - Audit-ready: **NO**.
 - MVP-live: **NO**.
@@ -61,22 +62,19 @@ Daily Closing formulas, or shift formulas without a focused accounting review.
 
 ## Active P2 Register
 
-Keep all seven items independently visible:
+Keep all six items independently visible:
 
-1. `LIVE-CUSTOMER-LEDGER-001`
-   - Balances reconcile, but return/refund presentation is absent.
-   - `INV-100361` targets a ledger-entry UUID instead of the invoice ID.
-2. `LIVE-REPAIR-OPTIONAL-001`
+1. `LIVE-REPAIR-OPTIONAL-001`
    - Blank fields presented as optional can fail with `Invalid UUID`; rejected attempts wrote nothing.
-3. `LIVE-INVOICE-FILTER-001`
+2. `LIVE-INVOICE-FILTER-001`
    - Search/date/payment/status/Reset controls are absent or materially incomplete.
-4. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
    - 80mm content is correct on page one, with one blank trailing page; A4 is complete.
-5. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+4. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
    - Truth may commit once while the connected page stays on `Processing...`; independent read and reload recover it.
-6. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+5. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
    - Truth may commit once while the original page stays on `Recording...`; independent read and reload recover it.
-7. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+6. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
    - Source permissions were reviewed, but authenticated cashier production acceptance was unavailable.
 
 ## Closed P2 Truth
@@ -131,9 +129,37 @@ observations.
   squash `157c0181fbe8c4cf79d0904e3a39a5443df57288`.
 - Final focused deployment `DzCZELXPyhHwRBfZaH2MLwTUe58w` is Ready/current.
 
-Do not reopen lifecycle auditing without contradictory evidence. Customer
-ledger presentation and customer-settlement client completion remain separate
-open P2 findings.
+Do not reopen lifecycle auditing without contradictory evidence.
+Customer-settlement client completion remains a separate open P2 finding.
+
+`LIVE-CUSTOMER-LEDGER-001` is fixed and production-verified.
+
+- PR #323 delivered reviewed source head
+  `c94390bfbb6286cdadb3f3a5d733c3ef95dd67e8` as squash
+  `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`.
+- Production deployment `GuqL5ytTPBn93zHrXpxEsotPgX33` was Ready/current
+  for authenticated read-only verification.
+- Retained customer `0dd1406a-ed51-4ff4-9f30-24a32b2d2ac4` kept one PKR 150
+  invoice debit, one PKR 150 Credit Payment, and final balance PKR 0.
+- `INV-100361` now routes through invoice ID
+  `d78ef3f5-7480-4e40-a330-38ec7791028b`, not historical ledger-entry ID
+  `432d7aef-7214-41d7-ae05-0d04c228248e`.
+- The Returns & refunds history shows completed `RET-001006` with exact return
+  and invoice links, PKR 150 subtotal, and PKR 150 Card refund.
+- No synthetic fully-paid-return debt row was added. Duplicate ledger and return
+  rows were zero, and production mutations were zero.
+- Desktop, 390×844, and 320×568 presentation checks passed.
+- Live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`,
+  manifest SHA-256
+  `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`.
+- PR #324 recorded the live result from head
+  `8d210692893d5010fcfafd12f44422ba451bc5dd` in focused documentation
+  squash `d15530cca701b597c81778e7b984627d959fe6fc`.
+- Final focused deployment `Ayagpz9EfpCcYbX3fEYPR2jdpsyC` is Ready/current.
+
+Customer ledger presentation and reference routing are fixed without changing
+customer debt accounting. Customer-settlement client completion remains open.
 
 ## Settlement Waiver Boundaries
 
@@ -157,10 +183,10 @@ Historical/intermittent Expense client completion remains a P3 observation.
 The missing Restore audit is fixed; that closure does not change the settlement
 or Reset presentation boundaries.
 
-Customer lifecycle auditing is fixed. Pending create/update and initially stale
-Restore presentation in the successful customer run remain inside the existing
-customer-settlement client-completion boundary; they do not create a new P3 or
-close the customer-settlement P2.
+Customer lifecycle auditing and customer ledger presentation are fixed. Pending
+create/update and initially stale Restore presentation in the successful
+customer run remain inside the existing customer-settlement client-completion
+boundary; they do not create a new P3 or close the customer-settlement P2.
 
 ## Active P3 Observations
 
@@ -207,10 +233,10 @@ stock, or recovery harm.
 
 - Always enumerate worktrees and dirty/untracked files before work.
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader pre-task inventory for the 29 July synchronization: 39 worktrees and
+- Broader pre-task inventory for the 29 July synchronization: 42 worktrees and
   28 dirty/untracked files.
-- The new clean `docs/canonical-customer-lifecycle-audit-sync` worktree is
-  authorized separately, bringing the in-task worktree total to 40.
+- The new clean `docs/canonical-customer-ledger-sync` worktree is authorized
+  separately, bringing the in-task worktree total to 43.
 - Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`.
 - Twenty-nine historical archives were verified before their ephemeral `/tmp` copies expired.
@@ -250,7 +276,12 @@ Do not reopen these results without contradictory evidence:
 - PR #320 and source squash `31e20a58d36657d9bca00ed13aa09c5b07711059`
   fixed customer lifecycle auditing; PR #321 and documentation squash
   `157c0181fbe8c4cf79d0904e3a39a5443df57288` recorded the authenticated
-  production closure while leaving customer ledger and settlement open.
+  production closure while leaving customer ledger and settlement open at
+  that dated point.
+- PR #323 and source squash `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
+  fixed customer ledger references and return/refund presentation; PR #324 and
+  documentation squash `d15530cca701b597c81778e7b984627d959fe6fc`
+  recorded the read-only production closure while leaving settlement open.
 - Reports, Returns, and Repairs print fixes retain their recorded local evidence.
 - MN-007 remains a development-only CSP/hydration observation in the environments tested.
 - Older mobile-native audit counts describe their dated finding set. They are not the current finishing P2/P3 register.
@@ -258,24 +289,21 @@ Do not reopen these results without contradictory evidence:
 ## Immediate Next Task
 
 Perform one focused review-first investigation of
-`LIVE-CUSTOMER-LEDGER-001`.
+`LIVE-REPAIR-OPTIONAL-001`.
 
 Keep it separate from:
 
-- customer-settlement client completion;
-- customer lifecycle audits;
-- Expense Restore settlement and Reset presentation;
-- customer settlement;
-- supplier payment;
+- repair status redesign;
+- customer or supplier settlement;
 - invoice filters or print;
-- Repairs optional-field behavior;
+- another P2 or P3 finding;
 - cashier coverage.
 
-Customer financial source truth and the final balance are correct, but
-return/refund ledger presentation is absent and `INV-100361` links to a
-ledger-entry UUID instead of the invoice. Keep the investigation review-first
-and limited to presentation and reference-link behavior. Do not create a
-financial production mutation merely to investigate it.
+Blank fields presented as optional can reject with `Invalid UUID`, while
+rejected attempts created no repair rows or audits and a fully populated repair
+lifecycle completed safely. Keep the investigation review-first and determine
+whether validation, form normalization, or persistence causes the rejection.
+Do not mutate production during the initial investigation.
 
 ## Standing Safety Rules
 
