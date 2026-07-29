@@ -482,7 +482,7 @@ Focused documentation delivery:
 - Deployment state: Ready/current for
   `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`
 
-Current severity register:
+Severity register immediately after the Expense Restore closure:
 
 - P0: 0
 - P1: 0
@@ -512,7 +512,7 @@ The latest production Restore settled normally. That does not close the
 intermittent Restore settlement P3 observation. Expense Reset presentation is
 also not fixed.
 
-Current classification:
+Classification immediately after the Expense Restore closure:
 
 **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 
@@ -520,7 +520,7 @@ The cashier limitation is unchanged: no authenticated cashier production
 session or approved cashier credentials were available. SaleDock is not
 audit-ready and not MVP-live.
 
-Current next task:
+Next task immediately after the Expense Restore closure:
 
 `LIVE-CUSTOMER-AUDIT-001`
 
@@ -528,6 +528,159 @@ Keep that task limited to truthful customer create, update, and archive
 lifecycle audit coverage. Do not combine it with
 `LIVE-CUSTOMER-LEDGER-001`, customer-settlement client completion, or another
 P2/P3 finding.
+
+## 2026-07-29 Post-Acceptance Closure — Customer Lifecycle Audit
+
+The original July 26 finding `LIVE-CUSTOMER-AUDIT-001` is closed.
+
+The retained July 26 evidence showed one truthful `customer.credit_payment`
+audit but no lifecycle audits for the observed create, update, and archive
+mutations. Local investigation proved that the customer lifecycle actions
+mutated customer rows without lifecycle `logAudit` calls. Update also lacked
+identical-submission suppression, and Archive/Restore lacked confirmed exact
+state transitions.
+
+Source delivery:
+
+- Source PR: #320
+- Reviewed source head: `16f1fa9037ad998e4f8005eab17f4f44dcd9b8b8`
+- Source squash: `31e20a58d36657d9bca00ed13aa09c5b07711059`
+- Merge timestamp: `2026-07-28T23:17:41Z`
+- Source deployment: `Dn4teeYnjpW2eKEYwFfuvSvgxzde`
+- Main CI: run `30407520538`, successful
+- Create confirms the inserted customer ID.
+- Genuine update confirms one organization-owned row and audits safe changed
+  field names only.
+- Identical update creates no write or audit.
+- Archive requires active status; Restore requires archived status.
+- Each genuine transition emits one awaited truthful lifecycle audit.
+- No raw private customer values are copied into audit details or metadata.
+- No migration, schema, ledger, settlement, Dashboard, Reports, Cash Drawer,
+  permission, or RLS behavior changed.
+
+Local source evidence:
+
+- Path:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-lifecycle-audit-fix`
+- Manifest SHA-256:
+  `50d6b1079a70f4b9848dd2e79e1c85a52874b1425cd6ddbcadd3899f708d2342`
+- Manifest entries: 11
+- Baseline lifecycle audit totals were zero for create, update, Archive, and
+  Restore despite successful mutations.
+- Post-fix source contracts, complete Node suite, focused production-mode E2E,
+  permission checks, lint, typecheck, build, and cleanup passed as recorded in
+  the focused QA document.
+
+First authenticated production attempt:
+
+- Classification:
+  `INCOMPLETE PRODUCTION ACCEPTANCE - BROWSER INPUT PRECONDITION NOT ESTABLISHED`
+- Marker: `LIVE-CUSTOMER-AUDIT-20260729-0421-911A`
+- Customer: `9fbf4b37-47ce-4dc0-be2f-9b7e653ea508`
+- Intended Credit Limit PKR 500 was not visibly confirmed before submission.
+- Persisted Credit Limit: PKR 0
+- Lifecycle audits: one `customers.created`, one `customers.archived`
+- Balance and financial rows: zero
+- Retry or compensating update: none
+- Final state: archived
+- Result: no Credit Limit persistence defect was inferred and this attempt did
+  not close the finding.
+- Evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-lifecycle-audit-live-verification`
+- Manifest SHA-256:
+  `3f82d47d3926524c910eab1f601f77d82cb193b7fa71c8efbff651695483a1c0`
+- Manifest entries: 12
+
+Successful authenticated production rerun:
+
+- Identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
+- Marker: `LIVE-CUSTOMER-AUDIT-RERUN-20260729-0447-17BE`
+- Customer: `b970bc25-0299-455e-b6b7-c0ffb6953bb2`
+- Opening totals: 9 customers, 2 active, 7 archived; Customer Dues PKR 405;
+  Net Cash PKR 0; 38 invoices; 25 payments; 6 ledger entries; 1 credit entry;
+  0 write-offs; branch stock quantity 59; active FIFO quantity 2,005;
+  valuation PKR 325,340; supplier dues PKR 0; open database shifts 0.
+- Create gate: ordinary browser entry visibly established Credit Limit 500;
+  read-only, post-blur, and final pre-submit values were 500.
+- Create result: one submission persisted Credit Limit PKR 500.
+- Genuine update: visible Credit Limit 600 persisted as PKR 600; Notes changed
+  once; safe changed fields were `notes` and `credit_limit`.
+- Identical no-op: one submission, unchanged timestamp, no profile write, and
+  no second update audit.
+- Exact lifecycle totals: one `customers.created`, one `customers.updated`, two
+  `customers.archived`, and one `customers.restored`.
+- Audit truth: correct actor, organization, branch, customer ID, action,
+  details, and metadata.
+- Privacy: no audit contained raw phone, email, address, initial Notes, or
+  updated Notes.
+- Financial effect: balance PKR 0; marker invoices, payments, ledger entries,
+  credit payments, and write-offs zero; Customer Dues, Net Cash, Cash Drawer,
+  stock/FIFO, supplier dues, and open shifts unchanged; duplicates zero.
+- Final state: archived with Credit Limit PKR 600.
+- Persistence: independent authenticated verification, Customers reload,
+  archived-customer view, and Audit Log reload passed.
+- Client settlement: create and update remained pending and Restore initially
+  appeared stale; no resubmission occurred; independent truth and one recovery
+  reload passed. This remains inside the existing customer-settlement P2 and
+  is not a customer-settlement fix.
+- Evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/customer-lifecycle-audit-live-verification-rerun`
+- Manifest SHA-256:
+  `d523c3a17c863e007df3d0c347cc8ec4d708b35e129fdfc990821de14008133e`
+- Manifest entries: 22
+- Screenshots: 12
+
+Focused documentation delivery:
+
+- PR: #321
+- Branch head: `ade6527a9bca4e3ebdc7f3d10e87fa3238a01813`
+- Documentation squash: `157c0181fbe8c4cf79d0904e3a39a5443df57288`
+- Merge timestamp: `2026-07-29T07:27:08Z`
+- Final production deployment: `DzCZELXPyhHwRBfZaH2MLwTUe58w`
+- Focused QA record: `docs/qa/customer-lifecycle-audit-fix.md`
+
+Current severity register:
+
+- P0: 0
+- P1: 0
+- P2: 7
+- P3: 5
+
+The seven active P2 findings or coverage limits are:
+
+1. `LIVE-CUSTOMER-LEDGER-001`
+2. `LIVE-REPAIR-OPTIONAL-001`
+3. `LIVE-INVOICE-FILTER-001`
+4. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+5. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+6. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+7. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+
+The five active P3 observations remain:
+
+1. Historical/intermittent Expenses original-page settlement delay.
+2. Expense Restore original-page settlement recovery.
+3. Expense Reset date-field presentation.
+4. Daily Closing hydration and print-footer noise.
+5. Narrow mobile invoice-title and summary-label wrapping.
+
+Current classification:
+
+**FINISHING ACCEPTED WITH LIMITED COVERAGE**
+
+Customer lifecycle auditing is fixed. Customer ledger presentation and
+customer-settlement client completion remain open. The cashier limitation is
+unchanged. SaleDock is not audit-ready and not MVP-live.
+
+Current next task:
+
+`LIVE-CUSTOMER-LEDGER-001`
+
+Keep the next task review-first and limited to missing return/refund
+presentation and the `INV-100361` ledger-entry UUID link. Do not combine it
+with customer-settlement client completion, lifecycle auditing, or another
+P2/P3 finding. Do not create a financial production mutation merely to
+investigate presentation and reference-link behavior.
 
 ## Rollback And Finalization
 
@@ -538,7 +691,8 @@ If the canonical documentation synchronization must later be reverted:
 
 `git revert <documentation_squash_sha> && git push origin main`
 
-Risk remains open because eight P2 findings or coverage limits and five P3
-observations remain, including missing customer lifecycle-audit and ledger
-coverage and unavailable authenticated cashier acceptance. No active P0 or P1
+Risk remains open because seven P2 findings or coverage limits and five P3
+observations remain, including customer-ledger presentation,
+customer/supplier settlement client completion, and unavailable authenticated
+cashier acceptance. Customer lifecycle auditing is closed. No active P0 or P1
 was found.

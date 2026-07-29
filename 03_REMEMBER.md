@@ -1,5 +1,5 @@
 # 03 — Remember For The Future — SaleDock Cloud POS
-*Durable memory. Last updated: 29 July 2026 after authenticated Expense Restore audit closure.*
+*Durable memory. Last updated: 29 July 2026 after authenticated customer lifecycle audit closure.*
 
 ## Who Fardan Is
 
@@ -11,14 +11,14 @@
 
 ## Current Durable Status
 
-- Canonical synchronization base: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`.
-- Latest application-behavior commit: `c823af4552b4841d776533bdabb770c6abb93a00`.
-- Latest focused documentation commit: `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d`.
-- Production deployment: `F2ukbJu7Q1TrSmc7pruom1YAQKyo`, Ready/current for the synchronization base.
+- Canonical synchronization base: `157c0181fbe8c4cf79d0904e3a39a5443df57288`.
+- Latest application-behavior commit: `31e20a58d36657d9bca00ed13aa09c5b07711059`.
+- Latest focused documentation commit: `157c0181fbe8c4cf79d0904e3a39a5443df57288`.
+- Production deployment: `DzCZELXPyhHwRBfZaH2MLwTUe58w`, Ready/current for the synchronization base.
 - Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**.
 - P0 active: **0**.
 - P1 active: **0**.
-- P2 findings or coverage limits: **8**.
+- P2 findings or coverage limits: **7**.
 - P3 observations: **5**.
 - Audit-ready: **NO**.
 - MVP-live: **NO**.
@@ -61,24 +61,22 @@ Daily Closing formulas, or shift formulas without a focused accounting review.
 
 ## Active P2 Register
 
-Keep all eight items independently visible:
+Keep all seven items independently visible:
 
 1. `LIVE-CUSTOMER-LEDGER-001`
    - Balances reconcile, but return/refund presentation is absent.
    - `INV-100361` targets a ledger-entry UUID instead of the invoice ID.
-2. `LIVE-CUSTOMER-AUDIT-001`
-   - Credit Payment audit exists; customer create, update, and archive audits are absent.
-3. `LIVE-REPAIR-OPTIONAL-001`
+2. `LIVE-REPAIR-OPTIONAL-001`
    - Blank fields presented as optional can fail with `Invalid UUID`; rejected attempts wrote nothing.
-4. `LIVE-INVOICE-FILTER-001`
+3. `LIVE-INVOICE-FILTER-001`
    - Search/date/payment/status/Reset controls are absent or materially incomplete.
-5. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+4. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
    - 80mm content is correct on page one, with one blank trailing page; A4 is complete.
-6. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+5. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
    - Truth may commit once while the connected page stays on `Processing...`; independent read and reload recover it.
-7. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+6. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
    - Truth may commit once while the original page stays on `Recording...`; independent read and reload recover it.
-8. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+7. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
    - Source permissions were reviewed, but authenticated cashier production acceptance was unavailable.
 
 ## Closed P2 Truth
@@ -108,6 +106,35 @@ Do not reopen the missing-audit finding without contradictory evidence.
 Expense Restore settlement and Reset presentation remain separate open P3
 observations.
 
+`LIVE-CUSTOMER-AUDIT-001` is fixed and production-verified.
+
+- PR #320 delivered reviewed source head
+  `16f1fa9037ad998e4f8005eab17f4f44dcd9b8b8` as squash
+  `31e20a58d36657d9bca00ed13aa09c5b07711059`.
+- Production deployment `Dn4teeYnjpW2eKEYwFfuvSvgxzde` was Ready/current
+  before both evidence sessions.
+- The first marker `LIVE-CUSTOMER-AUDIT-20260729-0421-911A` is retained as an
+  incomplete acceptance: PKR 500 was not visibly established, PKR 0
+  persisted, and no Credit Limit defect was inferred.
+- The fresh marker `LIVE-CUSTOMER-AUDIT-RERUN-20260729-0447-17BE` visibly
+  established and persisted PKR 500 on create and PKR 600 on update.
+- Exact successful lifecycle totals were one create audit, one update audit,
+  two archive audits, and one Restore audit. An identical no-op update created
+  no row change or audit.
+- Audits contained safe field names and transition metadata without raw phone,
+  email, address, or Notes values.
+- Both marked customers remain archived with balance PKR 0. Marker financial
+  rows were zero; Net Cash, Cash Drawer, stock/FIFO, supplier dues, and open
+  shifts were unchanged.
+- PR #321 recorded the live result from head
+  `ade6527a9bca4e3ebdc7f3d10e87fa3238a01813` in focused documentation
+  squash `157c0181fbe8c4cf79d0904e3a39a5443df57288`.
+- Final focused deployment `DzCZELXPyhHwRBfZaH2MLwTUe58w` is Ready/current.
+
+Do not reopen lifecycle auditing without contradictory evidence. Customer
+ledger presentation and customer-settlement client completion remain separate
+open P2 findings.
+
 ## Settlement Waiver Boundaries
 
 Customer settlement and supplier payment are not fixed.
@@ -129,6 +156,11 @@ covered by the waiver.
 Historical/intermittent Expense client completion remains a P3 observation.
 The missing Restore audit is fixed; that closure does not change the settlement
 or Reset presentation boundaries.
+
+Customer lifecycle auditing is fixed. Pending create/update and initially stale
+Restore presentation in the successful customer run remain inside the existing
+customer-settlement client-completion boundary; they do not create a new P3 or
+close the customer-settlement P2.
 
 ## Active P3 Observations
 
@@ -175,10 +207,10 @@ stock, or recovery harm.
 
 - Always enumerate worktrees and dirty/untracked files before work.
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader pre-task inventory for the 29 July synchronization: 36 worktrees and
+- Broader pre-task inventory for the 29 July synchronization: 39 worktrees and
   28 dirty/untracked files.
-- The new clean canonical synchronization worktree is authorized separately,
-  bringing the in-task worktree total to 37.
+- The new clean `docs/canonical-customer-lifecycle-audit-sync` worktree is
+  authorized separately, bringing the in-task worktree total to 40.
 - Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`.
 - Twenty-nine historical archives were verified before their ephemeral `/tmp` copies expired.
@@ -215,6 +247,10 @@ Do not reopen these results without contradictory evidence:
   fixed the missing Expense Restore audit; PR #318 and documentation squash
   `2b55443e5fafd6a1f76181b6e42b4748e0b53f8d` recorded the authenticated
   production pass.
+- PR #320 and source squash `31e20a58d36657d9bca00ed13aa09c5b07711059`
+  fixed customer lifecycle auditing; PR #321 and documentation squash
+  `157c0181fbe8c4cf79d0904e3a39a5443df57288` recorded the authenticated
+  production closure while leaving customer ledger and settlement open.
 - Reports, Returns, and Repairs print fixes retain their recorded local evidence.
 - MN-007 remains a development-only CSP/hydration observation in the environments tested.
 - Older mobile-native audit counts describe their dated finding set. They are not the current finishing P2/P3 register.
@@ -222,12 +258,12 @@ Do not reopen these results without contradictory evidence:
 ## Immediate Next Task
 
 Perform one focused review-first investigation of
-`LIVE-CUSTOMER-AUDIT-001`.
+`LIVE-CUSTOMER-LEDGER-001`.
 
 Keep it separate from:
 
-- `LIVE-CUSTOMER-LEDGER-001`;
 - customer-settlement client completion;
+- customer lifecycle audits;
 - Expense Restore settlement and Reset presentation;
 - customer settlement;
 - supplier payment;
@@ -235,10 +271,11 @@ Keep it separate from:
 - Repairs optional-field behavior;
 - cashier coverage.
 
-Customer create, update, and archive lifecycle audits are absent. The existing
-Credit Payment audit shows that actor and organization attribution can work,
-while customer balances and transactions remain correct. Keep the investigation
-limited to truthful lifecycle audit coverage.
+Customer financial source truth and the final balance are correct, but
+return/refund ledger presentation is absent and `INV-100361` links to a
+ledger-entry UUID instead of the invoice. Keep the investigation review-first
+and limited to presentation and reference-link behavior. Do not create a
+financial production mutation merely to investigate it.
 
 ## Standing Safety Rules
 
