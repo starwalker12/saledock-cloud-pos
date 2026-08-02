@@ -196,12 +196,28 @@ export async function saveRepairAction(
   }
   revalidatePath("/dashboard");
 
-  logAudit({
+  const { error: auditError } = await supabase.from("audit_logs").insert({
+    organization_id: orgId,
+    branch_id: branchId,
+    actor_id: profile.id,
     module: "repairs",
     action: id ? "repairs.updated" : "repairs.created",
     details: `${id ? "Updated" : "Created"} repair: ${parsed.data.customer_name} - ${parsed.data.device_type}`,
-    metadata: { repair_id: savedId, customer_name: parsed.data.customer_name, device_type: parsed.data.device_type },
+    metadata: {
+      repair_id: savedId,
+      customer_name: parsed.data.customer_name,
+      device_type: parsed.data.device_type,
+    },
   });
+
+  if (auditError) {
+    return {
+      error:
+        "The repair was saved, but its audit record could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.",
+      success: null,
+      id: savedId || undefined,
+    };
+  }
 
   return ok(id ? "Repair job updated." : "Repair job created.", savedId || undefined);
 }
