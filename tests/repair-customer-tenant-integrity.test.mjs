@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -128,17 +129,40 @@ test("backup and demo repair writers retain same-organization customer provenanc
   );
 });
 
-test("tenant correction does not normalize optional repair fields", () => {
+test("optional normalization stays validation-local without relaxing tenant integrity", () => {
   assert.match(
     validationSource,
-    /customer_id: z\.string\(\)\.uuid\(\)\.optional\(\)\.nullable\(\)/,
+    /const optionalUuid = z\.preprocess\([\s\S]*?z\.string\(\)\.uuid\(\)\.optional\(\)\.nullable\(\)/,
   );
   assert.match(
     validationSource,
-    /const optionalString = z[\s\S]*?\.preprocess\([\s\S]*?\.optional\(\)[\s\S]*?\.nullable\(\)/,
+    /const optionalString = z\.preprocess\([\s\S]*?z\.string\(\)\.min\(1\)\.optional\(\)\.nullable\(\)/,
   );
+  assert.match(validationSource, /customer_id: optionalUuid/);
   assert.match(validationSource, /device_model: optionalString/);
   assert.match(validationSource, /serial_imei: optionalString/);
-  assert.match(validationSource, /expected_delivery_at: z\.string\(\)\.optional\(\)\.nullable\(\)/);
-  assert.doesNotMatch(actionSource, /normalizeOptional|emptyToNull|blankUuid/);
+  assert.match(validationSource, /expected_delivery_at: optionalDateOnly/);
+
+  assert.doesNotMatch(
+    actionSource,
+    /blankStringToUndefined|optionalUuid|optionalDateOnly|isValidDateOnly/,
+  );
+  assert.match(
+    saveSource,
+    /\.from\("customers"\)[\s\S]*?\.select\("id"\)[\s\S]*?\.eq\("id", finalCustomerId\)[\s\S]*?\.eq\("organization_id", orgId\)[\s\S]*?\.maybeSingle\(\)/,
+  );
+  assert.match(
+    saveSource,
+    /if \(customerLookupError \|\| !selectedCustomer\) \{\s*return err\("The selected customer is unavailable\."\);\s*\}/,
+  );
+  assert.ok(saveSource.indexOf('.from("customers")') < saveSource.indexOf('.from("repairs")'));
+  assert.ok(
+    saveSource.indexOf('.from("customers")') <
+      saveSource.indexOf('.from("repair_status_history")'),
+  );
+  assert.ok(saveSource.indexOf('.from("customers")') < saveSource.indexOf("logAudit({"));
+  assert.equal(
+    createHash("sha256").update(migrationSource).digest("hex"),
+    "7ff005a554c2ce966b600959dcd6ea8e8c0417bae659a679c4f7b1b183a2ce97",
+  );
 });
