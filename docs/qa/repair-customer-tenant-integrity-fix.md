@@ -2,9 +2,11 @@
 
 ## Status
 
-`REPAIR-CUSTOMER-TENANT-INTEGRITY-001` is a P1 tenant-integrity finding corrected only on the draft branch. The P1 remains active until owner review, merge, production migration preflight/application, deployment, and authenticated production verification complete.
+`REPAIR-CUSTOMER-TENANT-INTEGRITY-001` is closed. PR #326 delivered the reviewed application and database correction, and bounded production verification passed on 2 August 2026.
 
-Operational state remains `FINISHING BLOCKED - ACTIVE P1 TENANT INTEGRITY`. SaleDock is not audit-ready and is not MVP-live.
+Live result: `PASS - REPAIR-CUSTOMER-TENANT-INTEGRITY-001 FIXED`.
+
+Operational state returned to `FINISHING ACCEPTED WITH LIMITED COVERAGE`. P0 is 0, P1 reduced from 1 to 0, P2 remains 6, and P3 remains 5. SaleDock is not audit-ready and is not MVP-live.
 
 ## Discovery And Evidence
 
@@ -78,9 +80,31 @@ Null customer relations and valid same-organization links remain supported. Cros
 
 ## Migration Safety
 
-Production was not queried with an exploit and was not mutated. A production-wide mismatch check requires authorized privileged read access during delivery. The migration must not be applied until that preflight reports zero mismatches. A non-zero count requires a separate owner decision; the migration intentionally fails instead of changing data.
+Before merge, the authorized privileged production preflight found three repairs, all three customer-linked, and zero cross-organization mismatches. PostgreSQL was `17.6` (`server_version_num` 170006). The legacy `repairs_customer_id_fkey` existed once, the new composite constraint was absent, and no supporting-index object conflict existed. No row details were read.
 
-Expected lock scope is the customer index build plus brief `repairs` constraint replacement/validation locks. Delivery should schedule the reviewed migration accordingly.
+The equivalent migration delivery preflight passed locally. A full Supabase shadow database replayed the complete migration chain, including Storage migration `0024` and `20260729133000_enforce_repair_customer_tenant_integrity`, and `supabase db diff --local --schema public` reported no schema differences.
+
+After PR #326 merged, the exact reviewed migration appeared in production migration history once before any manual apply command was issued. The delivery was therefore treated as automatic post-merge migration delivery, and no duplicate `apply_migration` call was made. Available migration history does not expose an application timestamp; the retained delivery window is bounded by the source merge at `2026-08-02T08:06:23Z` and the first retained post-merge metadata verification at `2026-08-02T08:11:18.427156Z`.
+
+- Migration version: `20260729133000`
+- Migration name: `enforce_repair_customer_tenant_integrity`
+- Stored statement count: 4
+- Stored statement SHA-256: `384e679dffb3eefaf1efcc6b3f5bb82440d834a452a620a9fb3fe69709d0bb80`
+- Local and production migration-history statement hashes: equal
+- Later production migrations present at verification: none
+- Manual migration command issued: no
+- Duplicate migration attempt: no
+
+Production metadata after delivery showed:
+
+- `repairs_customer_id_fkey`: absent;
+- `repairs_organization_customer_id_fkey`: present once and validated;
+- exact definition: `FOREIGN KEY (organization_id, customer_id) REFERENCES customers(organization_id, id) ON UPDATE RESTRICT ON DELETE SET NULL (customer_id)`;
+- `customers_organization_id_id_key`: present once as a unique `(organization_id, id)` index;
+- `repairs.customer_id`: nullable;
+- repair/customer organization mismatches: 0.
+
+The authorized production probe ran in one explicit transaction. It selected one existing linked repair and one cross-organization customer internally without returning IDs or private fields. The attempted reassignment was rejected with SQLSTATE `23503`; the original customer link remained unchanged; the transaction rolled back; total and linked repair counts remained 3; and the mismatch count remained 0. No production fixture or persistent row delta was created.
 
 Local migration proof completed:
 
@@ -91,9 +115,9 @@ Local migration proof completed:
 - cross-organization insert, customer update, and incompatible repair-organization update failed with `23503`;
 - customer deletion retained the repair and cleared only `customer_id`;
 - the rollback SQL below passed inside a transaction, after which rollback restored the composite constraint;
-- a separate disposable full-stack reset reached historical migration `0024_storage_buckets.sql` and stopped because a standalone Postgres image did not provide the normal Supabase Storage `buckets.public` column. The new migration was not reached or implicated, and the disposable container was removed.
+- a final full Supabase shadow replay completed the entire migration chain and reported no schema differences.
 
-Supabase Preview remains a required draft-PR gate and must apply the full migration stack.
+Supabase Preview was skipped by the hosted PR integration. It was not represented as passed. The equivalent full-chain Supabase shadow preflight above passed before merge.
 
 Rollback:
 
@@ -124,7 +148,7 @@ Rollback restores the previous ID-only relation and therefore reopens the tenant
 - `LIVE-REPAIR-OPTIONAL-001` remains open and paused.
 - Customer/supplier settlement findings remain open.
 - No accounting, Dashboard, Reports, stock/FIFO, or Cash Drawer source changed.
-- No production mutation occurred.
+- The only production write attempt was the owner-authorized cross-tenant update inside a transaction that fully rolled back; no persistent production mutation occurred.
 - Canonical documents remain unchanged.
 
 ## Validation
@@ -145,7 +169,7 @@ Final local results:
 - complete before/after safety signatures: equal;
 - cleanup retries/failures: 0/0;
 - final loopback mismatch count: 0;
-- production mutations: 0.
+- production persistent mutations: 0.
 
 Discarded runs are retained honestly:
 
@@ -156,8 +180,44 @@ Discarded runs are retained honestly:
 
 Node emitted the existing module-type warnings for `src/lib/datetime.ts` and `src/lib/return-profit.ts`. Playwright emitted the existing `NO_COLOR`/`FORCE_COLOR` warning.
 
-## Delivery Plan
+## Source Delivery
 
-The draft PR remains unmerged and not ready for review. Owner review is required before any merge. Delivery must then perform a privileged production mismatch preflight, apply the reviewed migration only when zero mismatches exist, verify the exact deployment, and run bounded authenticated tenant-isolation verification.
+- Source PR: #326
+- Reviewed source head: `446d08e7c88f981e418391103abe03a2dc4b7eae`
+- Merge method: squash
+- Source squash: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
+- Merge timestamp: `2026-08-02T08:06:23Z`
+- Main CI: run `30739122912`, successful
+- Production deployment: `dpl_5VkXkjFCx1vwqdA2ukK639jrUVur`
+- Deployment state: Ready, Production, Latest, exact source squash
+- Deployment ready timestamp: `2026-08-02T08:07:33.268Z`
 
-Current operational severity remains P0 0, P1 1, P2 6, and P3 5. `LIVE-REPAIR-OPTIONAL-001` remains the paused next source task only after this P1 is delivered and production-verified.
+The source PR contained exactly the reviewed five files. It changed no optional-field validation, repair status behavior, accounting, settlement, stock/FIFO, Cash Drawer, package, lockfile, workflow, or unrelated migration.
+
+## Authenticated Production Verification
+
+Codex Chrome computer use verified the current production deployment and authenticated context:
+
+- Fardan Aatir;
+- Owner;
+- Star Shop;
+- Main Branch;
+- PKR;
+- Asia/Karachi.
+
+The Repairs page rendered its three existing same-organization customer links. Repair Intake rendered at `/repairs?add=1`; its registered-customer search returned only the organization-visible match. An existing repair detail and status history rendered unchanged. No Repair Intake form was submitted, no production Server Action was forged, and no foreign customer data was exposed.
+
+The marker `LIVE-REPAIR-TENANT-20260802-1306-AE5C` exists only in evidence metadata. No production row was created for it.
+
+Evidence is retained under `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-live-verification`.
+
+- Evidence manifest SHA-256: `934124226da08ebd09c410570188840571c50205d6e379f8ccddac1a854dae0e`
+- Manifest entries: 10
+- Retained screenshot: sanitized Vercel production deployment only
+- Secret/privacy scan: passed
+
+## Current Boundary
+
+`REPAIR-CUSTOMER-TENANT-INTEGRITY-001` is fixed and the P1 is closed. P0 is 0, P1 is 0, P2 remains 6, and P3 remains 5. Classification is `FINISHING ACCEPTED WITH LIMITED COVERAGE`.
+
+`LIVE-REPAIR-OPTIONAL-001` remains open and paused pending canonical synchronization. Customer- and supplier-settlement client-completion findings remain open. Audit-ready remains no, MVP-live remains no, and canonical synchronization is deferred to a separate owner-reviewed task.
