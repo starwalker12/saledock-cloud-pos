@@ -37,6 +37,8 @@ const ORG_ID = "00000000-0000-4000-8000-000000000802";
 const BRANCH_ID = "00000000-0000-4000-8000-000000000803";
 const AUDIT_FAILURE =
   "The repair was saved, but its audit record could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.";
+const HISTORY_FAILURE =
+  "The repair was saved, but its initial status history could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.";
 
 const saveStart = actionSource.indexOf("export async function saveRepairAction");
 const statusStart = actionSource.indexOf(
@@ -201,6 +203,14 @@ function createHarness(options = {}) {
                 return { data: null, error: null };
               }
               if (table === "repair_status_history" && operation === "insert") {
+                if (options.historyThrow) {
+                  store.events.push("history:threw");
+                  throw new Error("QA_HISTORY_THROW");
+                }
+                if (options.historyError) {
+                  store.events.push("history:error");
+                  return { data: null, error: { code: "QA_HISTORY_INSERT" } };
+                }
                 store.histories.push(payload);
                 store.events.push("history:complete");
                 return { data: null, error: null };
@@ -208,6 +218,10 @@ function createHarness(options = {}) {
               if (table === "audit_logs" && operation === "insert") {
                 store.events.push("audit:started");
                 if (auditGate) await auditGate.promise;
+                if (options.auditThrow) {
+                  store.events.push("audit:threw");
+                  throw new Error("QA_AUDIT_THROW");
+                }
                 if (options.auditError) {
                   store.events.push("audit:error");
                   return { data: null, error: { code: "QA_AUDIT_INSERT" } };
@@ -335,19 +349,48 @@ test("delayed audit keeps the action pending until the audit completes", async (
   assert.equal(store.audits.length, 1);
 });
 
-test("audit insert failure returns safe partial-success truth without a duplicate", async () => {
-  const { store, saveRepairAction } = createHarness({ auditError: true });
-  const result = await saveRepairAction(
-    { error: null, success: null },
-    repairFormData(),
-  );
+test("returned or thrown audit failure returns safe partial-success truth without a duplicate", async () => {
+  for (const options of [{ auditError: true }, { auditThrow: true }]) {
+    const { store, saveRepairAction } = createHarness(options);
+    const result = await saveRepairAction(
+      { error: null, success: null },
+      repairFormData(),
+    );
 
-  assert.deepEqual(result, { error: AUDIT_FAILURE, success: null, id: REPAIR_ID });
-  assert.equal(store.repairs.length, 1);
-  assert.equal(store.histories.length, 1);
-  assert.equal(store.audits.length, 0);
-  assert.equal(store.events.filter((event) => event === "repair:complete").length, 1);
-  assert.equal(store.events.filter((event) => event === "audit:error").length, 1);
+    assert.deepEqual(result, { error: AUDIT_FAILURE, success: null, id: REPAIR_ID });
+    assert.equal(store.repairs.length, 1);
+    assert.equal(store.histories.length, 1);
+    assert.equal(store.audits.length, 0);
+    assert.equal(store.events.filter((event) => event === "repair:complete").length, 1);
+    assert.equal(
+      store.events.filter((event) => event === "audit:error" || event === "audit:threw")
+        .length,
+      1,
+    );
+  }
+});
+
+test("returned or thrown initial history failure is truthful and does not audit", async () => {
+  for (const options of [{ historyError: true }, { historyThrow: true }]) {
+    const { store, saveRepairAction } = createHarness(options);
+    const result = await saveRepairAction(
+      { error: null, success: null },
+      repairFormData(),
+    );
+
+    assert.deepEqual(result, { error: HISTORY_FAILURE, success: null, id: REPAIR_ID });
+    assert.equal(store.repairs.length, 1);
+    assert.equal(store.histories.length, 0);
+    assert.equal(store.audits.length, 0);
+    assert.equal(store.events.filter((event) => event === "repair:complete").length, 1);
+    assert.equal(
+      store.events.filter(
+        (event) => event === "history:error" || event === "history:threw",
+      ).length,
+      1,
+    );
+    assert.equal(store.events.filter((event) => event.startsWith("audit:")).length, 0);
+  }
 });
 
 test("validation, tenant, and repair insert failures do not audit", async () => {
@@ -446,7 +489,7 @@ test("the global logger cannot expose a returned Supabase insert error", async (
 
 test("repair save audit payload stays record-specific without expanding existing intake values", () => {
   const auditStart = saveSource.indexOf('await supabase.from("audit_logs").insert');
-  const auditEnd = saveSource.indexOf("if (auditError)", auditStart);
+  const auditEnd = saveSource.indexOf("auditFailed = Boolean(auditError)", auditStart);
   assert.ok(auditStart > -1);
   assert.ok(auditEnd > auditStart);
   const payload = saveSource.slice(auditStart, auditEnd);

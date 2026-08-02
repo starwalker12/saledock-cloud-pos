@@ -90,7 +90,7 @@ The production result is the exact allowed consequence of that ordering: repair 
 
 ## Correction
 
-Only the existing save-action audit boundary changed.
+The final exact-head review also found that the awaited initial-history insert did not inspect its returned error. That narrow pre-audit boundary is now checked so a repair cannot be reported as a fully successful intake without its required initial history.
 
 `saveRepairAction` now performs one awaited, caller-local `audit_logs` insert using the already authenticated and validated context:
 
@@ -102,13 +102,19 @@ Only the existing save-action audit boundary changed.
 - details: the established action, customer display name, and device type;
 - metadata: the exact repair ID plus the established customer display name and device type.
 
-The action returns success only after the insert resolves with no error. One object is inserted once, so no automatic retry or duplicate audit path was added.
+The action returns success only after the initial history and audit inserts resolve with no error. The audit boundary handles both returned insert errors and thrown failures. One object is inserted once, so no automatic retry or duplicate audit path was added.
 
 The global audit helper is unchanged. A global helper API change is not required for this caller-local correction.
 
 ## Failure Semantics
 
-The repair insert and initial history are separate committed operations from the audit insert; this task does not pretend they are atomic.
+The repair insert, initial history, and audit insert are separate committed operations; this task does not pretend they are atomic.
+
+When the initial history insert fails after the repair committed, the action returns:
+
+`The repair was saved, but its initial status history could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.`
+
+The action includes the exact saved repair ID and does not attempt the create audit, because an audit must not falsely represent an incomplete intake as complete.
 
 When the audit insert fails after the repair and history committed, the action returns:
 
@@ -136,9 +142,10 @@ The behavioral source contracts cover:
 
 - exact repair ID before audit;
 - history completion before audit;
+- history insert failure returns safe partial-success truth and prevents the create audit;
 - delayed audit keeps the action pending;
 - one exact successful create audit;
-- returned audit errors produce safe partial-success truth;
+- returned or thrown audit failures produce safe partial-success truth;
 - no automatic retry or duplicate;
 - no audit after validation rejection;
 - no audit after tenant ownership rejection;
@@ -153,7 +160,7 @@ The production-mode Playwright test uses loopback Supabase and two ordinary UI s
 1. successful blank-optional intake: one repair, one initial history, one exact `repairs.created` audit;
 2. deterministic local audit rejection: one committed repair, one history, zero audit, explicit safe ActionState error, and no retry.
 
-Both Server Action responses returned HTTP 200. The successful response was observed only after the exact create audit existed. The forced-failure response body contained the safe partial-success error. The successful connected form did not settle during that clean run, while the failure error did apply; this is retained as the existing client-settlement boundary and is not changed or used to weaken server audit acceptance.
+Both Server Action responses returned HTTP 200. The successful response was observed only after the exact create audit existed. The forced-failure ActionState rendered the exact safe partial-success error. The successful connected form did not settle during that clean run, while the failure error did apply; this is retained as the existing client-settlement boundary and is not changed or used to weaken server audit acceptance.
 
 The failure boundary is a temporary loopback-only PostgreSQL trigger that rejects `repairs.created`. It is not a migration or production branch. The trigger, both repairs, both histories, the successful audit, and any marker customer are removed in `finally`.
 
@@ -171,10 +178,10 @@ Focused E2E result:
 
 Direct and regression results:
 
-- new audit durability contracts: `8 / 8`;
+- new audit durability contracts: `9 / 9`;
 - optional-field contracts: `6 / 6`;
 - tenant-integrity contracts: `6 / 6`;
-- complete Node suite: `306 / 306`;
+- complete Node suite: `307 / 307`;
 - focused durability E2E: `1 / 1`;
 - tenant-integrity E2E: `1 / 1`;
 - optional-field E2E: `1 / 1`;
@@ -183,7 +190,7 @@ Direct and regression results:
 - typecheck: pass;
 - production build: pass.
 
-Discarded harness launches are recorded rather than represented as clean passes. Two early launches stopped before business mutation because the host had no standalone `psql` binary and the first owner-identity preflight selected an unavailable client API. One interrupted output-capture launch cleaned its marker rows and trigger. A stale-build launch, a connection-refused launch, and local Auth/page-error launches also cleaned their fixtures. Parallel Supabase CLI status calls corrupted only the local telemetry JSON and invalidated two Node-suite launches; the malformed file was archived, repaired without touching repository or database state, and the suite then passed serially with one loopback environment snapshot.
+Discarded harness launches are recorded rather than represented as clean passes. Two early launches stopped before business mutation because the host had no standalone `psql` binary and the first owner-identity preflight selected an unavailable client API. One interrupted output-capture launch cleaned its marker rows and trigger. A stale-build launch, a connection-refused launch, and local Auth/page-error launches also cleaned their fixtures. One final-head launch reached both HTTP 200 responses but Playwright could not retrieve the second protocol response body; cleanup and signatures passed, and the test now uses the exact rendered ActionState error rather than raw response-body retrieval. Parallel Supabase CLI status calls corrupted only the local telemetry JSON and invalidated two Node-suite launches; the malformed file was archived, repaired without touching repository or database state, and the suite then passed serially with one loopback environment snapshot.
 
 ## Scope And Safety
 

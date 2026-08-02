@@ -528,7 +528,8 @@ test.describe("repair create audit durability", () => {
         await failureSession.page.getByRole("button", { name: "Record Intake" }).click();
         const actionResponse = await responsePromise;
         expect(actionResponse.status()).toBe(200);
-        expect(await actionResponse.text()).toContain(AUDIT_FAILURE);
+        const safeError = failureSession.page.getByText(AUDIT_FAILURE, { exact: true });
+        await expect(safeError).toBeVisible({ timeout: 30_000 });
         const failureRepair = await pollFor(
           "audit-failure repair",
           () => markerRepairs(admin, marker),
@@ -551,7 +552,7 @@ test.describe("repair create audit durability", () => {
           audits: audits.length,
           responseStatus: actionResponse.status(),
           safeErrorReturned: true,
-          clientErrorApplied: await failureSession.page.getByText(AUDIT_FAILURE).isVisible(),
+          clientErrorApplied: await safeError.isVisible(),
         };
         errors.push(...failureSession.errors);
       } finally {
