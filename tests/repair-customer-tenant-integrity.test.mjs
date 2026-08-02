@@ -55,9 +55,11 @@ test("repair create and edit share one organization-scoped customer ownership ch
   );
 
   const lookupIndex = saveSource.indexOf('.from("customers")');
+  const auditIndex = saveSource.indexOf('.from("audit_logs")');
   assert.ok(lookupIndex < saveSource.indexOf('.from("repairs")'));
   assert.ok(lookupIndex < saveSource.indexOf('.from("repair_status_history")'));
-  assert.ok(lookupIndex < saveSource.indexOf("logAudit({"));
+  assert.notEqual(auditIndex, -1);
+  assert.ok(lookupIndex < auditIndex);
   assert.equal((saveSource.match(/The selected customer is unavailable\./g) ?? []).length, 1);
 });
 
@@ -160,7 +162,10 @@ test("optional normalization stays validation-local without relaxing tenant inte
     saveSource.indexOf('.from("customers")') <
       saveSource.indexOf('.from("repair_status_history")'),
   );
-  assert.ok(saveSource.indexOf('.from("customers")') < saveSource.indexOf("logAudit({"));
+  assert.notEqual(saveSource.indexOf('.from("audit_logs")'), -1);
+  assert.ok(
+    saveSource.indexOf('.from("customers")') < saveSource.indexOf('.from("audit_logs")'),
+  );
   assert.equal(
     createHash("sha256").update(migrationSource).digest("hex"),
     "7ff005a554c2ce966b600959dcd6ea8e8c0417bae659a679c4f7b1b183a2ce97",

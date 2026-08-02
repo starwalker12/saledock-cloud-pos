@@ -169,14 +169,29 @@ export async function saveRepairAction(
         success = true;
 
         // Log initial received status history
-        await supabase.from("repair_status_history").insert({
-          organization_id: orgId,
-          repair_id: newRepair.id,
-          old_status: null,
-          new_status: parsed.data.status,
-          note: parsed.data.notes || "Device received for repair intake.",
-          changed_by: profile.id,
-        });
+        let historyFailed = false;
+        try {
+          const { error: historyError } = await supabase.from("repair_status_history").insert({
+            organization_id: orgId,
+            repair_id: newRepair.id,
+            old_status: null,
+            new_status: parsed.data.status,
+            note: parsed.data.notes || "Device received for repair intake.",
+            changed_by: profile.id,
+          });
+          historyFailed = Boolean(historyError);
+        } catch {
+          historyFailed = true;
+        }
+
+        if (historyFailed) {
+          return {
+            error:
+              "The repair was saved, but its initial status history could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.",
+            success: null,
+            id: savedId || undefined,
+          };
+        }
       } else if (insertErr && insertErr.code === "23505") {
         // Unique index violation (race condition on job_no). Loop will retry.
         continue;
@@ -196,12 +211,34 @@ export async function saveRepairAction(
   }
   revalidatePath("/dashboard");
 
-  logAudit({
-    module: "repairs",
-    action: id ? "repairs.updated" : "repairs.created",
-    details: `${id ? "Updated" : "Created"} repair: ${parsed.data.customer_name} - ${parsed.data.device_type}`,
-    metadata: { repair_id: savedId, customer_name: parsed.data.customer_name, device_type: parsed.data.device_type },
-  });
+  let auditFailed = false;
+  try {
+    const { error: auditError } = await supabase.from("audit_logs").insert({
+      organization_id: orgId,
+      branch_id: branchId,
+      actor_id: profile.id,
+      module: "repairs",
+      action: id ? "repairs.updated" : "repairs.created",
+      details: `${id ? "Updated" : "Created"} repair: ${parsed.data.customer_name} - ${parsed.data.device_type}`,
+      metadata: {
+        repair_id: savedId,
+        customer_name: parsed.data.customer_name,
+        device_type: parsed.data.device_type,
+      },
+    });
+    auditFailed = Boolean(auditError);
+  } catch {
+    auditFailed = true;
+  }
+
+  if (auditFailed) {
+    return {
+      error:
+        "The repair was saved, but its audit record could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.",
+      success: null,
+      id: savedId || undefined,
+    };
+  }
 
   return ok(id ? "Repair job updated." : "Repair job created.", savedId || undefined);
 }
