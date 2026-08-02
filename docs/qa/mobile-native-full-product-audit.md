@@ -1,16 +1,16 @@
 # SaleDock Mobile-Native Full Product Audit
 
-Current synchronization date: 2026-07-29
+Current synchronization date: 2026-08-02
 
-Branch: `docs/canonical-customer-ledger-sync`
+Branch: `docs/canonical-repair-tenant-integrity-sync`
 
-Base main SHA: `d15530cca701b597c81778e7b984627d959fe6fc`
+Base main SHA: `8afbc37751a76edb93d52175146be6dbb619a0a3`
 
-Latest application-behavior SHA: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
+Latest application-behavior SHA: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
 
-Latest focused documentation SHA: `d15530cca701b597c81778e7b984627d959fe6fc`
+Latest focused documentation SHA: `8afbc37751a76edb93d52175146be6dbb619a0a3`
 
-Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC` (Ready/current)
+Production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx` (Ready/current)
 
 Audit mode: review-first, audit-only. No production mutations, no app source changes, no migrations, and no business logic changes were made.
 
@@ -18,7 +18,7 @@ This document preserves the original mobile-native audit chronology and adds a s
 
 Current recommendation: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 
-## Current Executive Register — 2026-07-29
+## Current Executive Register — 2026-08-02
 
 ### Executive Status
 
@@ -32,13 +32,13 @@ Current recommendation: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
 | Exact limitation | No authenticated cashier production session or approved cashier credentials were available. |
 | Audit-ready | No |
 | MVP-live | No |
-| Next task | Focused review-first investigation of `LIVE-REPAIR-OPTIONAL-001` only. |
+| Next task | Resume `LIVE-REPAIR-OPTIONAL-001` from retained root-cause evidence on a fresh current-main worktree. |
 
 The authenticated production identity remains Fardan Aatir, Owner, Star Shop,
 Main Branch, PKR, Asia/Karachi. Current production main is
-`d15530cca701b597c81778e7b984627d959fe6fc`; the latest application-behavior
-commit was `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`; Vercel deployment
-`Ayagpz9EfpCcYbX3fEYPR2jdpsyC` was Ready/current.
+`8afbc37751a76edb93d52175146be6dbb619a0a3`; the latest application-behavior
+commit was `12de0dd189d0c41895e4da5ca06bd880d17ee98b`; Vercel deployment
+`GooqVaWAfTVhunUU1eYFyBLguiDx` was Ready/current.
 
 Primary July 26 finishing evidence:
 
@@ -52,7 +52,7 @@ Primary July 26 finishing evidence:
 
 | Severity | Finding | Current truth |
 | --- | --- | --- |
-| P2 | `LIVE-REPAIR-OPTIONAL-001` | Blank fields presented as optional can reject with `Invalid UUID`; rejected attempts wrote nothing; a fully specified workflow passed. |
+| P2 | `LIVE-REPAIR-OPTIONAL-001` | Root cause is established: blank customer UUID and optional strings are not normalized at the correct validation layer, and malformed nonblank optional dates can pass; rejected attempts wrote nothing; no correction is implemented. |
 | P2 | `LIVE-INVOICE-FILTER-001` | Search, date, payment-method, status, and Reset controls are absent or materially incomplete; invoice detail truth is correct. |
 | P2 | `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` | 80mm content is correct on page one with one blank trailing page; A4 is complete and unclipped. |
 | P2 | `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` | Accounting truth can commit once while the connected page stays on `Processing...`; independent read and reload recover the truth. |
@@ -69,7 +69,7 @@ Primary July 26 finishing evidence:
 | Area | Current status | July 26 evidence |
 | --- | --- | --- |
 | Customer | ACCEPTED WITH P2 CLIENT-SETTLEMENT RISK | Final balance reconciled, lifecycle auditing is fixed, and ledger references/return presentation are fixed. Customer-settlement client completion remains open. |
-| Repairs | ACCEPTED WITH P2 GAP | Blank optional submissions failed safely with zero writes. `RJ-000003` completed received → in progress → completed → cancelled with no duplicate. |
+| Repairs | ACCEPTED WITH P2 GAP | Repair/customer tenant integrity is fixed through a validated composite FK and zero-mismatch production proof. Optional blank/date validation remains open; `RJ-000003` completed received → in progress → completed → cancelled with no duplicate. |
 | Expenses | ACCEPTED WITH P3 OBSERVATIONS | Create and five updates completed once each. Final PKR 80 Marketing/Card expense was archived; timestamp and Cash Drawer truth were correct. The missing Restore audit was closed by PR #317 and authenticated production verification. |
 | Invoices | ACCEPTED WITH P2 GAPS | `INV-100364` detail/payment/return/reload and A4 passed. Filters are incomplete and 80mm adds one blank trailing page. |
 | Cash Drawer / Daily Closing | ACCEPTED WITH P3 PRESENTATION NOISE | Closed shift reconciled starting/expected/counted PKR 1,000 with PKR 0 difference. Cash paid/refunded 150/150; Card physical-cash effect 0; no task-owned open shift. |
@@ -293,6 +293,87 @@ Current result:
 Customer ledger presentation and reference routing are fixed. The July 26
 transaction history was not recreated, and no production mutation was
 performed during closure. Customer settlement remains open.
+
+## 2026-08-02 Repair Customer Tenant Integrity P1 Closure
+
+`REPAIR-CUSTOMER-TENANT-INTEGRITY-001` was discovered while investigating
+`LIVE-REPAIR-OPTIONAL-001`. The retained local reproducer created an
+organization-A repair linked to an organization-B customer because the Repair
+action accepted the submitted UUID without verifying customer ownership and
+the database foreign key covered customer ID only. Optional-field source work
+stopped, P1 temporarily became 1, and finishing became
+`FINISHING BLOCKED — ACTIVE P1 TENANT INTEGRITY`.
+
+Source and migration delivery:
+
+- Source PR: #326
+- Reviewed source head: `446d08e7c88f981e418391103abe03a2dc4b7eae`
+- Source squash: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
+- Source correction: selected customer ID is checked against the authenticated
+  organization before repair, history, or audit mutation; only customer ID is
+  selected and the error is generic.
+- Migration: `20260729133000_enforce_repair_customer_tenant_integrity.sql`
+- Migration version: `20260729133000`
+- Equivalent migration delivery preflight: passed after a complete Supabase
+  shadow replay; per-PR Supabase Preview was disabled and was not represented
+  as passed.
+- Production preflight: 3 repairs, 3 linked, 0 organization mismatches, and 0
+  incompatible object conflicts on PostgreSQL 17.6.1.121.
+- Migration delivery: automatic and exactly once between source merge
+  `2026-08-02T08:06:23Z` and first retained metadata verification
+  `2026-08-02T08:11:18.427156Z`; no duplicate manual apply occurred.
+- Production invariant: validated
+  `repairs_organization_customer_id_fkey` on
+  `(organization_id, customer_id) -> customers(organization_id, id)`, with
+  `ON UPDATE RESTRICT`, customer deletion clearing only `customer_id`, and
+  null links preserved.
+- Post-migration mismatches: 0.
+
+Production verification:
+
+- Rollback-only probe: the attempted incompatible cross-organization update
+  failed with SQLSTATE `23503`; the explicit transaction fully rolled back.
+- Persistent production fixture/business mutation: zero.
+- Authenticated identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR,
+  Asia/Karachi.
+- Read-only Repairs, `/repairs?add=1`, tenant-visible customer search, existing
+  same-organization link, detail, and status history checks passed.
+- No foreign customer data was exposed and no Repair Intake form was submitted.
+- A preliminary `/repairs/new` read resolved through the dynamic repair-ID route
+  and showed the generic error page; no mutation occurred and it is not an
+  application defect finding.
+- Live marker: `LIVE-REPAIR-TENANT-20260802-1306-AE5C`, evidence metadata only.
+- Evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-live-verification`
+- Manifest SHA-256:
+  `934124226da08ebd09c410570188840571c50205d6e379f8ccddac1a854dae0e`
+
+Focused documentation delivery:
+
+- PR: #327
+- Head: `98375cb4e79cc364f6baf4da91d2c1b286645af6`
+- Documentation squash: `8afbc37751a76edb93d52175146be6dbb619a0a3`
+- Final deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`
+
+Current result:
+
+- P0/P1: 0/0
+- P2: 6
+- P3: 5
+- Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**
+- `LIVE-REPAIR-OPTIONAL-001`: open; root cause established; correction absent
+- Repair statuses and permissions: unchanged
+- Settlement findings and cashier limitation: unchanged
+- Accounting, stock/FIFO, and Cash Drawer: unchanged
+- Audit-ready: no
+- MVP-live: no
+- Next task: resume `LIVE-REPAIR-OPTIONAL-001` from retained evidence on a
+  fresh current-main worktree.
+
+This dated closure preserves the chronology: finishing was accepted at 0/0/6/5
+before discovery, blocked while the new P1 was active, and returned to accepted
+at 0/0/6/5 only after source, migration, production, and focused documentation
+delivery completed. Older evidence is not rewritten.
 
 ## Historical Executive Summary (through 2026-07-14)
 
@@ -1158,6 +1239,7 @@ These limits do not reopen fixed P1 results without new contradictory evidence.
 | Expense timestamp preservation | `03eeda4a014852d294bc790b81c308d716802221` | `191c1a83229c0ad4aaeab97922b07be499e60f54` | Karachi conversion, unrelated-edit preservation, intentional conversion, and report date passed. |
 | Return-profit reconciliation | `68a86398f91cbfd240f8d3818c6bb866a4da2266` | `6542ab0577a02feaca26df9ac9dcb528f0caa564` | Full restocked return, exact restored FIFO cost, Dashboard profit, and Reports profit reconciled. |
 | Dashboard net-cash reconciliation | `8f8202a428a88bd8d72d178facbafb775eb1abf8` | `0b94dcb072a204539aa4608d53e0237a77c058fe` | Card sale/refund delta zero, Cash sale/refund +150/-150, starting-float exclusion, and shift 1,000/1,000/0 passed. |
+| Repair/customer tenant integrity | `12de0dd189d0c41895e4da5ca06bd880d17ee98b` | `8afbc37751a76edb93d52175146be6dbb619a0a3` | Zero production mismatches, validated composite FK, rollback-only `23503` rejection, and read-only authenticated Repair UI passed. |
 
 ## Current Recommendation And Next Task
 
@@ -1167,16 +1249,17 @@ Current recommendation:
 
 Immediate next task:
 
-1. Perform one focused review-first investigation of `LIVE-REPAIR-OPTIONAL-001`.
+1. Resume `LIVE-REPAIR-OPTIONAL-001` from retained root-cause evidence on a
+   fresh current-main worktree.
 2. Keep it separate from repair status redesign, customer or supplier
    settlement, and every other P2/P3 finding.
 3. Do not begin another P2 source investigation from this documentation synchronization.
 
-Blank fields presented as optional can reject with `Invalid UUID`; rejected
-attempts created zero repair rows and audits, while a fully populated repair
-lifecycle completed safely. Prove whether validation, form normalization, or
-persistence causes the rejection. Do not mutate production during the initial
-investigation.
+Do not repeat the tenant investigation or reuse the protected old optional
+worktree. Reverify current source, reuse the retained 28-case schema matrix and
+browser evidence, implement only the proven blank-optional normalization and
+strict malformed nonblank date validation, and rerun the current-main safety
+matrix. Do not mutate production during initial source work.
 
 ## Current Safety Confirmation
 
@@ -1195,7 +1278,9 @@ remain. Authenticated owner production acceptance passed across the recorded
 routes and bounded workflows, but authenticated cashier acceptance was
 unavailable. Customer/supplier settlement risks, Repairs optional-field
 behavior, invoice filters, and invoice thermal pagination remain explicit.
-Customer lifecycle auditing and customer ledger presentation are closed.
+Customer lifecycle auditing, customer ledger presentation, and repair/customer
+tenant integrity are closed. Repair optional-field validation remains open with
+its root cause established and its correction absent.
 
 The current recommendation is **FINISHING ACCEPTED WITH LIMITED COVERAGE**, not
 a claim that the full product audit is complete without caveat.
