@@ -1,5 +1,5 @@
 # SaleDock Cloud POS — Continuation Brief
-*Canonical handoff after the authenticated read-only 29 July 2026 customer ledger presentation closure.*
+*Canonical handoff after the production-verified 2 August 2026 repair/customer tenant-integrity P1 closure.*
 
 ## Owner And Production
 
@@ -11,14 +11,12 @@ boundaries, and no credentials in chat.
 ## Current Repository And Production
 
 - Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
-- Canonical synchronization base: `d15530cca701b597c81778e7b984627d959fe6fc`
-- Latest application-behavior commit: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
-- Latest behavior change: `fix: correct customer ledger references`
-- Latest focused documentation commit: `d15530cca701b597c81778e7b984627d959fe6fc`
-- Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`, Ready/current
-
-This canonical synchronization changes documentation only. It performs no
-production mutation and does not repeat the customer ledger inspection.
+- Canonical synchronization base: `8afbc37751a76edb93d52175146be6dbb619a0a3`
+- Latest application-behavior commit: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
+- Latest behavior change: `fix: enforce repair customer tenant integrity`
+- Latest focused documentation commit: `8afbc37751a76edb93d52175146be6dbb619a0a3`
+- Production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`, Ready/current
+- Migration: `20260729133000_enforce_repair_customer_tenant_integrity.sql`
 
 ## Current Classification
 
@@ -38,27 +36,28 @@ financial mutation was performed.
 
 ## Exact Active P2 Register
 
-1. `LIVE-REPAIR-OPTIONAL-001` — blank fields presented as optional can reject
-   with `Invalid UUID`; rejected attempts wrote nothing and a fully populated
-   repair completed safely.
-2. `LIVE-INVOICE-FILTER-001` — search, date, payment-method, status, and Reset
-   controls are absent or materially incomplete.
-3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` — 80mm content is correct on page one
-   with one blank trailing page; A4 is complete.
-4. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2` — one
-   exact server/accounting commit can leave the connected page on
-   `Processing...`; independent truth and one reload recover it.
-5. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2` — one exact
-   server/accounting commit can leave the page on `Recording...`; independent
-   truth and one reload recover it.
-6. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2` — source permission contracts
-   were reviewed, but authenticated cashier production acceptance was
-   unavailable.
-
-Customer and supplier settlement are not fixed. Never resubmit solely because
-the original page remains pending. The waiver covers only one exact successful
-commit with correct independent truth, no duplicate, and recovery after one
-reload.
+1. `LIVE-REPAIR-OPTIONAL-001`
+   - Root cause is substantially established, but no correction exists.
+   - The form submits `customer_id=""` when no registered customer is selected;
+     the schema does not normalize that HTML blank string to the empty relation.
+   - Optional-string preprocessing runs at the wrong validation layer.
+   - Blank expected-delivery date is not normalized and malformed nonblank date
+     values can pass insufficient validation.
+   - Rejected attempts wrote no repair, history, audit, customer, financial, or
+     Cash Drawer row.
+2. `LIVE-INVOICE-FILTER-001`
+   - Search, date, payment-method, status, and Reset controls remain incomplete.
+3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
+   - 80mm content is correct on page one with one blank trailing page; A4 is complete.
+4. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`
+   - One exact server/accounting commit can leave the connected page on
+     `Processing...`; independent truth and one reload recover it.
+5. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`
+   - One exact server/accounting commit can leave the page on `Recording...`;
+     independent truth and one reload recover it.
+6. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`
+   - Permission contracts passed, but authenticated cashier production
+     acceptance was unavailable.
 
 ## Exact Active P3 Register
 
@@ -68,119 +67,91 @@ reload.
 4. Daily Closing hydration and print-footer noise.
 5. Narrow mobile invoice-title and summary-label wrapping.
 
-The customer lifecycle rerun's pending create/update pages and initially stale
-Restore do not create a sixth P3. They remain within the existing
-customer-settlement client-completion boundary.
+## Closed Tenant-Integrity P1
 
-## Customer Lifecycle Audit Closure
+`REPAIR-CUSTOMER-TENANT-INTEGRITY-001` is fixed and production-verified.
 
-`LIVE-CUSTOMER-AUDIT-001` is closed.
+- Discovery: the optional-field investigation created a synthetic repair in one
+  organization linked to a customer from another. Optional source work stopped,
+  P1 temporarily became 1, and finishing was blocked.
+- Source PR #326: reviewed head
+  `446d08e7c88f981e418391103abe03a2dc4b7eae`, squash
+  `12de0dd189d0c41895e4da5ca06bd880d17ee98b`.
+- Source behavior: `saveRepairAction` now checks customer ID plus authenticated
+  organization ID before repair, history, or audit mutation and selects only ID.
+- Database behavior: a validated composite FK enforces
+  `(organization_id, customer_id) -> customers(organization_id, id)` with
+  `ON UPDATE RESTRICT` and customer deletion clearing only `customer_id`.
+- Production preflight: 3 repairs, 3 linked, 0 mismatches, 0 conflicts.
+- Equivalent migration delivery preflight: passed. Supabase Preview was disabled
+  and was not represented as passed.
+- Migration delivery: automatic and exactly once between source merge
+  `2026-08-02T08:06:23Z` and first retained verification
+  `2026-08-02T08:11:18.427156Z`; no duplicate manual apply.
+- Rollback-only probe: incompatible cross-organization reassignment failed with
+  SQLSTATE `23503`, fully rolled back, and left no persistent fixture.
+- Focused documentation PR #327: head
+  `98375cb4e79cc364f6baf4da91d2c1b286645af6`, squash
+  `8afbc37751a76edb93d52175146be6dbb619a0a3`.
 
-- Source PR #320: reviewed head
-  `16f1fa9037ad998e4f8005eab17f4f44dcd9b8b8`, squash
-  `31e20a58d36657d9bca00ed13aa09c5b07711059`.
-- Source deployment: `Dn4teeYnjpW2eKEYwFfuvSvgxzde`.
-- The first attempt, marker `LIVE-CUSTOMER-AUDIT-20260729-0421-911A`,
-  customer `9fbf4b37-47ce-4dc0-be2f-9b7e653ea508`, is retained as incomplete.
-  Credit Limit PKR 500 was not visibly confirmed, PKR 0 persisted, and no
-  persistence defect was inferred.
-- The successful rerun, marker
-  `LIVE-CUSTOMER-AUDIT-RERUN-20260729-0447-17BE`, customer
-  `b970bc25-0299-455e-b6b7-c0ffb6953bb2`, visibly established and persisted
-  PKR 500 on create and PKR 600 on the genuine update.
-- Exact lifecycle totals: one `customers.created`, one `customers.updated`, two
-  `customers.archived`, and one `customers.restored`.
-- The identical no-op update created no row change or audit.
-- Audits identified Fardan Aatir, Star Shop, Main Branch, and the exact customer
-  ID without raw phone, email, address, or Notes values.
-- Both marked customers remain archived with balance PKR 0. Marker financial
-  rows were zero; Customer Dues, Net Cash, Cash Drawer, stock/FIFO, supplier
-  dues, and open shifts were unchanged.
-- Focused documentation PR #321: head
-  `ade6527a9bca4e3ebdc7f3d10e87fa3238a01813`, squash
-  `157c0181fbe8c4cf79d0904e3a39a5443df57288`, final deployment
-  `DzCZELXPyhHwRBfZaH2MLwTUe58w`.
+Tenant integrity is fixed. Optional-field validation is not fixed. Repair
+statuses and permissions are unchanged; customer/supplier settlement risks
+remain open; accounting, stock/FIFO, and Cash Drawer behavior are unchanged.
 
-Customer lifecycle auditing is fixed. Customer-settlement client completion is
-not fixed.
+## Retained Optional-Field Evidence
 
-## Customer Ledger Presentation Closure
+- Evidence path:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`
+- Manifest SHA-256:
+  `bb3b253cf534e851ae8e595c3f97357d5c2c88d64af5232c49ce1edb53f3b047`
+- Manifest entries: 15/15 verified.
+- Schema matrix: 28 cases.
+- Old protected worktree:
+  `/Users/sw12/Projects/saledock-repair-optional-fields`
+- Old branch: `fix/repair-optional-fields`
+- Old HEAD: `22f444dacad4d6a0465a83ad5cd112fe8df7acee`
+- Source commit/push/PR: none.
 
-`LIVE-CUSTOMER-LEDGER-001` is closed.
-
-- Source PR #323: reviewed head
-  `c94390bfbb6286cdadb3f3a5d733c3ef95dd67e8`, squash
-  `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`.
-- Source deployment: `GuqL5ytTPBn93zHrXpxEsotPgX33`.
-- Read-only marker: `LIVE-CUSTOMER-LEDGER-20260729-1615-C409`.
-- Retained customer: `0dd1406a-ed51-4ff4-9f30-24a32b2d2ac4`.
-- `INV-100361` now links through invoice ID
-  `d78ef3f5-7480-4e40-a330-38ec7791028b`, not historical ledger-entry ID
-  `432d7aef-7214-41d7-ae05-0d04c228248e`.
-- Returns & refunds now shows completed `RET-001006`, return ID
-  `a473366e-6617-468b-981c-668169b2282e`, PKR 150 subtotal, and PKR 150 Card
-  refund with correct return and invoice routes.
-- Debt accounting remains one PKR 150 invoice debit, one PKR 150 Credit
-  Payment, and final balance PKR 0. No synthetic fully-paid-return debt row
-  was added.
-- Duplicate ledger and return rows were zero. Production mutations were zero.
-- Desktop, 390×844, and 320×568 presentation checks passed.
-- Focused documentation PR #324: head
-  `8d210692893d5010fcfafd12f44422ba451bc5dd`, squash
-  `d15530cca701b597c81778e7b984627d959fe6fc`, final deployment
-  `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`.
-
-Customer ledger presentation and reference routing are fixed. Customer debt
-accounting did not change, and customer-settlement client completion remains
-open.
+Do not switch, reset, rebase, clean, delete, or reuse that worktree. The next
+source task must create a fresh worktree from current main and reuse this
+evidence rather than repeating the complete investigation.
 
 ## Evidence Boundaries
 
-- Local source evidence:
-  `/Users/sw12/Projects/saledock-local-evidence/customer-lifecycle-audit-fix`;
-  manifest `50d6b1079a70f4b9848dd2e79e1c85a52874b1425cd6ddbcadd3899f708d2342`
-  with 11 verified entries.
-- First production evidence:
-  `/Users/sw12/Projects/saledock-local-evidence/customer-lifecycle-audit-live-verification`;
-  manifest `3f82d47d3926524c910eab1f601f77d82cb193b7fa71c8efbff651695483a1c0`
-  with 12 verified entries.
-- Successful rerun evidence:
-  `/Users/sw12/Projects/saledock-local-evidence/customer-lifecycle-audit-live-verification-rerun`;
-  manifest `d523c3a17c863e007df3d0c347cc8ec4d708b35e129fdfc990821de14008133e`
-  with 22 verified entries and 12 screenshots.
-- Focused QA record: `docs/qa/customer-lifecycle-audit-fix.md`.
-- Customer ledger source evidence:
-  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-fix`;
-  manifest `94285126c79f43809025beb761f664faa85cf6618a0bd4407c1bac5c1d1b7d11`
-  with 21 verified entries.
-- Customer ledger read-only live evidence:
-  `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`;
-  manifest `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
-  with 14 verified entries and seven screenshots.
-- Customer ledger focused QA record:
-  `docs/qa/customer-ledger-presentation-fix.md`.
+- Tenant source evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-fix`
+- Tenant source manifest:
+  `64b29417ce8e3418474b3678bb377e7770a88eda5bd4562be3793ae2baf7b095`
+- Tenant live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-live-verification`
+- Tenant live manifest:
+  `934124226da08ebd09c410570188840571c50205d6e379f8ccddac1a854dae0e`
+- Live marker: `LIVE-REPAIR-TENANT-20260802-1306-AE5C`, evidence metadata only.
+- Focused QA record: `docs/qa/repair-customer-tenant-integrity-fix.md`.
 
-Local evidence is not authenticated production proof. The incomplete first
-attempt and successful rerun must always remain distinct.
+Local evidence is not authenticated production proof. The production database
+probe attempted one write inside an explicit transaction but fully rolled back;
+the truthful boundary is zero persistent fixture and zero persistent business
+mutation, not zero SQL write attempts.
 
-## Durable Safety Boundaries
+## Settlement And Safety Boundaries
 
+- Customer and supplier settlement client completion remain open.
+- Never resubmit solely because the connected page remains pending.
 - Keep organization and branch scope explicit.
-- Keep Cash and non-cash accounting separate.
-- Preserve exact FIFO allocation costs and retained financial history.
-- Customer balances and ledger entries must reconcile to transaction truth.
-- Do not treat a server commit as client settlement.
-- Do not resubmit while a page is pending when independent truth is available.
-- Do not change payment, settlement, write-off, Cash Drawer, Dashboard,
-  Reports, permissions, RLS, or schema without focused evidence.
+- Preserve Cash/non-cash separation, FIFO allocations, retained history, and
+  customer/supplier balance truth.
+- Do not change repair statuses, permissions, settlement, accounting, stock,
+  FIFO, Dashboard, Reports, Cash Drawer, RLS, or schema in the optional task.
 - Public HTTP proves availability only.
 
 ## Protection And Archives
 
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader pre-task inventory: 42 worktrees and 28 dirty/untracked files.
-- The authorized canonical synchronization worktree raises the in-task total
-  to 43 worktrees; dirty/untracked protected files remain 28.
+- Broader opening inventory for this synchronization: 46 worktrees and 28
+  dirty/untracked entries.
+- The authorized new canonical worktree raises the in-task total to 47;
+  dirty/untracked entries remain 28.
 - Expenses diagnostic:
   `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic:
@@ -189,30 +160,32 @@ attempt and successful rerun must always remain distinct.
 - Forty-three historical archives remain unavailable.
 - None was restored, reconstructed, or represented as physically available.
 
-Never reset, clean, stash, switch, delete, overwrite, or reuse a protected
-worktree.
-
 ## Immediate Next Task
 
-Perform one focused review-first investigation of:
+Resume `LIVE-REPAIR-OPTIONAL-001` only.
 
-`LIVE-REPAIR-OPTIONAL-001`
+1. Create a fresh worktree from the then-current main.
+2. Reverify current Repair form, schema, action, and tenant-invariant source.
+3. Reuse the retained 28-case schema matrix and browser evidence.
+4. Implement only the proven blank-optional normalization and malformed
+   nonblank expected-delivery date-validation correction.
+5. Rerun current-main repair, tenant, role, status, audit, accounting, cleanup,
+   and duplicate protections.
+6. Keep the task review-first and do not mutate production during source work.
 
-Blank fields presented as optional can reject with `Invalid UUID`; rejected
-attempts wrote no repair row or audit, while a fully populated repair lifecycle
-completed safely. Determine whether validation, form normalization, or
-persistence causes the rejection. Do not combine repair status redesign,
-customer or supplier settlement, or another P2/P3 finding. Do not mutate
-production during the initial investigation.
+Do not combine repair status redesign, customer/supplier settlement, invoice
+work, cashier coverage, or another P2/P3 finding. Do not repeat the completed
+tenant-integrity correction.
 
 ## Files A New Chat Should Read
 
 1. `02_CURRENT_STATE.md`
 2. `03_REMEMBER.md`
 3. `CHATGPT_CONTINUATION_BRIEF.md`
-4. `docs/qa/live-finishing-continuation-acceptance-2026-07-26.md`
-5. `docs/qa/customer-ledger-presentation-fix.md`
-6. Relevant focused QA records only as needed
+4. `docs/qa/repair-customer-tenant-integrity-fix.md`
+5. `docs/qa/live-finishing-continuation-acceptance-2026-07-26.md`
+6. `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`
+7. Relevant focused QA records only as needed
 
-Do not require nonexistent attachments. Do not call SaleDock audit-ready or
+Do not require nonexistent attachments. SaleDock is not audit-ready and not
 MVP-live.

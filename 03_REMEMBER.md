@@ -1,5 +1,5 @@
 # 03 — Remember For The Future — SaleDock Cloud POS
-*Durable memory. Last updated: 29 July 2026 after customer ledger presentation closure.*
+*Durable memory. Last updated: 2 August 2026 after repair/customer tenant-integrity P1 closure.*
 
 ## Who Fardan Is
 
@@ -11,11 +11,11 @@
 
 ## Current Durable Status
 
-- Canonical synchronization base: `d15530cca701b597c81778e7b984627d959fe6fc`.
-- Latest application-behavior commit: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`.
-- Latest behavior change: `fix: correct customer ledger references`.
-- Latest focused documentation commit: `d15530cca701b597c81778e7b984627d959fe6fc`.
-- Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`, Ready/current for the synchronization base.
+- Canonical synchronization base: `8afbc37751a76edb93d52175146be6dbb619a0a3`.
+- Latest application-behavior commit: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`.
+- Latest behavior change: `fix: enforce repair customer tenant integrity`.
+- Latest focused documentation commit: `8afbc37751a76edb93d52175146be6dbb619a0a3`.
+- Production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`, Ready/current for the synchronization base.
 - Classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**.
 - P0 active: **0**.
 - P1 active: **0**.
@@ -65,7 +65,13 @@ Daily Closing formulas, or shift formulas without a focused accounting review.
 Keep all six items independently visible:
 
 1. `LIVE-REPAIR-OPTIONAL-001`
-   - Blank fields presented as optional can fail with `Invalid UUID`; rejected attempts wrote nothing.
+   - The root cause is substantially established, not unknown.
+   - The form submits blank `customer_id`, but UUID validation does not normalize
+     the HTML blank string to the accepted empty relation shape.
+   - Optional-string preprocessing sits at the wrong validation layer, and
+     malformed nonblank expected-delivery dates can pass insufficient validation.
+   - The retained 28-case matrix and browser evidence must be reused; the
+     correction is not implemented and production remains affected.
 2. `LIVE-INVOICE-FILTER-001`
    - Search/date/payment/status/Reset controls are absent or materially incomplete.
 3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
@@ -161,6 +167,32 @@ Customer-settlement client completion remains a separate open P2 finding.
 Customer ledger presentation and reference routing are fixed without changing
 customer debt accounting. Customer-settlement client completion remains open.
 
+## Repair Customer Tenant Integrity Truth
+
+`REPAIR-CUSTOMER-TENANT-INTEGRITY-001` is fixed and production-verified.
+
+- It was discovered during the retained optional-field investigation, which
+  created a synthetic cross-organization repair/customer link and stopped the
+  optional correction under a temporary active P1 finishing block.
+- PR #326 delivered reviewed head
+  `446d08e7c88f981e418391103abe03a2dc4b7eae` as squash
+  `12de0dd189d0c41895e4da5ca06bd880d17ee98b`.
+- Migration `20260729133000_enforce_repair_customer_tenant_integrity.sql`
+  (`20260729133000`) was delivered exactly once automatically after merge.
+- The durable production invariant is a validated composite repair/customer FK:
+  `(organization_id, customer_id) -> customers(organization_id, id)`.
+- Production preflight and post-migration mismatch counts were 0. The
+  rollback-only cross-tenant probe failed with `23503` and fully rolled back.
+- No persistent production fixture or business mutation remained.
+- PR #327 recorded the live result from head
+  `98375cb4e79cc364f6baf4da91d2c1b286645af6` in documentation squash
+  `8afbc37751a76edb93d52175146be6dbb619a0a3` and final deployment
+  `GooqVaWAfTVhunUU1eYFyBLguiDx`.
+
+Do not reopen tenant integrity without contradictory evidence. Optional repair
+field validation is still open; repair statuses, permissions, settlement,
+accounting, stock/FIFO, and Cash Drawer behavior were not changed.
+
 ## Settlement Waiver Boundaries
 
 Customer settlement and supplier payment are not fixed.
@@ -192,7 +224,7 @@ boundary; they do not create a new P3 or close the customer-settlement P2.
 
 1. Historical/intermittent Expenses original-page settlement delay with correct server truth.
 2. Expense Restore original-page settlement recovered after reload.
-3. Expense Reset visible date fields can retain stale presentation after route reset.
+3. Expense Reset date-field presentation can remain stale after route reset.
 4. Daily Closing hydration and print-footer noise can appear while cash truth remains correct.
 5. Narrow mobile invoice-title ellipsis and summary-label wrapping.
 
@@ -233,10 +265,15 @@ stock, or recovery harm.
 
 - Always enumerate worktrees and dirty/untracked files before work.
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader pre-task inventory for the 29 July synchronization: 42 worktrees and
-  28 dirty/untracked files.
-- The new clean `docs/canonical-customer-ledger-sync` worktree is authorized
-  separately, bringing the in-task worktree total to 43.
+- Broader inventory before the 2 August canonical synchronization: 46
+  worktrees and 28 dirty/untracked entries. The authorized new clean
+  `docs/canonical-repair-tenant-integrity-sync` worktree raises the in-task
+  total to 47 while dirty/untracked entries remain 28.
+- The old optional-field worktree
+  `/Users/sw12/Projects/saledock-repair-optional-fields` remains protected on
+  `fix/repair-optional-fields` at
+  `22f444dacad4d6a0465a83ad5cd112fe8df7acee`. It has no tracked changes,
+  source commit, push, or PR and must not be reused for current-main work.
 - Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`.
 - Twenty-nine historical archives were verified before their ephemeral `/tmp` copies expired.
@@ -265,6 +302,7 @@ Do not reopen these results without contradictory evidence:
 - Expense timestamp preservation: source `03eeda4a014852d294bc790b81c308d716802221`, docs `191c1a83229c0ad4aaeab97922b07be499e60f54`.
 - Return-profit reconciliation: source `68a86398f91cbfd240f8d3818c6bb866a4da2266`, docs `6542ab0577a02feaca26df9ac9dcb528f0caa564`.
 - Dashboard net-cash reconciliation: source `8f8202a428a88bd8d72d178facbafb775eb1abf8`, docs `0b94dcb072a204539aa4608d53e0237a77c058fe`.
+- Repair/customer tenant integrity: source `12de0dd189d0c41895e4da5ca06bd880d17ee98b`, docs `8afbc37751a76edb93d52175146be6dbb619a0a3`; migration version `20260729133000`, production mismatch 0, and rollback-only probe `23503`.
 
 ## Historical Facts Worth Keeping
 
@@ -282,14 +320,17 @@ Do not reopen these results without contradictory evidence:
   fixed customer ledger references and return/refund presentation; PR #324 and
   documentation squash `d15530cca701b597c81778e7b984627d959fe6fc`
   recorded the read-only production closure while leaving settlement open.
+- PR #326 and source squash `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
+  fixed repair/customer tenant integrity; PR #327 and documentation squash
+  `8afbc37751a76edb93d52175146be6dbb619a0a3` recorded the production closure
+  while leaving `LIVE-REPAIR-OPTIONAL-001` open.
 - Reports, Returns, and Repairs print fixes retain their recorded local evidence.
 - MN-007 remains a development-only CSP/hydration observation in the environments tested.
 - Older mobile-native audit counts describe their dated finding set. They are not the current finishing P2/P3 register.
 
 ## Immediate Next Task
 
-Perform one focused review-first investigation of
-`LIVE-REPAIR-OPTIONAL-001`.
+Resume `LIVE-REPAIR-OPTIONAL-001` only from retained root-cause evidence.
 
 Keep it separate from:
 
@@ -299,11 +340,13 @@ Keep it separate from:
 - another P2 or P3 finding;
 - cashier coverage.
 
-Blank fields presented as optional can reject with `Invalid UUID`, while
-rejected attempts created no repair rows or audits and a fully populated repair
-lifecycle completed safely. Keep the investigation review-first and determine
-whether validation, form normalization, or persistence causes the rejection.
-Do not mutate production during the initial investigation.
+Create a fresh worktree from the then-current main; do not reuse, reset, or
+rebase the protected old worktree. Reverify current source, reuse the retained
+28-case schema matrix and browser evidence, and implement only the proven blank
+optional normalization and malformed nonblank date-validation correction.
+Rerun current-main tenant, role, status, audit, accounting, cleanup, and
+duplicate protections. Keep the task review-first and do not mutate production
+during initial source work.
 
 ## Standing Safety Rules
 

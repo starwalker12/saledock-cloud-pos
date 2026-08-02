@@ -797,15 +797,97 @@ accounting was not changed, and customer-settlement client completion remains
 open. The cashier limitation is unchanged. SaleDock is not audit-ready and not
 MVP-live.
 
-Current next task:
+Historical next task at the 2026-07-29 checkpoint:
 
 `LIVE-REPAIR-OPTIONAL-001`
 
-Keep the next task review-first and determine whether validation, form
-normalization, or persistence causes blank fields presented as optional to
-reject with `Invalid UUID`. Do not combine it with repair status redesign,
-customer or supplier settlement, or another P2/P3 finding. Do not mutate
-production during the initial investigation.
+At that dated checkpoint, the required work was a review-first determination
+of whether validation, form normalization, or persistence caused blank fields
+presented as optional to reject with `Invalid UUID`. The 2026-08-02 closure
+section below supersedes that instruction with the established root cause and
+the bounded implementation task.
+
+## 2026-08-02 Post-Acceptance P1 Closure — Repair Customer Tenant Integrity
+
+The `LIVE-REPAIR-OPTIONAL-001` investigation discovered the independent P1
+`REPAIR-CUSTOMER-TENANT-INTEGRITY-001`:
+one retained synthetic local repair in the authenticated organization could be
+linked to a customer from another organization. The Repair action trusted the
+well-formed customer UUID without checking organization ownership, and the
+database foreign key covered customer ID only. Optional-field source work
+stopped; P1 temporarily became 1; operational state became
+`FINISHING BLOCKED — ACTIVE P1 TENANT INTEGRITY`.
+
+Source and database correction:
+
+- Source PR: #326
+- Reviewed source head: `446d08e7c88f981e418391103abe03a2dc4b7eae`
+- Source squash: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
+- Migration: `20260729133000_enforce_repair_customer_tenant_integrity.sql`
+- Migration version: `20260729133000`
+- Action behavior: selected customer ID is checked against the authenticated
+  organization before repair, history, or audit mutation; quick-created
+  customers remain organization-owned.
+- Database invariant: validated composite
+  `(organization_id, customer_id) -> customers(organization_id, id)` FK with
+  `ON UPDATE RESTRICT`, null links retained, and customer deletion clearing
+  only `customer_id`.
+
+Delivery and production proof:
+
+- Privileged pre-migration production count: 3 repairs, 3 linked, 0 mismatches,
+  and 0 incompatible object conflicts on PostgreSQL 17.6.1.121.
+- Equivalent migration delivery preflight: passed through the final complete
+  Supabase shadow replay, database lint, history consistency, mismatch
+  rollback proof, and zero public-schema diff. Per-PR Supabase Preview was
+  disabled and was not represented as passed.
+- Earlier disposable reset chronology: it stopped at historical Storage
+  migration `0024`; the later complete shadow replay passed `0024` and reached
+  the tenant migration, superseding that limitation.
+- Production migration delivery: automatic and exactly once in the bounded
+  window from source merge `2026-08-02T08:06:23Z` to first retained metadata
+  verification `2026-08-02T08:11:18.427156Z`; no exact application timestamp
+  was exposed and no duplicate manual apply was issued.
+- Post-migration mismatch count: 0.
+- Rollback-only probe: one incompatible cross-organization reassignment failed
+  with SQLSTATE `23503`; the explicit transaction fully rolled back.
+- Persistent production fixture/business mutation: zero.
+- Authenticated read-only Repair UI, intake, tenant-visible customer search,
+  existing relationship, detail, and status-history checks passed without
+  foreign customer exposure or form submission.
+- Live marker: `LIVE-REPAIR-TENANT-20260802-1306-AE5C`, evidence metadata only.
+- Live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-live-verification`
+- Live manifest SHA-256:
+  `934124226da08ebd09c410570188840571c50205d6e379f8ccddac1a854dae0e`
+
+Focused documentation:
+
+- PR: #327
+- Head: `98375cb4e79cc364f6baf4da91d2c1b286645af6`
+- Documentation squash: `8afbc37751a76edb93d52175146be6dbb619a0a3`
+- Final production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`
+
+Current post-closure state:
+
+- P0 remained 0.
+- P1 returned from 1 to 0.
+- P2 remained 6.
+- P3 remained 5.
+- Finishing returned to **FINISHING ACCEPTED WITH LIMITED COVERAGE**.
+- `LIVE-REPAIR-OPTIONAL-001` remains open. Its blank UUID, optional-string
+  preprocessing, and malformed nonblank date root causes are established, but
+  no optional-field correction exists.
+- Repair statuses, permissions, settlement, accounting, stock/FIFO, and Cash
+  Drawer behavior remain unchanged.
+- Audit-ready: no.
+- MVP-live: no.
+- Next task: resume `LIVE-REPAIR-OPTIONAL-001` from retained evidence in a
+  fresh current-main worktree; do not reuse the protected old worktree or
+  repeat the tenant-integrity correction.
+
+This section records later chronology and does not rewrite the original July 26
+acceptance facts.
 
 ## Rollback And Finalization
 
@@ -819,5 +901,6 @@ If the canonical documentation synchronization must later be reverted:
 Risk remains open because six P2 findings or coverage limits and five P3
 observations remain, including Repairs optional-field behavior,
 customer/supplier settlement client completion, invoice presentation gaps, and
-unavailable authenticated cashier acceptance. Customer lifecycle auditing and
-customer ledger presentation are closed. No active P0 or P1 was found.
+unavailable authenticated cashier acceptance. Customer lifecycle auditing,
+customer ledger presentation, and repair/customer tenant integrity are closed.
+No active P0 or P1 remains.

@@ -1,19 +1,20 @@
 # 02 — Current State (LIVING — keep this updated)
-*Last updated: 29 July 2026 after customer ledger presentation closure.*
+*Last updated: 2 August 2026 after repair/customer tenant-integrity P1 closure.*
 
 ## Current Repository And Production
 
 - Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
-- Canonical synchronization base: `d15530cca701b597c81778e7b984627d959fe6fc`
-- Latest application-behavior commit: `4b68e379ed5b4e60c9dbbef9e6fe53dd32c90266`
-- Latest behavior change: `fix: correct customer ledger references`
-- Latest focused documentation commit: `d15530cca701b597c81778e7b984627d959fe6fc`
-- Production deployment: `Ayagpz9EfpCcYbX3fEYPR2jdpsyC`
+- Canonical synchronization base: `8afbc37751a76edb93d52175146be6dbb619a0a3`
+- Latest application-behavior commit: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
+- Latest behavior change: `fix: enforce repair customer tenant integrity`
+- Latest focused documentation commit: `8afbc37751a76edb93d52175146be6dbb619a0a3`
+- Production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`
 - Deployment state: Ready and current for the synchronization base
 - Production identity verified: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
 
-This documentation synchronization records the authenticated read-only closure
-of `LIVE-CUSTOMER-LEDGER-001`. It changes documentation only.
+This documentation synchronization records the discovery, temporary finishing
+block, and production-verified closure of
+`REPAIR-CUSTOMER-TENANT-INTEGRITY-001`. It changes documentation only.
 
 ## Current Classification
 
@@ -37,9 +38,16 @@ remains active.
 ## Active P2 Register
 
 1. `LIVE-REPAIR-OPTIONAL-001`
-   - Fields presented as optional can reject blank input with `Invalid UUID`.
-   - The rejected attempts created zero repair rows and zero audits.
-   - A valid explicitly filled repair workflow completed safely.
+   - The form submits `customer_id=""` when no registered customer is selected,
+     but the schema accepts a UUID/null/omission rather than the HTML blank string.
+   - Optional-string preprocessing runs at the wrong validation layer, so blank
+     Customer Phone, Device Model, Serial / IMEI, Accessories, and Notes can fail.
+   - Blank expected-delivery date is not normalized, while malformed nonblank
+     date values can pass insufficient validation.
+   - The retained 28-case schema matrix established the root cause; no optional
+     correction has been implemented and production remains affected.
+   - Rejected attempts created zero repair/history/audit/customer rows and zero
+     financial or Cash Drawer effect.
 2. `LIVE-INVOICE-FILTER-001`
    - Invoice search, date, payment-method, status, and Reset controls are absent or materially incomplete.
    - Invoice detail and retained financial truth are correct.
@@ -211,6 +219,51 @@ remained; retained historical totals were not assumed to be zero.
 
 Do not reopen these findings without new contradictory evidence.
 
+### `REPAIR-CUSTOMER-TENANT-INTEGRITY-001` — FIXED
+
+- Discovery: the retained `LIVE-REPAIR-OPTIONAL-001` investigation created one
+  synthetic cross-organization repair/customer link and stopped optional-field
+  source work. Finishing temporarily became
+  `FINISHING BLOCKED — ACTIVE P1 TENANT INTEGRITY` with P1 at 1.
+- Source PR: #326
+- Reviewed source head: `446d08e7c88f981e418391103abe03a2dc4b7eae`
+- Source squash: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
+- Migration: `20260729133000_enforce_repair_customer_tenant_integrity.sql`
+- Production preflight: 3 repairs, 3 linked repairs, 0 mismatches, and 0
+  incompatible object conflicts on PostgreSQL 17.6.1.121.
+- Equivalent migration delivery preflight: passed. Supabase Preview was
+  disabled and was not represented as passed.
+- Production delivery: the migration appeared exactly once automatically in
+  the window from source merge `2026-08-02T08:06:23Z` to first retained
+  metadata verification `2026-08-02T08:11:18.427156Z`; no duplicate manual
+  apply command was issued.
+- Production invariant: `repairs_organization_customer_id_fkey` is validated
+  for `(organization_id, customer_id) -> customers(organization_id, id)`, the
+  legacy ID-only FK is absent, null customer links remain supported, and the
+  post-migration mismatch count is 0.
+- Rollback-only probe: one internal-ID cross-organization reassignment failed
+  with SQLSTATE `23503`; the explicit transaction fully rolled back and left
+  no persistent fixture or business mutation.
+- Source deployment: `dpl_5VkXkjFCx1vwqdA2ukK639jrUVur`
+- Live marker: `LIVE-REPAIR-TENANT-20260802-1306-AE5C`
+- Live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-live-verification`
+- Live manifest SHA-256:
+  `934124226da08ebd09c410570188840571c50205d6e379f8ccddac1a854dae0e`
+- Focused documentation PR: #327
+- Focused documentation head: `98375cb4e79cc364f6baf4da91d2c1b286645af6`
+- Focused documentation squash: `8afbc37751a76edb93d52175146be6dbb619a0a3`
+- Final deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`
+
+Repair/customer tenant integrity is fixed. Optional repair-field validation is
+not fixed. Repair statuses and permissions are unchanged; settlement findings
+remain open; accounting, stock/FIFO, and Cash Drawer behavior are unchanged.
+
+Chronology remains explicit: before discovery P0/P1/P2/P3 were 0/0/6/5;
+during investigation P1 became 1 and finishing was blocked; after PRs #326 and
+#327 P1 returned to 0, P2/P3 remained 6/5, and finishing returned to accepted
+with limited coverage.
+
 | Area | Source merge | Documentation merge | Authenticated production result |
 | --- | --- | --- | --- |
 | Opening stock and FIFO atomicity | `da40ad2b846f69736231dfba9f8e46f013f6d247` | `2f71c5c0db0e2e799032087cd3077ab8c204e058` | Opening stock, movement, FIFO lot, and atomic consistency passed. |
@@ -218,13 +271,18 @@ Do not reopen these findings without new contradictory evidence.
 | Expense timestamp preservation | `03eeda4a014852d294bc790b81c308d716802221` | `191c1a83229c0ad4aaeab97922b07be499e60f54` | Karachi conversion, timestamp preservation, intentional conversion, and report date passed. |
 | Return-profit reconciliation | `68a86398f91cbfd240f8d3818c6bb866a4da2266` | `6542ab0577a02feaca26df9ac9dcb528f0caa564` | Full restocked return, exact restored FIFO cost, Dashboard profit, and Reports profit reconciled. |
 | Dashboard net-cash reconciliation | `8f8202a428a88bd8d72d178facbafb775eb1abf8` | `0b94dcb072a204539aa4608d53e0237a77c058fe` | Card sale/refund net cash stayed zero; Cash sale/refund moved +150/-150; starting float stayed excluded; shift reconciled 1,000/1,000/0. |
+| Repair/customer tenant integrity | `12de0dd189d0c41895e4da5ca06bd880d17ee98b` | `8afbc37751a76edb93d52175146be6dbb619a0a3` | Zero production mismatches, validated composite FK, rollback-only `23503` rejection, and read-only authenticated Repair UI passed. |
 
 ## Protection And Archive Reality
 
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader pre-task inventory: 42 worktrees and 28 dirty/untracked files.
-- The clean `docs/canonical-customer-ledger-sync` worktree is authorized
-  separately and raises the in-task worktree total to 43.
+- Broader chronology: 46 worktrees and 28 dirty/untracked entries before this
+  synchronization; the separately authorized clean
+  `docs/canonical-repair-tenant-integrity-sync` worktree raises the in-task
+  total to 47 while dirty/untracked entries remain 28.
+- The retained `/Users/sw12/Projects/saledock-repair-optional-fields` worktree
+  remains protected at `22f444dacad4d6a0465a83ad5cd112fe8df7acee` and must not
+  be switched, reset, rebased, cleaned, deleted, or reused.
 - Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`
 - Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`
 - Twenty-nine historical archives were previously verified; their ephemeral `/tmp` copies expired.
@@ -236,17 +294,19 @@ clean, stash, switch, overwrite, or delete a protected worktree.
 
 ## Immediate Next Task
 
-Perform one focused review-first investigation of:
-
-`LIVE-REPAIR-OPTIONAL-001`
+Resume `LIVE-REPAIR-OPTIONAL-001` from retained root-cause evidence.
 
 Reason:
 
-- Repair fields presented as optional can reject blank values with
-  `Invalid UUID`.
-- Rejected submissions created zero repair rows and zero audits.
-- A fully populated repair lifecycle completed safely.
-- Prove whether the issue is validation, form normalization, or persistence.
+- Do not redo the tenant investigation or rerun the complete discovery matrix.
+- Do not reuse the protected stale optional-field worktree.
+- Create a fresh worktree from the then-current main and reverify current
+  repair form, schema, action, and tenant invariant source.
+- Reuse the retained 28-case schema matrix and browser evidence.
+- Implement only the proven blank-optional normalization and strict nonblank
+  expected-delivery date validation correction.
+- Rerun the required current-main repair, tenant, role, audit, status,
+  accounting, cleanup, and duplicate safety matrix.
 
 Do not combine repair status redesign, customer or supplier settlement, or
 another P2/P3 finding into that task. Do not mutate production during the
@@ -271,6 +331,18 @@ review-first source investigation.
   `/Users/sw12/Projects/saledock-local-evidence/customer-ledger-presentation-live-verification`
 - Customer ledger live manifest SHA-256:
   `85e4dbacd4f9fd9f6b753c655d45d0035e7db22c6cee7c9747f7bdb4fd5084ec`
+- Tenant-integrity source evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-fix`
+- Tenant-integrity source manifest SHA-256:
+  `64b29417ce8e3418474b3678bb377e7770a88eda5bd4562be3793ae2baf7b095`
+- Tenant-integrity live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-live-verification`
+- Tenant-integrity live manifest SHA-256:
+  `934124226da08ebd09c410570188840571c50205d6e379f8ccddac1a854dae0e`
+- Retained optional-field evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`
+- Retained optional-field manifest SHA-256:
+  `bb3b253cf534e851ae8e595c3f97357d5c2c88d64af5232c49ce1edb53f3b047`
 - Focused QA records: `docs/qa/expense-restore-audit-fix.md` and
   `docs/qa/customer-lifecycle-audit-fix.md`, plus
   `docs/qa/customer-ledger-presentation-fix.md`
