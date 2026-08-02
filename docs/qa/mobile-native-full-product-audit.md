@@ -315,7 +315,8 @@ Source and migration delivery:
 - Migration: `20260729133000_enforce_repair_customer_tenant_integrity.sql`
 - Migration version: `20260729133000`
 - Equivalent migration delivery preflight: passed after a complete Supabase
-  shadow replay; per-PR Supabase Preview was disabled and was not called passed.
+  shadow replay; per-PR Supabase Preview was disabled and was not represented
+  as passed.
 - Production preflight: 3 repairs, 3 linked, 0 organization mismatches, and 0
   incompatible object conflicts on PostgreSQL 17.6.1.121.
 - Migration delivery: automatic and exactly once between source merge
