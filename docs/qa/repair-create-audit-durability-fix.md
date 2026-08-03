@@ -3,8 +3,9 @@
 ## Status
 
 - Finding: `REPAIR-CREATE-AUDIT-DURABILITY-001`
-- Source-task classification: draft correction under owner review
-- `LIVE-REPAIR-OPTIONAL-001`: still open pending later authenticated production acceptance
+- Source result: merged and authenticated production verified
+- Live result: `PASS - REPAIR-CREATE-AUDIT-DURABILITY-001 FIXED`
+- `LIVE-REPAIR-OPTIONAL-001`: closed by the same bounded production rerun
 - P0/P1: `0 / 0`
 - Active P2: `6`
 - Active P3: `5`
@@ -12,7 +13,20 @@
 - Audit-ready: no
 - MVP-live: no
 
-This task changes no production data, migration, schema, package, workflow, canonical document, repair validation rule, tenant rule, permission, status flow, settlement behavior, accounting, stock/FIFO, Dashboard formula, Reports formula, or Cash Drawer behavior.
+The source correction changed no migration, schema, package, workflow, canonical document, repair validation rule, tenant rule, permission, status flow, settlement behavior, accounting, stock/FIFO, Dashboard formula, Reports formula, or Cash Drawer behavior. The bounded production verification created one zero-financial repair and then cancelled it, retaining its truthful repair, history, and audit records.
+
+## Source Delivery
+
+- Pull request: #330, `fix: make repair create audit durable`
+- Reviewed source head: `14e920925bb5586b1923b6c9d2d8eb59615267c7`
+- Squash commit: `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`
+- Merge timestamp: `2026-08-02T23:59:44Z`
+- Main CI: run `30773416186`, successful
+- Production deployment: `DDtDXWcufFyhYHFStkKDSahE3uUD`, Ready and current for the exact squash
+- Local source evidence: `/Users/sw12/Projects/saledock-local-evidence/repair-create-audit-durability-fix`
+- Local evidence manifest SHA-256: `c6fd90f8791ef32fa916e1de784ad1bec0358fcbacce45c8138c603f4e8bc08b`
+
+Owner review authorized the exact five-file head. The final local confirmation passed 21/21 focused source contracts, 307/307 Node tests, all three production-mode repair E2Es with zero automatic retries, lint with zero errors, typecheck, and the production build. GitHub CI, Vercel Preview, exact-head senior review, comments, threads, requested changes, and mergeability were clean before squash merge.
 
 ## Production Acceptance Blocker
 
@@ -33,6 +47,28 @@ The same acceptance run exposed a separate audit durability blocker:
 - Duplicate repair: zero
 
 The later authorized cancellation created exactly one `received` to `cancelled` history and one truthful `repairs.status_changed` audit. `RJ-000004` remains cancelled and was not edited, deleted, restored, or otherwise mutated during this source task. No second production repair was created.
+
+## Authenticated Production Verification - 2026-08-03
+
+After deployment `DDtDXWcufFyhYHFStkKDSahE3uUD` became Ready and current for squash `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`, the bounded rerun used the authenticated Owner session for Fardan Aatir, Star Shop, Main Branch, PKR, and Asia/Karachi.
+
+- Evidence: `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification-rerun`
+- Manifest SHA-256: `64e1bf6d9619df9230854c02e44654d115ea58ebfb1e9131e537212e6703d8df`
+- Manifest entries: 18/18 verified
+- Screenshots: 7
+- Marker: `LIVE-REPAIR-OPTIONAL-RERUN-20260803-0504-91FB`
+- Repair: `RJ-000005`
+- Repair ID: `0d979a61-9d6a-41bd-91f8-d1e14a83e41b`
+- Initial history: exactly one `received` row
+- Create audit: exactly one `repairs.created` row
+- Duplicate repair/history/create audit: zero
+- Final state: `cancelled`
+
+The create audit committed before the successful intake response and identified the exact repair, actor, organization, and branch. It retained the established customer display name and device type only; phone, serial/IMEI, problem description, Notes, and accessories were absent. The walk-in customer relation remained null, no customer was created, tenant mismatches were zero, and every optional blank persisted in the established null representation.
+
+The authorized cancellation created one `received` to `cancelled` history and one `repairs.status_changed` audit. That status audit happened to persist, but `updateRepairStatusAction` remains fire-and-forget and its durability is not established. `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK - P2` remains open and is one of the six active P2 findings.
+
+Pending Repairs returned to its baseline of one. Customer and supplier dues, Net Cash, Cash Drawer, invoice/payment/write-off/return counts, stock quantity, FIFO quantity and valuation, and open shifts were unchanged. The historical `RJ-000004` remained cancelled with no retroactive create audit. No migration, schema change, backfill, retry, duplicate, or unrelated production mutation occurred.
 
 ## Baseline Source Ordering
 
@@ -221,8 +257,8 @@ Unchanged boundaries include:
 - accounting, Dashboard, Reports, stock/FIFO, and Cash Drawer;
 - packages, lockfile, workflows, and canonical documents.
 
-No migration is included. No production mutation occurred. Tenant integrity remains fixed. The optional-field correction remains delivered, but `LIVE-REPAIR-OPTIONAL-001` remains open until a separately authorized authenticated production rerun confirms the create audit.
+No migration is included. Tenant integrity remains fixed. The authenticated rerun proved the delivered optional-field behavior and durable create audit together, so `LIVE-REPAIR-OPTIONAL-001` and `REPAIR-CREATE-AUDIT-DURABILITY-001` are closed. P2 remains six because the separately scoped repair-status audit durability risk remains open; P3 remains five. Canonical synchronization is deferred to a separate owner-authorized task.
 
 ## Rollback
 
-Before merge, close the draft PR and delete only the isolated source branch/worktree when explicitly authorized. No production or schema rollback applies to this draft task.
+Revert the source delivery with `git revert de94a0e59de20c51e7c77cdbfa2fe496d30019e9 && git push origin main`. Do not delete `RJ-000005`, its histories, or its truthful audits. No migration or schema rollback applies.

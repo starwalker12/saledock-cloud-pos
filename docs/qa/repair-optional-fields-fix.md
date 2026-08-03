@@ -2,9 +2,11 @@
 
 ## Status
 
-`LIVE-REPAIR-OPTIONAL-001` is corrected only on the draft branch `fix/repair-optional-fields-current`. Production remains unchanged and affected until a separately authorized delivery and authenticated production verification.
+`LIVE-REPAIR-OPTIONAL-001` is fixed and authenticated production verified. PR #329 delivered the optional-field validation correction in squash `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`. PR #330 delivered the create-audit durability correction required to complete the live acceptance, in squash `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`.
 
-Current classification remains `FINISHING ACCEPTED WITH LIMITED COVERAGE`. P0 is 0, P1 is 0, P2 remains 6, and P3 remains 5. SaleDock is not audit-ready and is not MVP-live.
+Live result: `PASS - LIVE-REPAIR-OPTIONAL-001 FIXED`.
+
+Current classification remains `FINISHING ACCEPTED WITH LIMITED COVERAGE`. P0 is 0, P1 is 0, P2 remains 6 because the separately scoped repair-status audit durability risk is open, and P3 remains 5. SaleDock is not audit-ready and is not MVP-live.
 
 ## Production Finding And Retained Evidence
 
@@ -24,6 +26,51 @@ The retained local investigation is under `/Users/sw12/Projects/saledock-local-e
 - Retained baseline: 8 accepted and 20 rejected
 
 The current-main baseline at `edb1cc56c99b6aa6e7fee2f8f5502ab6ac2a5783` reproduced all 28 retained outcomes exactly before editing.
+
+## Source Delivery
+
+- Optional-field PR: #329, `fix: accept blank optional repair fields`
+- Reviewed optional-field head: `1da2887aabcf2736a258d089b8120b386d1011dc`
+- Optional-field squash: `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`
+- Optional-field production deployment: `ZhFyZfo3ZYqiYNqAP92uzgQZJ8Sa`
+- Audit-durability PR: #330, `fix: make repair create audit durable`
+- Reviewed audit-durability head: `14e920925bb5586b1923b6c9d2d8eb59615267c7`
+- Audit-durability squash: `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`
+- Audit-durability merge timestamp: `2026-08-02T23:59:44Z`
+- Main CI: run `30773416186`, successful
+- Final production deployment: `DDtDXWcufFyhYHFStkKDSahE3uUD`, Ready and current
+
+The optional-field source was already production-proven when the first authenticated acceptance stopped on missing `repairs.created` audit durability. PR #330 did not reopen or alter optional normalization, the repair form, tenant ownership, the tenant migration, permissions, status values, accounting, stock/FIFO, Dashboard, Reports, or Cash Drawer.
+
+## First Live Acceptance - Retained Blocker
+
+The first live acceptance remains truthful historical evidence, not a failed optional-validation result:
+
+- Evidence: `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification`
+- Manifest SHA-256: `a506e5d8ebc99b42689bb140ad10bda6d0c03b0058a2ec825a9f1c791e5c9e65`
+- Marker: `LIVE-REPAIR-OPTIONAL-20260802-1553-6860`
+- Repair: `RJ-000004`
+- Repair ID: `ee8365bc-e341-450e-b1aa-ee18c47ada8e`
+
+All authorized optional blanks were accepted, Expected Delivery persisted null, customer remained null, tenant mismatches and financial effects were zero, and duplicates were zero. The run did not close the finding because the create audit was missing. Its later cancellation history and status audit were truthful. `RJ-000004` remains cancelled and was not edited, restored, deleted, backfilled, or otherwise mutated by the correction or rerun.
+
+## Fresh Authenticated Rerun - 2026-08-03
+
+The fresh rerun used Fardan Aatir's authenticated Owner session for Star Shop, Main Branch, PKR, and Asia/Karachi.
+
+- Evidence: `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification-rerun`
+- Manifest SHA-256: `64e1bf6d9619df9230854c02e44654d115ea58ebfb1e9131e537212e6703d8df`
+- Manifest entries: 18/18 verified
+- Screenshots: 7
+- Marker: `LIVE-REPAIR-OPTIONAL-RERUN-20260803-0504-91FB`
+- Repair: `RJ-000005`
+- Repair ID: `0d979a61-9d6a-41bd-91f8-d1e14a83e41b`
+
+One ordinary Repair Intake submission accepted all authorized optional blanks without `Invalid UUID`. Customer remained null, Expected Delivery and the other optional values persisted in the established null representation, one repair and one initial `received` history committed, and exactly one `repairs.created` audit durably committed before success. The audit identified the exact actor, organization, branch, and repair, created no duplicate, and did not add phone, serial/IMEI, problem description, Notes, or accessories.
+
+One authorized cancellation produced exactly one `received` to `cancelled` history. The final repair remains cancelled. Its `repairs.status_changed` audit happened to persist, but status-audit durability was not corrected or accepted; `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK - P2` remains open.
+
+Pending Repairs returned to baseline. Customer and supplier dues, Net Cash, Cash Drawer, stock/FIFO quantity and valuation, invoice/payment/write-off/return counts, and open shifts were unchanged. Marker customers, tenant mismatches, financial effects, and duplicates were zero. This closes `LIVE-REPAIR-OPTIONAL-001` without claiming the separate status-audit risk is fixed.
 
 ## Root Cause
 
@@ -45,7 +92,7 @@ The repair-specific validation module now normalizes blank or whitespace-only op
 
 Required fields, nonnegative numeric rules, payment/status enums, and defaults are unchanged. No timezone conversion was added to schema validation.
 
-Only `src/lib/validation/repairs.ts` changes application behavior. `src/app/repairs/repair-form.tsx` and `src/app/repairs/actions.ts` are unchanged.
+Within optional-field PR #329, only `src/lib/validation/repairs.ts` changed application behavior. `src/app/repairs/repair-form.tsx` and `src/app/repairs/actions.ts` were unchanged by that correction. PR #330 later changed only the repair save history/audit durability boundary; it did not change optional normalization.
 
 ## Tenant-Integrity Boundary
 
@@ -61,7 +108,7 @@ The delivered boundary remains intact:
 - null repair/customer links remain allowed;
 - cross-organization inserts and updates remain rejected by the composite foreign key.
 
-The tenant migration remains byte-for-byte unchanged at SHA-256 `7ff005a554c2ce966b600959dcd6ea8e8c0417bae659a679c4f7b1b183a2ce97`. Repair actions remain unchanged at SHA-256 `a08b6becafa9b4022a9734589b7142a229364889692e87b0e1045d2d87693934`.
+The tenant migration remains byte-for-byte unchanged at SHA-256 `7ff005a554c2ce966b600959dcd6ea8e8c0417bae659a679c4f7b1b183a2ce97`. At optional-field delivery, repair actions remained unchanged at SHA-256 `a08b6becafa9b4022a9734589b7142a229364889692e87b0e1045d2d87693934`; the later PR #330 action change is confined to checked initial-history and audit durability.
 
 ## Authorized Fifth-File Amendment
 
@@ -124,14 +171,14 @@ Node emitted the existing module-type warnings for `src/lib/datetime.ts` and `sr
 - No accounting, settlement, customer ledger, invoice, payment, Dashboard, Reports, stock/FIFO, or Cash Drawer source changed.
 - No package, lockfile, workflow, configuration, or canonical document changed.
 - No migration is required or authorized.
-- Production was not accessed or mutated during this correction.
+- The source correction did not mutate production. The later owner-authorized acceptance created only `RJ-000005`, cancelled it, and retained its truthful history and audits.
 - Preview must remain read-only unless database isolation from production is independently established.
-- Active P2 remains 6 pending later authenticated production delivery; P3 remains 5.
+- Active P2 remains 6 because repair-status audit durability is now recorded separately; P3 remains 5.
 
-## Draft Delivery
+## Delivery And Closure
 
-The branch is intended for a draft pull request titled `fix: accept blank optional repair fields`. It is ready only for owner review after exact-head CI, Vercel Preview, and senior review pass. It must not be marked ready or merged in this task.
+The optional validation and create-audit durability corrections are merged, deployed, and authenticated production verified. The focused findings are closed, while canonical synchronization remains deferred to a separate owner-authorized task.
 
 ## Rollback
 
-Before merge, rollback is deletion of the draft branch/worktree or reversal of its single focused commit. No production, schema, migration, tenant, accounting, or canonical rollback is required because none changed.
+Revert the create-audit delivery with `git revert de94a0e59de20c51e7c77cdbfa2fe496d30019e9 && git push origin main`. Revert the optional-field delivery separately with `git revert 62ee3a9ea985fc7b9016bddfb1161b51f80d1efa && git push origin main`. Do not delete either cancelled production repair or its truthful history and audits. No schema or migration rollback applies.
