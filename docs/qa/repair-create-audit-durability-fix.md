@@ -68,7 +68,7 @@ The create audit committed before the successful intake response and identified 
 
 The authorized cancellation created one `received` to `cancelled` history and one `repairs.status_changed` audit. That status audit happened to persist, but `updateRepairStatusAction` remains fire-and-forget and its durability is not established. `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK - P2` remains open and is one of the six active P2 findings.
 
-Pending Repairs returned to its baseline of one. Customer and supplier dues, Net Cash, Cash Drawer, invoice/payment/write-off/return counts, stock quantity, FIFO quantity and valuation, and open shifts were unchanged. The historical `RJ-000004` remained cancelled with no retroactive create audit. No migration, schema change, backfill, retry, duplicate, or unrelated production mutation occurred.
+Pending Repairs returned to the baseline of one. Customer and supplier dues, Net Cash, Cash Drawer, invoice/payment/write-off/return counts, stock quantity, FIFO quantity and valuation, and open shifts were unchanged. The historical `RJ-000004` remained cancelled with no retroactive create audit. No migration, schema change, backfill, retry, duplicate, or unrelated production mutation occurred.
 
 ## Baseline Source Ordering
 
