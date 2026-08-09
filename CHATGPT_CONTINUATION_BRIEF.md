@@ -1,5 +1,5 @@
 # SaleDock Cloud POS — Continuation Brief
-*Canonical handoff after the production-verified 2 August 2026 repair/customer tenant-integrity P1 closure.*
+*Canonical handoff after the 3 August 2026 repair optional-field and create-audit closures.*
 
 ## Owner And Production
 
@@ -11,12 +11,12 @@ boundaries, and no credentials in chat.
 ## Current Repository And Production
 
 - Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
-- Canonical synchronization base: `8afbc37751a76edb93d52175146be6dbb619a0a3`
-- Latest application-behavior commit: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
-- Latest behavior change: `fix: enforce repair customer tenant integrity`
-- Latest focused documentation commit: `8afbc37751a76edb93d52175146be6dbb619a0a3`
-- Production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`, Ready/current
-- Migration: `20260729133000_enforce_repair_customer_tenant_integrity.sql`
+- Canonical synchronization base: `85031fe8bf32a02f7bcf93b63a2e65752dd354df`
+- Latest application-behavior commit: `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`
+- Latest behavior: `fix: make repair create audit durable`
+- Previous optional-field commit: `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`
+- Latest focused documentation commit: `85031fe8bf32a02f7bcf93b63a2e65752dd354df`
+- Production deployment: `3g68nELcKAKV1hjz6rwbTFHycTNC`, Ready/current
 
 ## Current Classification
 
@@ -29,22 +29,20 @@ boundaries, and no credentials in chat.
 - Audit-ready: **NO**
 - MVP-live: **NO**
 
-Limited coverage means no authenticated cashier production session or approved
-cashier credentials were available. Permission contracts were reviewed. No
-cashier account was created, reset, invited, or impersonated, and no cashier
-financial mutation was performed.
+Limited coverage means no approved authenticated cashier production session or
+credentials were available. Permission contracts were reviewed, but no cashier
+account was created, reset, invited, or impersonated and no cashier financial
+mutation was performed.
 
 ## Exact Active P2 Register
 
-1. `LIVE-REPAIR-OPTIONAL-001`
-   - Root cause is substantially established, but no correction exists.
-   - The form submits `customer_id=""` when no registered customer is selected;
-     the schema does not normalize that HTML blank string to the empty relation.
-   - Optional-string preprocessing runs at the wrong validation layer.
-   - Blank expected-delivery date is not normalized and malformed nonblank date
-     values can pass insufficient validation.
-   - Rejected attempts wrote no repair, history, audit, customer, financial, or
-     Cash Drawer row.
+1. `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK — P2`
+   - `updateRepairStatusAction` and the global audit helper are unchanged.
+   - Success does not require caller-visible confirmed audit persistence, and
+     the helper's `Promise<void>` contract hides returned insert errors.
+   - Status audits happened to persist for the cancellations of `RJ-000004` and
+     `RJ-000005`; those occurrences do not prove durability and no production
+     status-audit failure is claimed.
 2. `LIVE-INVOICE-FILTER-001`
    - Search, date, payment-method, status, and Reset controls remain incomplete.
 3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`
@@ -65,93 +63,93 @@ financial mutation was performed.
 2. Expense Restore original-page settlement recovery.
 3. Expense Reset date-field presentation.
 4. Daily Closing hydration and print-footer noise.
-5. Narrow mobile invoice-title and summary-label wrapping.
+5. Narrow mobile invoice-title/summary-label wrapping.
 
-## Closed Tenant-Integrity P1
+## Repair Closures
 
-`REPAIR-CUSTOMER-TENANT-INTEGRITY-001` is fixed and production-verified.
+`LIVE-REPAIR-OPTIONAL-001` is fixed and production-verified.
 
-- Discovery: the optional-field investigation created a synthetic repair in one
-  organization linked to a customer from another. Optional source work stopped,
-  P1 temporarily became 1, and finishing was blocked.
-- Source PR #326: reviewed head
-  `446d08e7c88f981e418391103abe03a2dc4b7eae`, squash
-  `12de0dd189d0c41895e4da5ca06bd880d17ee98b`.
-- Source behavior: `saveRepairAction` now checks customer ID plus authenticated
-  organization ID before repair, history, or audit mutation and selects only ID.
-- Database behavior: a validated composite FK enforces
-  `(organization_id, customer_id) -> customers(organization_id, id)` with
-  `ON UPDATE RESTRICT` and customer deletion clearing only `customer_id`.
-- Production preflight: 3 repairs, 3 linked, 0 mismatches, 0 conflicts.
-- Equivalent migration delivery preflight: passed. Supabase Preview was disabled
-  and was not represented as passed.
-- Migration delivery: automatic and exactly once between source merge
-  `2026-08-02T08:06:23Z` and first retained verification
-  `2026-08-02T08:11:18.427156Z`; no duplicate manual apply.
-- Rollback-only probe: incompatible cross-organization reassignment failed with
-  SQLSTATE `23503`, fully rolled back, and left no persistent fixture.
-- Focused documentation PR #327: head
-  `98375cb4e79cc364f6baf4da91d2c1b286645af6`, squash
-  `8afbc37751a76edb93d52175146be6dbb619a0a3`.
+Decision: `PASS — LIVE-REPAIR-OPTIONAL-001 FIXED`.
 
-Tenant integrity is fixed. Optional-field validation is not fixed. Repair
-statuses and permissions are unchanged; customer/supplier settlement risks
-remain open; accounting, stock/FIFO, and Cash Drawer behavior are unchanged.
+- PR #329 delivered reviewed head
+  `1da2887aabcf2736a258d089b8120b386d1011dc` as squash
+  `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`.
+- Blank customer UUID, optional text, and Expected Delivery now normalize to
+  the established empty representation. Nonblank Expected Delivery requires a
+  real Gregorian `YYYY-MM-DD` date.
+- First acceptance marker `LIVE-REPAIR-OPTIONAL-20260802-1553-6860` created
+  `RJ-000004` (`ee8365bc-e341-450e-b1aa-ee18c47ada8e`). Optional behavior
+  passed, but its create audit was missing. The repair remains cancelled and
+  untouched.
+- Successful marker `LIVE-REPAIR-OPTIONAL-RERUN-20260803-0504-91FB` created
+  `RJ-000005` (`0d979a61-9d6a-41bd-91f8-d1e14a83e41b`). Optional blanks,
+  customer null, Expected Delivery null, tenant, duplicate, and financial
+  checks passed. The repair remains cancelled.
 
-## Retained Optional-Field Evidence
+`REPAIR-CREATE-AUDIT-DURABILITY-001` is fixed and production-verified.
 
-- Evidence path:
-  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`
-- Manifest SHA-256:
-  `bb3b253cf534e851ae8e595c3f97357d5c2c88d64af5232c49ce1edb53f3b047`
-- Manifest entries: 15/15 verified.
-- Schema matrix: 28 cases.
-- Old protected worktree:
-  `/Users/sw12/Projects/saledock-repair-optional-fields`
-- Old branch: `fix/repair-optional-fields`
-- Old HEAD: `22f444dacad4d6a0465a83ad5cd112fe8df7acee`
-- Source commit/push/PR: none.
+Decision: `PASS — REPAIR-CREATE-AUDIT-DURABILITY-001 FIXED`.
 
-Do not switch, reset, rebase, clean, delete, or reuse that worktree. The next
-source task must create a fresh worktree from current main and reuse this
-evidence rather than repeating the complete investigation.
+- PR #330 delivered reviewed head
+  `14e920925bb5586b1923b6c9d2d8eb59615267c7` as squash
+  `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`.
+- The save path checks initial-history completion and uses a caller-local
+  checked, awaited audit insert. Success returns only after one exact create or
+  update audit completes.
+- A post-save audit failure returns safe partial-save truth with the exact repair
+  ID and no-resubmit instruction. It does not retry, duplicate, delete, or
+  compensate the committed repair.
+- The global audit helper and repair-status action were deliberately unchanged.
+- The successful rerun committed one repair, one initial history, and one exact
+  `repairs.created` audit before success. Audit metadata excluded phone,
+  serial/IMEI, problem description, Notes, and accessories.
+- Focused documentation PR #331 used head
+  `28e4fea5fd70109583987a797deaf250e8b9eab7`, squash
+  `85031fe8bf32a02f7bcf93b63a2e65752dd354df`, and final deployment
+  `3g68nELcKAKV1hjz6rwbTFHycTNC`.
 
-## Evidence Boundaries
+Repair/customer tenant integrity remains fixed through source squash
+`12de0dd189d0c41895e4da5ca06bd880d17ee98b` and the validated composite
+organization/customer foreign key. No optional-field or create-audit delivery
+changed the tenant source or migration.
 
-- Tenant source evidence:
-  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-fix`
-- Tenant source manifest:
-  `64b29417ce8e3418474b3678bb377e7770a88eda5bd4562be3793ae2baf7b095`
-- Tenant live evidence:
-  `/Users/sw12/Projects/saledock-local-evidence/repair-customer-tenant-integrity-live-verification`
-- Tenant live manifest:
-  `934124226da08ebd09c410570188840571c50205d6e379f8ccddac1a854dae0e`
-- Live marker: `LIVE-REPAIR-TENANT-20260802-1306-AE5C`, evidence metadata only.
-- Focused QA record: `docs/qa/repair-customer-tenant-integrity-fix.md`.
+## Repair Evidence
 
-Local evidence is not authenticated production proof. The production database
-probe attempted one write inside an explicit transaction but fully rolled back;
-the truthful boundary is zero persistent fixture and zero persistent business
-mutation, not zero SQL write attempts.
+- Optional-field investigation:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`,
+  manifest
+  `bb3b253cf534e851ae8e595c3f97357d5c2c88d64af5232c49ce1edb53f3b047`.
+- First live acceptance:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification`,
+  manifest
+  `a506e5d8ebc99b42689bb140ad10bda6d0c03b0058a2ec825a9f1c791e5c9e65`.
+- Create-audit source proof:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-create-audit-durability-fix`,
+  manifest
+  `c6fd90f8791ef32fa916e1de784ad1bec0358fcbacce45c8138c603f4e8bc08b`.
+- Successful authenticated rerun:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification-rerun`,
+  manifest
+  `64e1bf6d9619df9230854c02e44654d115ea58ebfb1e9131e537212e6703d8df`.
 
 ## Settlement And Safety Boundaries
 
-- Customer and supplier settlement client completion remain open.
+- Customer and supplier settlement client completion remain open P2 risks.
 - Never resubmit solely because the connected page remains pending.
 - Keep organization and branch scope explicit.
 - Preserve Cash/non-cash separation, FIFO allocations, retained history, and
   customer/supplier balance truth.
-- Do not change repair statuses, permissions, settlement, accounting, stock,
-  FIFO, Dashboard, Reports, Cash Drawer, RLS, or schema in the optional task.
+- Do not reopen optional normalization, create auditing, or tenant integrity
+  without contradictory evidence.
 - Public HTTP proves availability only.
 
 ## Protection And Archives
 
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader opening inventory for this synchronization: 46 worktrees and 28
-  dirty/untracked entries.
-- The authorized new canonical worktree raises the in-task total to 47;
-  dirty/untracked entries remain 28.
+- Expanded current protection baseline: 22 worktrees and 27 protected files.
+- Broader opening inventory: 50 worktrees and 28 dirty/untracked entries.
+- The authorized canonical worktree raises the in-task total to 51; dirty paths
+  remain 28.
 - Expenses diagnostic:
   `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`.
 - Customer-settlement diagnostic:
@@ -162,30 +160,30 @@ mutation, not zero SQL write attempts.
 
 ## Immediate Next Task
 
-Resume `LIVE-REPAIR-OPTIONAL-001` only.
+Investigate `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK — P2` only.
 
-1. Create a fresh worktree from the then-current main.
-2. Reverify current Repair form, schema, action, and tenant-invariant source.
-3. Reuse the retained 28-case schema matrix and browser evidence.
-4. Implement only the proven blank-optional normalization and malformed
-   nonblank expected-delivery date-validation correction.
-5. Rerun current-main repair, tenant, role, status, audit, accounting, cleanup,
-   and duplicate protections.
-6. Keep the task review-first and do not mutate production during source work.
+1. Create a fresh review-first worktree from then-current main.
+2. Inspect `updateRepairStatusAction` and `logAudit`.
+3. Deterministically prove whether delayed completion, returned insert errors,
+   and thrown errors can allow status success before durable audit persistence.
+4. Preserve the existing status transition, history, permissions, optional
+   normalization, tenant integrity, accounting, stock/FIFO, and Cash Drawer.
+5. Do not create or mutate a production repair during investigation.
 
-Do not combine repair status redesign, customer/supplier settlement, invoice
-work, cashier coverage, or another P2/P3 finding. Do not repeat the completed
-tenant-integrity correction.
+Do not combine customer/supplier settlement, invoice work, cashier coverage,
+or another P2/P3 finding. Do not infer durability from the two production
+status audits that happened to persist.
 
 ## Files A New Chat Should Read
 
 1. `02_CURRENT_STATE.md`
 2. `03_REMEMBER.md`
 3. `CHATGPT_CONTINUATION_BRIEF.md`
-4. `docs/qa/repair-customer-tenant-integrity-fix.md`
-5. `docs/qa/live-finishing-continuation-acceptance-2026-07-26.md`
-6. `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`
-7. Relevant focused QA records only as needed
+4. `docs/qa/live-finishing-continuation-acceptance-2026-07-26.md`
+5. `docs/qa/repair-optional-fields-fix.md`
+6. `docs/qa/repair-create-audit-durability-fix.md`
+7. `docs/qa/repair-customer-tenant-integrity-fix.md`
+8. Relevant focused QA records only as needed
 
 Do not require nonexistent attachments. SaleDock is not audit-ready and not
 MVP-live.

@@ -1,20 +1,22 @@
 # 02 — Current State (LIVING — keep this updated)
-*Last updated: 2 August 2026 after repair/customer tenant-integrity P1 closure.*
+*Last updated: 3 August 2026 after authenticated repair optional-field and create-audit closures.*
 
 ## Current Repository And Production
 
 - Repository: `https://github.com/starwalker12/saledock-cloud-pos.git`
-- Canonical synchronization base: `8afbc37751a76edb93d52175146be6dbb619a0a3`
-- Latest application-behavior commit: `12de0dd189d0c41895e4da5ca06bd880d17ee98b`
-- Latest behavior change: `fix: enforce repair customer tenant integrity`
-- Latest focused documentation commit: `8afbc37751a76edb93d52175146be6dbb619a0a3`
-- Production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`
+- Canonical synchronization base: `85031fe8bf32a02f7bcf93b63a2e65752dd354df`
+- Latest application-behavior commit: `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`
+- Latest behavior change: `fix: make repair create audit durable`
+- Previous optional-field behavior commit: `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`
+- Latest focused documentation commit: `85031fe8bf32a02f7bcf93b63a2e65752dd354df`
+- Production deployment: `3g68nELcKAKV1hjz6rwbTFHycTNC`
 - Deployment state: Ready and current for the synchronization base
 - Production identity verified: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi
 
-This documentation synchronization records the discovery, temporary finishing
-block, and production-verified closure of
-`REPAIR-CUSTOMER-TENANT-INTEGRITY-001`. It changes documentation only.
+This documentation synchronization records the production-verified closure of
+`LIVE-REPAIR-OPTIONAL-001` and `REPAIR-CREATE-AUDIT-DURABILITY-001`, while
+retaining the separate repair-status audit durability boundary as an active P2.
+It changes documentation only.
 
 ## Current Classification
 
@@ -37,17 +39,18 @@ remains active.
 
 ## Active P2 Register
 
-1. `LIVE-REPAIR-OPTIONAL-001`
-   - The form submits `customer_id=""` when no registered customer is selected,
-     but the schema accepts a UUID/null/omission rather than the HTML blank string.
-   - Optional-string preprocessing runs at the wrong validation layer, so blank
-     Customer Phone, Device Model, Serial / IMEI, Accessories, and Notes can fail.
-   - Blank expected-delivery date is not normalized, while malformed nonblank
-     date values can pass insufficient validation.
-   - The retained 28-case schema matrix established the root cause; no optional
-     correction has been implemented and production remains affected.
-   - Rejected attempts created zero repair/history/audit/customer rows and zero
-     financial or Cash Drawer effect.
+1. `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK — P2`
+   - `updateRepairStatusAction` remains unchanged and still uses the asynchronous
+     global audit helper without requiring caller-visible confirmed persistence
+     before returning success.
+   - The global helper returns `Promise<void>` and does not expose returned audit
+     insert errors to the caller; this is the same durability class proven on
+     the former Repair Intake create path.
+   - PR #330 deliberately corrected create/edit save auditing only. It did not
+     change repair-status mutation or audit behavior.
+   - The cancellations of `RJ-000004` and `RJ-000005` each happened to persist
+     one truthful status audit. Those two occurrences do not prove durability,
+     and no production status-audit failure is claimed.
 2. `LIVE-INVOICE-FILTER-001`
    - Invoice search, date, payment-method, status, and Reset controls are absent or materially incomplete.
    - Invoice detail and retained financial truth are correct.
@@ -69,11 +72,11 @@ remains active.
 
 ## Active P3 Observations
 
-1. Historical/intermittent Expenses original-page settlement delay when server truth is correct.
-2. Expense Restore original-page settlement recovered after reload.
-3. Expense Reset date-field synchronization/presentation issue.
-4. Daily Closing hydration and print-footer noise while cash truth remains correct.
-5. Narrow mobile invoice-title ellipsis and summary-label wrapping.
+1. Historical/intermittent Expenses original-page settlement delay.
+2. Expense Restore original-page settlement recovery.
+3. Expense Reset date-field presentation.
+4. Daily Closing hydration and print-footer noise.
+5. Narrow mobile invoice-title/summary-label wrapping.
 
 ## Closed P2 History
 
@@ -173,6 +176,86 @@ Customer ledger presentation and reference routing are fixed. Customer debt
 accounting was not changed, customer-settlement client completion is not fixed,
 and no financial production mutation, migration, or schema change was required.
 
+### `LIVE-REPAIR-OPTIONAL-001` — CLOSED
+
+- Original July 26 evidence: blank fields presented as optional produced
+  `Invalid UUID` before mutation.
+- Optional-field source PR: #329
+- Reviewed source head: `1da2887aabcf2736a258d089b8120b386d1011dc`
+- Source squash: `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`
+- Merge timestamp: `2026-08-02T10:48:51Z`
+- Correction: blank customer UUID, optional text, and blank Expected Delivery
+  normalize to the established empty representation; nonblank dates require an
+  exact real Gregorian `YYYY-MM-DD` value.
+- Retained root-cause matrix: 28 cases.
+- No migration or Repair form source change was required.
+- First production acceptance: marker
+  `LIVE-REPAIR-OPTIONAL-20260802-1553-6860`, repair `RJ-000004`, ID
+  `ee8365bc-e341-450e-b1aa-ee18c47ada8e`. Optional fields passed, customer and
+  Expected Delivery were null, one repair and one initial `received` history
+  committed, no customer was created, and financial, tenant, and duplicate
+  effects were zero. The create audit count was zero, so the acceptance stopped.
+  The repair remains cancelled and untouched.
+- First live evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification`
+- First live manifest SHA-256:
+  `a506e5d8ebc99b42689bb140ad10bda6d0c03b0058a2ec825a9f1c791e5c9e65`
+- Successful rerun: marker
+  `LIVE-REPAIR-OPTIONAL-RERUN-20260803-0504-91FB`, repair `RJ-000005`, ID
+  `0d979a61-9d6a-41bd-91f8-d1e14a83e41b`. One repair, one initial `received`
+  history, and one durable `repairs.created` audit committed; optional blanks,
+  customer null, Expected Delivery null, no customer creation, duplicate checks,
+  and safety checks passed. The repair remains truthfully cancelled.
+- Successful rerun evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification-rerun`
+- Successful rerun manifest SHA-256:
+  `64e1bf6d9619df9230854c02e44654d115ea58ebfb1e9131e537212e6703d8df`
+
+Optional repair-field validation is fixed. Tenant integrity remains fixed. The
+separate repair-status audit durability risk remains open.
+
+Decision: `PASS — LIVE-REPAIR-OPTIONAL-001 FIXED`.
+
+### `REPAIR-CREATE-AUDIT-DURABILITY-001` — CLOSED
+
+- Source PR: #330
+- Reviewed source head: `14e920925bb5586b1923b6c9d2d8eb59615267c7`
+- Source squash: `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`
+- Merge timestamp: `2026-08-02T23:59:44Z`
+- Main CI: run `30773416186`, successful
+- Source deployment used for the accepted rerun:
+  `DDtDXWcufFyhYHFStkKDSahE3uUD`
+- Root cause: initial history was awaited without checking its returned error,
+  while `repairs.created` used a fire-and-forget global helper whose
+  `Promise<void>` contract hid returned insert errors.
+- Correction: the save path checks initial-history completion, performs a
+  caller-local checked and awaited audit insert, and returns success only after
+  the audit completes. Returned or thrown audit failures produce a safe
+  partial-save warning with the exact repair ID, no automatic retry, no
+  duplicate, no delete, and no compensating mutation.
+- Privacy: the audit retains only the existing customer display name and device
+  type boundary; phone, serial/IMEI, problem description, Notes, and accessories
+  are excluded.
+- Boundaries: the global audit helper and `updateRepairStatusAction` are
+  unchanged; no migration, schema, accounting, stock/FIFO, Dashboard, Reports,
+  Cash Drawer, tenant, permission, optional-validation, or settlement behavior
+  changed.
+- Source evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-create-audit-durability-fix`
+- Source manifest SHA-256:
+  `c6fd90f8791ef32fa916e1de784ad1bec0358fcbacce45c8138c603f4e8bc08b`
+- Focused documentation PR: #331
+- Focused documentation head: `28e4fea5fd70109583987a797deaf250e8b9eab7`
+- Focused documentation squash: `85031fe8bf32a02f7bcf93b63a2e65752dd354df`
+- Focused documentation merge: `2026-08-03T00:25:33Z`
+- Focused PR/main CI: runs `30774353255` / `30774455143`, successful
+- Final focused deployment: `3g68nELcKAKV1hjz6rwbTFHycTNC`
+
+Repair Intake create auditing is durable and production-verified. This closure
+does not imply that repair-status auditing is durable.
+
+Decision: `PASS — REPAIR-CREATE-AUDIT-DURABILITY-001 FIXED`.
+
 ## Authenticated Finishing Result
 
 Primary evidence:
@@ -255,9 +338,11 @@ Do not reopen these findings without new contradictory evidence.
 - Focused documentation squash: `8afbc37751a76edb93d52175146be6dbb619a0a3`
 - Final deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`
 
-Repair/customer tenant integrity is fixed. Optional repair-field validation is
-not fixed. Repair statuses and permissions are unchanged; settlement findings
-remain open; accounting, stock/FIFO, and Cash Drawer behavior are unchanged.
+Repair/customer tenant integrity is fixed. Optional repair-field validation and
+Repair Intake create-audit durability were later fixed without changing the
+tenant source or migration. Repair-status auditing and permissions remain
+unchanged; settlement findings remain open; accounting, stock/FIFO, and Cash
+Drawer behavior are unchanged.
 
 Chronology remains explicit: before discovery P0/P1/P2/P3 were 0/0/6/5;
 during investigation P1 became 1 and finishing was blocked; after PRs #326 and
@@ -272,17 +357,18 @@ with limited coverage.
 | Return-profit reconciliation | `68a86398f91cbfd240f8d3818c6bb866a4da2266` | `6542ab0577a02feaca26df9ac9dcb528f0caa564` | Full restocked return, exact restored FIFO cost, Dashboard profit, and Reports profit reconciled. |
 | Dashboard net-cash reconciliation | `8f8202a428a88bd8d72d178facbafb775eb1abf8` | `0b94dcb072a204539aa4608d53e0237a77c058fe` | Card sale/refund net cash stayed zero; Cash sale/refund moved +150/-150; starting float stayed excluded; shift reconciled 1,000/1,000/0. |
 | Repair/customer tenant integrity | `12de0dd189d0c41895e4da5ca06bd880d17ee98b` | `8afbc37751a76edb93d52175146be6dbb619a0a3` | Zero production mismatches, validated composite FK, rollback-only `23503` rejection, and read-only authenticated Repair UI passed. |
+| Repair optional fields | `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa` | `85031fe8bf32a02f7bcf93b63a2e65752dd354df` | Blank optional values and Expected Delivery passed with customer null; malformed nonblank dates remained rejected. |
+| Repair create-audit durability | `de94a0e59de20c51e7c77cdbfa2fe496d30019e9` | `85031fe8bf32a02f7bcf93b63a2e65752dd354df` | One Repair Intake, one initial history, and one exact durable create audit passed; status-audit durability remains open P2. |
 
 ## Protection And Archive Reality
 
 - Required historical protection: 21 worktrees and 26 dirty/untracked files.
-- Broader chronology: 46 worktrees and 28 dirty/untracked entries before this
-  synchronization; the separately authorized clean
-  `docs/canonical-repair-tenant-integrity-sync` worktree raises the in-task
-  total to 47 while dirty/untracked entries remain 28.
-- The retained `/Users/sw12/Projects/saledock-repair-optional-fields` worktree
-  remains protected at `22f444dacad4d6a0465a83ad5cd112fe8df7acee` and must not
-  be switched, reset, rebased, cleaned, deleted, or reused.
+- Expanded current protection baseline: 22 worktrees and 27 dirty/untracked
+  files, all verified before this synchronization.
+- Broader chronology: 50 worktrees and 28 dirty/untracked entries before this
+  task; the separately authorized clean
+  `docs/canonical-repair-optional-audit-sync` worktree raises the in-task total
+  to 51 while dirty/untracked entries remain 28.
 - Expenses diagnostic SHA-256: `0ce14eaefb061454eb2fc0c1d3ad39dc0c3a9e6f3a79d2eb761185a88cf45715`
 - Customer-settlement diagnostic SHA-256: `a1e81833205e4916d8683a91fa3b85a922d2b4013e9e8e7cb3269241425257af`
 - Twenty-nine historical archives were previously verified; their ephemeral `/tmp` copies expired.
@@ -294,23 +380,23 @@ clean, stash, switch, overwrite, or delete a protected worktree.
 
 ## Immediate Next Task
 
-Resume `LIVE-REPAIR-OPTIONAL-001` from retained root-cause evidence.
+Perform one focused review-first investigation of
+`KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK — P2`.
 
 Reason:
 
-- Do not redo the tenant investigation or rerun the complete discovery matrix.
-- Do not reuse the protected stale optional-field worktree.
-- Create a fresh worktree from the then-current main and reverify current
-  repair form, schema, action, and tenant invariant source.
-- Reuse the retained 28-case schema matrix and browser evidence.
-- Implement only the proven blank-optional normalization and strict nonblank
-  expected-delivery date validation correction.
-- Rerun the required current-main repair, tenant, role, audit, status,
-  accounting, cleanup, and duplicate safety matrix.
+- Inspect `updateRepairStatusAction` and `logAudit` without changing either
+  before the failure contract is proven.
+- Deterministically prove whether delayed completion, returned insert errors,
+  and thrown errors can allow status success before durable audit persistence.
+- Preserve the repair status transition, history, permissions, optional-field
+  normalization, tenant integrity, accounting, stock/FIFO, and Cash Drawer.
+- Do not infer durability from the two production cancellations whose audits
+  happened to persist.
 
-Do not combine repair status redesign, customer or supplier settlement, or
-another P2/P3 finding into that task. Do not mutate production during the
-review-first source investigation.
+Do not combine customer or supplier settlement, invoice work, cashier coverage,
+or another P2/P3 finding into that task. Do not create or mutate a production
+repair during the review-first investigation.
 
 ## Evidence Boundaries
 
@@ -343,9 +429,23 @@ review-first source investigation.
   `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`
 - Retained optional-field manifest SHA-256:
   `bb3b253cf534e851ae8e595c3f97357d5c2c88d64af5232c49ce1edb53f3b047`
+- First optional-field live acceptance:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification`
+- First optional-field live manifest SHA-256:
+  `a506e5d8ebc99b42689bb140ad10bda6d0c03b0058a2ec825a9f1c791e5c9e65`
+- Repair create-audit source evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-create-audit-durability-fix`
+- Repair create-audit source manifest SHA-256:
+  `c6fd90f8791ef32fa916e1de784ad1bec0358fcbacce45c8138c603f4e8bc08b`
+- Successful repair optional-field rerun:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification-rerun`
+- Successful rerun manifest SHA-256:
+  `64e1bf6d9619df9230854c02e44654d115ea58ebfb1e9131e537212e6703d8df`
 - Focused QA records: `docs/qa/expense-restore-audit-fix.md` and
   `docs/qa/customer-lifecycle-audit-fix.md`, plus
-  `docs/qa/customer-ledger-presentation-fix.md`
+  `docs/qa/customer-ledger-presentation-fix.md`,
+  `docs/qa/repair-optional-fields-fix.md`, and
+  `docs/qa/repair-create-audit-durability-fix.md`
 - Supporting evidence confirms chronology; it does not mean every historical workflow was rerun on July 26.
 - Public HTTP availability does not prove an authenticated workflow.
 - The canonical synchronization itself performs no production mutation and changes no application source, test, migration, package, workflow, configuration, or schema.

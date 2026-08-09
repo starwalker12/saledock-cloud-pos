@@ -868,7 +868,7 @@ Focused documentation:
 - Documentation squash: `8afbc37751a76edb93d52175146be6dbb619a0a3`
 - Final production deployment: `GooqVaWAfTVhunUU1eYFyBLguiDx`
 
-Current post-closure state:
+State at this dated checkpoint:
 
 - P0 remained 0.
 - P1 returned from 1 to 0.
@@ -889,6 +889,154 @@ Current post-closure state:
 This section records later chronology and does not rewrite the original July 26
 acceptance facts.
 
+## 2026-08-03 Post-Acceptance Closure — Repair Optional Fields And Create-Audit Durability
+
+The original July 26 `LIVE-REPAIR-OPTIONAL-001` evidence remains historical
+truth: ordinary Repair Intake submissions with blank optional fields failed with
+`Invalid UUID` before mutation. The retained local investigation established
+blank UUID normalization, optional-text preprocessing, and optional-date
+validation as the source boundary.
+
+- investigation evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-fix`;
+- investigation manifest SHA-256:
+  `bb3b253cf534e851ae8e595c3f97357d5c2c88d64af5232c49ce1edb53f3b047`;
+- retained schema matrix: 28 cases.
+
+Optional-field delivery:
+
+- source PR: #329;
+- reviewed head: `1da2887aabcf2736a258d089b8120b386d1011dc`;
+- source squash: `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`;
+- merge timestamp: `2026-08-02T10:48:51Z`;
+- blank customer UUID, optional text, and Expected Delivery normalize to the
+  established empty representation;
+- nonblank Expected Delivery requires an exact real Gregorian `YYYY-MM-DD`;
+- no form, tenant migration, permission, status, settlement, accounting,
+  stock/FIFO, Dashboard, Reports, or Cash Drawer behavior changed.
+
+The first authenticated acceptance retained:
+
+- evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification`;
+- manifest SHA-256:
+  `a506e5d8ebc99b42689bb140ad10bda6d0c03b0058a2ec825a9f1c791e5c9e65`;
+- marker: `LIVE-REPAIR-OPTIONAL-20260802-1553-6860`;
+- repair: `RJ-000004`, ID
+  `ee8365bc-e341-450e-b1aa-ee18c47ada8e`;
+- optional blanks accepted, customer null, Expected Delivery null, tenant
+  mismatches zero, financial effects zero, and duplicates zero;
+- one initial `received` history but zero `repairs.created` audits;
+- one later authorized cancellation history and one status audit that happened
+  to persist;
+- final state cancelled, with no later edit, Restore, deletion, or audit backfill.
+
+This proved the optional correction in production but left
+`REPAIR-CREATE-AUDIT-DURABILITY-001` as the acceptance blocker. The repair save
+path awaited initial history without checking its returned error and invoked the
+asynchronous global audit helper without awaiting caller-visible completion.
+The helper returned `Promise<void>` and kept returned insert errors invisible.
+
+Create-audit durability delivery:
+
+- source PR: #330;
+- reviewed head: `14e920925bb5586b1923b6c9d2d8eb59615267c7`;
+- source squash: `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`;
+- merge timestamp: `2026-08-02T23:59:44Z`;
+- source main CI: run `30773416186`, successful;
+- accepted rerun deployment: `DDtDXWcufFyhYHFStkKDSahE3uUD`;
+- initial-history completion is checked;
+- a caller-local audit insert is checked and awaited before a successful save
+  response;
+- returned or thrown post-save audit failures produce safe partial-save truth,
+  the exact repair ID, and no-resubmit guidance;
+- there is no automatic retry, duplicate, delete, compensation, migration, or
+  schema change;
+- the global audit helper and `updateRepairStatusAction` remain unchanged.
+
+Source evidence:
+
+- path:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-create-audit-durability-fix`;
+- manifest SHA-256:
+  `c6fd90f8791ef32fa916e1de784ad1bec0358fcbacce45c8138c603f4e8bc08b`.
+
+Successful fresh-marker rerun:
+
+- authenticated identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR,
+  Asia/Karachi;
+- evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-optional-fields-live-verification-rerun`;
+- manifest SHA-256:
+  `64e1bf6d9619df9230854c02e44654d115ea58ebfb1e9131e537212e6703d8df`;
+- marker: `LIVE-REPAIR-OPTIONAL-RERUN-20260803-0504-91FB`;
+- repair: `RJ-000005`, ID
+  `0d979a61-9d6a-41bd-91f8-d1e14a83e41b`;
+- one ordinary submission, one repair, one initial `received` history, and one
+  exact durable `repairs.created` audit before success;
+- exact actor, organization, branch, and repair ID;
+- audit privacy preserved: no phone, serial/IMEI, problem description, Notes,
+  or accessories were added;
+- optional blanks, customer null, Expected Delivery null, tenant, duplicate,
+  and financial checks passed;
+- one authorized `received` to `cancelled` transition; final state cancelled;
+- one status audit happened to persist, without a durability inference;
+- Pending Repairs returned to baseline and customer/supplier dues, Net Cash,
+  Cash Drawer, payments, write-offs, returns, shifts, stock/FIFO, and tenant
+  mismatch counts were unchanged or zero as applicable.
+
+Focused documentation delivery:
+
+- PR: #331;
+- branch head: `28e4fea5fd70109583987a797deaf250e8b9eab7`;
+- documentation squash: `85031fe8bf32a02f7bcf93b63a2e65752dd354df`;
+- merge timestamp: `2026-08-03T00:25:33Z`;
+- PR/main CI: runs `30774353255` / `30774455143`, successful;
+- final production deployment: `3g68nELcKAKV1hjz6rwbTFHycTNC`;
+- current main and canonical synchronization base:
+  `85031fe8bf32a02f7bcf93b63a2e65752dd354df`;
+- latest application-behavior commit:
+  `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`.
+
+Current post-closure state:
+
+- decision: `PASS — LIVE-REPAIR-OPTIONAL-001 FIXED`;
+- decision: `PASS — REPAIR-CREATE-AUDIT-DURABILITY-001 FIXED`;
+- `LIVE-REPAIR-OPTIONAL-001`: closed;
+- `REPAIR-CREATE-AUDIT-DURABILITY-001`: closed;
+- repair/customer tenant-integrity P1: remains fixed;
+- P0/P1: 0/0;
+- P2: 6, exactly:
+  1. `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK — P2`;
+  2. `LIVE-INVOICE-FILTER-001`;
+  3. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`;
+  4. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`;
+  5. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`;
+  6. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`;
+- P3: 5, exactly:
+  1. historical/intermittent Expenses original-page settlement delay;
+  2. Expense Restore original-page settlement recovery;
+  3. Expense Reset date-field presentation;
+  4. Daily Closing hydration and print-footer noise;
+  5. narrow mobile invoice-title/summary-label wrapping;
+- customer/supplier settlement and cashier limits: unchanged;
+- classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**;
+- audit-ready: no;
+- MVP-live: no;
+- next task: review-first repair-status audit durability investigation only.
+
+That next task must inspect `updateRepairStatusAction` and `logAudit` and prove
+whether delayed completion, returned insert errors, or thrown errors can allow
+status success before durable audit persistence. It must preserve the existing
+status transition, history, optional validation, tenant enforcement, accounting,
+stock/FIFO, and Cash Drawer behavior and must not mutate production initially.
+
+The new P2 is a code-durability risk, not a claim that a production status audit
+is missing. The status audits for both cancelled repairs happened to persist,
+but `updateRepairStatusAction` and the global helper were outside PR #330 and
+remain unproven. This section does not rewrite the original July 26 acceptance
+or the intervening tenant-integrity chronology.
+
 ## Rollback And Finalization
 
 This acceptance run changed no repository file or application behavior. QA
@@ -899,8 +1047,9 @@ If the canonical documentation synchronization must later be reverted:
 `git revert <documentation_squash_sha> && git push origin main`
 
 Risk remains open because six P2 findings or coverage limits and five P3
-observations remain, including Repairs optional-field behavior,
+observations remain, including repair-status audit durability,
 customer/supplier settlement client completion, invoice presentation gaps, and
-unavailable authenticated cashier acceptance. Customer lifecycle auditing,
-customer ledger presentation, and repair/customer tenant integrity are closed.
-No active P0 or P1 remains.
+unavailable authenticated cashier acceptance. Repair optional fields, Repair
+Intake create-audit durability, customer lifecycle auditing, customer ledger
+presentation, and repair/customer tenant integrity are closed. No active P0 or
+P1 remains.
