@@ -88,9 +88,9 @@ Passed proof:
 - zero page, workflow-time console, request, or HTTP errors;
 - zero production requests or mutations.
 
-Focused contracts: 7/7 passed. Focused E2E: 1/1 passed in 38.1 seconds. Cleanup retries/failures: 0/0. All 21 before/after safety signatures were equal. Marker invoices, payments, and customers remaining: 0/0/0.
+Focused contracts: 8/8 passed, including behavioral evidence-root isolation. The accepted replacement-evidence E2E passed 1/1 with zero automatic retries. Cleanup retries/failures: 0/0. All 21 before/after safety signatures were equal. Marker invoices, payments, and customers remaining: 0/0/0.
 
-The targeted affected Node group passed 125/125. The complete Node suite passed 321/321 with zero failures and zero skips after the complete loopback Supabase environment was supplied in memory. An earlier 319/321 launch was discarded because the two opening-stock-lot tests were started without the required local Supabase environment; both passed in the environment-correct complete run.
+The previously reviewed targeted affected Node group passed 125/125. At the incident-correction head, the invoice-filter contracts passed 8/8 and the complete Node suite passed 322/322 with zero failures and zero skips after the complete loopback Supabase environment was supplied in memory. An earlier 319/321 launch was discarded because the two opening-stock-lot tests were started without the required local Supabase environment; both passed in the environment-correct complete run. A later 317/317 selection was also discarded because it omitted the four contracts under `tests/unit`; the corrected complete selection is the 322/322 result above.
 
 Affected browser coverage included passing invoice detail/print and customer-ledger presentation checks, plus a clean 1/1 return-profit rerun after one discarded local Auth-fetch launch. The legacy POS invoice/return/report file produced one passing navigation case and two pre-existing strict-locator failures before sale submission: `Clear` matched both a product action and the Clear button, and `Gross sales` matched four report elements. No sale or financial mutation occurred in those failed cases. The new focused E2E independently covers invoice filtering, detail navigation, payment presentation, tenant isolation, responsive rendering, and cleanup.
 
@@ -108,11 +108,24 @@ Cash Drawer, stock/FIFO, customer balances, and supplier balances had zero effec
 
 ## Evidence
 
-- Path: `/Users/sw12/Projects/saledock-local-evidence/invoice-filter-fix`
-- Manifest: `6f9a1b0f58ea73185fc62bf6eaacd729231480840c6cbc49e710067fd3c34695`
-- Manifest entries: 18, all verified.
+- Historical original path: `/Users/sw12/Projects/saledock-local-evidence/invoice-filter-fix`
+- Historical original seal: `6f9a1b0f58ea73185fc62bf6eaacd729231480840c6cbc49e710067fd3c34695`
+- Frozen post-incident seal: `9a934e0ed2ce327caf798184ce4751750f8e92a218c5286021e4b106760db5fc`
+- Fresh replacement path: `/Users/sw12/Projects/saledock-local-evidence/invoice-filter-fix-replacement-2026-08-10`
+- Fresh replacement manifest: `11e2f3d6a681993794325f77ddcc28193038aa16f3b415acfc4975230eda4ba8`
+- Replacement manifest entries: 18, all verified.
 - Screenshots: desktop 1440x900, mobile 390x844, and mobile 320x568.
 - Secret/privacy scan: no credentials, cookies, tokens, keys, authorization headers, or production customer data retained.
+
+## Evidence protection incident
+
+During the owner-authorized delivery confirmation, an ordinary focused E2E rerun unintentionally rewrote the previously sealed evidence directory. The original retained seal was `6f9a1b0f58ea73185fc62bf6eaacd729231480840c6cbc49e710067fd3c34695`; after the overwrite, the internally valid 18-entry directory sealed at `9a934e0ed2ce327caf798184ce4751750f8e92a218c5286021e4b106760db5fc`. No exact backup was found, no reconstruction was attempted, and delivery stopped before the PR was marked ready or merged.
+
+The root cause was the focused E2E's hardcoded mutable evidence path. The harness now accepts `INVOICE_FILTER_EVIDENCE_ROOT`; an explicit path must not exist and is created exactly once, while an omitted variable creates a unique operating-system temporary directory. A pre-existing explicit target fails before local database access, fixture creation, screenshots, JSON, or manifest writes with `Refusing to overwrite existing invoice-filter evidence directory: <path>`. The test never cleans or reuses an evidence directory.
+
+The old directory is frozen in its post-incident state. It is internally consistent but superseded for delivery evidence and is not represented as the original byte state. The fresh replacement directory did not exist before its single accepted run. That run passed 1/1 with zero retries, produced 18 verified entries and three screenshots, cleaned marker invoices/payments/customers to 0/0/0, and preserved all 21 safety signatures. Its manifest is `11e2f3d6a681993794325f77ddcc28193038aa16f3b415acfc4975230eda4ba8`.
+
+A deliberate second invocation against the sealed replacement path failed at the pre-write guard. Its manifest hash was `11e2f3d6a681993794325f77ddcc28193038aa16f3b415acfc4975230eda4ba8` before and after the probe, and the complete tree fingerprint was also identical before and after. No fixture was created by the probe. Product source remained byte-for-byte unchanged from reviewed head `5e8b9f5484bd31de00ed2418a7acd95a0ea88d5d`, and production was not accessed or mutated.
 
 ## Delivery state
 

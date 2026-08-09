@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, relative, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import {
   getLocalAdminClient,
@@ -8,9 +9,8 @@ import {
   loginLocalOwnerDirectly,
 } from "./helpers/local-supabase";
 
-const EVIDENCE_ROOT =
-  "/Users/sw12/Projects/saledock-local-evidence/invoice-filter-fix";
-const SCREENSHOT_ROOT = join(EVIDENCE_ROOT, "screenshots");
+let evidenceRoot: string | null = null;
+let screenshotRoot: string | null = null;
 const SAFETY_TABLES = [
   "invoices",
   "invoice_items",
@@ -617,9 +617,50 @@ async function visibleInvoiceCount(page: Page): Promise<number> {
   return page.locator('a[href^="/invoices/"]:visible').count();
 }
 
+export async function prepareInvoiceFilterEvidenceRoot(
+  requestedRoot?: string,
+): Promise<string> {
+  if (!requestedRoot?.trim()) {
+    return mkdtemp(join(tmpdir(), "saledock-invoice-filter-evidence-"));
+  }
+
+  const target = resolve(requestedRoot);
+  try {
+    await mkdir(target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error(
+        `Refusing to overwrite existing invoice-filter evidence directory: ${target}`,
+      );
+    }
+    throw error;
+  }
+  return target;
+}
+
+function requireEvidenceRoot(): string {
+  if (!evidenceRoot) throw new Error("Invoice-filter evidence root is not ready.");
+  return evidenceRoot;
+}
+
+function requireScreenshotRoot(): string {
+  if (!screenshotRoot) {
+    throw new Error("Invoice-filter screenshot root is not ready.");
+  }
+  return screenshotRoot;
+}
+
+async function initializeEvidenceRoot(): Promise<void> {
+  evidenceRoot = await prepareInvoiceFilterEvidenceRoot(
+    process.env.INVOICE_FILTER_EVIDENCE_ROOT,
+  );
+  screenshotRoot = join(evidenceRoot, "screenshots");
+  await mkdir(screenshotRoot);
+}
+
 async function writeJson(name: string, value: unknown): Promise<void> {
   await writeFile(
-    join(EVIDENCE_ROOT, name),
+    join(requireEvidenceRoot(), name),
     `${JSON.stringify(value, null, 2)}\n`,
   );
 }
@@ -636,7 +677,8 @@ async function listFiles(root: string): Promise<string[]> {
 }
 
 async function writeManifest(): Promise<{ entries: number; hash: string }> {
-  const files = (await listFiles(EVIDENCE_ROOT))
+  const root = requireEvidenceRoot();
+  const files = (await listFiles(root))
     .filter((path) => !path.endsWith("evidence-manifest.sha256"))
     .sort();
   const lines = [];
@@ -644,10 +686,10 @@ async function writeManifest(): Promise<{ entries: number; hash: string }> {
     const hash = createHash("sha256")
       .update(await readFile(path))
       .digest("hex");
-    lines.push(`${hash}  ${relative(EVIDENCE_ROOT, path)}`);
+    lines.push(`${hash}  ${relative(root, path)}`);
   }
   const manifest = `${lines.join("\n")}\n`;
-  await writeFile(join(EVIDENCE_ROOT, "evidence-manifest.sha256"), manifest);
+  await writeFile(join(root, "evidence-manifest.sha256"), manifest);
   return {
     entries: files.length,
     hash: createHash("sha256").update(manifest).digest("hex"),
@@ -664,9 +706,9 @@ test.describe("Invoice filters", () => {
   test("filters the database candidate set without mutating financial truth", async ({
     browser,
   }) => {
+    await initializeEvidenceRoot();
     const admin = getLocalAdminClient();
     const before = await safetySnapshot(admin);
-    await mkdir(SCREENSHOT_ROOT, { recursive: true });
     const fixture = await createFixture(admin);
     let cleanupError: string | null = null;
     const allBrowserErrors: ReturnType<typeof browserEvidence>[] = [];
@@ -894,7 +936,7 @@ test.describe("Invoice filters", () => {
         `/invoices?q=${encodeURIComponent(fixture.multiNo)}`,
       );
       await page.screenshot({
-        path: join(SCREENSHOT_ROOT, "desktop-filtered-1440x900.png"),
+        path: join(requireScreenshotRoot(), "desktop-filtered-1440x900.png"),
         fullPage: true,
       });
       errors.stop();
@@ -949,7 +991,7 @@ test.describe("Invoice filters", () => {
         );
         await mobilePage.screenshot({
           path: join(
-            SCREENSHOT_ROOT,
+            requireScreenshotRoot(),
             `filtered-${viewport.width}x${viewport.height}.png`,
           ),
           fullPage: true,
@@ -1058,7 +1100,7 @@ test.describe("Invoice filters", () => {
       ),
     );
     await writeFile(
-      join(EVIDENCE_ROOT, "final-report.md"),
+      join(requireEvidenceRoot(), "final-report.md"),
       `# Invoice Filter Local Verification\n\n- Marker: ${fixture.marker}\n- Search beyond latest 100: passed\n- Karachi date boundaries: passed\n- Recorded payment methods: passed\n- Status and combined filters: passed\n- Sort preservation and Reset: passed\n- Tenant isolation: passed\n- Invoice detail: passed\n- Mobile 390x844 and 320x568: passed\n- Financial signatures: equal\n- Cleanup retries/failures: 0/0\n- Production mutations: 0\n`,
     );
     const manifest = await writeManifest();

@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
@@ -8,6 +17,7 @@ import ts from "typescript";
 const require = createRequire(import.meta.url);
 const pagePath = new URL("../src/app/invoices/page.tsx", import.meta.url);
 const dataPath = new URL("../src/lib/data/invoices.ts", import.meta.url);
+const e2ePath = new URL("./e2e/invoice-filters.spec.ts", import.meta.url);
 const pageSource = readFileSync(pagePath, "utf8");
 const dataSource = readFileSync(dataPath, "utf8");
 const sortableSource = readFileSync(
@@ -25,6 +35,7 @@ const checkoutSource = readFileSync(
   ),
   "utf8",
 );
+const e2eSource = readFileSync(e2ePath, "utf8");
 
 function loadTypeScriptModule(path, mocks) {
   const source = readFileSync(path, "utf8");
@@ -79,6 +90,88 @@ const pageModule = loadTypeScriptModule(pagePath, {
   "@/lib/env": { env: { isSupabaseConfigured: true } },
   "@/lib/formatters": { formatCurrency: String },
   "@/lib/sort": { sortData: (rows) => rows },
+});
+
+const playwrightTestStub = Object.assign(() => undefined, {
+  describe: () => undefined,
+  setTimeout: () => undefined,
+  skip: () => undefined,
+});
+const e2eModule = loadTypeScriptModule(e2ePath, {
+  "@playwright/test": { expect: () => undefined, test: playwrightTestStub },
+  "./helpers/local-supabase": {
+    getLocalAdminClient: () => undefined,
+    isLocalPlaywrightRun: () => false,
+    loginLocalOwnerDirectly: async () => undefined,
+  },
+});
+
+test("invoice-filter evidence roots are unique and existing targets fail closed", async () => {
+  assert.doesNotMatch(
+    e2eSource,
+    /\/Users\/sw12\/Projects\/saledock-local-evidence\/invoice-filter-fix/,
+  );
+  assert.match(e2eSource, /process\.env\.INVOICE_FILTER_EVIDENCE_ROOT/);
+  assert.match(e2eSource, /mkdtemp\(/);
+  assert.doesNotMatch(e2eSource, /mkdir\([^)]*recursive:\s*true/);
+  assert.match(
+    e2eSource,
+    /join\(requireEvidenceRoot\(\), name\)/,
+  );
+  assert.match(
+    e2eSource,
+    /async function writeManifest[\s\S]*?const root = requireEvidenceRoot\(\)[\s\S]*?join\(root, "evidence-manifest\.sha256"\)/,
+  );
+
+  const workflowStart = e2eSource.indexOf("await initializeEvidenceRoot()");
+  assert.ok(workflowStart >= 0);
+  assert.ok(workflowStart < e2eSource.indexOf("getLocalAdminClient()", workflowStart));
+  assert.ok(workflowStart < e2eSource.indexOf("createFixture(admin)", workflowStart));
+
+  const sandbox = mkdtempSync(join(tmpdir(), "invoice-filter-evidence-contract-"));
+  const existing = join(sandbox, "existing");
+  const screenshot = join(existing, "screenshots", "sealed.png");
+  const manifest = join(existing, "evidence-manifest.sha256");
+  mkdirSync(join(existing, "screenshots"), { recursive: true });
+  writeFileSync(manifest, "sealed manifest\n");
+  writeFileSync(screenshot, "sealed screenshot\n");
+
+  try {
+    await assert.rejects(
+      e2eModule.prepareInvoiceFilterEvidenceRoot(existing),
+      new RegExp(
+        `Refusing to overwrite existing invoice-filter evidence directory: ${existing}`,
+      ),
+    );
+    assert.equal(readFileSync(manifest, "utf8"), "sealed manifest\n");
+    assert.equal(readFileSync(screenshot, "utf8"), "sealed screenshot\n");
+
+    const explicit = join(sandbox, "explicit");
+    assert.equal(
+      await e2eModule.prepareInvoiceFilterEvidenceRoot(explicit),
+      explicit,
+    );
+    assert.equal(existsSync(explicit), true);
+
+    const disposableA = await e2eModule.prepareInvoiceFilterEvidenceRoot();
+    const disposableB = await e2eModule.prepareInvoiceFilterEvidenceRoot();
+    try {
+      assert.notEqual(disposableA, disposableB);
+      assert.match(disposableA, /saledock-invoice-filter-evidence-/);
+      assert.match(disposableB, /saledock-invoice-filter-evidence-/);
+      assert.equal(
+        disposableA.startsWith(
+          "/Users/sw12/Projects/saledock-local-evidence/",
+        ),
+        false,
+      );
+    } finally {
+      rmSync(disposableA, { recursive: true, force: true });
+      rmSync(disposableB, { recursive: true, force: true });
+    }
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
 });
 
 test("URL filters trim search and use exact Karachi calendar boundaries", () => {
