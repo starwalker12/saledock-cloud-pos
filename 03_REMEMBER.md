@@ -1,5 +1,5 @@
 # 03 — Remember For The Future — SaleDock Cloud POS
-*Durable memory. Last updated: 3 August 2026 after repair optional-field and create-audit closure.*
+*Durable memory. Last updated: 3 August 2026 after repair optional-field and create-audit closures.*
 
 ## Who Fardan Is
 
@@ -200,7 +200,7 @@ stock/FIFO, and Cash Drawer behavior were not changed.
 ## Repair Optional Fields And Create-Audit Truth
 
 `LIVE-REPAIR-OPTIONAL-001` and `REPAIR-CREATE-AUDIT-DURABILITY-001` are fixed
-and authenticated production verified.
+and were verified in authenticated production.
 
 - PR #329 delivered reviewed head
   `1da2887aabcf2736a258d089b8120b386d1011dc` as squash

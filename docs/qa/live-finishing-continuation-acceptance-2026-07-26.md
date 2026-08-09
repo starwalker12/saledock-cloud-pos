@@ -889,7 +889,7 @@ State at this dated checkpoint:
 This section records later chronology and does not rewrite the original July 26
 acceptance facts.
 
-## 2026-08-03 Post-Acceptance Closure — Repair Optional Fields And Create Audit Durability
+## 2026-08-03 Post-Acceptance Closure — Repair Optional Fields And Create-Audit Durability
 
 The original July 26 `LIVE-REPAIR-OPTIONAL-001` evidence remains historical
 truth: ordinary Repair Intake submissions with blank optional fields failed with

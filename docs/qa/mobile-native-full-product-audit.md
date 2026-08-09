@@ -375,7 +375,7 @@ before discovery, blocked while the new P1 was active, and returned to accepted
 at 0/0/6/5 only after source, migration, production, and focused documentation
 delivery completed. Older evidence is not rewritten.
 
-## 2026-08-03 Repair Optional-Field And Create-Audit Closure
+## 2026-08-03 Repair Optional-Field And Create-Audit Closures
 
 The original authenticated July 26 finding `LIVE-REPAIR-OPTIONAL-001` showed
 that blank fields presented as optional could fail with `Invalid UUID` before

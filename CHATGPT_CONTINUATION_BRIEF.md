@@ -1,5 +1,5 @@
 # SaleDock Cloud POS — Continuation Brief
-*Canonical handoff after the 3 August 2026 repair optional-field and create-audit closure.*
+*Canonical handoff after the 3 August 2026 repair optional-field and create-audit closures.*
 
 ## Owner And Production
 

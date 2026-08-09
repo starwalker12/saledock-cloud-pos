@@ -1,5 +1,5 @@
 # 02 — Current State (LIVING — keep this updated)
-*Last updated: 3 August 2026 after authenticated repair optional-field and create-audit closure.*
+*Last updated: 3 August 2026 after authenticated repair optional-field and create-audit closures.*
 
 ## Current Repository And Production
 
