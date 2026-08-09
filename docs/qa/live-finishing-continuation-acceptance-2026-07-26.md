@@ -998,7 +998,7 @@ Focused documentation delivery:
 - latest application-behavior commit:
   `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`.
 
-Current post-closure state:
+State at that dated checkpoint:
 
 - decision: `PASS — LIVE-REPAIR-OPTIONAL-001 FIXED`;
 - decision: `PASS — REPAIR-CREATE-AUDIT-DURABILITY-001 FIXED`;
@@ -1037,6 +1037,107 @@ but `updateRepairStatusAction` and the global helper were outside PR #330 and
 remain unproven. This section does not rewrite the original July 26 acceptance
 or the intervening tenant-integrity chronology.
 
+## 2026-08-10 Post-Acceptance Closure — Repair Status Audit Durability
+
+After the optional-field and Repair Intake create-audit closures, the separate
+`KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK — P2` remained active. The
+status audits for cancelled repairs `RJ-000004` and `RJ-000005` happened to
+persist, but those successful outcomes did not prove that the fire-and-forget
+status path waited for durable audit completion or observed insert errors.
+
+Source investigation and correction:
+
+- source PR: #333;
+- reviewed head: `609d99d9402ffeb966e35c83665255a7f89ac901`;
+- source squash: `c913d4fcc41db3a1f30d6b6e774a7c2c8ff244c1`;
+- merge timestamp: `2026-08-09T19:46:19Z`;
+- source deployment: `4G8GipaievscE6XJm6mmf5hRoy8b`;
+- local source evidence:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-status-audit-durability-fix`;
+- source manifest SHA-256:
+  `009ad612c586d530a8634963f28c2ac443b7de306c1870e3728c5b84c7141f31`.
+
+Deterministic local proof showed that delayed audit completion allowed the old
+action to return success first, while returned and thrown audit failures were
+caller-invisible. PR #333 retained the organization-scoped status update and
+required status-history insert, then added one caller-local `audit_logs` insert
+that is checked and awaited before success. Audit failure reports truthful
+partial-save/no-resubmit guidance with the exact repair ID; it performs no
+automatic retry, duplicate mutation, compensating write, or false rollback.
+The global audit helper, status form, permissions, status workflow, optional
+validation, tenant enforcement, accounting, settlement, stock/FIFO, and Cash
+Drawer remain unchanged. No migration or schema change occurred.
+
+Authenticated production verification:
+
+- identity: Fardan Aatir, Owner, Star Shop, Main Branch, PKR, Asia/Karachi;
+- marker: `LIVE-REPAIR-STATUS-AUDIT-20260810-0051-7919`;
+- repair: `RJ-000006`, ID
+  `cdfeaecf-4e47-41d9-9cbb-fad4f21c2470`;
+- intake: one zero-financial repair, null customer, one initial `received`
+  history, and one durable `repairs.created` audit;
+- status action: one ordinary `received` to `cancelled` submission;
+- result: one exact status history and one exact
+  `repairs.status_changed` audit;
+- identity: correct actor, organization, branch, repair ID, old status, and new
+  status;
+- duplicates and tenant mismatches: zero;
+- privacy: no customer name, phone, serial/IMEI, problem description, status
+  note, accessories, or financial values in the status audit;
+- financial safety: no customer, ledger, invoice, payment, settlement, stock,
+  FIFO, Cash Drawer, Net Cash, dues, or Pending Repairs effect after final
+  cancellation;
+- final state: `RJ-000006` truthfully cancelled and retained; `RJ-000004` and
+  `RJ-000005` unchanged and cancelled.
+
+Live evidence:
+
+- path:
+  `/Users/sw12/Projects/saledock-local-evidence/repair-status-audit-durability-live-verification`;
+- manifest SHA-256:
+  `f882b0a95d20b7c1ab6be6248cbae26b354e147dc79f6189322320edc1500c71`;
+- 19 verified entries plus the manifest, including nine screenshots;
+- privacy and secret scan: clean.
+
+Focused documentation delivery:
+
+- PR: #334;
+- branch head: `9a5708b31806fd7c4e5b35bd4ac705b32b766c60`;
+- documentation squash: `ba342c8c5316a878dc3e6709e134b5fc6c43823e`;
+- merge timestamp: `2026-08-09T20:12:37Z`;
+- PR/main CI: runs `31333563913` / `31333667502`, successful;
+- final deployment: `CkrQUJtbYKKQQsab6qK8Phi2qHVo`, Ready/current;
+- current main and canonical synchronization base:
+  `ba342c8c5316a878dc3e6709e134b5fc6c43823e`.
+
+Current post-closure state:
+
+- decision: `PASS — REPAIR-STATUS-AUDIT-DURABILITY-001 FIXED`;
+- status-audit durability: closed;
+- optional-field, Repair Intake create-audit, and tenant-integrity findings:
+  remain closed;
+- P0/P1: 0/0;
+- P2: 6 to 5, exactly:
+  1. `LIVE-INVOICE-FILTER-001`;
+  2. `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`;
+  3. `KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK — P2`;
+  4. `KNOWN RESIDUAL SUPPLIER-PAYMENT CLIENT-SETTLEMENT RISK — P2`;
+  5. `ACCEPTED WITH LIMITED CASHIER COVERAGE — P2`;
+- P3: remains 5, exactly:
+  1. historical/intermittent Expenses original-page settlement delay;
+  2. Expense Restore original-page settlement recovery;
+  3. Expense Reset date-field presentation;
+  4. Daily Closing hydration and print-footer noise;
+  5. narrow mobile invoice-title/summary-label wrapping;
+- classification: **FINISHING ACCEPTED WITH LIMITED COVERAGE**;
+- audit-ready: no;
+- MVP-live: no;
+- next task: `LIVE-INVOICE-FILTER-001` only.
+
+This post-acceptance closure preserves the original July 26 facts and the
+intervening optional, tenant, and create-audit chronology. It does not close a
+settlement, cashier, invoice-print, or P3 finding.
+
 ## Rollback And Finalization
 
 This acceptance run changed no repository file or application behavior. QA
@@ -1046,10 +1147,10 @@ If the canonical documentation synchronization must later be reverted:
 
 `git revert <documentation_squash_sha> && git push origin main`
 
-Risk remains open because six P2 findings or coverage limits and five P3
-observations remain, including repair-status audit durability,
-customer/supplier settlement client completion, invoice presentation gaps, and
-unavailable authenticated cashier acceptance. Repair optional fields, Repair
-Intake create-audit durability, customer lifecycle auditing, customer ledger
+Risk remains open because five P2 findings or coverage limits and five P3
+observations remain, including customer/supplier settlement client completion,
+invoice filtering and thermal pagination, and unavailable authenticated cashier
+acceptance. Repair status-audit durability, optional fields, Repair Intake
+create-audit durability, customer lifecycle auditing, customer ledger
 presentation, and repair/customer tenant integrity are closed. No active P0 or
 P1 remains.
