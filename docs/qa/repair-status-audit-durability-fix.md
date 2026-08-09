@@ -3,10 +3,10 @@
 ## Status
 
 - Finding: `REPAIR-STATUS-AUDIT-DURABILITY-001`.
-- Canonical risk: `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK - P2`.
-- Delivery state: corrected and locally proven only on the draft branch `fix/repair-status-audit-durability`.
-- Production is unchanged. The P2 remains active until separately authorized merge, deployment, and authenticated production verification.
-- Classification remains `FINISHING ACCEPTED WITH LIMITED COVERAGE` with P0 0, P1 0, P2 6, and P3 5.
+- Result: `PASS - REPAIR-STATUS-AUDIT-DURABILITY-001 FIXED`.
+- Delivery state: source merged, deployed, and authenticated production verification passed.
+- The former canonical risk `KNOWN RESIDUAL REPAIR-STATUS AUDIT DURABILITY RISK - P2` is closed operationally. Canonical synchronization is deferred to a separate owner-authorized task.
+- Classification remains `FINISHING ACCEPTED WITH LIMITED COVERAGE` with P0 0, P1 0, P2 5, and P3 5.
 - SaleDock remains below audit-ready and is not MVP-live.
 
 ## Retained Production Truth
@@ -20,9 +20,19 @@ Both repairs and their evidence remain untouched. This task does not claim that 
 
 ## Previous Closures
 
-- `LIVE-REPAIR-OPTIONAL-001` remains fixed by squash `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`.
+- `LIVE-REPAIR-OPTIONAL-001` is closed and remains fixed by squash `62ee3a9ea985fc7b9016bddfb1161b51f80d1efa`.
 - `REPAIR-CREATE-AUDIT-DURABILITY-001` remains fixed by squash `de94a0e59de20c51e7c77cdbfa2fe496d30019e9`.
 - `REPAIR-CUSTOMER-TENANT-INTEGRITY-001` remains fixed by squash `12de0dd189d0c41895e4da5ca06bd880d17ee98b` and migration `20260729133000_enforce_repair_customer_tenant_integrity.sql`.
+
+## Source Delivery
+
+- Source PR: [#333](https://github.com/starwalker12/saledock-cloud-pos/pull/333).
+- Final reviewed head: `609d99d9402ffeb966e35c83665255a7f89ac901`.
+- Squash commit: `c913d4fcc41db3a1f30d6b6e774a7c2c8ff244c1`.
+- Merge timestamp: `2026-08-09T19:46:19Z`.
+- Main CI: run `31332523613`, successful.
+- Production deployment: `4G8GipaievscE6XJm6mmf5hRoy8b`, Ready and Current for the exact squash commit.
+- No migration or schema change occurred.
 
 ## Current Source Lifecycle
 
@@ -107,6 +117,7 @@ The temporary loopback-only trigger rejected only the second repair's `repairs.s
 - Initial Node launch: 312/314 because local Supabase keys were omitted from the process; discarded and rerun with the complete loopback runtime in memory.
 - Status durability E2E: 1/1.
 - Create-audit, optional-field, and tenant-integrity E2Es: 3/3.
+- The first final E2E cohort disclosed a create-audit failure-path page that remained on `Saving` after exact committed server truth. No retry or duplicate occurred. A fresh cold cohort then passed all four required cases 4/4.
 - Playwright automatic retries: zero.
 - Lint: zero errors; two pre-existing `privacy-center.tsx` hook warnings.
 - Typecheck: passed.
@@ -114,6 +125,48 @@ The temporary loopback-only trigger rejected only the second repair's `repairs.s
 - Cleanup retries/failures: 0/0.
 - Generated repairs, histories, audits, customers, financial rows, and temporary trigger/function objects remaining: zero.
 - All 21 before/after database signatures matched; tenant mismatches remained zero.
+
+## Authenticated Production Verification
+
+The exact production deployment was verified with the authenticated identity Fardan Aatir, Owner, Star Shop, Main Branch, PKR, and Asia/Karachi.
+
+One new zero-financial marker was created through ordinary Repair Intake:
+
+- marker: `LIVE-REPAIR-STATUS-AUDIT-20260810-0051-7919`;
+- repair: `RJ-000006`;
+- repair ID: `cdfeaecf-4e47-41d9-9cbb-fad4f21c2470`;
+- customer ID: `null`; marker customer rows: zero;
+- estimated cost, advance, and final cost: PKR 0;
+- payment method: Cash;
+- initial status: `received`;
+- create preflight: one repair, one initial history row, one durable `repairs.created` audit, and zero duplicates or tenant mismatches.
+
+The normal Repair Status UI then submitted exactly one `received -> cancelled` transition with the marker-owned note `LIVE-REPAIR-STATUS-AUDIT-20260810-0051-7919 received to cancelled`. The result was:
+
+- final status: `cancelled`;
+- exactly one new `repair_status_history` row with the exact old status, new status, note, actor, organization, and repair ID;
+- exactly one `repairs.status_changed` audit;
+- audit actor: Fardan Aatir;
+- audit organization and branch: Star Shop / Main Branch;
+- audit metadata: exact `repair_id`, `old_status: received`, and `new_status: cancelled`;
+- duplicate repair, history, create audit, and status audit rows: zero.
+
+The original page was briefly pending and then settled naturally with `Status updated successfully.` without a reload or resubmission. An independent authenticated page showed the cancelled repair and both history rows, and the filtered Audit Log showed the exact status audit.
+
+The status audit contained no customer name, phone, serial/IMEI, problem description, status note, accessories, or financial values. Its only metadata keys were `repair_id`, `old_status`, and `new_status`.
+
+Financial and tenant safety remained exact:
+
+- marker customer, invoice, payment, settlement, ledger, credit, and write-off rows: zero;
+- Customer Dues: PKR 405 before and after;
+- Supplier Dues: PKR 0 before and after;
+- Dashboard Net Cash: PKR 0 before and after;
+- Cash Drawer and open database shifts: unchanged;
+- stock/FIFO quantity and valuation: unchanged; FIFO valuation remained PKR 845,322;
+- Pending Repairs returned to its opening value of 1 after cancellation;
+- tenant mismatches: zero.
+
+`RJ-000004` and `RJ-000005` remain cancelled and were not modified. The new `RJ-000006` marker remains truthfully cancelled with its histories and audits retained.
 
 ## Evidence
 
@@ -123,12 +176,22 @@ Sanitized evidence is retained outside Git at:
 
 It contains the source map, baseline lifecycle evidence, post-fix results, browser screenshots, cleanup proof, regression summaries, and SHA-256 manifest. It contains no credentials, cookies, tokens, keys, authorization headers, or private production customer data.
 
+Authenticated production evidence is retained outside Git at:
+
+`/Users/sw12/Projects/saledock-local-evidence/repair-status-audit-durability-live-verification`
+
+Its SHA-256 manifest is:
+
+`f882b0a95d20b7c1ab6be6248cbae26b354e147dc79f6189322320edc1500c71`
+
+The manifest verifies 19 evidence entries plus the manifest itself, including nine screenshots. The evidence secret scan passed.
+
 ## Remaining Risk
 
-The correction is not merged or production verified. `REPAIR-STATUS-AUDIT-DURABILITY-001` therefore remains one of six active P2 findings. Customer-settlement and supplier-payment settlement findings remain open. Limited cashier coverage remains open.
+`REPAIR-STATUS-AUDIT-DURABILITY-001` is closed. P2 reduced from 6 to 5; P3 remains 5. The five remaining P2 findings are `LIVE-INVOICE-FILTER-001`, `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`, customer-settlement client completion, supplier-payment client settlement, and limited cashier coverage. Optional-field acceptance, create-audit durability, and repair-customer tenant integrity remain closed. Canonical documents still temporarily report the pre-closure register until separately synchronized.
 
 ## Rollback
 
-- Before merge: close the draft PR and delete only this isolated branch/worktree when separately authorized.
-- After a future merge: revert the eventual status-audit squash commit.
+- Source: `git revert c913d4fcc41db3a1f30d6b6e774a7c2c8ff244c1 && git push origin main`.
+- Reverting source does not remove the retained production repair or its truthful histories/audits.
 - Do not change or backfill `RJ-000004` or `RJ-000005`.
