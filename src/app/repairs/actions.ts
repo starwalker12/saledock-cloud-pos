@@ -10,7 +10,6 @@ import {
   canUpdateRepairStatus,
 } from "@/lib/permissions";
 import { repairSchema, type RepairStatus } from "@/lib/validation/repairs";
-import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
 export type ActionState = { error: string | null; success: string | null; id?: string };
@@ -309,12 +308,30 @@ export async function updateRepairStatusAction(
   revalidatePath(`/repairs/${id}`);
   revalidatePath("/dashboard");
 
-  logAudit({
-    module: "repairs",
-    action: "repairs.status_changed",
-    details: `Repair ${id} status: ${oldStatus ?? "none"} → ${newStatus}`,
-    metadata: { repair_id: id, old_status: oldStatus, new_status: newStatus },
-  });
+  let auditFailed = false;
+  try {
+    const { error: auditError } = await supabase.from("audit_logs").insert({
+      organization_id: orgId,
+      branch_id: profile.branch_id,
+      actor_id: profile.id,
+      module: "repairs",
+      action: "repairs.status_changed",
+      details: `Repair ${id} status: ${oldStatus ?? "none"} → ${newStatus}`,
+      metadata: { repair_id: id, old_status: oldStatus, new_status: newStatus },
+    });
+    auditFailed = Boolean(auditError);
+  } catch {
+    auditFailed = true;
+  }
+
+  if (auditFailed) {
+    return {
+      error:
+        "The status was updated, but its audit record could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.",
+      success: null,
+      id,
+    };
+  }
 
   return ok("Status updated successfully.");
 }

@@ -505,7 +505,7 @@ test("repair save audit payload stays record-specific without expanding existing
   );
 });
 
-test("optional, tenant, status, form, migration, and global audit boundaries remain unchanged", () => {
+test("optional, tenant, form, migration, global helper, and durable status boundaries remain exact", () => {
   assert.equal(
     digest(validationSource),
     "5a2b044a04f7d20e4ee980b3c3201867dd7473199e09dabc2500d8f68a616940",
@@ -522,13 +522,25 @@ test("optional, tenant, status, form, migration, and global audit boundaries rem
     digest(auditSource),
     "30e4f40b94d3969a97631ead57e17f4d41b367f3f199b5776bb3a0fd19caeb47",
   );
-  assert.equal(
-    digest(statusSource),
-    "a8a5e79ecb3bd22f6e593ced54f69f66a0fa4dafbebf7a16fdfb34a755ea8b59",
-  );
   assert.match(
     saveSource,
     /\.from\("customers"\)[\s\S]*?\.select\("id"\)[\s\S]*?\.eq\("id", finalCustomerId\)[\s\S]*?\.eq\("organization_id", orgId\)[\s\S]*?\.maybeSingle\(\)/,
   );
-  assert.match(statusSource, /logAudit\(\{[\s\S]*?action: "repairs\.status_changed"/);
+  assert.doesNotMatch(statusSource, /logAudit\s*\(/);
+  assert.match(
+    statusSource,
+    /await supabase\.from\("audit_logs"\)\.insert\(\{[\s\S]*?action: "repairs\.status_changed"/,
+  );
+  assert.match(statusSource, /auditFailed = Boolean\(auditError\)/);
+  assert.match(statusSource, /catch \{\s*auditFailed = true;/);
+  assert.match(
+    statusSource,
+    /metadata: \{ repair_id: id, old_status: oldStatus, new_status: newStatus \}/,
+  );
+  assert.equal((actionSource.match(/action: "repairs\.status_changed"/g) ?? []).length, 1);
+  assert.equal(
+    (actionSource.match(/The status was updated, but its audit record could not be confirmed\./g) ?? [])
+      .length,
+    1,
+  );
 });
