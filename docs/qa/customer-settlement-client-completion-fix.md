@@ -2,15 +2,15 @@
 
 ## Status
 
-`KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK - P2` is corrected
-on draft branch `fix/customer-settlement-client-completion-current` and remains
-open until separately authorized production delivery and authenticated live
-verification.
+`KNOWN RESIDUAL CUSTOMER-SETTLEMENT CLIENT-COMPLETION RISK - P2` is closed.
+PR #338 was squash-merged and the exact deployed correction passed one bounded
+authenticated production settlement on 11 August 2026.
 
-Production was not accessed or modified during this task. Operational status
-remains P0 0, P1 0, P2 4, and P3 5. Supplier-payment settlement, the invoice
-thermal blank page, and limited cashier coverage remain open. Invoice filtering
-remains closed. SaleDock is not audit-ready and is not MVP-live.
+Operational status is P0 0, P1 0, P2 3, and P3 5. Supplier-payment settlement,
+the invoice thermal blank page, and limited cashier coverage remain open.
+Invoice filtering remains closed. The finishing classification remains
+`FINISHING ACCEPTED WITH LIMITED COVERAGE`. SaleDock is not audit-ready and is
+not MVP-live. Canonical synchronization is deferred.
 
 ## Retained symptom
 
@@ -36,7 +36,7 @@ cleaned, switched, or reused.
 
 ## Current source map
 
-The current client used `useActionState(recordCreditPaymentAction, initial)` and
+The pre-correction client used `useActionState(recordCreditPaymentAction, initial)` and
 displayed `Processing...` from React's pending state. The Server Action verified
 the authenticated organization-owned customer, called
 `record_credit_payment` exactly once with the established parameters, invoked
@@ -184,6 +184,64 @@ All measured before/after signatures were equal. Expected local-only 406 UI
 preference reads and aborted Vercel analytics assets were recorded; page errors,
 unexpected console errors, and unexplained request failures were zero.
 
+## Source delivery
+
+Owner-reviewed PR #338 used base
+`efbe4037b93b99a2384d358f91bc29d927db8e70` and reviewed head
+`6e418031f2ab71275d51e8862d576942fbeec08c`. It was marked ready after the
+exact-head gates and squash-merged at `2026-08-10T23:26:12Z` as
+`b2f77e6822c711515c73f4376965db9b23c12675` with title
+`fix: settle customer payment UI reliably`.
+
+Main CI run 31442341898 succeeded. Vercel production deployment
+`dpl_4gt1oor4Y8dyci2z7dwUKggA2i6X` became Ready and current for the exact source
+squash. The canonical and login URLs returned HTTP 200. No migration or schema
+change was present.
+
+## Authenticated production verification
+
+The authenticated session was Fardan Aatir, Owner, Star Shop, Main Branch, PKR,
+and Asia/Karachi. The bounded case used an existing retained `[DEMO]` synthetic
+customer with no indication of ordinary customer use. Its opening balance was
+PKR 360.
+
+Marker `LIVE-CUSTOMER-SETTLEMENT-20260811-0428-1745` submitted PKR 10 by Card
+exactly once. Browser network evidence recorded one customer Server Action
+POST and HTTP 200. The connected form entered disabled `Processing...`, pending
+then cleared, `Credit payment recorded successfully.` rendered, the form reset,
+and the original page displayed PKR 350 without a manual reload.
+
+Persisted truth was exact:
+
+- one PKR 10 Card `credit_payments` row with the marker reference and notes;
+- one customer-ledger credit with balance after PKR 350;
+- one PKR 10 allocation to the oldest eligible invoice, changing its paid/due
+  values from PKR 800/360 to PKR 810/350 while keeping status `partial`;
+- the retained imported duplicate invoice remained unchanged at PKR 800/360;
+- one `customer.credit_payment` audit for the exact actor, organization, branch,
+  customer, amount, and method;
+- zero duplicate POST, payment, ledger entry, audit, balance change, or
+  allocation.
+
+A fresh independent authenticated customer page displayed PKR 350 and the
+exact settlement history. It was used only after the original connected page
+had already passed.
+
+Customer Dues decreased from PKR 405 to PKR 395. Dashboard Today's Net Cash
+remained PKR 0. Daily Closing classified PKR 10 as digital credit collection,
+PKR 0 as cash credit collection, and expected cash as PKR 0. There was no open
+cash shift and no physical Cash Drawer effect.
+
+Branch product quantity remained 59, active FIFO quantity remained 5,485, FIFO
+valuation remained PKR 845,322, supplier dues remained PKR 0, and supplier
+payment count remained one. Payment, ledger, and audit organization/branch
+scope was exact and tenant mismatches were zero.
+
+This production result closes the customer-settlement client-completion P2. It
+does not close supplier-payment client settlement, the invoice thermal blank
+page, or limited cashier coverage. It does not add authenticated cashier
+production coverage.
+
 ## Evidence and delivery
 
 Sanitized evidence is retained at:
@@ -194,11 +252,27 @@ The directory is fail-closed against reuse and is sealed once with
 `evidence-manifest.sha256`. Disposable runs used unique operating-system temp
 directories.
 
-The draft changes are limited to the settlement form, its Server Action
+Authenticated production evidence is retained separately at:
+
+`/Users/sw12/Projects/saledock-local-evidence/customer-settlement-client-completion-live-verification`
+
+Its sealed `evidence-manifest.sha256` has SHA-256
+`ae3d733a7ac0c3973f86a4dfc8ad30bf74a399eeed277d53a31176a3add2f538`.
+The bundle contains sanitized deployment, browser lifecycle, action-request,
+payment, ledger, invoice-allocation, audit, Dashboard, Daily Closing, cash,
+stock/FIFO, tenant, duplicate, independent-page, and screenshot evidence. It
+contains no credentials, cookies, tokens, request headers, or raw Server Action
+identifiers.
+
+The delivered source changes are limited to the settlement form, its Server Action
 revalidation boundary, one direct contract, one production-mode E2E, and this
 QA record. There is no migration, package, lockfile, workflow, supplier,
-thermal-print, cashier-policy, global-loader, canonical-document, or production
-change.
+thermal-print, cashier-policy, global-loader, or canonical-document change.
 
-Rollback is the eventual draft commit revert or closure of its draft pull
-request. No production rollback applies at this review stage.
+Source rollback is:
+
+`git revert b2f77e6822c711515c73f4376965db9b23c12675 && git push origin main`
+
+The truthful synthetic production payment and its ledger/audit history must be
+retained. This focused live-verification documentation change does not mutate
+production.
