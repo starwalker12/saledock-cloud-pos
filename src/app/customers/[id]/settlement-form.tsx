@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { recordCreditPaymentAction, type ActionState } from "../actions";
 import { CREDIT_PAYMENT_METHODS } from "@/lib/validation/customers";
 import { Loader2 } from "lucide-react";
@@ -19,14 +20,36 @@ export function SettlementForm({
   customerId: string;
   outstandingBalance: number;
 }) {
-  const [state, action, pending] = useActionState(recordCreditPaymentAction, initial);
+  const router = useRouter();
+  const [state, action, pending] = useActionState(
+    recordCreditPaymentAction,
+    initial,
+  );
   const formRef = useRef<HTMLFormElement>(null);
+  const submissionLocked = useRef(false);
 
   useEffect(() => {
     if (state.success) {
       formRef.current?.reset();
+      const url = new URL(window.location.href);
+      url.searchParams.set("paystate", crypto.randomUUID());
+      router.replace(`${url.pathname}${url.search}`, { scroll: false });
     }
-  }, [state.success]);
+  }, [router, state]);
+
+  useEffect(() => {
+    if (!pending) {
+      submissionLocked.current = false;
+    }
+  }, [pending]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (submissionLocked.current) {
+      event.preventDefault();
+      return;
+    }
+    submissionLocked.current = true;
+  }
 
   const input =
     "mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 disabled:bg-slate-50";
@@ -40,12 +63,19 @@ export function SettlementForm({
         </span>
       </summary>
 
-      <form ref={formRef} action={action} className="mt-4 space-y-3 pt-3 border-t border-blue-100">
+      <form
+        ref={formRef}
+        action={action}
+        onSubmit={handleSubmit}
+        className="mt-4 space-y-3 pt-3 border-t border-blue-100"
+      >
         <input type="hidden" name="customer_id" value={customerId} />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="text-xs font-bold text-slate-700">Amount (PKR)</span>
+            <span className="text-xs font-bold text-slate-700">
+              Amount (PKR)
+            </span>
             <input
               required
               type="number"
@@ -60,7 +90,9 @@ export function SettlementForm({
           </label>
 
           <label className="block">
-            <span className="text-xs font-bold text-slate-700">Payment Method</span>
+            <span className="text-xs font-bold text-slate-700">
+              Payment Method
+            </span>
             <AppSelect
               name="method"
               defaultValue={CREDIT_PAYMENT_METHODS[0]}
@@ -74,7 +106,9 @@ export function SettlementForm({
         </div>
 
         <label className="block">
-          <span className="text-xs font-bold text-slate-700">Reference No (optional)</span>
+          <span className="text-xs font-bold text-slate-700">
+            Reference No (optional)
+          </span>
           <input
             name="reference_number"
             disabled={pending}
@@ -84,7 +118,9 @@ export function SettlementForm({
         </label>
 
         <label className="block">
-          <span className="text-xs font-bold text-slate-700">Notes (optional)</span>
+          <span className="text-xs font-bold text-slate-700">
+            Notes (optional)
+          </span>
           <input
             name="notes"
             disabled={pending}
