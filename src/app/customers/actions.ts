@@ -325,10 +325,6 @@ export async function recordCreditPaymentAction(
     },
   });
 
-  revalidatePath("/customers");
-  revalidatePath(`/customers/${customerId}`);
-  revalidatePath("/dashboard");
-  revalidatePath("/daily-closing");
   return ok("Credit payment recorded successfully.");
 }
 
