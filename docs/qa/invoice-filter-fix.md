@@ -5,8 +5,8 @@
 - Finding: `LIVE-INVOICE-FILTER-001`.
 - Canonical baseline: `ecf3fd92a1cfa2aaab3c3633259ca5c359c76e41`.
 - Current classification: `FINISHING ACCEPTED WITH LIMITED COVERAGE`.
-- Severity remains P0 0, P1 0, P2 5, and P3 5 during draft review.
-- `LIVE-INVOICE-FILTER-001` is corrected only on the draft branch. Production and canonical documents are unchanged.
+- Source delivery and authenticated production acceptance are complete. Severity is P0 0, P1 0, P2 4, and P3 5.
+- `LIVE-INVOICE-FILTER-001` is closed. Canonical documents remain stale at P2 5 until a separately authorized synchronization.
 - Audit-ready: no. MVP-live: no.
 
 ## Baseline
@@ -94,7 +94,7 @@ The previously reviewed targeted affected Node group passed 125/125. At the inci
 
 Affected browser coverage included passing invoice detail/print and customer-ledger presentation checks, plus a clean 1/1 return-profit rerun after one discarded local Auth-fetch launch. The legacy POS invoice/return/report file produced one passing navigation case and two pre-existing strict-locator failures before sale submission: `Clear` matched both a product action and the Clear button, and `Gross sales` matched four report elements. No sale or financial mutation occurred in those failed cases. The new focused E2E independently covers invoice filtering, detail navigation, payment presentation, tenant isolation, responsive rendering, and cleanup.
 
-Final static validation passed with lint at zero errors and two pre-existing `privacy-center.tsx` hook-dependency warnings, typecheck passed, and the Next 16.2.6 production build completed successfully. `git diff --check`, exact file scope, package/migration/workflow exclusion, secret scanning, evidence-manifest verification, and protected-state comparison are required again at the exact commit head before draft review.
+Final static validation passed with lint at zero errors and two pre-existing `privacy-center.tsx` hook-dependency warnings, typecheck passed, and the Next 16.2.6 production build completed successfully. `git diff --check`, exact file scope, package/migration/workflow exclusion, secret scanning, evidence-manifest verification, and protected-state comparison also passed at the exact reviewed head before delivery.
 
 Discarded harness launches were not represented as clean first-pass results. They covered: an initial loading-state count, empty native-select interaction timeout, visibility-locator misuse, two fixture expectations that ignored the intentional final 100-row cap, native-select accessibility/actionability deadlocks, keyboard-select incompatibility, two strict detail-locator ambiguities, a mobile accessibility-locator issue, and a context-close fetch warning. Each launch used zero automatic retries and cleanup left zero marker rows before the next launch. The accepted run excludes only deliberate context-close diagnostics after all workflow assertions.
 
@@ -127,10 +127,32 @@ The old directory is frozen in its post-incident state. It is internally consist
 
 A deliberate second invocation against the sealed replacement path failed at the pre-write guard. Its manifest hash was `11e2f3d6a681993794325f77ddcc28193038aa16f3b415acfc4975230eda4ba8` before and after the probe, and the complete tree fingerprint was also identical before and after. No fixture was created by the probe. Product source remained byte-for-byte unchanged from reviewed head `5e8b9f5484bd31de00ed2418a7acd95a0ea88d5d`, and production was not accessed or mutated.
 
-## Delivery state
+## Source delivery
 
-The branch must remain draft for owner review. Production verification, finding closure, P2 reduction, focused live documentation, and canonical synchronization are separate later tasks. Production remains unchanged, and no invoice, payment, return, settlement, or other financial row was mutated there.
+Owner review accepted exact head `cebc5ca0c20ff7d290c24b19402302ce5f8a86d3`. PR #336 was marked ready at `2026-08-10T21:26:39Z` and squash-merged at `2026-08-10T21:29:14Z` as `87be9a87557ac2e9a5aa97ad0cae69b7a4eb085e` with title `fix: add invoice list filters`.
+
+Main CI run `31434072779` passed. Vercel production deployment `dpl_DMGEGYrh8TqpXY3j1iVoEca7wNsp` was Ready, current for the exact source squash, and serving `saledock.site` before production acceptance began. The source delivery contained no migration or schema change.
+
+## Authenticated production verification
+
+The read-only verification used Codex Chrome with the authenticated Fardan Aatir Owner session for Star Shop, Main Branch, PKR, and Asia/Karachi. No SaleDock business write was authorized or performed.
+
+Production held 263 organization-owned invoices. Exact and lowercase invoice-number search found existing invoice `GZ-0138`, ranked 101 and therefore outside the default newest 100. This proved filter constraints are applied before the branch limit. Search returned one target and excluded unrelated latest invoices. Customer-name search passed with an existing retained synthetic QA customer, returned exactly `INV-100364` and `INV-100363`, and persisted no ordinary private customer name.
+
+Using the target's 26 July 2026 Karachi date, From-only returned 82 visible invoices; To-only correctly returned the bounded newest 100 of 191 database matches; and the same-day range returned 10. The target remained visible in all three cases. The Paid filter returned the bounded 100 and every visible status reconciled. The Card filter returned seven invoices, including `INV-100363`, and every result reconciled to an organization-owned durable `payments.method = card` row. Customer Credit remained absent from the choices. Production had no existing multi-payment invoice, so the accepted local deduplication contract remains authoritative for that case.
+
+The combined `INV-100363` + same-day + Card + Paid intersection returned exactly one invoice. Sorting by invoice number retained `q`, `from`, `to`, `payment`, and `status` together with `sort=invoice_no&dir=asc`. Reset returned to `/invoices`, cleared Search and both dates, selected All payment methods and All statuses, and restored the bounded newest-first 100 rows.
+
+The impossible search rendered `No invoices match these filters` with Reset. Invalid 29 February 2026, reversed dates, invalid status, and invalid payment each returned the approved safe inline message, rendered no broad invoice table, and caused no server crash. View from the filtered target preserved invoice `INV-100363`, one item, one Card payment, PKR 150 total, PKR 150 paid, and PKR 0 due. Print was not invoked, and `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` remains open.
+
+At 390x844 and 320x568, Search, From, To, Payment Method, Status, Apply Filters, Reset, the result card, and View were reachable. Document width equalled viewport width at both sizes, with no page-level horizontal overflow. Browser error logs were empty.
+
+Opening and closing hashes matched exactly for invoices, invoice items, payments, returns, customers, customer ledger entries, credit payments, write-offs, cash shifts, products, FIFO lots, stock movements, and supplier payments. Business mutation count was zero. Customer balances, supplier balances, Cash Drawer, stock/FIFO, returns, settlements, and tenant scope were unchanged.
+
+Production evidence is sealed at `/Users/sw12/Projects/saledock-local-evidence/invoice-filter-live-verification`. Its 22-entry manifest SHA-256 is `337c629b8e08e71856f73bbc9e038e74a5a75db5f2cc4e06a2b5172b5df9270d`, with three reviewed screenshots and a clean privacy/secret scan. The frozen post-incident source evidence still verifies at `9a934e0ed2ce327caf798184ce4751750f8e92a218c5286021e4b106760db5fc`; accepted replacement evidence still verifies at `11e2f3d6a681993794325f77ddcc28193038aa16f3b415acfc4975230eda4ba8`. The lost historical original seal was not reconstructed.
+
+Result: `PASS — LIVE-INVOICE-FILTER-001 FIXED`. P0 remains 0, P1 remains 0, P2 reduces from 5 to 4, and P3 remains 5. The remaining P2 findings are `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`, customer-settlement client completion, supplier-payment client settlement, and limited cashier coverage. Finishing remains accepted with limited coverage. Audit-ready remains no, MVP-live remains no, and canonical synchronization is deferred to a separate owner-authorized task.
 
 ## Rollback
 
-Before merge, close the draft PR and delete the isolated branch/worktree if rejected. After a later squash merge, revert only that squash with `git revert <invoice-filter-squash-sha> && git push origin main`. No migration, schema rollback, or production data repair is required.
+Revert source delivery with `git revert 87be9a87557ac2e9a5aa97ad0cae69b7a4eb085e && git push origin main`. Revert the focused live-documentation squash separately after its SHA is known. Do not reconstruct the historical original evidence; preserve the frozen incident evidence and accepted replacement evidence. No migration, schema rollback, or production data repair is required because production acceptance was read-only.
