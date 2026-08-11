@@ -9,7 +9,6 @@ import {
   createPurchaseSchema,
   recordPaymentSchema,
   type CreatePurchaseInput,
-  type RecordPaymentInput,
 } from "@/lib/validation/supplier-purchases";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
@@ -87,19 +86,39 @@ export async function createSupplierPurchaseAction(
   return { ok: true, purchase_id: row.purchase_id, purchase_no: row.purchase_no };
 }
 
-export type RecordPaymentResult =
-  | { ok: true; payment_id: string }
-  | { ok: false; error: string };
+export type SupplierPaymentActionState = {
+  error: string | null;
+  success: string | null;
+  payment_id: string | null;
+};
+
+function supplierPaymentError(error: string): SupplierPaymentActionState {
+  return { error, success: null, payment_id: null };
+}
 
 export async function recordSupplierPaymentAction(
-  input: RecordPaymentInput,
-): Promise<RecordPaymentResult> {
+  _previous: SupplierPaymentActionState,
+  formData: FormData,
+): Promise<SupplierPaymentActionState> {
   const w = await requireManager();
-  if (w.denied) return { ok: false, error: "You do not have permission to record supplier payments." };
+  if (w.denied) {
+    return supplierPaymentError(
+      "You do not have permission to record supplier payments.",
+    );
+  }
 
-  const parsed = recordPaymentSchema.safeParse(input);
+  const parsed = recordPaymentSchema.safeParse({
+    supplier_id: formData.get("supplier_id"),
+    purchase_id: formData.get("purchase_id"),
+    method: formData.get("method"),
+    amount: formData.get("amount"),
+    reference_no: formData.get("reference_no"),
+    note: formData.get("note"),
+  });
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return supplierPaymentError(
+      parsed.error.issues[0]?.message ?? "Invalid input.",
+    );
   }
   const data = parsed.data;
 
@@ -114,10 +133,17 @@ export async function recordSupplierPaymentAction(
     p_note: data.note ?? null,
   });
 
-  if (error) return { ok: false, error: getSafeActionError(error, "We couldn't record this payment. Please try again.") };
+  if (error) {
+    return supplierPaymentError(
+      getSafeActionError(
+        error,
+        "We couldn't record this payment. Please try again.",
+      ),
+    );
+  }
 
   const paymentId = typeof rpcData === "string" ? rpcData : null;
-  if (!paymentId) return { ok: false, error: "Payment RPC returned no id." };
+  if (!paymentId) return supplierPaymentError("Payment RPC returned no id.");
 
   logAudit({
     module: "purchases",
@@ -132,12 +158,11 @@ export async function recordSupplierPaymentAction(
     },
   });
 
-  revalidatePath("/suppliers/purchases");
-  if (data.purchase_id) revalidatePath(`/suppliers/purchases/${data.purchase_id}`);
-  revalidatePath(`/suppliers/${data.supplier_id}/ledger`);
-  revalidatePath("/dashboard");
-  revalidatePath("/reports");
-  return { ok: true, payment_id: paymentId };
+  return {
+    error: null,
+    success: "Payment recorded.",
+    payment_id: paymentId,
+  };
 }
 
 export type WriteOffResult =
