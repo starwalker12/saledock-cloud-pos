@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { SUPPLIER_PAYMENT_METHODS, type SupplierPaymentMethod } from "@/lib/validation/supplier-purchases";
-import { recordSupplierPaymentAction } from "../actions";
+import {
+  recordSupplierPaymentAction,
+  type SupplierPaymentActionState,
+} from "../actions";
 import { Loader2 } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
 
@@ -18,6 +27,11 @@ const PAYMENT_OPTIONS = SUPPLIER_PAYMENT_METHODS.map((m) => ({
   value: m,
   label: PAYMENT_LABELS[m],
 }));
+const initialState: SupplierPaymentActionState = {
+  error: null,
+  success: null,
+  payment_id: null,
+};
 
 export function RecordPaymentForm({
   supplierId,
@@ -33,51 +47,65 @@ export function RecordPaymentForm({
   const [method, setMethod] = useState<SupplierPaymentMethod>("cash");
   const [ref, setRef] = useState<string>("");
   const [note, setNote] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [clientError, setClientError] = useState<string | null>(null);
+  const paymentAction = useCallback(
+    async (previous: SupplierPaymentActionState, formData: FormData) => {
+      const next = await recordSupplierPaymentAction(previous, formData);
+      if (next.success) {
+        setAmount(0);
+        setRef("");
+        setNote("");
+      }
+      return next;
+    },
+    [],
+  );
+  const [state, action, pending] = useActionState(paymentAction, initialState);
+  const submissionLocked = useRef(false);
+
+  useEffect(() => {
+    if (!state.success) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("suppaystate", crypto.randomUUID());
+    router.replace(`${url.pathname}${url.search}`, { scroll: false });
+  }, [router, state.success]);
+
+  useEffect(() => {
+    if (!pending) {
+      submissionLocked.current = false;
+    }
+  }, [pending]);
 
   const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    if (submissionLocked.current) {
+      e.preventDefault();
+      return;
+    }
+    setClientError(null);
     if (amount <= 0) {
-      setError("Amount must be greater than 0.");
+      e.preventDefault();
+      setClientError("Amount must be greater than 0.");
       return;
     }
     if (maxAmount !== undefined && amount > maxAmount + 0.0001) {
-      setError(`Amount cannot exceed Rs ${maxAmount}.`);
+      e.preventDefault();
+      setClientError(`Amount cannot exceed Rs ${maxAmount}.`);
       return;
     }
-    startTransition(async () => {
-      const res = await recordSupplierPaymentAction({
-        supplier_id: supplierId,
-        purchase_id: purchaseId,
-        method,
-        amount,
-        reference_no: ref || null,
-        note: note || null,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      setSuccess("Payment recorded.");
-      setAmount(0);
-      setRef("");
-      setNote("");
-      router.refresh();
-    });
+    submissionLocked.current = true;
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form action={action} onSubmit={submit} className="space-y-3">
+      <input type="hidden" name="supplier_id" value={supplierId} />
+      <input type="hidden" name="purchase_id" value={purchaseId ?? ""} />
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amount *</span>
         <input
           type="number"
           min={0}
           step="0.01"
+          name="amount"
           value={amount}
           onChange={(e) => setAmount(Math.max(0, Number(e.target.value || 0)))}
           className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
@@ -90,6 +118,7 @@ export function RecordPaymentForm({
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
         <AppSelect
+          name="method"
           value={method}
           onChange={(nextValue) => setMethod(nextValue as SupplierPaymentMethod)}
           options={PAYMENT_OPTIONS}
@@ -100,6 +129,7 @@ export function RecordPaymentForm({
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reference (optional)</span>
         <input
+          name="reference_no"
           value={ref}
           onChange={(e) => setRef(e.target.value)}
           className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
@@ -108,6 +138,7 @@ export function RecordPaymentForm({
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Note (optional)</span>
         <textarea
+          name="note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
@@ -115,14 +146,21 @@ export function RecordPaymentForm({
         />
       </label>
 
-      {error && (
-        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
-          {error}
+      {(clientError || state.error) && (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"
+        >
+          {clientError || state.error}
         </p>
       )}
-      {success && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
-          {success}
+      {state.success && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+        >
+          {state.success}
         </p>
       )}
 
