@@ -2,7 +2,7 @@
 
 Date: 2026-08-11
 
-Status: draft source correction ready for owner review. Production is unchanged.
+Status: production verified and closed after reviewed source delivery and bounded authenticated acceptance.
 
 ## Scope
 
@@ -12,8 +12,11 @@ customer settlement, global loading UI, date-range reporting, or canonical docum
 
 Starting main: `807cd3eb30a3ef3ab2e713d3787dd7fbbee1d4f6`
 
-The operational register remains P0 0, P1 0, P2 3, and P3 5 until a later reviewed
-merge and authenticated production verification close this finding.
+The source correction was delivered by PR #340 from reviewed head
+`12fc9760d9afda34331b768221983161af2a86db` as squash
+`ef18246ab3c67219bcafcb07876466f8a1460d46`. The authenticated production
+verification below closed this finding. The operational register is now P0 0,
+P1 0, P2 2, and P3 5.
 
 ## Accepted Historical Symptom
 
@@ -238,20 +241,123 @@ Manifest: `bd5c9df01d70f63ac806ed0929a1f5311770467892498b1236ad840a14c3c8ba`
 
 Manifested entries: 33.
 
-## Delivery Boundary
+## Source Delivery
 
-There is no migration, package, lockfile, workflow, global audit-helper, Dashboard,
-Reports, Cash Drawer, stock/FIFO, or production change in this draft.
+- Source PR: #340.
+- Reviewed head: `12fc9760d9afda34331b768221983161af2a86db`.
+- Squash: `ef18246ab3c67219bcafcb07876466f8a1460d46`.
+- Merge timestamp: `2026-08-11T06:46:34Z`.
+- Main CI: run `31466341832`, successful.
+- Production deployment: `dpl_BC1XXFMfhvtpDr9eDnL5XfkSERKT`, Ready, Current,
+  Production, and sourced from the exact squash.
+- Root and login availability: HTTP 200/200.
+- Migration/schema change: none.
 
-The finding remains open until owner review, reviewed merge, exact production
-deployment, and bounded authenticated purchase-specific and on-account verification.
-Customer settlement and invoice filters remain closed. The invoice thermal and limited
-cashier P2 findings remain open. P2 remains 3 and P3 remains 5 during source review.
-SaleDock remains `FINISHING ACCEPTED WITH LIMITED COVERAGE`, below audit-ready, and not
-MVP-live.
+## Authenticated Production Verification
+
+Authenticated identity was Fardan Aatir, Owner, Star Shop, Main Branch, PKR, and
+Asia/Karachi. Production initially had no safe supplier debt. Under explicit owner
+authorization, exactly two retained synthetic records were temporarily restored:
+
+- supplier `c703191b-6b8f-4026-9052-2cde834d2f1e`,
+  `LIVE-PURCHASE-20260723-2224-K9Q4 Supplier`;
+- product `b0be3f44-78ff-4ce6-a9ec-fb7e310cc206`,
+  `LIVE-PURCHASE-20260723-2224-K9Q4 Product`.
+
+The restore actions changed only active/archive state. Supplier outstanding, purchase
+history, product quantity, cost, price, stock movements, and FIFO truth were unchanged.
+The supplier restore has no audit in the existing source contract; product restore also
+has no audit. No other supplier or product was restored or created.
+
+Fixture marker `LIVE-SUPPLIER-SETTLEMENT-FIXTURE--9F2C` created exactly one ordinary
+supplier purchase, `PUR-000002` (`84fdbb9e-44ff-4107-abb5-f668a7e57b14`), containing
+one unit of the synthetic product at PKR 20, no discount, and no upfront payment. This
+created PKR 20 supplier debt, one purchase item, one purchase-credit ledger entry, one
+purchase audit, one stock movement, and one PKR 20 FIFO lot. Existing `PUR-000001`
+remained PKR 300 total, PKR 300 paid, PKR 0 due, and paid. The owner-accepted permanent
+fixture effect is +1 synthetic unit and +PKR 20 FIFO valuation.
+
+### Purchase-specific route
+
+Marker `LIVE-SUPPLIER-PURCHASE-PAY--A7D9` submitted one PKR 10 Card payment from the
+new purchase page. One user submission produced one HTTP 200 Action POST, one payment
+with the exact purchase ID, one debit ledger entry, and one observed ordinary
+`supplier_payment.recorded` audit. The original connected page entered `Recording...`,
+disabled the button, cleared pending, rendered `Payment recorded.`, cleared the fields,
+and refreshed without manual reload. `PUR-000002` moved from unpaid / PKR 0 paid /
+PKR 20 due to partial / PKR 10 paid / PKR 10 due. Supplier outstanding moved from
+PKR 20 to PKR 10. Duplicates were zero.
+
+### On-account route
+
+Marker `LIVE-SUPPLIER-ACCOUNT-PAY--B3F2` submitted one PKR 10 Card on-account payment
+from the supplier ledger. One user submission produced one HTTP 200 Action POST, one
+payment with `purchase_id` null, one debit ledger entry, and one observed ordinary
+audit. The connected page entered `Recording...`, disabled submission, cleared pending,
+applied the successful Action state, and reconciled supplier and purchase truth without
+manual reload. The success-only `suppaystate` transition was observed. Because the
+successful reconciliation reduced outstanding to zero, the payment form unmounted and
+the static post-reconciliation snapshot did not retain the transient success text.
+No retry or resubmission occurred.
+
+The on-account FIFO allocation applied the exact remaining PKR 10 to `PUR-000002`, the
+oldest and only eligible debt. Spillover was zero. The purchase became paid / PKR 20
+paid / PKR 0 due, supplier outstanding became PKR 0, and duplicates were zero.
+
+### Reconciliation and final state
+
+Across the two distinct submissions there were exactly two POSTs, two PKR 10 Card
+payments, two PKR 10 debit ledger entries, and two observed ordinary payment audits.
+Supplier Dues moved PKR 0 before the fixture to PKR 20, PKR 10, then PKR 0. Net Cash,
+physical Cash Drawer, open shifts, and Customer Dues were unchanged. Payment-stage
+product quantity, stock movements, inventory FIFO quantity, and FIFO valuation were
+unchanged. Tenant mismatches and duplicate rows were zero. Dashboard and Reports
+displayed the expected supplier dues and paid purchase truth.
+
+After all payment, audit, stock, and tenant truth was reconciled, the product and
+supplier were each archived once through the ordinary UI. The product archive emitted
+one normal `product.archived` audit; supplier archive has no audit in the current source
+contract. Final state:
+
+- supplier archived with PKR 0 outstanding;
+- product archived with quantity 9 and FIFO valuation PKR 820;
+- permanent pre-fixture delta retained at +1 unit and +PKR 20 valuation;
+- `PUR-000002`, its item, stock movement, FIFO lot, both payments, both payment ledger
+  entries, and all truthful audits retained;
+- archive actions created no stock or financial effect.
+
+Fixture evidence is sealed at
+`/Users/sw12/Projects/saledock-local-evidence/supplier-payment-production-fixture` with
+manifest SHA-256
+`47d352d6d0a16f8b1dadc438218b5faa39d48abf09ec30f134e32d47ee90f0c9`.
+Live settlement evidence is sealed at
+`/Users/sw12/Projects/saledock-local-evidence/supplier-payment-client-settlement-live-verification`
+with 39 entries, 18 screenshots, and manifest SHA-256
+`8b7c85efaee5b403fcde3887f7c4091a3302b64559cafefaa99432997cde5fe5`.
+
+## Closure
+
+`PASS - SUPPLIER-PAYMENT CLIENT SETTLEMENT FIXED`.
+
+The finding is closed because both distinct supplier-payment routes committed once,
+their original connected pages settled and refreshed without manual reload, financial
+allocation was exact, ordinary audits were observed, duplicate counts were zero, Card
+had no Cash Drawer effect, payment-stage inventory was unchanged, and the temporary
+synthetic records returned safely to their archived states.
+
+P0 remains 0, P1 remains 0, P2 is reduced from 3 to 2, and P3 remains 5. Remaining P2
+findings are `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` and accepted limited Cashier
+coverage. Customer settlement and invoice filters remain closed. Classification remains
+`FINISHING ACCEPTED WITH LIMITED COVERAGE`; SaleDock remains below audit-ready and is
+not MVP-live. Canonical synchronization is deferred.
 
 ## Rollback
 
-Before merge, close the draft PR and retain or delete the isolated branch/worktree.
-After a future squash merge, revert only that reviewed squash commit and push main.
-No database rollback or migration is involved.
+Source rollback:
+
+`git revert ef18246ab3c67219bcafcb07876466f8a1460d46 && git push origin main`
+
+The focused live-documentation squash can be reverted separately after it is merged.
+No database rollback or migration is involved. Do not delete the truthful synthetic
+purchase, stock receipt, FIFO lot, payments, ledger entries, or audits. The accepted
++1 synthetic stock unit and PKR 20 FIFO valuation remain retained QA history.
