@@ -153,7 +153,7 @@ test("client settlement finishes before unique same-route reconciliation", () =>
   assert.match(formSource, /<form action=\{action\} onSubmit=\{submit\}/);
   assert.match(
     formSource,
-    /useEffect\(\(\) => \{[\s\S]*if \(!state\.success\) return;[\s\S]*url\.searchParams\.set\("suppaystate", crypto\.randomUUID\(\)\);[\s\S]*router\.replace\(`[\s\S]*scroll: false[\s\S]*\);[\s\S]*\}, \[router, state\.success\]\)/,
+    /useEffect\(\(\) => \{[\s\S]*if \(!state\.success \|\| !state\.payment_id\) return;[\s\S]*url\.searchParams\.set\("suppaystate", crypto\.randomUUID\(\)\);[\s\S]*router\.replace\(`[\s\S]*scroll: false[\s\S]*\);[\s\S]*\}, \[router, state\.payment_id, state\.success\]\)/,
   );
   assert.doesNotMatch(formSource, /router\.refresh\s*\(/);
   assert.doesNotMatch(formSource, /setTimeout|setInterval|sleep\s*\(/);

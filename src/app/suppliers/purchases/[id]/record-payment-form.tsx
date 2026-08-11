@@ -64,11 +64,11 @@ export function RecordPaymentForm({
   const submissionLocked = useRef(false);
 
   useEffect(() => {
-    if (!state.success) return;
+    if (!state.success || !state.payment_id) return;
     const url = new URL(window.location.href);
     url.searchParams.set("suppaystate", crypto.randomUUID());
     router.replace(`${url.pathname}${url.search}`, { scroll: false });
-  }, [router, state.success]);
+  }, [router, state.payment_id, state.success]);
 
   useEffect(() => {
     if (!pending) {

@@ -129,12 +129,17 @@ invalidations remain unchanged.
 - renders safe Action and client validation errors;
 - synchronously locks a second same-tick activation;
 - releases that lock only after pending is false;
-- starts one unique `suppaystate` same-route reconciliation after success;
+- starts one unique `suppaystate` same-route reconciliation for each successful
+  `payment_id`;
 - uses no timer, retry, forced reload, or duplicate submission.
 
 The unique query value prevents a stale no-op navigation. Mutation settlement is now
 observable before route reconciliation begins, while the original connected page still
 receives refreshed supplier and purchase truth.
+
+Exact-head senior review tightened the reconciliation dependency from the constant success
+message to the unique returned `payment_id`. This keeps a later legitimate payment in the
+same mounted form from reusing the previous effect dependency and missing its own refresh.
 
 ## Financial and Tenant Safety
 
