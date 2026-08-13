@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MessageCircle, Printer, X, Loader2, Image as ImageIcon, Copy, Check, ExternalLink } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -48,18 +48,72 @@ type PrintButtonProps = {
   shopName?: string;
 };
 
-function printWithMode(mode: "a4" | "thermal", invoiceNo: string) {
-  const oldTitle = document.title;
-  document.title = `SaleDock-Invoice-${invoiceNo}`;
-  document.body.dataset.printMode = mode;
-  const cleanup = () => {
-    delete document.body.dataset.printMode;
-    document.title = oldTitle;
-    window.removeEventListener("afterprint", cleanup);
-  };
-  window.addEventListener("afterprint", cleanup);
-  window.print();
-  window.setTimeout(cleanup, 1200);
+type PrintAttempt = {
+  id: number;
+  cancelled: boolean;
+  oldTitle: string;
+  printMediaEntered: boolean;
+  windowBlurred: boolean;
+  focusCleanupId: number | null;
+};
+
+const CSS_PX_TO_MM = 25.4 / 96;
+const THERMAL_PAGE_WIDTH_MM = 80;
+const THERMAL_CONTENT_WIDTH_MM = 72;
+const THERMAL_TOTAL_MARGIN_MM = 8;
+const THERMAL_HEIGHT_ALLOWANCE_MM = 1;
+const THERMAL_PAGE_STYLE_ID = "invoice-thermal-page-size";
+const READINESS_TIMEOUT_MS = 5000;
+const FOCUS_CLEANUP_DELAY_MS = 250;
+const MIN_THERMAL_PAGE_HEIGHT_MM = 20;
+const MAX_THERMAL_PAGE_HEIGHT_MM = 5000;
+const THERMAL_ERROR_MESSAGE = "Unable to prepare the thermal invoice. Please try again.";
+
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+function withTimeout(promise: Promise<void>, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("readiness timeout")), timeoutMs);
+    promise.then(resolve, reject).finally(() => window.clearTimeout(timeout));
+  });
+}
+
+async function waitForImage(image: HTMLImageElement): Promise<void> {
+  if (!image.complete) {
+    await new Promise<void>((resolve, reject) => {
+      const onLoad = () => {
+        image.removeEventListener("error", onError);
+        resolve();
+      };
+      const onError = () => {
+        image.removeEventListener("load", onLoad);
+        reject(new Error("invoice image failed"));
+      };
+      image.addEventListener("load", onLoad, { once: true });
+      image.addEventListener("error", onError, { once: true });
+    });
+  }
+
+  if (typeof image.decode === "function") {
+    try {
+      await image.decode();
+    } catch {
+      if (!image.complete) throw new Error("invoice image decode failed");
+    }
+  }
+}
+
+async function waitForReceiptReadiness(receipt: HTMLElement): Promise<void> {
+  const fontsReady = document.fonts?.ready.then(() => undefined) ?? Promise.resolve();
+  const imagesReady = Promise.all(
+    Array.from(receipt.querySelectorAll("img"), (image) => waitForImage(image)),
+  ).then(() => undefined);
+  await withTimeout(
+    Promise.all([fontsReady, imagesReady]).then(() => undefined),
+    READINESS_TIMEOUT_MS,
+  );
 }
 
 function getWhatsAppPhone(phone: string | null | undefined): string {
@@ -167,7 +221,185 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imgBlob, setImgBlob] = useState<Blob | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [thermalError, setThermalError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  const attemptSequenceRef = useRef(0);
+  const activeAttemptRef = useRef<PrintAttempt | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const { resolvedTheme } = useTheme();
+
+  const isAttemptActive = useCallback(
+    (attempt: PrintAttempt) =>
+      mountedRef.current && !attempt.cancelled && activeAttemptRef.current === attempt,
+    [],
+  );
+
+  const beginPrint = useCallback(
+    (activeInvoiceNo: string) => {
+      if (inFlightRef.current) return null;
+      inFlightRef.current = true;
+      if (mountedRef.current) setIsPrinting(true);
+
+      const mediaQuery = window.matchMedia("print");
+      const attempt: PrintAttempt = {
+        id: ++attemptSequenceRef.current,
+        cancelled: false,
+        oldTitle: document.title,
+        printMediaEntered: mediaQuery.matches,
+        windowBlurred: false,
+        focusCleanupId: null,
+      };
+      activeAttemptRef.current = attempt;
+
+      document.getElementById(THERMAL_PAGE_STYLE_ID)?.remove();
+      document
+        .querySelectorAll<HTMLElement>('[data-invoice-thermal-measuring="true"]')
+        .forEach((element) => delete element.dataset.invoiceThermalMeasuring);
+      delete document.body.dataset.printMode;
+      delete document.body.dataset.invoiceThermalPrint;
+      document.title = `SaleDock-Invoice-${activeInvoiceNo}`;
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        attempt.cancelled = true;
+        if (attempt.focusCleanupId !== null) {
+          window.clearTimeout(attempt.focusCleanupId);
+          attempt.focusCleanupId = null;
+        }
+        const ownsActiveState = activeAttemptRef.current === attempt;
+        if (ownsActiveState) {
+          activeAttemptRef.current = null;
+          document
+            .querySelectorAll<HTMLElement>('[data-invoice-thermal-measuring="true"]')
+            .forEach((element) => delete element.dataset.invoiceThermalMeasuring);
+          document.getElementById(THERMAL_PAGE_STYLE_ID)?.remove();
+          delete document.body.dataset.printMode;
+          delete document.body.dataset.invoiceThermalPrint;
+          document.title = attempt.oldTitle;
+          inFlightRef.current = false;
+          if (mountedRef.current) setIsPrinting(false);
+        }
+        window.removeEventListener("beforeprint", onBeforePrint);
+        window.removeEventListener("afterprint", cleanup);
+        window.removeEventListener("blur", onWindowBlur);
+        window.removeEventListener("focus", onWindowFocus);
+        mediaQuery.removeEventListener("change", onPrintMediaChange);
+        if (cleanupRef.current === cleanup) cleanupRef.current = null;
+      };
+      const onBeforePrint = () => {
+        if (isAttemptActive(attempt)) attempt.printMediaEntered = true;
+      };
+      const onPrintMediaChange = (event: MediaQueryListEvent) => {
+        if (!isAttemptActive(attempt)) return;
+        if (event.matches) attempt.printMediaEntered = true;
+        else if (attempt.printMediaEntered) cleanup();
+      };
+      const onWindowBlur = () => {
+        if (isAttemptActive(attempt)) attempt.windowBlurred = true;
+      };
+      const onWindowFocus = () => {
+        if (!isAttemptActive(attempt) || !attempt.windowBlurred || mediaQuery.matches) return;
+        if (attempt.focusCleanupId !== null) window.clearTimeout(attempt.focusCleanupId);
+        attempt.focusCleanupId = window.setTimeout(() => {
+          attempt.focusCleanupId = null;
+          if (isAttemptActive(attempt) && !mediaQuery.matches) cleanup();
+        }, FOCUS_CLEANUP_DELAY_MS);
+      };
+
+      cleanupRef.current = cleanup;
+      window.addEventListener("beforeprint", onBeforePrint);
+      window.addEventListener("afterprint", cleanup);
+      window.addEventListener("blur", onWindowBlur);
+      window.addEventListener("focus", onWindowFocus);
+      mediaQuery.addEventListener("change", onPrintMediaChange);
+      return { attempt, cleanup };
+    },
+    [isAttemptActive],
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (activeAttemptRef.current) activeAttemptRef.current.cancelled = true;
+      cleanupRef.current?.();
+    };
+  }, []);
+
+  const printA4 = useCallback(() => {
+    setThermalError(null);
+    const print = beginPrint(invoiceNo);
+    if (!print) return;
+    document.body.dataset.printMode = "a4";
+    try {
+      window.print();
+    } catch {
+      print.cleanup();
+    }
+  }, [beginPrint, invoiceNo]);
+
+  const printThermal = useCallback(async () => {
+    setThermalError(null);
+    const print = beginPrint(invoiceNo);
+    if (!print) return;
+    const { attempt, cleanup } = print;
+
+    try {
+      const receipt = document.querySelector<HTMLElement>(".thermal-print");
+      if (!receipt) throw new Error("missing thermal invoice");
+
+      receipt.dataset.invoiceThermalMeasuring = "true";
+      await waitForReceiptReadiness(receipt);
+      if (!isAttemptActive(attempt)) return;
+      await nextAnimationFrame();
+      if (!isAttemptActive(attempt)) return;
+      await nextAnimationFrame();
+      if (!isAttemptActive(attempt)) return;
+
+      const receiptBounds = receipt.getBoundingClientRect();
+      const measuredWidthMm = receiptBounds.width * CSS_PX_TO_MM;
+      if (Math.abs(measuredWidthMm - THERMAL_CONTENT_WIDTH_MM) > 0.5) {
+        throw new Error("invalid thermal invoice width");
+      }
+      const pageHeightMm =
+        Math.ceil(
+          (receiptBounds.height * CSS_PX_TO_MM +
+            THERMAL_TOTAL_MARGIN_MM +
+            THERMAL_HEIGHT_ALLOWANCE_MM) *
+            10,
+        ) / 10;
+      if (
+        !Number.isFinite(pageHeightMm) ||
+        pageHeightMm < MIN_THERMAL_PAGE_HEIGHT_MM ||
+        pageHeightMm > MAX_THERMAL_PAGE_HEIGHT_MM
+      ) {
+        throw new Error("invalid thermal invoice height");
+      }
+
+      delete receipt.dataset.invoiceThermalMeasuring;
+      if (!isAttemptActive(attempt)) return;
+      const style = document.createElement("style");
+      style.id = THERMAL_PAGE_STYLE_ID;
+      style.textContent = `@page invoiceThermalReceipt { size: ${THERMAL_PAGE_WIDTH_MM}mm ${pageHeightMm.toFixed(1)}mm; margin: 4mm; }`;
+      if (!isAttemptActive(attempt)) return;
+      document.head.append(style);
+      if (!isAttemptActive(attempt)) return;
+      document.body.dataset.printMode = "thermal";
+      document.body.dataset.invoiceThermalPrint = "true";
+      await nextAnimationFrame();
+      if (!isAttemptActive(attempt)) return;
+
+      window.print();
+    } catch {
+      if (!isAttemptActive(attempt)) return;
+      cleanup();
+      if (mountedRef.current) setThermalError(THERMAL_ERROR_MESSAGE);
+    }
+  }, [beginPrint, invoiceNo, isAttemptActive]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -251,20 +483,27 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
       <div className="flex flex-wrap gap-2 print:hidden">
         <button
           type="button"
-          onClick={() => printWithMode("a4", invoiceNo)}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 cursor-pointer"
+          onClick={printA4}
+          disabled={isPrinting}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Printer className="size-4" />
           Print A4 / Save PDF
         </button>
         <button
           type="button"
-          onClick={() => printWithMode("thermal", invoiceNo)}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+          onClick={printThermal}
+          disabled={isPrinting}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Printer className="size-4" />
           Print 80mm
         </button>
+        {thermalError ? (
+          <p role="alert" className="basis-full text-sm font-medium text-red-700">
+            {thermalError}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={handleShare}
@@ -355,10 +594,11 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
                 type="button"
                 aria-label="Print or save invoice as PDF"
                 onClick={() => {
-                  printWithMode("a4", invoiceNo);
+                  printA4();
                   setIsOpen(false);
                 }}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+                disabled={isPrinting}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Printer className="size-4" />
                 Print / Save as PDF
