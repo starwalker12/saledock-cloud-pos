@@ -1,0 +1,183 @@
+# Invoice Thermal Chrome 151 Mixed-Page Fix
+
+## Scope
+
+This record covers only `LIVE-INVOICE-THERMAL-BLANK-PAGE-001` from exact main `10930b20f89ca4f8dd87559d6f8f2105f25165d0`. The work is local source investigation and draft delivery. Production was not accessed after the retained failure baseline and no production data was changed.
+
+## Historical evidence
+
+Earlier authenticated production evidence established an 80mm Invoice receipt followed by a blank trailing page. That historical evidence remains retained and unchanged.
+
+PR #342 (`fix: harden invoice thermal printing`) corrected independently proven Invoice page sizing, clipping, measurement-readiness, and lifecycle defects. It retained dynamic 80mm page height, the Invoice marker, one-print locking, attempt ownership, `afterprint` and print-media cleanup, A4 separation, and WhatsApp behavior. It did not eliminate the current mixed thermal/A4 output in Chrome 151 production.
+
+## Current Chrome 151 production baseline
+
+The authoritative retained baseline is:
+
+- Evidence: `/Users/sw12/Projects/saledock-local-evidence/invoice-thermal-chrome150-mixed-page-fix`
+- Manifest SHA-256: `062257e13f6761b5a45bdf10e71d95095dffcb78c1ab1d92d8cff8944545e455`
+- Browser: Chrome `151.0.7922.109` arm64
+- Invoice: `INV-100364`
+- Page 1: `227.03999 x 415.91998` points, approximately `80.09 x 146.73mm`, complete thermal receipt
+- Page 2: `594.95996 x 841.91998` points, approximately `209.89 x 297.01mm`, blank A4
+
+The directory name predates the Chrome 151 authorization; the PDF creator and producer metadata establish Chrome/Skia m151.
+
+## Local reproduction
+
+Exact main was run as a production build against loopback Supabase and Chrome `151.0.7922.109` at `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`.
+
+The actual desktop Print 80mm preview reported two pages. The saved PDF reproduced the production signature:
+
+- Page 1: `227.04 x 347.04` points, complete 80mm receipt
+- Page 2: `594.96 x 841.92` points, completely blank A4
+
+Chrome's headless `page.pdf` API produced one page and is retained only as a discarded control. The desktop Chrome print preview and Save to PDF artifacts are the causal authority.
+
+## Print-tree evidence
+
+At print time, `html` remained `page: auto`; `body`, the AppShell root/column/main/content chain, and other visible wrappers also remained `page: auto`; and `.thermal-print` alone selected `invoiceThermalReceipt`. Sidebar, Topbar, action controls, and the screen Invoice were hidden. The receipt was the only visible content box.
+
+Diagnostic color output showed the blank second page contained the `html` background only. Body and AppShell diagnostic colors did not appear on that page.
+
+## Causal matrix
+
+### Experiment A - page ownership
+
+- A0, receipt only: 2 pages; page 2 blank A4.
+- A1, main plus receipt: 2 pages.
+- A2, AppShell chain plus receipt: 2 pages.
+- A3, body plus shell chain and receipt: 2 pages.
+- A4, add `html`: 1 page.
+- Minimal `html` ownership, with and without `!important`: 1 page.
+
+### Experiment B - AppShell geometry
+
+Normalizing root, column, main, and content to block/auto/visible/non-flex 72mm geometry retained two pages at every step. AppShell viewport, flex, and overflow geometry was not independently causal.
+
+### Experiment C - default page
+
+Temporarily changing the default page to the measured thermal dimensions retained two pages but changed page 2 from A4 to thermal-sized. This is Result C1: an extra anonymous/default page definitely existed.
+
+### Experiment D - box elimination
+
+Progressively applying `display: contents` to the root, column, and full shell chain retained two pages. No AppShell wrapper or sibling independently generated the blank page.
+
+### Experiment E - height
+
+Increasing the measured height by 1mm, 2mm, and 20mm retained the blank A4 page. Simple receipt overflow or rounding is rejected.
+
+## Root cause
+
+Classification: `OUTCOME A - NAMED-PAGE ANCESTRY`.
+
+The receipt selected the named `invoiceThermalReceipt` page while the `html` root page box remained on `page: auto`. Chrome 151 generated one named thermal page for the receipt and one empty anonymous/default page governed by the global A4 `@page` rule.
+
+The default A4 rule controlled only the empty page dimensions. AppShell geometry and dynamic receipt height were not causal.
+
+## Correction
+
+The only application change is an Invoice-thermal-scoped root rule in `src/app/globals.css`:
+
+```css
+html:has(body[data-print-mode="thermal"][data-invoice-thermal-print="true"]) {
+  page: invoiceThermalReceipt;
+}
+```
+
+This assigns the root page box to the same named page as the receipt only while the existing Invoice thermal marker is active.
+
+The PrintButton, dynamic measured height, 72mm receipt geometry, font/image readiness, lifecycle, attempt identity, cancellation, A4, WhatsApp, AppShell source, and Invoice page source remain unchanged.
+
+## Revert proof
+
+All four accepted artifacts were generated by actual desktop Chrome `151.0.7922.109`:
+
+- Exact main baseline: 2 pages, blank A4 second page.
+- Corrected source: 1 page.
+- Exact removal of the causal rule: 2 pages, blank A4 restored.
+- Exact reapplication: 1 page.
+
+Result: `2 -> 1 -> 2 -> 1`.
+
+## Chrome 151 artifacts
+
+Standard Invoice, three independent attempts:
+
+- 3/3 one page
+- `227.04 x 347.04` points
+- approximately 80mm wide
+- complete receipt
+- balanced `11.25 / 11.70` point left/right physical whitespace
+- no clipping, controls, or blank A4 page
+
+Long Invoice:
+
+- one page
+- `227.04 x 1193.04` points, approximately `80.09 x 420.88mm`
+- all 20 long items, wrapped note, totals, payment, and footer complete
+- no clipping or blank page
+
+A4:
+
+- one page
+- `594.96 x 841.92` points
+- complete and unclipped
+- no Invoice thermal marker or named-page leakage
+
+## Validation
+
+- New direct contracts: 8/8.
+- Focused direct and shared print contracts: 115/115.
+- New Chrome 151 production-mode E2E: 1/1, zero automatic retries.
+- Previous Invoice thermal reliability E2E: 1/1.
+- Invoice filters E2E: 1/1.
+- Returns print E2E: 3/3.
+- Repairs print E2E: 4/4.
+- Reports and print touch-target E2E: 3/3.
+- Cookie/banner print hiding: 1/1 with its local synthetic analytics configuration.
+- Complete Node suite: 360/360.
+- Lint: zero errors; two pre-existing `privacy-center.tsx` hook warnings.
+- Typecheck: passed.
+- Production build: passed.
+- Playwright automatic retries: zero.
+
+Discarded launches are retained truthfully: three new-E2E harness corrections, one combined shared run with local Auth/analytics noise and the retained manual fixture ordering conflict, two cookie launches with incomplete local configuration/origin, one Node launch without required loopback keys, and one shell build wrapper using a reserved variable name. Accepted fixture cleanup completed with zero retries/failures and equal business signatures.
+
+## Safety
+
+- Production access after retained baseline: none.
+- Production business mutations: 0.
+- Local marker invoices/items/payments after cleanup: 0/0/0.
+- Local customers created: 0.
+- Stock, FIFO, Cash Drawer, and supplier truth: unchanged.
+- Financial/data sources, migration, schema, permissions, Cashier, loaders, and canonical documents: unchanged.
+- Application source scope: `src/app/globals.css` only.
+
+## Evidence
+
+New fail-closed evidence:
+
+`/Users/sw12/Projects/saledock-local-evidence/invoice-thermal-chrome151-mixed-page-causal-fix`
+
+It contains the production reference, local baseline, DOM map, A-F experiment artifacts, causal JSON, standard/long/A4 PDFs and renders, exact revert proof, shared regressions, cleanup, final report, and a sealed SHA-256 manifest.
+
+- Manifest entries: 50.
+- Manifest SHA-256: `6b23f6fdcaba87cd3886b552592c2dd1ffb50ca102340d12dd31b328da55cfb2`.
+
+## Status
+
+- Classification: `DRAFT READY FOR OWNER REVIEW - CHROME 151 MIXED THERMAL/A4 PAGE FIX` after hosted draft review passes.
+- `LIVE-INVOICE-THERMAL-BLANK-PAGE-001`: open pending owner review, delivery, exact production deployment, and authenticated production PDF verification.
+- P0: 0.
+- P1: 0.
+- P2: 2.
+- P3: 5.
+- Remaining P2 includes limited Cashier coverage.
+- Canonical synchronization: not performed.
+- Audit-ready: no.
+- MVP-live: no.
+
+## Rollback
+
+Before merge, close the draft PR if the correction is rejected. No production-data rollback applies. Preserve every thermal evidence directory.

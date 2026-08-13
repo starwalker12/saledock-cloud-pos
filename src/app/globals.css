@@ -791,6 +791,9 @@ body {
     font-size: 9px !important;
     page: thermalReceipt;
   }
+  html:has(body[data-print-mode="thermal"][data-invoice-thermal-print="true"]) {
+    page: invoiceThermalReceipt;
+  }
   body[data-print-mode="thermal"][data-invoice-thermal-print="true"] {
     width: 72mm !important;
     max-width: 72mm !important;
