@@ -2,7 +2,7 @@
 
 ## Scope
 
-Task 74105 contains an authenticated self-profile privilege escalation at the database boundary. It does not resume Cashier production coverage and does not access or mutate production.
+The original Task 74105 source stage contains an authenticated self-profile privilege escalation at the database boundary. That source stage did not resume Cashier production coverage and did not access or mutate production.
 
 Vulnerable base: `bbcc74f46c1c65b499e7a75d9d2d9a3b27ea9020`.
 
@@ -92,6 +92,58 @@ Discarded launches are retained truthfully. The first complete Node launch was 3
 
 ## Delivery Boundary
 
-The authorization defect remains open until independent owner review, authorized delivery, migration/deployment verification, and a later bounded production containment check. This task stops at a draft pull request and does not deploy the migration.
+The paragraph below records the completed delivery that followed the original
+draft-only source task. Cashier production coverage remained separate throughout.
 
-Rollback concept: restore the former authenticated table-wide UPDATE grant only after a security review of every profile column; do not remove the migration from applied history.
+Rollback concept: do not restore the former authenticated table-wide UPDATE
+grant. Any future authorization change requires a separately reviewed
+security-safe forward migration; do not remove either migration from applied
+history.
+
+## Production Containment And Dependent Hardening
+
+PR #345 delivered reviewed head
+`c2533dd745d03cfbbde5b09f02048c65e2c84a3b` by squash merge as
+`98f8e6b48bd588a39e2ff9ae235bf8ce8e281112` at
+`2026-08-13T23:42:07Z`. Main CI run `31754766170` succeeded, and Vercel
+Production deployment `dpl_DWqN9EK4kRF6rLTW7UoVaXYmgtdm` was Ready for that
+exact source squash.
+
+Authenticated production containment is proven in the actual current catalog:
+
+- authenticated table-wide UPDATE on `public.profiles`: `false`;
+- authenticated own-row `profile_picture_url` UPDATE: the only retained direct
+  self-service column privilege;
+- authenticated UPDATE on every other current profile column: `false`;
+- own-row UPDATE RLS `USING` and `WITH CHECK`: both remain `id = auth.uid()`;
+- service-role profile management: retained.
+
+The provenance limitation for migration `20260813225513` remains unchanged and
+is recorded truthfully. By the time its owner-authorized post-merge migration
+preflight ran, the version was already present in production history. Migration
+history did not identify an applying actor or timestamp, the genuine historical
+pre-migration production snapshot was unavailable, and no historical pre-state
+was reconstructed.
+
+The dependent anonymous-grant hardening was delivered by PR #346 from reviewed
+head `4e08185333521acc328e65714d581ff70497a88c` and squash
+`1dcb5a46652cc8c7daf5fb94d76fd24974fbeee6`. A genuine pre-merge production
+snapshot proved anonymous table and all-column UPDATE were true before migration
+`20260814002317`; the final catalog proves they are false while authenticated
+containment, service-role management, anonymous non-UPDATE grants, and RLS remain
+unchanged. The target migration is recorded exactly once. No production exploit
+or write probe was attempted, and 21 protected relation signatures were equal
+before and after.
+
+The production evidence is retained at:
+
+`/Users/sw12/Projects/saledock-local-evidence/anon-profile-update-privilege-production-verification`
+
+Manifest-file SHA-256:
+
+`3ae1864be6b7313b26c9e623457507373958126c64e07e32c6569d779e557769`
+
+Authenticated profile self-escalation is closed and contained. Anonymous profile
+UPDATE hardening is closed and verified. The profile authorization blocker is
+closed. Authenticated Cashier production coverage remains open and was not
+resumed.
