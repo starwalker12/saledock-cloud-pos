@@ -2,7 +2,7 @@
 
 ## Scope
 
-Task 38062 removes an unnecessary PostgreSQL `UPDATE` grant on `public.profiles` from `anon`. This is defense-in-depth least-privilege hardening. No anonymous row-write exploit was proven, no production environment was accessed, and Cashier production coverage remains separate.
+The original Task 38062 source stage removes an unnecessary PostgreSQL `UPDATE` grant on `public.profiles` from `anon`. This is defense-in-depth least-privilege hardening. No anonymous row-write exploit was proven, that source stage did not access production, and Cashier production coverage remains separate.
 
 Base: `98f8e6b48bd588a39e2ff9ae235bf8ce8e281112`.
 
@@ -120,6 +120,61 @@ The sealed manifest verifies 14 entries. Manifest-file SHA-256:
 
 `8abdcbbdd47f01441936642d6be4d97686d8a7791d1ac17de87c381ee9e5cf8f`
 
-This task stops at a draft pull request. It does not merge, deploy, access production, or resume Cashier coverage.
+The statements above describe the original source task boundary before owner-authorized delivery. Production delivery and verification are recorded separately below. Cashier coverage was not resumed.
 
 Rollback concept: a future reviewed forward migration could restore only `UPDATE ON public.profiles TO anon`. It must never restore authenticated table-wide UPDATE, and it must not modify RLS or profile data.
+
+## Production Delivery And Verification
+
+Owner-reviewed PR #346 delivered reviewed head
+`4e08185333521acc328e65714d581ff70497a88c` by squash merge as
+`1dcb5a46652cc8c7daf5fb94d76fd24974fbeee6` at
+`2026-08-20T22:34:09Z`. Main CI run `32424848023` succeeded. Vercel
+Production deployment `dpl_7Actsb9NpBm8Kjj56ER8TweUd8Lw` reached Ready
+for that exact main; the canonical root and login routes returned HTTP 200.
+
+The trusted production project was `bvxyxrdskjryepwjmsvc`. A genuine catalog
+snapshot was captured before the PR was marked ready or merged. Production then
+contained 51 migrations, `20260813225513` exactly once, and no
+`20260814002317` entry. Anonymous table UPDATE was true, and anonymous UPDATE
+was true on all 14 current profile columns. Authenticated table UPDATE was
+false, authenticated column UPDATE was true only for
+`profile_picture_url`, and service-role table UPDATE was true.
+
+Delivery pathway: **B - post-merge appearance before task-owned application**.
+The target migration remained absent on the first post-merge history check.
+Before any task-owned push or SQL execution, the linked migration-list safety
+check showed version `20260814002317` present exactly once; an independent
+production history read confirmed the same result. No duplicate application or
+history repair was attempted. The applying actor or mechanism is not proven and
+is not claimed.
+
+The actual post-migration catalog proves:
+
+- `anon` table UPDATE: `false`;
+- `anon` UPDATE on every current profile column: `false`;
+- `anon` SELECT, INSERT, and DELETE: unchanged at `true`;
+- `authenticated` table UPDATE: unchanged at `false`;
+- `authenticated` UPDATE on `profile_picture_url`: unchanged at `true`;
+- `authenticated` UPDATE on every other profile column: unchanged at `false`;
+- `service_role` table and all-column UPDATE: retained;
+- RLS enabled state, policy set, `USING`, and `WITH CHECK`: unchanged.
+
+No anonymous production PATCH, authenticated protected-field PATCH, same-value
+write probe, or profile-picture write probe was sent. Counts and
+order-independent digests matched before and after across 20 protected public
+relations plus `auth.users`; profile, audit, auth-account, and business-row
+mutations were zero.
+
+Production evidence is retained outside Git at:
+
+`/Users/sw12/Projects/saledock-local-evidence/anon-profile-update-privilege-production-verification`
+
+The sealed bundle contains 18 verified entries. Manifest-file SHA-256:
+
+`3ae1864be6b7313b26c9e623457507373958126c64e07e32c6569d779e557769`
+
+Anonymous profile UPDATE grant hardening is closed and production verified. No
+anonymous exploit was proven or attempted. The profile authorization blocker is
+closed. Authenticated Cashier production coverage remains open and was not
+resumed.
