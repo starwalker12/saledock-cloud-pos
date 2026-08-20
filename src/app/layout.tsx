@@ -123,6 +123,7 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const syne = Syne({
@@ -135,6 +136,7 @@ const notoNastaliqUrdu = Noto_Nastaliq_Urdu({
   variable: "--font-urdu",
   subsets: ["arabic"],
   weight: ["400", "700"],
+  preload: false,
 });
 
 const SITE_TITLE = "SaleDock Cloud POS";
@@ -201,6 +203,7 @@ export default async function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
         >
           <LanguageProvider>
             <ToastProvider>
