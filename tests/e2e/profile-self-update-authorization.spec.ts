@@ -278,7 +278,7 @@ test("authenticated profile writes are column-contained while privileged assignm
     const anonymousPicture = await directPatch(anon, cashier.id, {
       profile_picture_url: `/${marker}/anonymous.png`,
     });
-    expect(anonymousPicture).toMatchObject({ ok: true, rows: 0, code: null });
+    expect(anonymousPicture).toMatchObject({ ok: false, rows: 0, code: "42501" });
     expect((await readProfile(cashier.id)).profile_picture_url).toBe(picture);
 
     const { data: currentRole, error: roleReadError } = await cashier.client.rpc("current_user_role");
@@ -419,7 +419,7 @@ test("authenticated profile writes are column-contained while privileged assignm
       mixed: { code: mixed.code, protected_persisted: false, allowed_persisted: false },
       profile_picture_url: { field: "profile_picture_url", ok: true, own_row_only: true },
       other_user: { rows: otherPicture.rows, persisted: false },
-      anonymous: { rows: anonymousPicture.rows, persisted: false },
+      anonymous: { rows: anonymousPicture.rows, code: anonymousPicture.code, persisted: false },
     };
     proof.privileged = {
       service_role_profile_management: "pass",
