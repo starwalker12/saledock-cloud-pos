@@ -168,7 +168,39 @@ Continuation evidence is retained outside Git at:
 
 Evidence manifest SHA-256: `eb10260a79fcfd348a4881bea356949ddf30175f25dc8f06eaa836bb10fb73a0`.
 
-This correction is draft-only pending independent owner review. It is not merged or deployed, and production withdrawal acceptance has not been rerun.
+That was the draft-only state at the end of task `49163`. Independent owner review subsequently authorized the exact head for controlled delivery and production verification.
+
+## Production Consent Withdrawal Closure
+
+The original homepage optimization and Cloudflare delivery from PR #348 remains accepted on source squash `52649df432d55626e13ea4e6364e76d0a80f11f0`. Its production homepage quality, metadata, 1200 x 630 social card, accessibility, CSP, Cloudflare consent behavior, OpenGraph result of 0 errors / 0 warnings / 12 passes, and previously recorded PageSpeed results were not rerun because corrective PR #349 changes only Analytics withdrawal durability. The previously open production blocker was the incomplete GA4/Clarity cookie cleanup described above.
+
+Corrective PR #349 delivered reviewed head `9caa092a10dc6b39a8fdb98847e04af91db33946` as squash `0667c8af07781c05a421612734dc4f1dab7df73d` at `2026-08-21T02:02:55Z`. Main CI run `32438456431` passed. Vercel production deployment `dpl_2qwL7UEjxUmb9qGhq5DkhsQd7mUf` became Ready, Production, Current, and aliased to `saledock.site` for that exact squash. The homepage, Privacy Policy, login, and versioned social image returned HTTP 200.
+
+The delivered vendor-shutdown sequence is the reviewed correction: persist the local rejection; set the configured GA disable flag; send GA `analytics_storage: denied`; send Clarity Consent V2 with `ad_Storage` and `analytics_Storage` denied; clear `_ga`, dynamic `_ga_*`, `_clck`, and `_clsk`; await immediate account persistence for signed-in users; perform one next-task cleanup; and reload. If account persistence fails, local rejection and vendor shutdown remain while reload is skipped. Cloudflare implementation is unchanged.
+
+### Anonymous production verification
+
+Google Chrome `151.0.7922.170` used independent fresh anonymous contexts against the exact production deployment. No SaleDock account was used.
+
+- Cycle 1 accepted Analytics and created `_ga`, `_ga_V75KZ49E54`, `_clck`, and `_clsk`. Each cookie used domain `.saledock.site`, path `/`, `SameSite=Lax`, `Secure=false`, and `HttpOnly=false`. After withdrawal and reload, all four cookie families were absent, remained absent for eight seconds, and remained absent after normal navigation. GA produced zero completed requests initiated after its disable boundary. Clarity produced one immediate `204` consent-transition response, then zero recurring responses and zero stable rejected-state traffic.
+- Cycle 2 independently created the same four cookies with the same attributes. Withdrawal again left every family absent through reload, eight seconds, and navigation. GA and Clarity produced zero completed post-shutdown tracking requests and zero stable rejected-state analytics traffic.
+- Both rejected pages persisted `Analytics = rejected` and contained zero GA, Clarity, or Cloudflare script elements. No cookie was manually deleted.
+- Re-acceptance loaded exactly one configured set: two GA elements, one Clarity element, and one Cloudflare element. The per-document GA disable state did not survive into the renewed consent lifecycle, client navigation created no duplicate scripts, and a final rejection removed the cookies again.
+- Cloudflare remained absent when rejected, loaded once when Analytics was accepted, and produced one normal RUM response in each accepted withdrawal cycle. No Cloudflare cookie, local-storage key, or session-storage key existed.
+- Marketing-only acceptance kept GA, Clarity, and Cloudflare absent. Meta configuration was not required.
+- Page-error, unhandled-error, and CSP-error collections were empty. The homepage retained the expected title, one visible `main` landmark, visible hero, no horizontal overflow, the versioned social image, and the live Cloudflare privacy disclosure.
+
+Microsoft's current Consent V2 documentation states that denial ends the current session and transitions Clarity to no-consent mode. The single immediate Cycle 1 `collect` response is therefore recorded separately as the consent transition, not hidden as recurring behavioral tracking; no later or stable rejected-state request occurred. Cycle 2 required no such transition response.
+
+SaleDock business-data mutations were zero. The bounded anonymous checks generated only the analytics telemetry necessary for this verification. Signed-in production preferences were not touched; the deterministic loopback Supabase proof remains the accepted evidence for account persistence.
+
+Production evidence is sealed outside Git at:
+
+`/Users/sw12/Projects/saledock-local-evidence/analytics-consent-withdrawal-production-verification-5`
+
+Evidence manifest SHA-256: `2c8d80ad21849c24f956381d3faa5a918e10f8fb93e04d56d4e0fabc945bff3d`.
+
+Public homepage quality and Analytics consent acceptance are now closed. Authenticated Cashier coverage remains open and was not resumed.
 
 ## Validation
 
@@ -209,6 +241,6 @@ Cloudflare continuation evidence is retained separately at:
 
 It contains the starting PR/head, source and CSP proof, consent matrix, no-consent Lighthouse runs, real accepted-consent network observation, responsive/accessibility checks, validation output, hosted review, and the continuation final report. The client-visible Cloudflare site token appears only where required by the integration and tests; no Cloudflare account credential or private token is retained.
 
-## Delivery Boundary
+## Current Delivery Boundary
 
-This branch is for a draft pull request only. It does not authorize merge or production deployment. Production access and production mutations are zero. Authenticated Cashier coverage remains open and was not resumed.
+Homepage source PR #348 and consent-withdrawal corrective PR #349 are merged and production verified. This follow-up is documentation-only and changes no runtime source, tests, assets, configuration, migration, database, or canonical status document. Production business-data mutations remain zero. Authenticated Cashier coverage remains open and was not resumed.
