@@ -159,7 +159,7 @@ test("Cloudflare Web Analytics has one public configuration point and follows An
     analyticsSource,
     /analyticsAccepted && \([\s\S]*?<AnalyticsScripts/,
   );
-  assert.match(analyticsSource, /cookie-free Cloudflare Web Analytics/);
+  assert.match(analyticsSource, /cookie-free\s+Cloudflare\s+Web\s+Analytics/);
   assert.match(analyticsSource, /aria-label="Analytics tools"/);
   assert.match(
     analyticsSource,

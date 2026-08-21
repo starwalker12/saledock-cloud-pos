@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 const STORAGE_KEY = "analytics-consent";
@@ -53,6 +53,11 @@ type AnalyticsNoticeProps = {
   clarityProjectId?: string;
   cloudflareWebAnalyticsToken?: string;
   nonce?: string;
+};
+
+type AnalyticsRuntimeWindow = Window & {
+  gtag?: (...args: unknown[]) => void;
+  clarity?: (...args: unknown[]) => void;
 };
 
 export function openCookieSettings() {
@@ -198,6 +203,45 @@ function clearTrackingCookies(options: { analytics: boolean; marketing: boolean 
   }
 }
 
+function shutdownAnalyticsTracking({
+  gaMeasurementId,
+  clarityProjectId,
+}: Pick<AnalyticsNoticeProps, "gaMeasurementId" | "clarityProjectId">) {
+  if (typeof window === "undefined") return;
+
+  const analyticsWindow = window as AnalyticsRuntimeWindow;
+  if (gaMeasurementId) {
+    Reflect.set(analyticsWindow, `ga-disable-${gaMeasurementId}`, true);
+    analyticsWindow.gtag?.("consent", "update", {
+      analytics_storage: "denied",
+    });
+  }
+
+  if (clarityProjectId) {
+    analyticsWindow.clarity?.("consentv2", {
+      ad_Storage: "denied",
+      analytics_Storage: "denied",
+    });
+  }
+}
+
+async function persistAccountConsentBeforeReload(userId: string) {
+  const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY);
+  const sidebarPreferences = raw ? JSON.parse(raw) : {};
+  const { createClient } = await import("@/lib/supabase/client");
+  const supabase = createClient();
+  const { error } = await supabase.from("user_ui_preferences").upsert(
+    {
+      user_id: userId,
+      sidebar_preferences: sidebarPreferences,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error) throw error;
+}
+
 function AnalyticsScripts({
   gaMeasurementId,
   clarityProjectId,
@@ -290,6 +334,7 @@ export default function AnalyticsNotice({
   const [bannerOpen, setBannerOpen] = useState(() => !hasStoredConsentDecision());
   const [showDetails, setShowDetails] = useState(false);
   const [consentTrigger, setConsentTrigger] = useState(0);
+  const choiceInFlight = useRef(false);
 
   // Draft toggle state used while the visitor is customizing choices.
   const [draftAnalytics, setDraftAnalytics] = useState(false);
@@ -417,7 +462,7 @@ export default function AnalyticsNotice({
           },
           () => {
             if (active) setDbChecked(true);
-          }
+          },
         );
     });
 
@@ -497,11 +542,19 @@ export default function AnalyticsNotice({
 
   // Apply a full set of choices. Reloads only when analytics goes accepted -> rejected
   // so already-loaded GA/Clarity/Cloudflare tags stop (preserves prior behavior).
-  function applyChoices(nextAnalytics: ConsentValue, nextMarketing: ConsentValue) {
+  async function applyChoices(nextAnalytics: ConsentValue, nextMarketing: ConsentValue) {
+    if (choiceInFlight.current) return;
+    choiceInFlight.current = true;
+
     const analyticsWasAccepted = analyticsDecision === "accepted";
+    const withdrawingAnalytics = analyticsWasAccepted && nextAnalytics === "rejected";
 
     setAnalyticsDecision(nextAnalytics);
     writeMarketingDecision(nextMarketing, Boolean(user));
+
+    if (withdrawingAnalytics) {
+      shutdownAnalyticsTracking({ gaMeasurementId, clarityProjectId });
+    }
 
     clearTrackingCookies({
       analytics: nextAnalytics === "rejected",
@@ -511,9 +564,28 @@ export default function AnalyticsNotice({
     setBannerOpen(false);
     setShowDetails(false);
 
-    if (analyticsWasAccepted && nextAnalytics === "rejected") {
-      window.setTimeout(() => window.location.reload(), 50);
+    if (!withdrawingAnalytics) {
+      choiceInFlight.current = false;
+      return;
     }
+
+    if (user) {
+      try {
+        await persistAccountConsentBeforeReload(user.id);
+      } catch (error) {
+        choiceInFlight.current = false;
+        console.warn(
+          "Failed to persist Analytics withdrawal; reload skipped:",
+          error,
+        );
+        return;
+      }
+    }
+
+    window.setTimeout(() => {
+      clearTrackingCookies({ analytics: true, marketing: false });
+      window.location.reload();
+    }, 0);
   }
 
   function handleAcceptAll() {

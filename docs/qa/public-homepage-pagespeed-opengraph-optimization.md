@@ -113,12 +113,62 @@ A separate Chrome 151.0.7922.170 local production-mode profile used the real ext
 
 The continuation was rebuilt with Next.js 16.2.6 and measured using Lighthouse 13.4.1 in Chrome 151.0.7922.170. Three sequential no-consent runs per form factor used the same local production-mode configuration as the accepted PR baseline.
 
-| Form factor    | Performance | Accessibility | Best Practices | SEO |    FCP |    LCP |   TBT |     CLS | Speed Index | Cloudflare requests |
-| -------------- | ----------: | ------------: | -------------: | --: | -----: | -----: | ----: | ------: | ----------: | ------------------: |
+| Form factor    | Performance | Accessibility | Best Practices | SEO |    FCP |    LCP |    TBT |     CLS | Speed Index | Cloudflare requests |
+| -------------- | ----------: | ------------: | -------------: | --: | -----: | -----: | -----: | ------: | ----------: | ------------------: |
 | Mobile median  |          88 |           100 |             96 | 100 | 1.35 s | 3.83 s | 2.5 ms |       0 |      1.35 s |                   0 |
 | Desktop median |          99 |           100 |             96 | 100 | 0.36 s | 0.85 s |   0 ms | 0.00013 |      0.36 s |                   0 |
 
 Mobile Performance remained 88 and LCP changed from 3.84 s to 3.83 s. Desktop Performance varied from 100 to 99 while LCP changed from 0.81 s to 0.85 s, with unchanged FCP, TBT, and CLS behavior. This is normal run variance rather than a material regression. All six no-consent runs made zero Cloudflare requests, so the new integration adds no anonymous first-load analytics dependency.
+
+## Analytics Consent Withdrawal Durability Correction
+
+Task `49163` starts from production source main `52649df432d55626e13ea4e6364e76d0a80f11f0`. The production homepage quality, metadata, social card, accessibility, CSP, and Cloudflare consent behavior remain accepted. The remaining production acceptance failure was limited to GA4 and Microsoft Clarity cookie durability after an already-accepted visitor withdrew Analytics consent.
+
+The sealed production report at `/Users/sw12/Projects/saledock-local-evidence/public-homepage-quality-cloudflare-production-verification` recorded two independent withdrawal cycles. SaleDock removed `_ga` and `_clck`, and the rejected reload contained no optional analytics scripts, but `_ga_V75KZ49E54` and `_clsk` could remain or reappear. That evidence manifest remains `bff3c956b4711d3e480198a38ef9319ea23e12ccc1883352e811f4b47c3180ad` and was reverified without modification.
+
+### Proven causes
+
+The exact-main production-mode baseline reproduced the anonymous failure with a real Chromium cookie jar and deterministic running-vendor doubles. The old order persisted rejection, deleted cookies, left both vendor runtimes active for approximately 50 ms, and then reloaded. During that interval the GA double rewrote `_ga` and a dynamically named `_ga_TESTMEASUREMENT` cookie, while the Clarity double rewrote `_clck` and `_clsk`. All four survived into a rejected page that correctly contained zero GA, Clarity, or Cloudflare script elements. This proves a live-runtime rewrite race rather than a missing cookie-name list.
+
+A separate loopback-only signed-in baseline proved a second race. The component wrote the rejected choice to local storage, but `saveSidebarPreferences` deferred the database update for one second while the page reloaded after roughly 50 ms. The old accepted database value therefore survived and replaced the local rejection after reload. The temporary local preference fixture was restored in `finally`.
+
+The accepted local cookies use `Path=/`, `SameSite=Lax`, and the loopback `localhost` host. The retained production evidence reports the corresponding GA and Clarity cookies on `.saledock.site` with `Path=/` and `SameSite=Lax`. The existing cleanup remains deliberately limited to host-only, exact-hostname, and dot-hostname variants on `/`; no arbitrary parent-domain or path sweep was added.
+
+### Correction
+
+Withdrawal now follows this order:
+
+1. Persist the SaleDock rejection synchronously in local storage.
+2. Set `window["ga-disable-<measurement-id>"] = true` through the dynamic configured ID and send `gtag("consent", "update", { analytics_storage: "denied" })` when `gtag` exists.
+3. Send Clarity Consent V2 denial with both `ad_Storage` and `analytics_Storage` set to `denied` when Clarity exists.
+4. Clear `_ga`, every visible `_ga_*`, `_clck`, and `_clsk`, plus the independently selected Marketing cookies only when Marketing is rejected.
+5. For a signed-in withdrawal, await one immediate update of the existing `user_ui_preferences.sidebar_preferences` value before permitting reload. If that update fails, SaleDock keeps the local rejection and vendor shutdown but skips reload rather than allowing the old account value to win.
+6. On the next browser task, perform one deterministic analytics-cookie cleanup and reload immediately. The old arbitrary 50 ms race window is removed.
+7. The rejected page renders no optional analytics scripts. A later fresh acceptance loads GA4, Clarity, and Cloudflare normally; the per-document GA disable flag does not leak into the new consented lifecycle.
+
+The Google behavior follows the official Google tag consent-update and `ga-disable-<measurement-id>` controls. The Clarity behavior uses Microsoft's current recommended `consentv2` API. The older Clarity `consent(false)` erasure call was not added because Consent V2 shutdown followed by the existing narrow first-party cleanup passed deterministically.
+
+### Local proof and boundaries
+
+- New withdrawal E2E: 2/2, zero retries. Anonymous coverage proves the undecided, rejected, Marketing-only, accepted, withdrawn, and accepted-again matrix; shutdown calls precede deletion; no GA or Clarity mock network activity occurs after its shutdown point; all four test cookies are absent after reload; and Cloudflare stays isolated and cookie-free.
+- Signed-in persistence: the loopback database contains `analyticsConsent: rejected` before reload completes, the rejected value remains after reload, all optional analytics scripts remain absent, and the temporary preference fixture is restored.
+- Existing public-homepage and Cloudflare E2E: 3/3, zero retries.
+- Cookie-banner/sidebar and print-output E2E: 3/3. The production-only CSP browser matrix was not rerun against production; its local launch skipped 11 production-target cases by design.
+- Focused source and CSP contracts: 36/36.
+- Complete Node suite: 389/389.
+- Lint: zero errors; two pre-existing `privacy-center.tsx` hook-dependency warnings remain.
+- Typecheck and production build: pass.
+- PageSpeed, metadata, OpenGraph, social image, Privacy Policy, CSP destinations, Cloudflare implementation, POS, accounting, stock/FIFO, database schema, and production data: unchanged.
+- Production access and production mutations in task `49163`: zero.
+- Authenticated Cashier coverage remains open and was not resumed.
+
+Continuation evidence is retained outside Git at:
+
+`/Users/sw12/Projects/saledock-local-evidence/analytics-consent-withdrawal-cookie-cleanup-fix`
+
+Evidence manifest SHA-256: `eb10260a79fcfd348a4881bea356949ddf30175f25dc8f06eaa836bb10fb73a0`.
+
+This correction is draft-only pending independent owner review. It is not merged or deployed, and production withdrawal acceptance has not been rerun.
 
 ## Validation
 
