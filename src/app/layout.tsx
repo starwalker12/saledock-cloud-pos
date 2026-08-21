@@ -142,6 +142,7 @@ const notoNastaliqUrdu = Noto_Nastaliq_Urdu({
 const SITE_TITLE = "SaleDock Cloud POS";
 const SITE_DESCRIPTION =
   "SaleDock is a cloud POS platform for shops to manage sales, inventory, repairs, invoices, expenses, and reports.";
+const CLOUDFLARE_WEB_ANALYTICS_TOKEN = "005f03e932214af492eb1a1c68af3238";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://saledock.site"),
@@ -216,6 +217,7 @@ export default async function RootLayout({
           nonce={nonce}
           gaMeasurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
           clarityProjectId={process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID}
+          cloudflareWebAnalyticsToken={CLOUDFLARE_WEB_ANALYTICS_TOKEN}
         />
         <Analytics />
         <SpeedInsights />

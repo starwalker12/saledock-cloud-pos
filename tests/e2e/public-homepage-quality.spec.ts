@@ -3,6 +3,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const title = "SaleDock Cloud POS — Free Retail POS & Inventory";
 const description =
   "Cloud POS for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports from one secure dashboard.";
+const cloudflareWebAnalyticsToken = [
+  "005f03e932214af4",
+  "92eb1a1c68af3238",
+].join("");
 
 type RGB = { r: number; g: number; b: number; a: number };
 
@@ -195,4 +199,108 @@ test("reduced motion and Urdu font remain available on demand", async ({
   await expect.poll(() => fontRequests.length).toBeGreaterThan(0);
 
   await context.close();
+});
+
+test("Cloudflare Web Analytics loads once only after Analytics consent and is removed after rejection", async ({
+  page,
+}) => {
+  await setTheme(page, "light");
+  const cloudflareScriptRequests: string[] = [];
+  const cloudflareRumRequests: string[] = [];
+
+  await page.route(
+    "https://static.cloudflareinsights.com/beacon.min.js*",
+    async (route) => {
+      cloudflareScriptRequests.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        headers: {
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=3600",
+        },
+        body: "window.__saledockCloudflareBeaconLoaded = (window.__saledockCloudflareBeaconLoaded || 0) + 1;",
+      });
+    },
+  );
+  page.on("request", (request) => {
+    if (
+      request.url().includes("cloudflareinsights.com/cdn-cgi/rum") ||
+      request.url().includes("/cdn-cgi/rum")
+    ) {
+      cloudflareRumRequests.push(request.url());
+    }
+  });
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const banner = page.getByTestId("cookie-consent-banner");
+  const cloudflareScript = page.locator("script#cloudflare-web-analytics");
+  await expect(banner).toBeVisible();
+  await expect(cloudflareScript).toHaveCount(0);
+  expect(cloudflareScriptRequests).toEqual([]);
+
+  await page.getByRole("button", { name: "Reject optional cookies" }).click();
+  await expect(banner).not.toBeVisible();
+  await expect(cloudflareScript).toHaveCount(0);
+  expect(cloudflareScriptRequests).toEqual([]);
+
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("saledock:open-cookie-settings")),
+  );
+  await expect(banner).toBeVisible();
+  await page.getByRole("checkbox", { name: "Marketing and advertising cookies" }).check();
+  await page.getByRole("button", { name: "Save cookie choices" }).click();
+  await expect(banner).not.toBeVisible();
+  await expect(cloudflareScript).toHaveCount(0);
+  expect(cloudflareScriptRequests).toEqual([]);
+
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("saledock:open-cookie-settings")),
+  );
+  await page.getByRole("checkbox", { name: "Analytics tools" }).check();
+  await page.getByRole("button", { name: "Save cookie choices" }).click();
+  await expect(cloudflareScript).toHaveCount(1);
+  await expect(cloudflareScript).toHaveAttribute("type", "module");
+  await expect(cloudflareScript).toHaveAttribute(
+    "src",
+    "https://static.cloudflareinsights.com/beacon.min.js",
+  );
+  expect(
+    JSON.parse((await cloudflareScript.getAttribute("data-cf-beacon")) ?? "{}"),
+  ).toEqual({ token: cloudflareWebAnalyticsToken });
+  await expect.poll(() => cloudflareScriptRequests.length).toBe(1);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as typeof window & {
+          __saledockCloudflareBeaconLoaded?: number;
+        }).__saledockCloudflareBeaconLoaded,
+    ),
+  ).toBe(1);
+
+  await page.locator('footer a[href="/privacy"]').click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(cloudflareScript).toHaveCount(1);
+  expect(cloudflareScriptRequests).toHaveLength(1);
+
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("saledock:open-cookie-settings")),
+  );
+  await page.getByRole("checkbox", { name: "Analytics tools" }).uncheck();
+  const reloaded = page.waitForEvent("load");
+  await page.getByRole("button", { name: "Save cookie choices" }).click();
+  await reloaded;
+  await expect(cloudflareScript).toHaveCount(0);
+  expect(cloudflareScriptRequests).toHaveLength(1);
+  expect(cloudflareRumRequests).toEqual([]);
+
+  const cloudflareStorage = await page.evaluate(() => ({
+    local: Object.keys(localStorage).filter((key) => /cloudflare|cf_/i.test(key)),
+    session: Object.keys(sessionStorage).filter((key) => /cloudflare|cf_/i.test(key)),
+    cookies: document.cookie
+      .split(";")
+      .map((cookie) => cookie.split("=")[0]?.trim())
+      .filter((name) => /cloudflare|^cf_/i.test(name ?? "")),
+  }));
+  expect(cloudflareStorage).toEqual({ local: [], session: [], cookies: [] });
 });

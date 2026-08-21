@@ -51,6 +51,7 @@ type StoredConsent = {
 type AnalyticsNoticeProps = {
   gaMeasurementId?: string;
   clarityProjectId?: string;
+  cloudflareWebAnalyticsToken?: string;
   nonce?: string;
 };
 
@@ -200,10 +201,25 @@ function clearTrackingCookies(options: { analytics: boolean; marketing: boolean 
 function AnalyticsScripts({
   gaMeasurementId,
   clarityProjectId,
+  cloudflareWebAnalyticsToken,
   nonce,
 }: AnalyticsNoticeProps) {
   return (
     <>
+      {cloudflareWebAnalyticsToken && (
+        <Script
+          id="cloudflare-web-analytics"
+          type="module"
+          strategy="afterInteractive"
+          nonce={nonce}
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          crossOrigin="anonymous"
+          data-cf-beacon={JSON.stringify({
+            token: cloudflareWebAnalyticsToken,
+          })}
+        />
+      )}
+
       {clarityProjectId && (
         <Script
           id="microsoft-clarity"
@@ -257,11 +273,14 @@ function AnalyticsScripts({
 export default function AnalyticsNotice({
   gaMeasurementId,
   clarityProjectId,
+  cloudflareWebAnalyticsToken,
   nonce,
 }: AnalyticsNoticeProps) {
   // Analytics scripts exist only if configured; the marketing category is always
   // offered so visitors can make a clear, separate advertising-cookie choice.
-  const hasAnalytics = Boolean(gaMeasurementId || clarityProjectId);
+  const hasAnalytics = Boolean(
+    gaMeasurementId || clarityProjectId || cloudflareWebAnalyticsToken,
+  );
   const pathname = usePathname();
   const isPublicHomepage = pathname === "/";
   const [user, setUser] = useState<User | null>(null);
@@ -477,7 +496,7 @@ export default function AnalyticsNotice({
   };
 
   // Apply a full set of choices. Reloads only when analytics goes accepted -> rejected
-  // so already-loaded GA/Clarity tags stop (preserves prior behavior).
+  // so already-loaded GA/Clarity/Cloudflare tags stop (preserves prior behavior).
   function applyChoices(nextAnalytics: ConsentValue, nextMarketing: ConsentValue) {
     const analyticsWasAccepted = analyticsDecision === "accepted";
 
@@ -527,6 +546,7 @@ export default function AnalyticsNotice({
         <AnalyticsScripts
           gaMeasurementId={gaMeasurementId}
           clarityProjectId={clarityProjectId}
+          cloudflareWebAnalyticsToken={cloudflareWebAnalyticsToken}
           nonce={nonce}
         />
       )}
@@ -540,10 +560,11 @@ export default function AnalyticsNotice({
         >
           <div className="flex flex-col gap-3">
             <p className="leading-6">
-              SaleDock uses cookies. <strong>Necessary</strong> cookies are always on so the site works.
-              You can separately allow <strong>Analytics</strong> cookies (Google Analytics 4 and Microsoft
-              Clarity) and <strong>Marketing</strong> cookies (advertising tools such as Meta Pixel). You can
-              reject the optional ones and still use the site.{" "}
+              SaleDock uses cookies and optional analytics tools. <strong>Necessary</strong> cookies are always
+              on so the site works. You can separately allow <strong>Analytics</strong> tools (Google Analytics
+              4, Microsoft Clarity, and cookie-free Cloudflare Web Analytics) and <strong>Marketing</strong>{" "}
+              cookies (advertising tools such as Meta Pixel). You can reject the optional ones and still use
+              the site.{" "}
               <Link
                 href="/privacy"
                 className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#1e40af] dark:text-[#93c5fd] dark:hover:text-[#bfdbfe]"
@@ -566,12 +587,13 @@ export default function AnalyticsNotice({
                     type="checkbox"
                     checked={draftAnalytics}
                     onChange={(e) => setDraftAnalytics(e.target.checked)}
-                    aria-label="Analytics cookies"
+                    aria-label="Analytics tools"
                     className="mt-1"
                   />
                   <span>
-                    <span className="font-semibold">Analytics</span> — Google Analytics 4 and Microsoft Clarity,
-                    to understand how the site is used.
+                    <span className="font-semibold">Analytics</span> — Google Analytics 4, Microsoft Clarity,
+                    and privacy-first Cloudflare Web Analytics, used to understand usage and performance.
+                    Cloudflare Web Analytics is cookie-free.
                   </span>
                 </label>
                 <label className="flex items-start gap-2">

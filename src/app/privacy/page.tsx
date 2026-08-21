@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-          Last updated: May 2026
+          Last updated: August 2026
         </p>
 
         <section className="space-y-5 text-sm leading-7 text-slate-700 dark:text-slate-300">
@@ -185,9 +185,10 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>Supabase Inc.</strong> — authentication, database, and storage services</li>
             <li><strong>Vercel Inc.</strong> — hosting and deployment infrastructure</li>
-            <li><strong>Google LLC</strong> — optional OAuth login (where enabled by the user) and Google Analytics 4 (only if you accept analytics cookies)</li>
+            <li><strong>Google LLC</strong> — optional OAuth login (where enabled by the user) and Google Analytics 4 (only if you accept Analytics)</li>
             <li><strong>Meta Platforms, Inc.</strong> — Meta Pixel / Meta Business Tools (only if configured and you accept marketing cookies)</li>
-            <li><strong>Microsoft Corporation</strong> — Microsoft Clarity (only if you accept analytics cookies)</li>
+            <li><strong>Microsoft Corporation</strong> — Microsoft Clarity (only if you accept Analytics)</li>
+            <li><strong>Cloudflare, Inc.</strong> — privacy-first, cookie-free Web Analytics for aggregate website usage and real-user performance measurement, loaded by SaleDock only after Analytics consent</li>
           </ul>
 
           <h2 className="text-lg font-bold text-slate-950 dark:text-white">11. International Transfers</h2>
@@ -229,8 +230,8 @@ export default function PrivacyPage() {
 
           <h2 className="text-lg font-bold text-slate-950 dark:text-white">16. Cookies and Tracking</h2>
           <p>
-            SaleDock groups cookies into three categories, which you can control from the cookie
-            banner and Cookie settings:
+            SaleDock groups optional analytics and tracking technologies into three consent
+            categories, which you can control from the cookie banner and Cookie settings:
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
@@ -238,8 +239,8 @@ export default function PrivacyPage() {
               features. These are always active so the platform can work.
             </li>
             <li>
-              <strong>Analytics cookies</strong> — Google Analytics 4 and Microsoft Clarity, loaded
-              only after you accept analytics cookies.
+              <strong>Analytics</strong> — Google Analytics 4, Microsoft Clarity, and Cloudflare Web
+              Analytics, loaded only after you accept Analytics.
             </li>
             <li>
               <strong>Marketing / Advertising cookies</strong> — advertising tools such as Meta
@@ -249,15 +250,17 @@ export default function PrivacyPage() {
 
           <h3 className="font-semibold text-slate-950 dark:text-white">Analytics</h3>
           <p>
-            SaleDock can use Google Analytics 4 and Microsoft Clarity to understand how visitors use
-            the platform, but these analytics tools load only after you accept analytics cookies.
-            You can reject analytics cookies and still use the site.
+            SaleDock can use Google Analytics 4, Microsoft Clarity, and Cloudflare Web Analytics to
+            understand website usage and performance, but these tools load only after you accept
+            Analytics. You can reject Analytics and still use the site.
           </p>
           <p>
-            These services may collect general usage data and session behavior to help us improve
-            the product. No personally identifiable business data, such as customer names, phone
-            numbers, transaction details, or inventory records, is intentionally sent to these
-            analytics services.
+            Google Analytics 4 and Microsoft Clarity may use optional analytics storage. Cloudflare
+            Web Analytics does not use client-side cookies or localStorage for its measurement. These
+            services may collect general usage and performance data to help us improve the product.
+            No personally identifiable business data, such as customer names, phone numbers,
+            transaction details, or inventory records, is intentionally sent to these analytics
+            services.
           </p>
           <p>
             You can change your choice later through Cookie settings. You can also limit analytics

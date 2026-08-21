@@ -90,11 +90,43 @@ Mobile LCP improved by about 29% and Performance improved by 10 points in the co
 
 The final LCP is the SaleDock hero logo. Lighthouse confirms that it is discoverable in the initial document, eagerly loaded, and high priority. The median run's observed LCP phase values were about 42 ms TTFB, 5 ms resource delay, 8 ms resource load, and 123 ms element render delay before simulated throttling projection.
 
+## Cloudflare Web Analytics Continuation
+
+Task `73105` extends the same draft PR with Cloudflare Web Analytics for `saledock.site`. The public beacon token has one named configuration point in the root layout and is passed through the existing Analytics consent category. The Cloudflare module is rendered with the request nonce and `afterInteractive` only after Analytics acceptance. It remains absent before a decision, after Reject All, and when Marketing alone is accepted. Client navigation retains one script, and changing Analytics from accepted to rejected preserves the existing full-document reload so Cloudflare, GA4, and Clarity stop together.
+
+Cloudflare Web Analytics is classified accurately as cookie-free. The consent UI now distinguishes Analytics tools from cookies, while Marketing and Meta Pixel remain separate. The focused Privacy Policy names Cloudflare as an aggregate website-usage and real-user-performance processor that SaleDock loads only after Analytics consent, and states that Cloudflare does not use client-side cookies or local storage for its measurement.
+
+The report-only CSP keeps its nonce, `strict-dynamic`, report endpoint, and existing source list. It adds only:
+
+- `https://static.cloudflareinsights.com` to `script-src`;
+- `https://cloudflareinsights.com` to `connect-src`.
+
+The Cloudflare script also uses `crossorigin="anonymous"`. Next.js preloads `afterInteractive` module scripts in the App Router; matching CORS mode on the preload and module load prevents a duplicate network transfer while retaining exactly one official beacon script. No GTM, SDK, custom event, manual page-view implementation, wildcard CSP source, or production environment requirement was added.
+
+### Consent and Network Proof
+
+The deterministic production-mode browser contract covers undecided, Reject All, Marketing-only, Analytics accepted, client navigation, and accepted-to-rejected states. It proves one module script with the exact configured token, no duplicate script/request, and absence after the rejection reload. External requests are intercepted in that contract so test success does not depend on Cloudflare availability.
+
+A separate Chrome 151.0.7922.170 local production-mode profile used the real external module. Before consent it observed zero Cloudflare scripts and zero Cloudflare requests. After Analytics acceptance it observed one 31,612-byte beacon response, one Cloudflare RUM POST attempt, one GA4 script path, and one Clarity script path. The RUM request was rejected by Cloudflare's localhost CORS policy because the test origin included a nonstandard port; no backend success is claimed. There were zero page errors, zero CSP reports, one script after client navigation, and no Cloudflare-named cookie, local-storage key, or session-storage key. Production traffic was not used.
+
+### Continuation Performance Check
+
+The continuation was rebuilt with Next.js 16.2.6 and measured using Lighthouse 13.4.1 in Chrome 151.0.7922.170. Three sequential no-consent runs per form factor used the same local production-mode configuration as the accepted PR baseline.
+
+| Form factor    | Performance | Accessibility | Best Practices | SEO |    FCP |    LCP |   TBT |     CLS | Speed Index | Cloudflare requests |
+| -------------- | ----------: | ------------: | -------------: | --: | -----: | -----: | ----: | ------: | ----------: | ------------------: |
+| Mobile median  |          88 |           100 |             96 | 100 | 1.35 s | 3.83 s | 2.5 ms |       0 |      1.35 s |                   0 |
+| Desktop median |          99 |           100 |             96 | 100 | 0.36 s | 0.85 s |   0 ms | 0.00013 |      0.36 s |                   0 |
+
+Mobile Performance remained 88 and LCP changed from 3.84 s to 3.83 s. Desktop Performance varied from 100 to 99 while LCP changed from 0.81 s to 0.85 s, with unchanged FCP, TBT, and CLS behavior. This is normal run variance rather than a material regression. All six no-consent runs made zero Cloudflare requests, so the new integration adds no anonymous first-load analytics dependency.
+
 ## Validation
 
 - Homepage source contracts: 8/8
-- Focused production-mode E2E: 2/2, zero automatic retries
-- Complete Node suite: 380/380 with the existing loopback environment
+- Cloudflare-extended homepage source contracts: 10/10
+- CSP nonce-flow contracts: 19/19
+- Focused production-mode E2E: 3/3, zero automatic retries
+- Complete Node suite: 382/382 with the existing loopback environment
 - First complete Node launch without environment loading: discarded; only two seed-stock tests lacked required local keys
 - Axe WCAG 2 A/AA: zero violations in light and dark modes
 - Lighthouse main landmark and color contrast: pass
@@ -104,9 +136,13 @@ The final LCP is the SaleDock hero logo. Lighthouse confirms that it is discover
 - Scroll-reveal sections: all six section headings visible after ordinary scrolling at every reviewed viewport
 - Reduced motion: pass
 - English and on-demand Urdu font behavior: pass
+- Cloudflare consent lifecycle and client-navigation deduplication: pass
+- Cloudflare cookies/client storage observed: none
 - Browser page errors: zero
 - Local-only expected request failures: Vercel Analytics/Speed Insights endpoints and cancelled Next link-prefetch requests
 - Two earlier focused E2E launches were discarded after test-harness corrections for CSS `lab()` color parsing and theme initialization; neither exposed a product defect
+- Two Cloudflare E2E baseline launches reproduced a duplicate module transfer caused by mismatched preload CORS mode; the source correction added matching anonymous CORS and the accepted rerun passed 3/3
+- One external-network harness launch was discarded because it incorrectly waited for a nonvisual script element to become visible; the corrected attached-state harness passed
 - Lint, typecheck, production build, hosted checks, and exact draft PR review: recorded in the final task report
 
 ## Evidence
@@ -116,6 +152,12 @@ Evidence is retained outside Git at:
 `/Users/sw12/Projects/saledock-local-evidence/public-homepage-pagespeed-opengraph-optimization`
 
 The bundle contains owner baseline notes, discarded-run chronology, baseline and final Lighthouse JSON, LCP and network evidence, accessibility and DevTools findings, font and JavaScript evidence, responsive screenshots, metadata and image checks, test/build output, and the final report. It contains no credentials, cookies, authorization headers, private shop data, or production data.
+
+Cloudflare continuation evidence is retained separately at:
+
+`/Users/sw12/Projects/saledock-local-evidence/public-homepage-cloudflare-analytics-continuation`
+
+It contains the starting PR/head, source and CSP proof, consent matrix, no-consent Lighthouse runs, real accepted-consent network observation, responsive/accessibility checks, validation output, hosted review, and the continuation final report. The client-visible Cloudflare site token appears only where required by the integration and tests; no Cloudflare account credential or private token is retained.
 
 ## Delivery Boundary
 

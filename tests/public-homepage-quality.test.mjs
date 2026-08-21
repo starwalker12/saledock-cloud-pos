@@ -14,6 +14,14 @@ const analyticsSource = readFileSync(
   new URL("../src/components/analytics-notice.tsx", import.meta.url),
   "utf8",
 );
+const privacySource = readFileSync(
+  new URL("../src/app/privacy/page.tsx", import.meta.url),
+  "utf8",
+);
+const proxySource = readFileSync(
+  new URL("../src/proxy.ts", import.meta.url),
+  "utf8",
+);
 const cssSource = readFileSync(
   new URL("../src/app/globals.css", import.meta.url),
   "utf8",
@@ -113,4 +121,76 @@ test("public consent rendering defers account-only Supabase code", () => {
 
 test("theme bootstrap uses the request CSP nonce", () => {
   assert.match(layoutSource, /<ThemeProvider[\s\S]*?nonce=\{nonce\}/);
+});
+
+test("Cloudflare Web Analytics has one public configuration point and follows Analytics consent", () => {
+  const expectedToken = ["005f03e932214af4", "92eb1a1c68af3238"].join("");
+  const tokenOccurrences = [
+    pageSource,
+    layoutSource,
+    analyticsSource,
+    privacySource,
+    proxySource,
+  ].reduce(
+    (count, source) => count + (source.match(new RegExp(expectedToken, "g")) ?? []).length,
+    0,
+  );
+
+  assert.equal(tokenOccurrences, 1, "the public beacon token is configured once");
+  assert.match(
+    layoutSource,
+    new RegExp(
+      `const CLOUDFLARE_WEB_ANALYTICS_TOKEN = "${expectedToken}";`,
+    ),
+  );
+  assert.match(
+    layoutSource,
+    /cloudflareWebAnalyticsToken=\{CLOUDFLARE_WEB_ANALYTICS_TOKEN\}/,
+  );
+  assert.match(
+    analyticsSource,
+    /gaMeasurementId \|\| clarityProjectId \|\| cloudflareWebAnalyticsToken/,
+  );
+  assert.match(
+    analyticsSource,
+    /\{cloudflareWebAnalyticsToken && \([\s\S]*?id="cloudflare-web-analytics"[\s\S]*?type="module"[\s\S]*?strategy="afterInteractive"[\s\S]*?nonce=\{nonce\}[\s\S]*?src="https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js"[\s\S]*?crossOrigin="anonymous"[\s\S]*?data-cf-beacon=\{JSON\.stringify\(\{[\s\S]*?token: cloudflareWebAnalyticsToken/,
+  );
+  assert.match(
+    analyticsSource,
+    /analyticsAccepted && \([\s\S]*?<AnalyticsScripts/,
+  );
+  assert.match(analyticsSource, /cookie-free Cloudflare Web Analytics/);
+  assert.match(analyticsSource, /aria-label="Analytics tools"/);
+  assert.match(
+    analyticsSource,
+    /analyticsWasAccepted && nextAnalytics === "rejected"[\s\S]*?window\.location\.reload\(\)/,
+  );
+});
+
+test("Cloudflare privacy copy and CSP destinations are focused and future-enforcement compatible", () => {
+  assert.match(privacySource, /Last updated: August 2026/);
+  assert.match(
+    privacySource,
+    /<strong>Cloudflare, Inc\.<\/strong> — privacy-first, cookie-free Web Analytics/,
+  );
+  assert.match(
+    privacySource,
+    /Cloudflare[\s\S]*?Web Analytics does not use client-side cookies or localStorage/,
+  );
+  assert.equal(
+    (proxySource.match(/https:\/\/static\.cloudflareinsights\.com/g) ?? [])
+      .length,
+    1,
+  );
+  assert.equal(
+    (proxySource.match(/https:\/\/cloudflareinsights\.com/g) ?? []).length,
+    1,
+  );
+  assert.match(
+    proxySource,
+    /script-src 'self' 'nonce-\$\{nonce\}' 'strict-dynamic'/,
+  );
+  assert.doesNotMatch(proxySource, /https:\/\/\*\.cloudflare/);
+  assert.match(proxySource, /Content-Security-Policy-Report-Only/);
+  assert.match(proxySource, /report-uri \$\{reportUrl\}/);
 });
