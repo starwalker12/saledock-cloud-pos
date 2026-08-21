@@ -6,22 +6,22 @@ import type { Metadata } from "next";
 import MetaPixel from "@/components/meta-pixel";
 
 export const metadata: Metadata = {
-  title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
-  description: "SaleDock is a cloud POS platform for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports. Modern, fast, and secure.",
+  title: "SaleDock Cloud POS — Free Retail POS & Inventory",
+  description: "Cloud POS for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports from one secure dashboard.",
   alternates: {
     canonical: "https://saledock.site",
   },
   openGraph: {
-    title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
-    description: "SaleDock is a cloud POS platform for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports. Modern, fast, and secure.",
+    title: "Run your shop smarter with SaleDock",
+    description: "Cloud POS for sales, inventory, repairs, invoices, expenses, and reports—built for modern retail shops.",
     url: "https://saledock.site",
     siteName: "SaleDock Cloud POS",
     images: [
       {
-        url: "https://saledock.site/og.png",
+        url: "https://saledock.site/og-social-v2.png",
         width: 1200,
         height: 630,
-        alt: "SaleDock Cloud POS",
+        alt: "SaleDock Cloud POS — run your shop smarter with sales, inventory, and repair tools",
       },
     ],
     locale: "en_US",
@@ -29,9 +29,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SaleDock Cloud POS — Free Retail POS & Inventory Management",
-    description: "SaleDock is a cloud POS platform for retail shops to manage sales, inventory, repairs, invoices, expenses, and reports. Modern, fast, and secure.",
-    images: ["https://saledock.site/og.png"],
+    title: "Run your shop smarter with SaleDock",
+    description: "Cloud POS for sales, inventory, repairs, invoices, expenses, and reports—built for modern retail shops.",
+    images: ["https://saledock.site/og-social-v2.png"],
   },
 };
 import { env } from "@/lib/env";
@@ -161,17 +161,17 @@ const trustPills = [
 ];
 
 const kpiData = [
-  { label: "Today Sales",      value: "Rs 47,280", change: "+12%",        color: "#3b82f6" },
-  { label: "Inventory Alerts", value: "3 items",   change: "low stock",   color: "#f59e0b" },
-  { label: "Repairs Open",     value: "5 jobs",    change: "2 due today", color: "#8b5cf6" },
-  { label: "Due Payments",     value: "Rs 18,500", change: "4 customers", color: "#10b981" },
+  { label: "Today Sales",      value: "Rs 47,280", change: "+12%",        color: "#3b82f6", lightColor: "#1d4ed8" },
+  { label: "Inventory Alerts", value: "3 items",   change: "low stock",   color: "#f59e0b", lightColor: "#92400e" },
+  { label: "Repairs Open",     value: "5 jobs",    change: "2 due today", color: "#8b5cf6", lightColor: "#6d28d9" },
+  { label: "Due Payments",     value: "Rs 18,500", change: "4 customers", color: "#10b981", lightColor: "#047857" },
 ];
 
 const dashboardRows = [
-  { icon: Receipt,       left: "Sale completed — Receipt #1042",        right: "Rs 7,280",  color: "#3b82f6", bg: "rgba(59,130,246,0.12)"  },
-  { icon: PackageSearch, left: "Low stock alert — USB-C cable",          right: "3 left",    color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
-  { icon: Wrench,        left: "Repair — Screen replacement",            right: "Ready",     color: "#8b5cf6", bg: "rgba(139,92,246,0.12)"  },
-  { icon: CreditCard,    left: "Payment reminder — Sample customer due", right: "Rs 18,500", color: "#10b981", bg: "rgba(16,185,129,0.12)"  },
+  { icon: Receipt,       left: "Sale completed — Receipt #1042",        right: "Rs 7,280",  color: "#3b82f6", lightColor: "#1d4ed8", bg: "rgba(59,130,246,0.12)"  },
+  { icon: PackageSearch, left: "Low stock alert — USB-C cable",          right: "3 left",    color: "#f59e0b", lightColor: "#92400e", bg: "rgba(245,158,11,0.12)"  },
+  { icon: Wrench,        left: "Repair — Screen replacement",            right: "Ready",     color: "#8b5cf6", lightColor: "#6d28d9", bg: "rgba(139,92,246,0.12)"  },
+  { icon: CreditCard,    left: "Payment reminder — Sample customer due", right: "Rs 18,500", color: "#10b981", lightColor: "#047857", bg: "rgba(16,185,129,0.12)"  },
 ];
 
 const salesChartBars = [
@@ -197,8 +197,8 @@ const howItWorks = [
 ];
 
 // ── Dashboard inner component ─────────────────────────────────────────────────
-type KPI = { label: string; value: string; change: string; color: string };
-type Row = { icon: React.ComponentType<{ className?: string }>; left: string; right: string; color: string; bg: string };
+type KPI = { label: string; value: string; change: string; color: string; lightColor: string };
+type Row = { icon: React.ComponentType<{ className?: string }>; left: string; right: string; color: string; lightColor: string; bg: string };
 type Bar = { day: string; v: number };
 
 function DashboardPreview({
@@ -260,10 +260,10 @@ function DashboardPreview({
               <div key={k.label} className="rounded-xl border p-3" style={{ background: card, borderColor: border }}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-semibold" style={{ color: muted }}>{k.label}</span>
-                  <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: k.color }} />
+                  <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: dark ? k.color : k.lightColor }} />
                 </div>
                 <p className="mt-1.5 font-display text-sm font-bold" style={{ color: text }}>{k.value}</p>
-                <p className="text-[10px] font-semibold" style={{ color: k.color }}>{k.change}</p>
+                <p className="text-[10px] font-semibold" style={{ color: dark ? k.color : k.lightColor }}>{k.change}</p>
               </div>
             ))}
           </div>
@@ -279,11 +279,11 @@ function DashboardPreview({
                     className="flex items-center gap-2.5 rounded-lg border p-2.5"
                     style={{ background: rowBg, borderColor: border }}
                   >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: row.bg, color: row.color }}>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: row.bg, color: dark ? row.color : row.lightColor }}>
                       <Icon className="h-3 w-3" />
                     </span>
                     <span className="truncate text-[11px] font-semibold" style={{ color: text }}>{row.left}</span>
-                    <span className="ml-auto shrink-0 text-[11px] font-bold" style={{ color: row.color }}>{row.right}</span>
+                    <span className="ml-auto shrink-0 text-[11px] font-bold" style={{ color: dark ? row.color : row.lightColor }}>{row.right}</span>
                   </div>
                 );
               })}
@@ -382,44 +382,54 @@ export default async function HomePage() {
         }}
       />
 
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-[60] -translate-y-24 rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#0b2f6f] shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+      >
+        Skip to main content
+      </a>
+
       {/* ── STICKY NAV ── */}
-      <nav className="fixed inset-x-0 top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
-        <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-end gap-2 px-3 py-2 sm:px-6 md:min-h-16">
-          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 [&_button]:min-h-11">
-              <ThemeToggle />
-              <LanguageToggle />
+      <header>
+        <nav aria-label="Public navigation" className="fixed inset-x-0 top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-[#0b2f6f] to-[#0d9488] shadow-lg shadow-blue-900/20 dark:border-white/[0.06] dark:bg-[#050c1a]/95">
+          <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-end gap-2 px-3 py-2 sm:px-6 md:min-h-16">
+            <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 [&_button]:min-h-11">
+                <ThemeToggle />
+                <LanguageToggle />
+              </div>
+              <>
+                <Link href="/login"
+                  className="hidden h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 min-[380px]:flex sm:px-4 sm:text-sm">
+                  {d.nav?.signIn || "Sign in"}
+                </Link>
+                <Link href="/login?signup=1"
+                  className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#fff] px-2.5 text-[11px] font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-[#fff]/90 hover:-translate-y-0.5 sm:px-4 sm:text-sm dark:bg-cyan-300 dark:text-[#020617] dark:hover:bg-cyan-200">
+                  {d.nav?.startFree || "Start free"}
+                </Link>
+              </>
             </div>
-            <>
-              <Link href="/login"
-                className="hidden h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white/20 hover:-translate-y-0.5 min-[380px]:flex sm:px-4 sm:text-sm">
-                {d.nav?.signIn || "Sign in"}
-              </Link>
-              <Link href="/login?signup=1"
-                className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#fff] px-2.5 text-[11px] font-bold text-[#0b2f6f] shadow-lg shadow-black/10 transition-all duration-200 hover:bg-[#fff]/90 hover:-translate-y-0.5 sm:px-4 sm:text-sm dark:bg-cyan-300 dark:text-[#020617] dark:hover:bg-cyan-200">
-                {d.nav?.startFree || "Start free"}
-              </Link>
-            </>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </header>
+
+      <main id="main-content" tabIndex={-1}>
 
       {/* ═══════════════════════════════════════════════════════════════════════
           HERO — split layout, proper light/dark theming
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden pt-14 md:pt-16">
 
-        {/* Animated gradient shift — light mode only */}
+        {/* Static layered gradient — light mode only */}
         <ParallaxLayer
           aria-hidden
           speed={0.05}
           className="pointer-events-none absolute -inset-y-16 inset-x-0 dark:hidden"
         >
           <div
-            className="absolute inset-0 animate-gradient-shift opacity-20"
+            className="absolute inset-0 opacity-20"
             style={{
               background: "linear-gradient(-45deg,#0b2f6f,#0d9488,#1e40af,#0d9488)",
-              backgroundSize: "300% 300%",
             }}
           />
           <div
@@ -477,7 +487,7 @@ export default async function HomePage() {
           <div className="flex flex-col items-start">
 
             {/* Logo mark in hero — transparent with glow/shimmer */}
-            <div className="animate-fade-in-up relative mb-5 inline-flex items-center justify-center" style={{ animationDelay: "0.04s" }}>
+            <div className="relative mb-5 inline-flex items-center justify-center">
               {/* Soft teal/navy glow behind logo */}
               <div aria-hidden className="absolute -inset-6 rounded-full bg-gradient-to-r from-teal-400/20 via-cyan-400/10 to-teal-400/20 blur-3xl dark:from-teal-400/25 dark:via-cyan-400/15 dark:to-teal-400/25" />
               <div aria-hidden className="absolute -inset-3 rounded-2xl bg-gradient-to-r from-[#0b2f6f]/10 via-teal-400/10 to-[#0b2f6f]/10 blur-xl dark:from-[#0b2f6f]/20 dark:via-teal-400/15 dark:to-[#0b2f6f]/20" />
@@ -485,39 +495,35 @@ export default async function HomePage() {
               <div aria-hidden className="pointer-events-none absolute inset-0 animate-logo-shimmer rounded-2xl bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-white/15" />
               {/* Logo image */}
               <Image src="/saledock-logo-full.png" alt="SaleDock Cloud POS" width={488} height={178}
-                className="relative z-10 max-w-[280px] w-full h-auto object-contain drop-shadow-[0_0_20px_rgba(20,184,166,0.25)] sm:max-w-[380px] lg:max-w-[520px] xl:max-w-[580px] hero-logo-filter" priority />
+                className="relative z-10 max-w-[280px] w-full h-auto object-contain drop-shadow-[0_0_20px_rgba(20,184,166,0.25)] sm:max-w-[380px] lg:max-w-[520px] xl:max-w-[580px] hero-logo-filter"
+                sizes="(min-width: 1280px) 580px, (min-width: 1024px) 520px, (min-width: 640px) 380px, 280px"
+                loading="eager"
+                fetchPriority="high" />
             </div>
 
             {/* Badge */}
-            <div className="animate-fade-in-up mb-5 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5"
-              style={{
-                animationDelay: "0.1s",
-                borderColor: "rgba(0,184,176,0.35)",
-                background: "rgba(0,184,176,0.07)",
-              }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#00b8b0" }} />
-              <span className="font-display text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: "#00b8b0" }}>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-teal-700/35 bg-teal-700/[0.07] px-3.5 py-1.5 dark:border-teal-300/35 dark:bg-teal-300/[0.07]">
+              <span className="h-1.5 w-1.5 rounded-full bg-teal-700 animate-pulse dark:bg-teal-300" />
+              <span className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700 dark:text-teal-300">
                 {d.hero?.badge || "Cloud POS Platform"}
               </span>
             </div>
 
             {/* H1 */}
             <h1
-              className="animate-fade-in-up font-display font-extrabold leading-[1.07] tracking-tight text-slate-950 dark:text-white"
-              style={{ animationDelay: "0.16s", fontSize: "clamp(2.4rem,5vw,3.75rem)" }}
+              className="font-display font-extrabold leading-[1.07] tracking-tight text-slate-950 dark:text-white"
+              style={{ fontSize: "clamp(2.4rem,5vw,3.75rem)" }}
             >
               {d.hero?.title || "Run your shop smarter"}
             </h1>
 
             {/* Subtitle */}
-            <p className="animate-fade-in-up mt-5 max-w-lg text-base leading-relaxed text-slate-600 dark:text-slate-400 sm:text-lg"
-              style={{ animationDelay: "0.26s" }}>
+            <p className="mt-5 max-w-lg text-base leading-relaxed text-slate-600 dark:text-slate-400 sm:text-lg">
               {d.hero?.subtitle || "A modern cloud POS platform for shops to manage sales, inventory, repairs, invoices, expenses, and reports — all from one place."}
             </p>
 
             {/* CTAs */}
-            <div className="animate-fade-in-up mt-8 flex flex-wrap gap-3" style={{ animationDelay: "0.36s" }}>
+            <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/login?signup=1"
                 className="group flex h-12 cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-[#0b2f6f] to-[#0891b2] px-7 text-sm font-bold text-white shadow-lg shadow-blue-900/25 transition-all duration-200 hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5">
                 {d.cta?.startFree || "Start free"}
@@ -529,7 +535,7 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            <p className="animate-fade-in-up mt-3 text-xs text-slate-400 dark:text-slate-500" style={{ animationDelay: "0.42s" }}>
+            <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
               {d.hero?.noCredit || "No credit card required · Free to start"}
             </p>
 
@@ -540,7 +546,7 @@ export default async function HomePage() {
             )}
 
             {/* Trust pills */}
-            <div className="animate-fade-in-up mt-8 flex flex-wrap gap-2" style={{ animationDelay: "0.48s" }}>
+            <div className="mt-8 flex flex-wrap gap-2">
               {trustPills.map((pill) => (
                 <span key={pill.label}
                   className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
@@ -854,6 +860,7 @@ export default async function HomePage() {
 
       {/* ── FAQ ── */}
       <FaqSection />
+      </main>
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-slate-200 bg-slate-50 px-4 py-12 dark:border-white/[0.05] dark:bg-[#070b16]">
@@ -863,17 +870,17 @@ export default async function HomePage() {
               className="h-7 w-auto object-contain dark:brightness-0 dark:invert" />
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500">
-            <Link href="/about"         className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">About Us</Link>
-            <Link href="/contact"       className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Contact Us</Link>
-            <Link href="/privacy"       className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Privacy Policy</Link>
-            <Link href="/terms"         className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Terms of Service</Link>
-            <Link href="/data-deletion" className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">Data Deletion</Link>
-            <span className="text-slate-300 dark:text-slate-700">·</span>
-            <a href="mailto:fardan.aatir@outlook.com" className="transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-300">fardan.aatir@outlook.com</a>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-600 dark:text-slate-400">
+            <Link href="/about"         className="transition-colors duration-200 hover:text-slate-950 dark:hover:text-slate-200">About Us</Link>
+            <Link href="/contact"       className="transition-colors duration-200 hover:text-slate-950 dark:hover:text-slate-200">Contact Us</Link>
+            <Link href="/privacy"       className="transition-colors duration-200 hover:text-slate-950 dark:hover:text-slate-200">Privacy Policy</Link>
+            <Link href="/terms"         className="transition-colors duration-200 hover:text-slate-950 dark:hover:text-slate-200">Terms of Service</Link>
+            <Link href="/data-deletion" className="transition-colors duration-200 hover:text-slate-950 dark:hover:text-slate-200">Data Deletion</Link>
+            <span aria-hidden="true" className="text-slate-400 dark:text-slate-600">·</span>
+            <a href="mailto:fardan.aatir@outlook.com" className="transition-colors duration-200 hover:text-slate-950 dark:hover:text-slate-200">fardan.aatir@outlook.com</a>
           </div>
 
-          <p className="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
             &copy; {new Date().getFullYear()} SaleDock Cloud POS
           </p>
         </div>

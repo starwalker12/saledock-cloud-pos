@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
-import { saveSidebarPreferences } from "@/lib/use-ui-preferences";
 
 const STORAGE_KEY = "analytics-consent";
 const LEGACY_NOTICE_STORAGE_KEY = "analytics-notice-dismissed";
@@ -52,6 +51,7 @@ type StoredConsent = {
 type AnalyticsNoticeProps = {
   gaMeasurementId?: string;
   clarityProjectId?: string;
+  cloudflareWebAnalyticsToken?: string;
   nonce?: string;
 };
 
@@ -120,7 +120,7 @@ function readMarketingDecision(): ConsentValue | null {
   }
 }
 
-function writeMarketingDecision(value: ConsentValue) {
+function writeMarketingDecision(value: ConsentValue, persistForAccount: boolean) {
   if (typeof window === "undefined") return;
   let existing: Record<string, unknown> = {};
   try {
@@ -134,9 +134,18 @@ function writeMarketingDecision(value: ConsentValue) {
     marketingConsent: value,
     updatedAt: new Date().toISOString(),
   };
-  // saveSidebarPreferences writes localStorage + dispatches the change event,
-  // and (only for signed-in users) persists to the database, fail-open.
-  saveSidebarPreferences(nextPrefs);
+  localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(nextPrefs));
+  window.dispatchEvent(new Event(PREFERENCES_CHANGED_EVENT));
+
+  // Public visitors need no account lookup. Signed-in routes load the database
+  // persistence path only after the visitor actually saves a preference.
+  if (persistForAccount) {
+    void import("@/lib/use-ui-preferences")
+      .then(({ saveSidebarPreferences }) => saveSidebarPreferences(nextPrefs))
+      .catch((error) => {
+        console.warn("Failed to persist cookie preferences (failing open):", error);
+      });
+  }
   window.dispatchEvent(new Event(COOKIE_CONSENT_CHANGED_EVENT));
 }
 
@@ -192,10 +201,25 @@ function clearTrackingCookies(options: { analytics: boolean; marketing: boolean 
 function AnalyticsScripts({
   gaMeasurementId,
   clarityProjectId,
+  cloudflareWebAnalyticsToken,
   nonce,
 }: AnalyticsNoticeProps) {
   return (
     <>
+      {cloudflareWebAnalyticsToken && (
+        <Script
+          id="cloudflare-web-analytics"
+          type="module"
+          strategy="afterInteractive"
+          nonce={nonce}
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          crossOrigin="anonymous"
+          data-cf-beacon={JSON.stringify({
+            token: cloudflareWebAnalyticsToken,
+          })}
+        />
+      )}
+
       {clarityProjectId && (
         <Script
           id="microsoft-clarity"
@@ -249,14 +273,20 @@ function AnalyticsScripts({
 export default function AnalyticsNotice({
   gaMeasurementId,
   clarityProjectId,
+  cloudflareWebAnalyticsToken,
   nonce,
 }: AnalyticsNoticeProps) {
   // Analytics scripts exist only if configured; the marketing category is always
   // offered so visitors can make a clear, separate advertising-cookie choice.
-  const hasAnalytics = Boolean(gaMeasurementId || clarityProjectId);
+  const hasAnalytics = Boolean(
+    gaMeasurementId || clarityProjectId || cloudflareWebAnalyticsToken,
+  );
+  const pathname = usePathname();
+  const isPublicHomepage = pathname === "/";
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dbChecked, setDbChecked] = useState(false);
+  const [clientReady, setClientReady] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(() => !hasStoredConsentDecision());
   const [showDetails, setShowDetails] = useState(false);
   const [consentTrigger, setConsentTrigger] = useState(0);
@@ -264,6 +294,11 @@ export default function AnalyticsNotice({
   // Draft toggle state used while the visitor is customizing choices.
   const [draftAnalytics, setDraftAnalytics] = useState(false);
   const [draftMarketing, setDraftMarketing] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setClientReady(true), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Listen to storage / preference changes (only for live consent updates, not banner state).
   useEffect(() => {
@@ -291,26 +326,49 @@ export default function AnalyticsNotice({
 
   // Fetch initial auth user and subscribe to changes
   useEffect(() => {
-    const supabase = createClient();
     let active = true;
+    let unsubscribe: (() => void) | undefined;
 
-    supabase.auth.getUser().then(({ data: { user: u } }) => {
-      if (!active) return;
-      setUser(u);
-      setAuthLoading(false);
-    });
+    // The homepage server component already redirects authenticated visitors.
+    // Avoid loading the full auth client before showing an anonymous visitor's
+    // consent choice; that delayed the banner and made it the mobile LCP.
+    if (isPublicHomepage) {
+      const timer = window.setTimeout(() => {
+        setUser(null);
+        setAuthLoading(false);
+        setDbChecked(true);
+      }, 0);
+      return () => {
+        active = false;
+        window.clearTimeout(timer);
+      };
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    void import("@/lib/supabase/client").then(({ createClient }) => {
       if (!active) return;
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
+      setAuthLoading(true);
+      setDbChecked(false);
+      const supabase = createClient();
+
+      supabase.auth.getUser().then(({ data: { user: u } }) => {
+        if (!active) return;
+        setUser(u);
+        setAuthLoading(false);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!active) return;
+        setUser(session?.user ?? null);
+        setAuthLoading(false);
+      });
+      unsubscribe = () => subscription.unsubscribe();
     });
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      unsubscribe?.();
     };
-  }, []);
+  }, [isPublicHomepage]);
 
   // Sync/check db preferences for logged-in user to avoid transient banner flash
   useEffect(() => {
@@ -320,44 +378,48 @@ export default function AnalyticsNotice({
       return () => clearTimeout(timer);
     }
 
-    const supabase = createClient();
     let active = true;
 
-    supabase
-      .from("user_ui_preferences")
-      .select("sidebar_preferences")
-      .eq("user_id", user.id)
-      .single()
-      .then(
-        ({ data }) => {
-          if (!active) return;
-          if (data?.sidebar_preferences) {
-            const parsed = data.sidebar_preferences as Record<string, unknown>;
-            const hasAnalyticsPref =
-              parsed?.analyticsConsent === "accepted" || parsed?.analyticsConsent === "rejected";
-            const hasMarketingPref =
-              parsed?.marketingConsent === "accepted" || parsed?.marketingConsent === "rejected";
-            if (hasAnalyticsPref || hasMarketingPref) {
-              try {
-                const rawLocal = localStorage.getItem(PREFERENCES_STORAGE_KEY);
-                const localParsed = rawLocal ? JSON.parse(rawLocal) : {};
-                const nextPrefs: Record<string, unknown> = {
-                  ...localParsed,
-                  updatedAt: new Date().toISOString(),
-                };
-                if (hasAnalyticsPref) nextPrefs.analyticsConsent = parsed.analyticsConsent;
-                if (hasMarketingPref) nextPrefs.marketingConsent = parsed.marketingConsent;
-                localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(nextPrefs));
-                window.dispatchEvent(new Event(PREFERENCES_CHANGED_EVENT));
-              } catch {}
+    void import("@/lib/supabase/client").then(({ createClient }) => {
+      if (!active) return;
+      const supabase = createClient();
+
+      supabase
+        .from("user_ui_preferences")
+        .select("sidebar_preferences")
+        .eq("user_id", user.id)
+        .single()
+        .then(
+          ({ data }) => {
+            if (!active) return;
+            if (data?.sidebar_preferences) {
+              const parsed = data.sidebar_preferences as Record<string, unknown>;
+              const hasAnalyticsPref =
+                parsed?.analyticsConsent === "accepted" || parsed?.analyticsConsent === "rejected";
+              const hasMarketingPref =
+                parsed?.marketingConsent === "accepted" || parsed?.marketingConsent === "rejected";
+              if (hasAnalyticsPref || hasMarketingPref) {
+                try {
+                  const rawLocal = localStorage.getItem(PREFERENCES_STORAGE_KEY);
+                  const localParsed = rawLocal ? JSON.parse(rawLocal) : {};
+                  const nextPrefs: Record<string, unknown> = {
+                    ...localParsed,
+                    updatedAt: new Date().toISOString(),
+                  };
+                  if (hasAnalyticsPref) nextPrefs.analyticsConsent = parsed.analyticsConsent;
+                  if (hasMarketingPref) nextPrefs.marketingConsent = parsed.marketingConsent;
+                  localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(nextPrefs));
+                  window.dispatchEvent(new Event(PREFERENCES_CHANGED_EVENT));
+                } catch {}
+              }
             }
+            setDbChecked(true);
+          },
+          () => {
+            if (active) setDbChecked(true);
           }
-          setDbChecked(true);
-        },
-        () => {
-          if (active) setDbChecked(true);
-        }
-      );
+        );
+    });
 
     return () => {
       active = false;
@@ -418,7 +480,11 @@ export default function AnalyticsNotice({
 
     localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(nextPrefs));
     window.dispatchEvent(new Event(PREFERENCES_CHANGED_EVENT));
-    saveSidebarPreferences(nextPrefs);
+    void import("@/lib/use-ui-preferences")
+      .then(({ saveSidebarPreferences }) => saveSidebarPreferences(nextPrefs))
+      .catch((error) => {
+        console.warn("Failed to persist cookie preferences (failing open):", error);
+      });
   };
 
   const setAnalyticsDecision = (value: ConsentValue) => {
@@ -430,12 +496,12 @@ export default function AnalyticsNotice({
   };
 
   // Apply a full set of choices. Reloads only when analytics goes accepted -> rejected
-  // so already-loaded GA/Clarity tags stop (preserves prior behavior).
+  // so already-loaded GA/Clarity/Cloudflare tags stop (preserves prior behavior).
   function applyChoices(nextAnalytics: ConsentValue, nextMarketing: ConsentValue) {
     const analyticsWasAccepted = analyticsDecision === "accepted";
 
     setAnalyticsDecision(nextAnalytics);
-    writeMarketingDecision(nextMarketing);
+    writeMarketingDecision(nextMarketing, Boolean(user));
 
     clearTrackingCookies({
       analytics: nextAnalytics === "rejected",
@@ -470,7 +536,7 @@ export default function AnalyticsNotice({
   }
 
   if (!hasAnalytics) return null;
-  if (authLoading || (user && !dbChecked)) return null;
+  if (!clientReady || authLoading || (user && !dbChecked)) return null;
 
   const analyticsAccepted = analyticsDecision === "accepted";
 
@@ -480,6 +546,7 @@ export default function AnalyticsNotice({
         <AnalyticsScripts
           gaMeasurementId={gaMeasurementId}
           clarityProjectId={clarityProjectId}
+          cloudflareWebAnalyticsToken={cloudflareWebAnalyticsToken}
           nonce={nonce}
         />
       )}
@@ -493,10 +560,11 @@ export default function AnalyticsNotice({
         >
           <div className="flex flex-col gap-3">
             <p className="leading-6">
-              SaleDock uses cookies. <strong>Necessary</strong> cookies are always on so the site works.
-              You can separately allow <strong>Analytics</strong> cookies (Google Analytics 4 and Microsoft
-              Clarity) and <strong>Marketing</strong> cookies (advertising tools such as Meta Pixel). You can
-              reject the optional ones and still use the site.{" "}
+              SaleDock uses cookies and optional analytics tools. <strong>Necessary</strong> cookies are always
+              on so the site works. You can separately allow <strong>Analytics</strong> tools (Google Analytics
+              4, Microsoft Clarity, and cookie-free Cloudflare Web Analytics) and <strong>Marketing</strong>{" "}
+              cookies (advertising tools such as Meta Pixel). You can reject the optional ones and still use
+              the site.{" "}
               <Link
                 href="/privacy"
                 className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#1e40af] dark:text-[#93c5fd] dark:hover:text-[#bfdbfe]"
@@ -519,12 +587,13 @@ export default function AnalyticsNotice({
                     type="checkbox"
                     checked={draftAnalytics}
                     onChange={(e) => setDraftAnalytics(e.target.checked)}
-                    aria-label="Analytics cookies"
+                    aria-label="Analytics tools"
                     className="mt-1"
                   />
                   <span>
-                    <span className="font-semibold">Analytics</span> — Google Analytics 4 and Microsoft Clarity,
-                    to understand how the site is used.
+                    <span className="font-semibold">Analytics</span> — Google Analytics 4, Microsoft Clarity,
+                    and privacy-first Cloudflare Web Analytics, used to understand usage and performance.
+                    Cloudflare Web Analytics is cookie-free.
                   </span>
                 </label>
                 <label className="flex items-start gap-2">
