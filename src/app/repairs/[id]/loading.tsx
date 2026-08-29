@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RepairDetailLoading() {
   return (
-    <AppShell pageTitle="Loading Repair Job...">
+    <AppShell isLoading pageTitle="Loading Repair Job...">
       {/* Search Header */}
       <div className="mb-4">
         <Skeleton className="h-4 w-32" />

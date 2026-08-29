@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReportsLoading() {
   return (
-    <AppShell pageTitle="Reports">
+    <AppShell isLoading pageTitle="Reports">
       {/* Header + date range */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">

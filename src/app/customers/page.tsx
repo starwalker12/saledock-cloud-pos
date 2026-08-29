@@ -4,6 +4,7 @@ import { Users, AlertCircle, ShieldAlert, BadgeCent } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentContext } from "@/lib/auth/session";
 import { listCustomers, type CustomerRow } from "@/lib/data/customers";
@@ -301,22 +302,22 @@ function CustomerActions({ c, canWrite }: { c: CustomerRow; canWrite: boolean })
           {c.is_archived ? (
             <form action={restoreCustomerAction}>
               <input type="hidden" name="id" value={c.id} />
-              <button
-                type="submit"
+              <PendingSubmitButton
+                pendingLabel="Restoring..."
                 className="inline-flex min-h-9 items-center rounded-md border border-emerald-200 dark:border-emerald-800/40 bg-[#fff] dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 cursor-pointer"
               >
                 Restore
-              </button>
+              </PendingSubmitButton>
             </form>
           ) : (
             <ConfirmForm action={archiveCustomerAction} message="Archive this customer? Their sales history will be preserved.">
               <input type="hidden" name="id" value={c.id} />
-              <button
-                type="submit"
+              <PendingSubmitButton
+                pendingLabel="Archiving..."
                 className="inline-flex min-h-9 items-center rounded-md border border-red-200 dark:border-red-800/40 bg-[#fff] dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
               >
                 Archive
-              </button>
+              </PendingSubmitButton>
             </ConfirmForm>
           )}
         </>

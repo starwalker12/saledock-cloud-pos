@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StaffPermissionsLoading() {
   return (
-    <AppShell pageTitle="Staff Permissions">
+    <AppShell isLoading pageTitle="Staff Permissions">
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <Skeleton className="h-3 w-32" />

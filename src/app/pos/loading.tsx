@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PosLoading() {
   return (
-    <AppShell pageTitle="POS">
+    <AppShell isLoading pageTitle="POS">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
         {/* Left Column: Products Area */}
         <div className="space-y-4">

@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RepairsLoading() {
   return (
-    <AppShell pageTitle="Repairs">
+    <AppShell isLoading pageTitle="Repairs">
       {/* Stats cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[...Array(4)].map((_, i) => (

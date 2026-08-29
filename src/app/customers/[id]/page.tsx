@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getCurrentContext } from "@/lib/auth/session";
 import {
   getCustomerDetail,
@@ -163,22 +164,22 @@ export default async function CustomerDetailPage({
                 {customer.is_archived ? (
                   <form action={restoreCustomerAction}>
                     <input type="hidden" name="id" value={customer.id} />
-                    <button
-                      type="submit"
+                    <PendingSubmitButton
+                      pendingLabel="Restoring..."
                       className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
                     >
                       Restore Profile
-                    </button>
+                    </PendingSubmitButton>
                   </form>
                 ) : (
                   <form action={archiveCustomerAction}>
                     <input type="hidden" name="id" value={customer.id} />
-                    <button
-                      type="submit"
+                    <PendingSubmitButton
+                      pendingLabel="Archiving..."
                       className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
                     >
                       Archive Profile
-                    </button>
+                    </PendingSubmitButton>
                   </form>
                 )}
               </>

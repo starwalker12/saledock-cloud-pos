@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ExpensesLoading() {
   return (
-    <AppShell pageTitle="Expenses">
+    <AppShell isLoading pageTitle="Expenses">
       {/* Stats header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">

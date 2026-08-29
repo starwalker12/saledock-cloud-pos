@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReturnDetailLoading() {
   return (
-    <AppShell pageTitle="Return Details">
+    <AppShell isLoading pageTitle="Return Details">
       <div className="mb-4 flex justify-between print-hidden">
         <Skeleton className="h-4 w-32" />
         <div className="flex gap-2">

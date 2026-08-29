@@ -14,17 +14,26 @@ export function SaleDockLoading({
 }: SaleDockLoadingProps) {
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-atomic="true"
       className={`flex items-center justify-center bg-slate-50 px-4 py-8 dark:bg-slate-950 ${
-        fullScreen ? "min-h-screen" : "min-h-[320px]"
+        fullScreen ? "min-h-dvh" : "min-h-[240px]"
       }`}
     >
-      <div className="flex w-full max-w-md flex-col items-center rounded-[2rem] border border-slate-200 bg-[#fff] px-6 py-8 text-center shadow-2xl shadow-slate-200/70 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/30 sm:px-8 sm:py-10">
-        <Logo className="h-20 w-auto max-w-[250px] object-contain sm:h-24 sm:max-w-[320px]" />
-        <div className="mt-7 flex size-16 items-center justify-center rounded-full bg-blue-50 text-blue-700 shadow-inner dark:bg-white/10 dark:text-white sm:size-20">
-          <Loader2 className="size-10 animate-spin sm:size-12" aria-hidden="true" />
+      <div className="flex w-full max-w-sm flex-col items-center text-center">
+        <Logo className="h-12 w-auto max-w-[210px] object-contain sm:h-14" />
+        <div className="mt-5 flex items-center gap-2 text-blue-700 dark:text-teal-300">
+          <Loader2
+            className="size-5 animate-spin motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            {title}
+          </p>
         </div>
-        <p className="mt-5 text-base font-black text-slate-900 dark:text-white sm:text-lg">{title}</p>
-        <p className="mt-2 text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
+        <p className="mt-1.5 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">
           {description}
         </p>
       </div>
