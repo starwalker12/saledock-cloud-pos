@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AuditLogLoading() {
   return (
-    <AppShell pageTitle="Audit Log">
+    <AppShell isLoading pageTitle="Audit Log">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">

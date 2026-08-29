@@ -12,7 +12,7 @@ export function ConfirmForm({
   variant = "destructive",
   children,
 }: {
-  action: (formData: FormData) => void;
+  action: (formData: FormData) => void | Promise<void>;
   message: string;
   title?: string;
   confirmLabel?: string;
@@ -24,6 +24,17 @@ export function ConfirmForm({
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const confirmedSubmitRef = useRef(false);
+  const submissionLockRef = useRef(false);
+
+  async function runAction(formData: FormData) {
+    setIsSubmitting(true);
+    try {
+      await action(formData);
+    } finally {
+      submissionLockRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     if (confirmedSubmitRef.current) {
@@ -33,7 +44,7 @@ export function ConfirmForm({
 
     e.preventDefault();
 
-    if (isConfirming || isSubmitting) return;
+    if (isConfirming || isSubmitting || submissionLockRef.current) return;
 
     const form = e.currentTarget;
     setIsConfirming(true);
@@ -50,17 +61,25 @@ export function ConfirmForm({
 
     if (!shouldProceed) return;
 
-    confirmedSubmitRef.current = true;
-    setIsSubmitting(true);
-    form.requestSubmit();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
 
-    // Reset submitting state after submission starts
-    setTimeout(() => setIsSubmitting(false), 1000);
+    submissionLockRef.current = true;
+    confirmedSubmitRef.current = true;
+    form.requestSubmit();
   }
 
   return (
-    <form action={action} onSubmit={handleSubmit}>
-      {children}
+    <form
+      action={runAction}
+      onSubmit={handleSubmit}
+      aria-busy={isSubmitting || undefined}
+    >
+      <fieldset disabled={isSubmitting} className="contents">
+        {children}
+      </fieldset>
     </form>
   );
 }

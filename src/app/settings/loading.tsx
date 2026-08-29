@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SettingsLoading() {
   return (
-    <AppShell pageTitle="Settings">
+    <AppShell isLoading pageTitle="Settings">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col gap-6 lg:flex-row">

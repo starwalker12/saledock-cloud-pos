@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function UsersLoading() {
   return (
-    <AppShell pageTitle="Users">
+    <AppShell isLoading pageTitle="Users">
       <div className="space-y-6">
         {/* Header section */}
         <div className="flex flex-wrap items-center justify-between gap-3">

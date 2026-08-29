@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function InvoiceDetailLoading() {
   return (
-    <AppShell pageTitle="Invoice Details">
+    <AppShell isLoading pageTitle="Invoice Details">
       <div className="mb-4 flex justify-between">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-10 w-20 rounded-md" />

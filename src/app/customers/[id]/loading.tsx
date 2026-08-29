@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CustomerDetailLoading() {
   return (
-    <AppShell pageTitle="Customer Details">
+    <AppShell isLoading pageTitle="Customer Details">
       <div className="mb-4">
         <Skeleton className="h-4 w-32" />
       </div>

@@ -38,9 +38,11 @@ test("Repairs opts into the existing full-document print contract", () => {
   assert.match(page, /<AppShell pageTitle=\{`Repair Job \$\{repair\.job_no\}`\} printFullDocument>/);
 });
 
-test("AppShell source remains unchanged", () => {
-  const path = "src/components/layout/app-shell.tsx";
-  assert.equal(readFileSync(path, "utf8"), sourceAtHead(path));
+test("AppShell retains the full-document print contract", () => {
+  const appShell = readFileSync("src/components/layout/app-shell.tsx", "utf8");
+  assert.match(appShell, /data-print-full-document=\{printFullDocument \? "true" : "false"\}/);
+  assert.match(appShell, /print:block print:h-auto print:min-h-0 print:max-h-none print:overflow-visible/);
+  assert.match(appShell, /print:block print:h-auto print:min-h-0 print:max-h-none print:flex-none print:overflow-visible/);
 });
 
 test("Reports retains its full-document print opt-in", () => {

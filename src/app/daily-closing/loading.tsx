@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DailyClosingLoading() {
   return (
-    <AppShell pageTitle="Daily Closing">
+    <AppShell isLoading pageTitle="Daily Closing">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fff] shadow-sm dark:border-white/[0.07] dark:bg-[#060f20]">
         <div className="p-4 sm:p-6 space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Loader2, Plus, Search, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import { AddSupplierModal } from "./add-supplier-modal";
 import { archiveSupplierAction, saveSupplierAction, unarchiveSupplierAction } from "./actions";
@@ -77,18 +78,14 @@ export function SuppliersTab({
     setAddOpen(false);
   }
 
-  function handleArchive(formData: FormData) {
-    startTransition(async () => {
-      await archiveSupplierAction(formData);
-      router.refresh();
-    });
+  async function handleArchive(formData: FormData) {
+    await archiveSupplierAction(formData);
+    router.refresh();
   }
 
-  function handleUnarchive(formData: FormData) {
-    startTransition(async () => {
-      await unarchiveSupplierAction(formData);
-      router.refresh();
-    });
+  async function handleUnarchive(formData: FormData) {
+    await unarchiveSupplierAction(formData);
+    router.refresh();
   }
 
   return (
@@ -216,16 +213,16 @@ export function SuppliersTab({
                           {s.is_active ? (
                             <ConfirmForm action={handleArchive} message="Archive this supplier? Their purchase history will be preserved.">
                               <input type="hidden" name="id" value={s.id} />
-                              <button type="submit" className="min-h-10 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
+                              <PendingSubmitButton pendingLabel="Archiving..." className="min-h-10 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
                                 Archive
-                              </button>
+                              </PendingSubmitButton>
                             </ConfirmForm>
                           ) : (
                             <form action={handleUnarchive}>
                               <input type="hidden" name="id" value={s.id} />
-                              <button type="submit" className="min-h-10 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
+                              <PendingSubmitButton pendingLabel="Restoring..." className="min-h-10 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
                                 Restore
-                              </button>
+                              </PendingSubmitButton>
                             </form>
                           )}
                         </div>
@@ -251,20 +248,15 @@ export function SuppliersTab({
 
 function SupplierCard({ supplier, canWrite }: { supplier: SupplierRow; canWrite: boolean }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
 
-  function handleArchive(formData: FormData) {
-    startTransition(async () => {
-      await archiveSupplierAction(formData);
-      router.refresh();
-    });
+  async function handleArchive(formData: FormData) {
+    await archiveSupplierAction(formData);
+    router.refresh();
   }
 
-  function handleUnarchive(formData: FormData) {
-    startTransition(async () => {
-      await unarchiveSupplierAction(formData);
-      router.refresh();
-    });
+  async function handleUnarchive(formData: FormData) {
+    await unarchiveSupplierAction(formData);
+    router.refresh();
   }
 
   return (
@@ -310,16 +302,16 @@ function SupplierCard({ supplier, canWrite }: { supplier: SupplierRow; canWrite:
             {supplier.is_active ? (
               <ConfirmForm action={handleArchive} message="Archive this supplier? Their purchase history will be preserved.">
                 <input type="hidden" name="id" value={supplier.id} />
-                <button type="submit" className="min-h-11 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
+                <PendingSubmitButton pendingLabel="Archiving..." className="min-h-11 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
                   Archive
-                </button>
+                </PendingSubmitButton>
               </ConfirmForm>
             ) : (
               <form action={handleUnarchive}>
                 <input type="hidden" name="id" value={supplier.id} />
-                <button type="submit" className="min-h-11 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
+                <PendingSubmitButton pendingLabel="Restoring..." className="min-h-11 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
                   Restore
-                </button>
+                </PendingSubmitButton>
               </form>
             )}
           </>

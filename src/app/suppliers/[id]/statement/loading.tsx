@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StatementLoading() {
   return (
-    <AppShell pageTitle="Supplier Statement">
+    <AppShell isLoading pageTitle="Supplier Statement">
       <div className="print-hidden mb-6 flex flex-wrap items-center justify-between gap-3">
         <Skeleton className="h-4 w-24" />
         <div className="flex gap-2">

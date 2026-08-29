@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SupplierDuesLoading() {
   return (
-    <AppShell pageTitle="Supplier Dues">
+    <AppShell isLoading pageTitle="Supplier Dues">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">

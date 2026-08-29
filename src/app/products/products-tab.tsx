@@ -6,6 +6,7 @@ import { Archive, Pencil, Plus, RotateCcw } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import { ProductThumbnail } from "@/components/products/product-thumbnail";
 import { archiveProductAction, unarchiveProductAction } from "./actions";
@@ -140,18 +141,14 @@ export function ProductsTab({
     setModal(null);
   }
 
-  function handleArchive(formData: FormData) {
-    startTransition(async () => {
-      await archiveProductAction(formData);
-      router.refresh();
-    });
+  async function handleArchive(formData: FormData) {
+    await archiveProductAction(formData);
+    router.refresh();
   }
 
-  function handleUnarchive(formData: FormData) {
-    startTransition(async () => {
-      await unarchiveProductAction(formData);
-      router.refresh();
-    });
+  async function handleUnarchive(formData: FormData) {
+    await unarchiveProductAction(formData);
+    router.refresh();
   }
 
   return (
@@ -583,18 +580,18 @@ function ProductActions({
       {p.is_active ? (
         <ConfirmForm action={onArchive} message="Archive this product? You can restore it later.">
           <input type="hidden" name="id" value={p.id} />
-          <button type="submit" className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-red-200 bg-[#fff] px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950">
+          <PendingSubmitButton pendingLabel="Archiving..." className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-red-200 bg-[#fff] px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950">
             <Archive className="size-3.5" aria-hidden="true" />
             Archive
-          </button>
+          </PendingSubmitButton>
         </ConfirmForm>
       ) : (
         <form action={onUnarchive}>
           <input type="hidden" name="id" value={p.id} />
-          <button type="submit" className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-emerald-200 bg-[#fff] px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:bg-slate-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
+          <PendingSubmitButton pendingLabel="Restoring..." className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-emerald-200 bg-[#fff] px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:bg-slate-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
             <RotateCcw className="size-3.5" aria-hidden="true" />
             Restore
-          </button>
+          </PendingSubmitButton>
         </form>
       )}
     </div>

@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { DrawerProvider } from "@/components/layout/drawer-context";
 import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { MobileDrawerWrapper } from "@/components/layout/mobile-drawer-wrapper";
+import { SidebarLoading, TopbarLoading } from "@/components/layout/app-shell-loading";
 
 export function AppShell({
   children,
@@ -13,6 +14,7 @@ export function AppShell({
   mainClassName = "p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 md:pb-6",
   showMobileTabBar = true,
   printFullDocument = false,
+  isLoading = false,
 }: {
   children: ReactNode;
   pageTitle?: string;
@@ -20,6 +22,7 @@ export function AppShell({
   mainClassName?: string;
   showMobileTabBar?: boolean;
   printFullDocument?: boolean;
+  isLoading?: boolean;
 }) {
   const rootPrintClasses = printFullDocument
     ? "print:block print:h-auto print:min-h-0 print:max-h-none print:overflow-visible"
@@ -42,16 +45,26 @@ export function AppShell({
             data-print-full-document={printFullDocument ? "true" : "false"}
             className={`flex h-dvh max-w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50 ${rootPrintClasses}`}
           >
-            <Sidebar />
+            <Suspense fallback={<SidebarLoading />}>
+              <Sidebar />
+            </Suspense>
             <div
               data-app-shell-column
               className={`flex min-h-0 min-w-0 flex-1 flex-col ${columnPrintClasses}`}
             >
-              <Topbar pageTitle={pageTitle} />
+              <Suspense fallback={<TopbarLoading pageTitle={pageTitle} />}>
+                <Topbar pageTitle={pageTitle} />
+              </Suspense>
               <main
                 data-app-shell-main
+                aria-busy={isLoading || undefined}
                 className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${mainPrintClasses} ${mainClassName}`}
               >
+                {isLoading && (
+                  <span className="sr-only" role="status" aria-live="polite">
+                    Loading {pageTitle ?? "page"}.
+                  </span>
+                )}
                 <div
                   data-app-shell-content
                   className={`animate-fade-in mx-auto w-full min-w-0 space-y-4 md:space-y-6 ${contentPrintClasses} ${contentClassName}`}
@@ -62,7 +75,9 @@ export function AppShell({
               {showMobileTabBar && <MobileTabBar />}
             </div>
           </div>
-          <MobileDrawerWrapper />
+          <Suspense fallback={null}>
+            <MobileDrawerWrapper />
+          </Suspense>
         </DrawerProvider>
       </ConfirmDialogProvider>
   );

@@ -239,9 +239,15 @@ test("no transform, scale, or zoom workaround is used in the Returns fix", () =>
   assert.doesNotMatch(printButton, /style\.(?:transform|scale|zoom)|\.scale\s*\(/);
 });
 
-test("AppShell, Returns data and page, and Reports print control remain at HEAD", () => {
+test("AppShell retains the full-document print boundary", () => {
+  const appShell = readFileSync("src/components/layout/app-shell.tsx", "utf8");
+  assert.match(appShell, /data-print-full-document=\{printFullDocument \? "true" : "false"\}/);
+  assert.match(appShell, /print:block print:h-auto print:min-h-0 print:max-h-none print:overflow-visible/);
+  assert.match(appShell, /print:block print:h-auto print:min-h-0 print:max-h-none print:flex-none print:overflow-visible/);
+});
+
+test("Returns data and page and Reports print control remain at HEAD", () => {
   for (const path of [
-    "src/components/layout/app-shell.tsx",
     "src/app/returns/[id]/page.tsx",
     "src/lib/data/returns.ts",
     "src/app/reports/print-button.tsx",

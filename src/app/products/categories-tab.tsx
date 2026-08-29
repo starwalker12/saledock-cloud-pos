@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Loader2, Plus, Search, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import { AddCategoryModal } from "./add-category-modal";
 import { archiveCategoryAction, saveCategoryAction, unarchiveCategoryAction } from "./actions";
@@ -74,18 +75,14 @@ export function CategoriesTab({
     setAddOpen(false);
   }
 
-  function handleArchive(formData: FormData) {
-    startTransition(async () => {
-      await archiveCategoryAction(formData);
-      router.refresh();
-    });
+  async function handleArchive(formData: FormData) {
+    await archiveCategoryAction(formData);
+    router.refresh();
   }
 
-  function handleUnarchive(formData: FormData) {
-    startTransition(async () => {
-      await unarchiveCategoryAction(formData);
-      router.refresh();
-    });
+  async function handleUnarchive(formData: FormData) {
+    await unarchiveCategoryAction(formData);
+    router.refresh();
   }
 
   return (
@@ -209,16 +206,16 @@ export function CategoriesTab({
                           {c.is_active ? (
                             <ConfirmForm action={handleArchive} message="Archive this category? Products in this category won't be affected.">
                               <input type="hidden" name="id" value={c.id} />
-                              <button type="submit" className="min-h-10 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
+                              <PendingSubmitButton pendingLabel="Archiving..." className="min-h-10 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
                                 Archive
-                              </button>
+                              </PendingSubmitButton>
                             </ConfirmForm>
                           ) : (
                             <form action={handleUnarchive}>
                               <input type="hidden" name="id" value={c.id} />
-                              <button type="submit" className="min-h-10 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
+                              <PendingSubmitButton pendingLabel="Restoring..." className="min-h-10 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
                                 Restore
-                              </button>
+                              </PendingSubmitButton>
                             </form>
                           )}
                         </div>
@@ -244,20 +241,15 @@ export function CategoriesTab({
 
 function CategoryCard({ category, canWrite }: { category: CategoryRow; canWrite: boolean }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
 
-  function handleArchive(formData: FormData) {
-    startTransition(async () => {
-      await archiveCategoryAction(formData);
-      router.refresh();
-    });
+  async function handleArchive(formData: FormData) {
+    await archiveCategoryAction(formData);
+    router.refresh();
   }
 
-  function handleUnarchive(formData: FormData) {
-    startTransition(async () => {
-      await unarchiveCategoryAction(formData);
-      router.refresh();
-    });
+  async function handleUnarchive(formData: FormData) {
+    await unarchiveCategoryAction(formData);
+    router.refresh();
   }
 
   return (
@@ -292,16 +284,16 @@ function CategoryCard({ category, canWrite }: { category: CategoryRow; canWrite:
             {category.is_active ? (
               <ConfirmForm action={handleArchive} message="Archive this category? Products in this category won't be affected.">
                 <input type="hidden" name="id" value={category.id} />
-                <button type="submit" className="min-h-11 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
+                <PendingSubmitButton pendingLabel="Archiving..." className="min-h-11 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">
                   Archive
-                </button>
+                </PendingSubmitButton>
               </ConfirmForm>
             ) : (
               <form action={handleUnarchive}>
                 <input type="hidden" name="id" value={category.id} />
-                <button type="submit" className="min-h-11 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
+                <PendingSubmitButton pendingLabel="Restoring..." className="min-h-11 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950">
                   Restore
-                </button>
+                </PendingSubmitButton>
               </form>
             )}
           </>

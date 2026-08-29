@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReplenishmentLoading() {
   return (
-    <AppShell pageTitle="Replenishment">
+    <AppShell isLoading pageTitle="Replenishment">
       <div className="space-y-6">
         {/* Header with back button */}
         <div className="flex items-center gap-3">
