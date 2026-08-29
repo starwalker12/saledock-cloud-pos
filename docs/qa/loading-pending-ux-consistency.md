@@ -41,7 +41,7 @@ The full pre-edit route and pending-state matrices are retained in the task evid
 
 - `Skeleton` remains decorative and `aria-hidden`, cannot receive pointer selection, and disables pulse animation under reduced motion.
 - `PendingSubmitButton` uses `useFormStatus`, keeps both labels in the same grid cell to preserve width, disables duplicate submission, exposes `aria-busy`, and disables spinner motion under reduced motion.
-- `ConfirmForm` awaits the real action promise, holds a same-tick lock, disables its fieldset, validates before submission, and releases state in `finally`. The fixed timer was removed.
+- `ConfirmForm` awaits the real action promise, holds a same-tick lock, disables its fieldset only after confirmed FormData collection begins, validates before submission, and releases state in `finally`. The fixed timer was removed.
 
 ### Low-risk actions
 
@@ -73,10 +73,10 @@ Comparable Next 16 production builds completed for exact main and the final bran
 
 ## Verification
 
-- focused loading/pending contracts: 10/10;
+- focused loading/pending contracts: 11/11;
 - focused loopback Playwright: 3/3 with zero retries;
-- revised print-boundary and loading contracts: 73/73;
-- complete Node suite: 393/393;
+- revised print-boundary and loading contracts: 74/74;
+- complete Node suite: 394/394;
 - loading-region axe: zero violations in light and dark mode;
 - responsive overflow checks: pass at all four target viewports;
 - lint: zero errors, two pre-existing settings hook warnings;
@@ -86,6 +86,31 @@ Comparable Next 16 production builds completed for exact main and the final bran
 - production access and mutation: zero.
 
 The final validation rerun and hosted draft checks are recorded in the evidence and pull request.
+
+## 2026-08-29 Owner-Review Correction
+
+Owner review identified that the initial `ConfirmForm` implementation disabled its entire fieldset while the confirmation dialog was open. The accepted handler then called `setIsConfirming(false)` immediately before `form.requestSubmit()`. React did not commit that state change before the browser collected successful controls, so the disabled fieldset excluded its hidden `id` input from the Server Action payload.
+
+This was reproduced on the untouched draft head `0cacfc74928f29ecc02e715e6fe902051f526369` with task-owned local product `35942000-0000-4000-8000-000000000001`: one POST occurred after confirmation, the multipart body did not contain the product ID, and the archive action left the product active. The previous nonexistent-ID E2E could not distinguish that missing-field no-op from its intended missing-record no-op.
+
+The focused correction changes the fieldset contract from `disabled={isConfirming || isSubmitting}` to `disabled={isSubmitting}`. Controls remain successful while confirmation is pending and FormData is collected. The dialog, `isConfirming` guard, and same-tick submission lock continue to prevent duplicate entry; once the confirmed action starts, the fieldset and pending button remain disabled until the real action settles. No timer, sleep, `setTimeout`, `flushSync`, or manually constructed FormData was added.
+
+The corrected zero-retry browser proof uses one disposable product and verifies:
+
+- cancelling confirmation sends zero POSTs and leaves the product active;
+- confirmed archive sends the exact hidden product ID once and changes `is_active` from true to false;
+- restore sends that same ID once and changes `is_active` from false to true;
+- delayed action responses keep `Archiving...` and `Restoring...` disabled until settlement;
+- programmatic duplicate activation does not add a POST;
+- a final missing-record no-op unlocks normally after action settlement;
+- products, product categories, suppliers, and customers retain their hidden archive identifiers;
+- the task-owned product, audit, profile, and auth fixtures are removed.
+
+Continuation evidence is retained separately at:
+
+`/Users/sw12/Projects/saledock-local-evidence/loading-pending-ux-confirmform-correction`
+
+It records the failing current-head reproduction, corrected submitted-ID proof, archive/restore/cancel/duplicate/no-op results, cleanup, and final validation. Production access and mutation remain zero.
 
 ## Evidence
 

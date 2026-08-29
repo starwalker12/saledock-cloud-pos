@@ -136,6 +136,10 @@ test("confirmed actions stay locked until the actual action settles", () => {
   assert.match(confirmForm, /form\.checkValidity\(\)/);
   assert.match(
     confirmForm,
+    /<fieldset disabled=\{isSubmitting\}/,
+  );
+  assert.doesNotMatch(
+    confirmForm,
     /<fieldset disabled=\{isConfirming \|\| isSubmitting\}/,
   );
   assert.doesNotMatch(confirmForm, /setTimeout|1000/);
@@ -176,6 +180,19 @@ test("catalog and customer archive/restore surfaces use action-specific pending 
       /await archive(?:Product|Category|Supplier)Action\(formData\)/,
     );
     assert.match(file, /async function handleUnarchive\(formData: FormData\)/);
+  }
+});
+
+test("shared ConfirmForm archive surfaces retain their hidden record identifiers", () => {
+  const archiveForms = {
+    "src/app/products/products-tab.tsx": /<ConfirmForm action=\{onArchive\}[\s\S]*?<input type="hidden" name="id" value=\{p\.id\} \/>/,
+    "src/app/products/categories-tab.tsx": /<ConfirmForm action=\{handleArchive\}[\s\S]*?<input type="hidden" name="id" value=\{(?:c|category)\.id\} \/>/,
+    "src/app/products/suppliers-tab.tsx": /<ConfirmForm action=\{handleArchive\}[\s\S]*?<input type="hidden" name="id" value=\{(?:s|supplier)\.id\} \/>/,
+    "src/app/customers/page.tsx": /<ConfirmForm action=\{archiveCustomerAction\}[\s\S]*?<input type="hidden" name="id" value=\{c\.id\} \/>/,
+  };
+
+  for (const [path, pattern] of Object.entries(archiveForms)) {
+    assert.match(source(path), pattern, `${path} submits its record id`);
   }
 });
 

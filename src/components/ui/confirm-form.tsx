@@ -77,7 +77,7 @@ export function ConfirmForm({
       onSubmit={handleSubmit}
       aria-busy={isSubmitting || undefined}
     >
-      <fieldset disabled={isConfirming || isSubmitting} className="contents">
+      <fieldset disabled={isSubmitting} className="contents">
         {children}
       </fieldset>
     </form>

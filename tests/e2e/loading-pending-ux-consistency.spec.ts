@@ -24,6 +24,10 @@ type AxeResult = {
 
 let authAdmin: SupabaseClient;
 let ownerId = "";
+let branchId = "";
+const productId = "35942000-0000-4000-8000-000000000001";
+let productName = "";
+let productCreated = false;
 
 function localServiceClient() {
   const output = execFileSync("supabase", ["status", "--output", "json"], {
@@ -124,6 +128,7 @@ test.describe("loading and pending UX consistency", () => {
       .single();
     if (branchError || !branch?.id)
       throw new Error("Local loading UX branch fixture is unavailable.");
+    branchId = branch.id;
 
     const { error: profileError } = await admin.from("profiles").insert({
       id: ownerId,
@@ -138,11 +143,38 @@ test.describe("loading and pending UX consistency", () => {
       throw new Error(
         `Could not create local loading UX profile: ${profileError.message}`,
       );
+
+    productName = `LOADING-UX-CONFIRM-${process.pid}`;
+    const { error: productError } = await admin.from("products").insert({
+      id: productId,
+      organization_id: LOCAL_QA_ORG_ID,
+      branch_id: branchId,
+      name: productName,
+      sku: `LUX-${process.pid}`,
+      type: "product",
+      purchase_price: 0,
+      sale_price: 0,
+      stock_quantity: 0,
+      minimum_stock: 0,
+      is_active: true,
+    });
+    if (productError)
+      throw new Error(
+        `Could not create local ConfirmForm product: ${productError.message}`,
+      );
+    productCreated = true;
   });
 
   test.afterAll(async () => {
     if (!ownerId) return;
     const admin = getLocalAdminClient();
+    if (productCreated) {
+      await admin
+        .from("audit_logs")
+        .delete()
+        .contains("metadata", { product_id: productId });
+      await admin.from("products").delete().eq("id", productId);
+    }
     await admin.from("profiles").delete().eq("id", ownerId);
     await authAdmin.auth.admin.deleteUser(ownerId);
   });
@@ -207,16 +239,15 @@ test.describe("loading and pending UX consistency", () => {
     ).toBeVisible();
   });
 
-  test("archive pending state blocks duplicates and clears after a no-op response", async ({
+  test("ConfirmForm preserves its hidden id through cancel, archive, restore, and no-op settlement", async ({
     page,
   }) => {
     test.setTimeout(90_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginLocalOwnerDirectly(page, ownerEmail, password);
     await rejectOptionalCookies(page);
-    await page.goto("/products?tab=products");
+    await page.goto("/products?tab=products&inactive=1");
 
-    const productName = "iPhone 15 Pro Max Clear Case";
     const row = page.locator("tr").filter({ hasText: productName }).first();
     await expect(row).toBeVisible();
     const form = row
@@ -227,28 +258,49 @@ test.describe("loading and pending UX consistency", () => {
       name: "Archive",
       exact: true,
     });
-    await form.locator('input[name="id"]').evaluate((input, id) => {
-      (input as HTMLInputElement).value = id;
-    }, randomUUID());
-
     let posts = 0;
-    let releaseResponse = () => {};
-    let markPostSeen = () => {};
-    const postSeen = new Promise<void>((resolve) => {
-      markPostSeen = resolve;
+    const submittedBodies: string[] = [];
+    let responseRelease: (() => void) | undefined;
+    let postSeenResolve: (() => void) | undefined;
+    let postSeen = new Promise<void>((resolve) => {
+      postSeenResolve = resolve;
     });
-    const release = new Promise<void>((resolve) => {
-      releaseResponse = resolve;
+    let release = new Promise<void>((resolve) => {
+      responseRelease = resolve;
     });
 
     await page.route("**/products**", async (route) => {
       if (route.request().method() !== "POST") return route.continue();
       posts += 1;
+      submittedBodies.push(
+        route.request().postDataBuffer()?.toString("utf8") ?? "",
+      );
       const response = await route.fetch();
-      markPostSeen();
+      postSeenResolve?.();
       await release;
       await route.fulfill({ response });
     });
+
+    await archiveButton.click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(posts).toBe(0);
+
+    const admin = getLocalAdminClient();
+    await expect
+      .poll(async () => {
+        const { data, error } = await admin
+          .from("products")
+          .select("is_active")
+          .eq("id", productId)
+          .single();
+        if (error) throw error;
+        return data.is_active;
+      })
+      .toBe(true);
 
     await archiveButton.click();
     await page
@@ -268,20 +320,103 @@ test.describe("loading and pending UX consistency", () => {
     );
     expect(posts).toBe(1);
 
-    releaseResponse();
-    await expect(archiveButton).toBeVisible();
-    await expect(archiveButton).toBeEnabled();
+    responseRelease?.();
+    if (!submittedBodies[0].includes(productId)) {
+      const { data: unchangedProduct, error: unchangedError } = await admin
+        .from("products")
+        .select("is_active")
+        .eq("id", productId)
+        .single();
+      if (unchangedError) throw unchangedError;
+      expect(unchangedProduct.is_active).toBe(true);
+      throw new Error(
+        `ConfirmForm omitted exact hidden product id ${productId}; the product remained active.`,
+      );
+    }
+
+    const restoreButton = row.getByRole("button", {
+      name: "Restore",
+      exact: true,
+    });
+    await expect(restoreButton).toBeVisible();
+    await expect(restoreButton).toBeEnabled();
     expect(posts).toBe(1);
 
-    const admin = getLocalAdminClient();
-    const { data: product, error } = await admin
+    await expect
+      .poll(async () => {
+        const { data, error } = await admin
+          .from("products")
+          .select("is_active")
+          .eq("id", productId)
+          .single();
+        if (error) throw error;
+        return data.is_active;
+      })
+      .toBe(false);
+
+    postSeen = new Promise<void>((resolve) => {
+      postSeenResolve = resolve;
+    });
+    release = new Promise<void>((resolve) => {
+      responseRelease = resolve;
+    });
+    await restoreButton.click();
+    await postSeen;
+    expect(submittedBodies[1]).toContain(productId);
+
+    const restoringButton = row.getByRole("button", {
+      name: "Restoring...",
+      exact: true,
+    });
+    await expect(restoringButton).toBeVisible();
+    await expect(restoringButton).toBeDisabled();
+    await restoringButton.evaluate((button) =>
+      (button as HTMLButtonElement).click(),
+    );
+    expect(posts).toBe(2);
+
+    responseRelease?.();
+    await expect(archiveButton).toBeVisible();
+    await expect(archiveButton).toBeEnabled();
+    await expect
+      .poll(async () => {
+        const { data, error } = await admin
+          .from("products")
+          .select("is_active")
+          .eq("id", productId)
+          .single();
+        if (error) throw error;
+        return data.is_active;
+      })
+      .toBe(true);
+
+    postSeen = new Promise<void>((resolve) => {
+      postSeenResolve = resolve;
+    });
+    release = Promise.resolve();
+    const noOpId = randomUUID();
+    await form.locator('input[name="id"]').evaluate((input, id) => {
+      (input as HTMLInputElement).value = id;
+    }, noOpId);
+    await archiveButton.click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Confirm", exact: true })
+      .click();
+    await postSeen;
+    expect(submittedBodies[2]).toContain(noOpId);
+    await expect(archiveButton).toBeVisible();
+    await expect(archiveButton).toBeEnabled();
+    expect(posts).toBe(3);
+
+    const { data: finalProduct, error: finalError } = await admin
       .from("products")
       .select("is_active")
-      .eq("id", "00000000-0000-4000-8000-000000003001")
+      .eq("id", productId)
       .single();
-    if (error)
-      throw new Error(`Seed product safety check failed: ${error.message}`);
-    expect(product?.is_active).toBe(true);
+    if (finalError)
+      throw new Error(`ConfirmForm product check failed: ${finalError.message}`);
+    expect(finalProduct.is_active).toBe(true);
   });
 
   test("responsive light and dark views remain overflow-free", async ({
