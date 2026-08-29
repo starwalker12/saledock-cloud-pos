@@ -112,6 +112,26 @@ Continuation evidence is retained separately at:
 
 It records the failing current-head reproduction, corrected submitted-ID proof, archive/restore/cancel/duplicate/no-op results, cleanup, and final validation. Production access and mutation remain zero.
 
+## 2026-08-29 Production Delivery and Read-Only Verification
+
+Source PR [#351](https://github.com/starwalker12/saledock-cloud-pos/pull/351) was reviewed at exact head `5cf66059a26a16b89a2f516dffbd75e7751dafcf` and squash-merged as `00d07d7540dddcb6c582124f6b811ebd1a6df280` at `2026-08-29T06:56:09Z`. Main CI run `33239657199` completed successfully. Vercel deployment `HpqvEi1z7hGTWwVSRRcpncCA3RQX` became Ready, Current, and Production for that exact squash; `/` and `/login` returned HTTP 200.
+
+An already-approved authenticated Fardan Aatir Owner session was available for read-only verification. Dashboard, Products, Customers, Invoices, Reports, Expenses, Supplier Purchases, one existing supplier-purchase detail, New Supplier Purchase, and Settings each exposed a route-specific loading status in one busy main region before resolving. The application shell remained present, skeleton content remained non-interactive and hidden from assistive technology, focus did not enter a skeleton, and every observed loader settled without a blank transition, stuck state, document-level overflow, or SaleDock-origin console error.
+
+The supplier-purchase list, existing detail, and new-purchase routes used distinct destination-shaped loading boundaries. No purchase was submitted and no payment control was used. The 320px new-purchase loader itself remained unclipped. The unchanged loaded purchase form retains pre-existing fixed-width internal controls at 320px; PR #351 did not modify that runtime form, so this is recorded as an existing layout boundary rather than attributed to the loading correction.
+
+Responsive loading checks passed at `320x568`, `390x844`, `430x932`, and `1440x900`. Production CSS supplied distinct light and dark skeleton treatments. A fresh isolated production browser context resolved the shared skeleton to `animation-name: none` and `0s` under `prefers-reduced-motion: reduce`; no persistent application preference was changed. Representative Products and New Supplier Purchase loaders settled in 2.858 seconds and 2.312 seconds respectively without an artificial minimum delay.
+
+The exact deployed squash contains the accepted `ConfirmForm` correction. Production showed stable idle Archive and Restore labels, but no confirmation was accepted and no production archive/restore mutation was used to repeat the deterministic local proof. The accepted local facts remain: exact synthetic ID submission, truthful archive and restore, zero-POST cancellation, duplicate blocking, promise-lifetime pending behavior, no-op recovery, and complete cleanup.
+
+Production business-data mutations were zero. No form was submitted; no record was created, edited, archived, restored, paid, sold, returned, adjusted, or otherwise changed. Cashier authorization, security, RLS, and database work remained paused and untouched.
+
+Production evidence is retained at:
+
+`/Users/sw12/Projects/saledock-local-evidence/loading-pending-ux-production-verification`
+
+Its 32 entries verify against `evidence-manifest.sha256`; the manifest SHA-256 is `7df91dc87f6b916ad544a986fd3b1c6e953e53f45c98704c029003a16ef814e9`.
+
 ## Evidence
 
 Evidence path:
