@@ -1,34 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function SidebarLoading() {
-  return (
-    <aside
-      aria-hidden="true"
-      className="hidden h-dvh w-72 shrink-0 flex-col border-r border-slate-800 bg-[#07152b] px-3 py-4 lg:flex"
-    >
-      <div className="flex h-14 items-center gap-3 px-2">
-        <Skeleton className="size-10 shrink-0 rounded-full bg-white/15 dark:bg-white/15" />
-        <Skeleton className="h-6 w-32 bg-white/15 dark:bg-white/15" />
-      </div>
-      <div className="mt-4 flex items-center justify-between border-y border-white/10 py-3">
-        <Skeleton className="h-9 w-28 bg-white/10 dark:bg-white/10" />
-        <Skeleton className="size-9 bg-white/10 dark:bg-white/10" />
-      </div>
-      <div className="mt-4 space-y-2">
-        {Array.from({ length: 9 }).map((_, index) => (
-          <div key={index} className="flex h-11 items-center gap-3 px-3">
-            <Skeleton className="size-5 shrink-0 bg-white/10 dark:bg-white/10" />
-            <Skeleton
-              className={`h-3 bg-white/10 dark:bg-white/10 ${index % 3 === 0 ? "w-24" : "w-32"}`}
-            />
-          </div>
-        ))}
-      </div>
-      <Skeleton className="mt-auto h-11 w-full bg-white/10 dark:bg-white/10" />
-    </aside>
-  );
-}
-
 export function TopbarLoading({ pageTitle }: { pageTitle?: string }) {
   const title = pageTitle ?? "Dashboard";
 

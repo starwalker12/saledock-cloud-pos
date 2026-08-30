@@ -40,7 +40,10 @@ test("AppShell root keeps screen constraints and conditionally releases them for
   assert.match(source, /print:overflow-visible/);
   assert.match(appShell, /data-app-shell-root/);
   assert.match(appShell, /data-print-full-document=/);
-  assert.match(appShell, /flex h-dvh max-w-full overflow-hidden/);
+  assert.match(
+    appShell,
+    /flex h-dvh min-w-0 max-w-full flex-1 overflow-hidden/,
+  );
 });
 
 test("AppShell content column conditionally expands in print", () => {

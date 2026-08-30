@@ -1,11 +1,7 @@
 import { Suspense, type ReactNode } from "react";
-import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { DrawerProvider } from "@/components/layout/drawer-context";
-import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
-import { MobileDrawerWrapper } from "@/components/layout/mobile-drawer-wrapper";
-import { SidebarLoading, TopbarLoading } from "@/components/layout/app-shell-loading";
+import { TopbarLoading } from "@/components/layout/app-shell-loading";
 
 export function AppShell({
   children,
@@ -38,47 +34,38 @@ export function AppShell({
     : "";
 
   return (
-      <ConfirmDialogProvider>
-        <DrawerProvider>
+    <div
+      data-app-shell-root
+      data-print-full-document={printFullDocument ? "true" : "false"}
+      className={`flex h-dvh min-w-0 max-w-full flex-1 overflow-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50 ${rootPrintClasses}`}
+    >
+      <div
+        data-app-shell-column
+        className={`flex min-h-0 min-w-0 flex-1 flex-col ${columnPrintClasses}`}
+      >
+        <Suspense fallback={<TopbarLoading pageTitle={pageTitle} />}>
+          <Topbar pageTitle={pageTitle} />
+        </Suspense>
+        <main
+          data-app-shell-main
+          aria-busy={isLoading || undefined}
+          tabIndex={isLoading ? 0 : undefined}
+          className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${mainPrintClasses} ${mainClassName}`}
+        >
+          {isLoading && (
+            <span className="sr-only" role="status" aria-live="polite">
+              Loading {pageTitle ?? "page"}.
+            </span>
+          )}
           <div
-            data-app-shell-root
-            data-print-full-document={printFullDocument ? "true" : "false"}
-            className={`flex h-dvh max-w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50 ${rootPrintClasses}`}
+            data-app-shell-content
+            className={`animate-fade-in mx-auto w-full min-w-0 space-y-4 md:space-y-6 ${contentPrintClasses} ${contentClassName}`}
           >
-            <Suspense fallback={<SidebarLoading />}>
-              <Sidebar />
-            </Suspense>
-            <div
-              data-app-shell-column
-              className={`flex min-h-0 min-w-0 flex-1 flex-col ${columnPrintClasses}`}
-            >
-              <Suspense fallback={<TopbarLoading pageTitle={pageTitle} />}>
-                <Topbar pageTitle={pageTitle} />
-              </Suspense>
-              <main
-                data-app-shell-main
-                aria-busy={isLoading || undefined}
-                className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${mainPrintClasses} ${mainClassName}`}
-              >
-                {isLoading && (
-                  <span className="sr-only" role="status" aria-live="polite">
-                    Loading {pageTitle ?? "page"}.
-                  </span>
-                )}
-                <div
-                  data-app-shell-content
-                  className={`animate-fade-in mx-auto w-full min-w-0 space-y-4 md:space-y-6 ${contentPrintClasses} ${contentClassName}`}
-                >
-                  {children}
-                </div>
-              </main>
-              {showMobileTabBar && <MobileTabBar />}
-            </div>
+            {children}
           </div>
-          <Suspense fallback={null}>
-            <MobileDrawerWrapper />
-          </Suspense>
-        </DrawerProvider>
-      </ConfirmDialogProvider>
+        </main>
+        {showMobileTabBar && <MobileTabBar />}
+      </div>
+    </div>
   );
 }
