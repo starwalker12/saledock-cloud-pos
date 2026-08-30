@@ -58,10 +58,38 @@ The aggregate generated JavaScript directory changed from 3,704,341 bytes in 65 
 - Existing route-loading, print, complete Node, lint, typecheck, production build, and `git diff --check`: recorded in the sealed evidence report.
 - Two discarded focused browser runs failed because the rebuilt local server was missing its loopback service-role environment; no application assertion completed. One discarded baseline evidence attempt held only the destination table and therefore did not enter the old Sidebar fallback. These runs are not hidden or counted as passes.
 
+## Production Delivery And Verification
+
+- Source PR: #353.
+- Reviewed head: `fc3ff2bc2befbaa3a2750a8932cda7bd3821e817`.
+- Source squash: `2adc8b4efe7e002faa79931c26ecfce2940db49d`.
+- Ready timestamp: `2026-08-30T00:17:52Z`.
+- Merge timestamp: `2026-08-30T00:18:12Z`.
+- Main CI: run 33282992623, successful.
+- Production deployment: `dpl_GWztDHnjD8UBEHeLUWZzPufVzPaX`, Ready/Current/Production for the exact source squash.
+- Public root and login: HTTP 200/200.
+- Authenticated identity: Fardan Aatir, Owner.
+- Collapsed production result: 96px before, during, and after destination loading across the requested sibling-route sequence; no 288px flash, fake navigation rows, or horizontal shell movement.
+- Expanded production result: 288px before, during, and after loading; real navigation remained visible without skeleton replacement.
+- Real Sidebar continuity: the clicked real navigation anchor retained focus before commit, through `aria-busy`, and after settlement; the deployed root slot architecture and absence of replacement markup matched the reviewed persistence contract.
+- Destination skeletons: Invoices, Supplier Purchases, Reports, Dashboard, Products, Customers, and Settings showed route-shaped main loading states and settled without a blank or stuck transition.
+- Topbar: one visible topbar throughout representative transitions, with destination titles and no duplicate search/profile controls.
+- Mobile: 320x568, 390x844, and 430x932 each retained one mobile trigger and one bottom navigation, no visible drawer during route changes, no desktop sidebar, and no horizontal overflow.
+- Accessibility: the real navigation remained in the accessibility tree; main loading regions exposed `aria-busy` and status text; focus remained on the real Sidebar link and never entered decorative skeletons.
+- Theme and motion: light and dark transitions passed; under Chrome reduced-motion emulation the sidebar remained 288px and skeleton pulse animation computed to `none`.
+- Preference restoration: opening and closing state matched exactly - expanded 288px, light theme, zero archived items, and unchanged navigation order.
+- Production business-data mutations: zero. Only the authorized temporary sidebar/theme preferences changed, and both were restored.
+- Production evidence: `/Users/sw12/Projects/saledock-local-evidence/persistent-authenticated-shell-production-verification`.
+- Evidence manifest SHA-256: `e09656293dc2a2a4985603b8a7cf50fc874e8bac722fc6d778835f4896f1322f` (30 entries plus manifest).
+- Single-active-account workspace coordination remains not started.
+- Date-range work remains paused.
+- Cashier and security work remain paused.
+
 ## Safety
 
-- Evidence: `/Users/sw12/Projects/saledock-local-evidence/persistent-authenticated-shell-fix` (sealed manifest recorded in the draft PR).
-- Production access: zero.
+- Local implementation evidence: `/Users/sw12/Projects/saledock-local-evidence/persistent-authenticated-shell-fix` (sealed manifest recorded in PR #353).
+- Source implementation production access: zero.
+- Delivery verification production access: bounded authenticated read-only UI verification.
 - Production mutations: zero.
 - Local task-owned role fixtures are removed after focused tests.
 - The seeded local owner's original sidebar preference is restored after evidence capture.
