@@ -24,7 +24,10 @@ function sha256(path) {
 }
 
 test("all 39 page routes have an exact loading boundary", () => {
-  const pages = walk(appRoot).filter((path) => path.endsWith("/page.tsx"));
+  const pages = walk(appRoot).filter(
+    (path) =>
+      path.endsWith("/page.tsx") && !path.includes("/@authenticatedShell/"),
+  );
   assert.equal(pages.length, 39);
 
   const missing = pages
@@ -52,29 +55,39 @@ test("authenticated route skeletons expose one busy page region", () => {
   }
 });
 
-test("the app shell streams static chrome while async shell data resolves", () => {
+test("authenticated chrome is persistent while route-owned content streams", () => {
   const appShell = source("src/components/layout/app-shell.tsx");
   const fallbacks = source("src/components/layout/app-shell-loading.tsx");
-
-  assert.match(
-    appShell,
-    /<Suspense fallback=\{<SidebarLoading \/>\}>[\s\S]*?<Sidebar \/>[\s\S]*?<\/Suspense>/,
+  const rootLayout = source("src/app/layout.tsx");
+  const persistentFrame = source(
+    "src/components/layout/persistent-authenticated-frame.tsx",
   );
+  const shellLayout = source(
+    "src/app/@authenticatedShell/(workspace)/layout.tsx",
+  );
+
   assert.match(
     appShell,
     /<Suspense fallback=\{<TopbarLoading pageTitle=\{pageTitle\} \/>\}>[\s\S]*?<Topbar pageTitle=\{pageTitle\} \/>[\s\S]*?<\/Suspense>/,
   );
-  assert.match(
-    appShell,
-    /<Suspense fallback=\{null\}>[\s\S]*?<MobileDrawerWrapper \/>[\s\S]*?<\/Suspense>/,
-  );
   assert.match(appShell, /aria-busy=\{isLoading \|\| undefined\}/);
+  assert.match(appShell, /tabIndex=\{isLoading \? 0 : undefined\}/);
   assert.match(appShell, /role="status" aria-live="polite"/);
-  assert.doesNotMatch(
-    fallbacks,
-    /getCurrentContext|createClient|supabase|await\s/,
+  assert.doesNotMatch(appShell, /Sidebar|SidebarLoading|MobileDrawerWrapper/);
+  assert.doesNotMatch(fallbacks, /SidebarLoading|<aside/);
+  assert.equal((fallbacks.match(/aria-hidden="true"/g) ?? []).length, 1);
+
+  assert.match(rootLayout, /authenticatedShell:\s*React\.ReactNode/);
+  assert.match(
+    rootLayout,
+    /<PersistentAuthenticatedFrame authenticatedShell=\{authenticatedShell\}>/,
   );
-  assert.equal((fallbacks.match(/aria-hidden="true"/g) ?? []).length, 2);
+  assert.match(persistentFrame, /data-persistent-authenticated-frame/);
+  assert.match(persistentFrame, /<ConfirmDialogProvider>/);
+  assert.match(persistentFrame, /<DrawerProvider>/);
+  assert.match(shellLayout, /<Sidebar \/>/);
+  assert.match(shellLayout, /<MobileDrawerWrapper \/>/);
+  assert.doesNotMatch(shellLayout, /SidebarLoading|TopbarLoading|fallback=/);
 });
 
 test("generic loading feedback is quiet, accessible, and reduced-motion safe", () => {

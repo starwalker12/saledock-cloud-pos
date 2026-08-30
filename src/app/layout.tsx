@@ -9,6 +9,7 @@ import { LanguageProvider } from "@/lib/i18n/language-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import AnalyticsNotice from "@/components/analytics-notice";
 import { OfflineScreen } from "@/components/network/offline-screen";
+import { PersistentAuthenticatedFrame } from "@/components/layout/persistent-authenticated-frame";
 import { env } from "@/lib/env";
 import {
   COLOR_THEME_STORAGE_KEY,
@@ -183,8 +184,10 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
+  authenticatedShell,
 }: Readonly<{
   children: React.ReactNode;
+  authenticatedShell: React.ReactNode;
 }>) {
   const nonce = (await headers()).get("x-nonce") || undefined;
 
@@ -208,7 +211,9 @@ export default async function RootLayout({
         >
           <LanguageProvider>
             <ToastProvider>
-              {children}
+              <PersistentAuthenticatedFrame authenticatedShell={authenticatedShell}>
+                {children}
+              </PersistentAuthenticatedFrame>
               <OfflineScreen />
             </ToastProvider>
           </LanguageProvider>
