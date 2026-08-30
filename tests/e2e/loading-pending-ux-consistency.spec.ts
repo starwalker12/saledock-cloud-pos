@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import { once } from "node:events";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -53,10 +54,10 @@ function localServiceClient() {
   });
 }
 
-function localPostgrestContainer() {
+function localDatabaseContainer() {
   const containers = execFileSync(
     "docker",
-    ["ps", "--format", "{{.Names}}", "--filter", "name=supabase_rest_"],
+    ["ps", "--format", "{{.Names}}", "--filter", "name=supabase_db_"],
     { encoding: "utf8" },
   )
     .trim()
@@ -65,11 +66,62 @@ function localPostgrestContainer() {
 
   if (containers.length !== 1) {
     throw new Error(
-      `Expected one loopback PostgREST container, found ${containers.length}.`,
+      `Expected one loopback database container, found ${containers.length}.`,
     );
   }
 
   return containers[0];
+}
+
+async function holdProductsTableLock() {
+  const process = spawn(
+    "docker",
+    [
+      "exec",
+      "-i",
+      localDatabaseContainer(),
+      "psql",
+      "-X",
+      "-qAt",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+    ],
+    { stdio: "pipe" },
+  );
+  let output = "";
+  let errorOutput = "";
+  process.stderr.on("data", (chunk) => {
+    errorOutput += chunk.toString();
+  });
+
+  const locked = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timed out acquiring products lock: ${errorOutput}`));
+    }, 10_000);
+    process.stdout.on("data", (chunk) => {
+      output += chunk.toString();
+      if (output.split("\n").includes("LOCKED")) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+    process.once("exit", (code) => {
+      clearTimeout(timeout);
+      reject(new Error(`Lock process exited with ${code}: ${errorOutput}`));
+    });
+  });
+
+  process.stdin.write(
+    "BEGIN; LOCK TABLE public.products IN ACCESS EXCLUSIVE MODE; SELECT 'LOCKED';\n",
+  );
+  await locked;
+
+  return async () => {
+    process.stdin.end("ROLLBACK;\n\\q\n");
+    await once(process, "exit");
+  };
 }
 
 async function runAxe(page: Page, region: Locator): Promise<AxeResult> {
@@ -91,9 +143,13 @@ async function runAxe(page: Page, region: Locator): Promise<AxeResult> {
 }
 
 async function rejectOptionalCookies(page: Page) {
+  await expect(page.locator("[data-active-workspace-guard]")).toHaveAttribute(
+    "data-active-workspace-state",
+    "active",
+    { timeout: 10_000 },
+  );
   const reject = page.getByRole("button", {
-    name: "Reject optional cookies",
-    exact: true,
+    name: /Reject (?:optional cookies|all)/,
   });
   if (await reject.isVisible().catch(() => false)) await reject.click();
 }
@@ -188,15 +244,25 @@ test.describe("loading and pending UX consistency", () => {
     await loginLocalOwnerDirectly(page, ownerEmail, password);
     await rejectOptionalCookies(page);
 
+    await page.route("**/suppliers/purchases/new*", async (route) => {
+      const headers = route.request().headers();
+      if (
+        headers["next-router-prefetch"] === "1" ||
+        headers.purpose === "prefetch"
+      ) {
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
     await page.goto("/suppliers/purchases");
-    const postgrestContainer = localPostgrestContainer();
-    execFileSync("docker", ["pause", postgrestContainer]);
+    const releaseLock = await holdProductsTableLock();
 
     let navigation: Promise<unknown> | undefined;
     try {
-      navigation = page.goto(
-        `/suppliers/purchases/new?loading_ux=${randomUUID()}`,
-      );
+      navigation = page
+        .locator('a[href="/suppliers/purchases/new"]')
+        .click();
 
       const busyMain = page
         .getByText("Loading Record purchase.", { exact: true })
@@ -229,7 +295,7 @@ test.describe("loading and pending UX consistency", () => {
         expect(loadingAxe.violations).toEqual([]);
       }
     } finally {
-      execFileSync("docker", ["unpause", postgrestContainer]);
+      await releaseLock();
     }
 
     await navigation;

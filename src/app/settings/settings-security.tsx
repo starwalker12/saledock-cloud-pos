@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { getLinkedProviders, type LinkedProviders } from "@/lib/auth/identities";
@@ -14,10 +20,49 @@ import {
   Shield, KeyRound, Monitor, LogOut, Link as LinkIcon,
   CheckCircle, ArrowRight, Mail, ShieldCheck, Loader2
 } from "lucide-react";
+import { useActiveWorkspace } from "@/components/auth/active-workspace-guard";
 
 interface SettingsSecurityProps {
   linkedProviders: LinkedProviders;
   userEmail: string | null;
+}
+
+function CurrentWorkspaceSignOutButton() {
+  const { releaseForSignOut } = useActiveWorkspace();
+  const [isPending, setIsPending] = useState(false);
+  const submitAfterReleaseRef = useRef(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (submitAfterReleaseRef.current) {
+      submitAfterReleaseRef.current = false;
+      return;
+    }
+
+    event.preventDefault();
+    if (isPending) return;
+    const form = event.currentTarget;
+    setIsPending(true);
+    try {
+      await releaseForSignOut();
+    } finally {
+      submitAfterReleaseRef.current = true;
+      form.requestSubmit();
+    }
+  }
+
+  return (
+    <form action={signOutAction} onSubmit={handleSubmit}>
+      <button
+        type="submit"
+        disabled={isPending}
+        aria-busy={isPending || undefined}
+        className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+      >
+        <LogOut className="size-3.5" />
+        {isPending ? "Signing out..." : "Sign out of this device"}
+      </button>
+    </form>
+  );
 }
 
 function parseUserAgent(ua: string): string {
@@ -319,15 +364,7 @@ export function SettingsSecurity({
         </div>
 
         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-            >
-              <LogOut className="size-3.5" />
-              Sign out of this device
-            </button>
-          </form>
+          <CurrentWorkspaceSignOutButton />
         </div>
       </section>
 

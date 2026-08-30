@@ -20,6 +20,7 @@ import {
   useConfirmDialog,
 } from "@/components/ui/confirm-dialog";
 import { Logo } from "@/components/logo";
+import { useActiveWorkspace } from "@/components/auth/active-workspace-guard";
 
 type UserMenuProps = {
   name: string;
@@ -146,6 +147,7 @@ function SignOutMenuItem({
   t: (key: string, fallback: string) => string;
 }) {
   const confirm = useConfirmDialog();
+  const { releaseForSignOut } = useActiveWorkspace();
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const confirmedSubmitRef = useRef(false);
@@ -174,6 +176,7 @@ function SignOutMenuItem({
 
     if (!shouldSignOut) return;
 
+    await releaseForSignOut();
     confirmedSubmitRef.current = true;
     setIsSubmitting(true);
     form.requestSubmit();
