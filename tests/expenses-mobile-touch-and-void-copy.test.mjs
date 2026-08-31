@@ -66,7 +66,7 @@ test("action wiring and pending behavior remain unchanged", () => {
 });
 
 test("EXP-MOBILE-003 summary labels opt into wrapping without changing the payment filter", () => {
-  const labels = ["Today expenses", "This month", "Top category (month)", "Latest expense"];
+  const labels = ["Today expenses", "This month", "Top category (month)", "Latest this month"];
   assert.equal((pageSource.match(/<StatCard\b/g) ?? []).length, labels.length);
   for (const label of labels) {
     const labelIndex = pageSource.indexOf(`label="${label}"`);

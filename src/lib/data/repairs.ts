@@ -1,7 +1,14 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { escapeLike } from "@/lib/security/sanitize";
-import { getKarachiDayEndIso, getKarachiDayStartIso } from "@/lib/datetime";
+import {
+  getKarachiDayEndIso,
+  getKarachiDayStartIso,
+  getKarachiMonthEndDate,
+  getKarachiMonthStartDate,
+  getKarachiRangeIso,
+  getKarachiTodayDateString,
+} from "@/lib/datetime";
 
 export type RepairRow = {
   id: string;
@@ -247,9 +254,12 @@ export async function listCustomerRepairs(
   });
 }
 
-export async function getRepairsStats(organizationId: string): Promise<RepairStats> {
+export async function getRepairsStats(
+  organizationId: string,
+  now: Date = new Date(),
+): Promise<RepairStats> {
   const supabase = await createClient();
-  
+
   // Fetch active counts and advances
   const { data, error } = await supabase
     .from("repairs")
@@ -259,9 +269,13 @@ export async function getRepairsStats(organizationId: string): Promise<RepairSta
   if (error) throw new Error(error.message);
 
   const openStatuses = ["received", "waiting_for_parts", "in_progress"];
-  const now = new Date();
-  const currentYear = now.getUTCFullYear();
-  const currentMonth = now.getUTCMonth(); // 0-indexed
+  const karachiToday = getKarachiTodayDateString(now);
+  const currentMonth = getKarachiRangeIso(
+    getKarachiMonthStartDate(karachiToday),
+    getKarachiMonthEndDate(karachiToday),
+  );
+  const currentMonthStart = Date.parse(currentMonth.start);
+  const currentMonthEnd = Date.parse(currentMonth.end);
 
   let openCount = 0;
   let readyCount = 0;
@@ -278,8 +292,8 @@ export async function getRepairsStats(organizationId: string): Promise<RepairSta
     } else if (status === "completed") {
       readyCount++;
     } else if (status === "delivered" && r.delivered_at) {
-      const delDate = new Date(r.delivered_at);
-      if (delDate.getUTCFullYear() === currentYear && delDate.getUTCMonth() === currentMonth) {
+      const deliveredAt = Date.parse(r.delivered_at);
+      if (deliveredAt >= currentMonthStart && deliveredAt <= currentMonthEnd) {
         deliveredThisMonth++;
       }
     }

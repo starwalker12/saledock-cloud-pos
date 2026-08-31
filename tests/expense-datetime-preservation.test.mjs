@@ -144,8 +144,9 @@ test("void and restore do not replace spent_at", () => {
 
 test("Expenses list, filters, Dashboard, and Reports retain explicit Karachi boundaries", () => {
   assert.match(pageSource, /timeZone: BUSINESS_TIMEZONE/);
-  assert.match(pageSource, /getKarachiDayStartIso\(params\.from\)/);
-  assert.match(pageSource, /getKarachiDayEndIso\(params\.to\)/);
+  assert.match(pageSource, /getKarachiDayStartIso\(parsedFilters\.from\)/);
+  assert.match(pageSource, /getKarachiDayEndIso\(parsedFilters\.to\)/);
+  assert.match(pageSource, /validateDateRange\(\{/);
   assert.match(
     dashboardSource,
     /getKarachiDayRange\(getKarachiTodayDateString\(\)\)/,

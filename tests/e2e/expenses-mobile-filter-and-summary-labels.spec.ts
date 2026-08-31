@@ -23,7 +23,7 @@ const SUMMARY_LABELS = [
   "Today expenses",
   "This month",
   "Top category (month)",
-  "Latest expense",
+  "Latest this month",
 ] as const;
 const VIEWPORTS = [
   { width: 320, height: 568 },

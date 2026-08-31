@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import prettier from "prettier";
 
 const cssPath = "src/app/globals.css";
 const pagePath = "src/app/repairs/[id]/page.tsx";
@@ -32,6 +33,14 @@ function functionBody(name) {
   assert.notEqual(start, -1, `${printButtonPath}: missing ${name}`);
   const next = printButton.indexOf("\n  const ", start + 1);
   return printButton.slice(start, next === -1 ? printButton.length : next);
+}
+
+function sourceFunction(source, name, nextName) {
+  const start = source.indexOf(`export async function ${name}`);
+  assert.notEqual(start, -1, `Missing function ${name}`);
+  const end = source.indexOf(`export async function ${nextName}`, start);
+  assert.notEqual(end, -1, `Missing function boundary ${nextName}`);
+  return source.slice(start, end);
 }
 
 test("Repairs opts into the existing full-document print contract", () => {
@@ -249,9 +258,29 @@ test("no transform, scale, or zoom workaround exists", () => {
   assert.doesNotMatch(printButton, /style\.(?:transform|scale|zoom)|\.scale\s*\(/);
 });
 
-test("Repair data source remains unchanged", () => {
+test("Repair list and detail data paths remain unchanged by month-stat hardening", async () => {
   const path = "src/lib/data/repairs.ts";
-  assert.equal(readFileSync(path, "utf8"), sourceAtHead(path));
+  const current = readFileSync(path, "utf8");
+  const head = sourceAtHead(path);
+  for (const [name, nextName] of [
+    ["listRepairs", "getRepairDetail"],
+    ["getRepairDetail", "listCustomerRepairs"],
+    ["listCustomerRepairs", "getRepairsStats"],
+  ]) {
+    const [currentFunction, headFunction] = await Promise.all([
+      prettier.format(sourceFunction(current, name, nextName), {
+        parser: "typescript",
+      }),
+      prettier.format(sourceFunction(head, name, nextName), {
+        parser: "typescript",
+      }),
+    ]);
+    assert.equal(
+      currentFunction,
+      headFunction,
+      `${name} changed outside the approved getRepairsStats scope`,
+    );
+  }
 });
 
 test("Repair amounts and labels remain unchanged", () => {

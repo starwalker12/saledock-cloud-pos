@@ -28,10 +28,13 @@ import {
 } from "@/lib/data/supplier-purchases";
 import {
   addKarachiDays,
+  formatCalendarDate,
+  formatKarachiTimestamp,
   getKarachiMonthEndDate,
   getKarachiMonthStartDate,
   getKarachiTodayDateString,
   getKarachiWeekday,
+  validateDateRange,
 } from "@/lib/datetime";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { PrintButton } from "./print-button";
@@ -42,19 +45,34 @@ type SearchParams = {
   endDate?: string;
 };
 
+export const REPORT_RANGES = [
+  "today",
+  "yesterday",
+  "this_week",
+  "this_month",
+  "last_month",
+  "custom",
+] as const;
+export type ReportRange = (typeof REPORT_RANGES)[number];
+
 function fmtDay(d: string) {
-  return new Date(`${d}T00:00:00`).toLocaleDateString("en-PK", {
+  return formatCalendarDate(d, {
     year: "numeric",
     month: "long",
     day: "2-digit",
   });
 }
 
-function getRangeDates(range: string, customStart?: string, customEnd?: string) {
+export function getRangeDates(
+  range: ReportRange,
+  customStart?: string,
+  customEnd?: string,
+  now: Date = new Date(),
+) {
   // All presets are computed on the shop's Asia/Karachi calendar (server-tz
   // independent). Dates are YYYY-MM-DD strings; getReportsData converts them to
   // Karachi day boundaries.
-  const today = getKarachiTodayDateString();
+  const today = getKarachiTodayDateString(now);
 
   let start = today;
   let end = today;
@@ -91,14 +109,79 @@ function getRangeDates(range: string, customStart?: string, customEnd?: string) 
       if (customStart) start = customStart;
       if (customEnd) end = customEnd;
       break;
-    default: {
-      start = getKarachiMonthStartDate(today);
-      end = today;
-      break;
-    }
   }
 
   return { start, end };
+}
+
+export function parseReportFilterParams(
+  params: SearchParams,
+  now: Date = new Date(),
+) {
+  const rangeValue = params.range ?? "this_month";
+  const range = REPORT_RANGES.includes(rangeValue as ReportRange)
+    ? (rangeValue as ReportRange)
+    : null;
+  const safeDefault = getRangeDates("this_month", undefined, undefined, now);
+
+  if (!range) {
+    return {
+      range: "this_month" as const,
+      ...safeDefault,
+      inputStart: params.startDate ?? "",
+      inputEnd: params.endDate ?? "",
+      error: "Select a valid report range. Showing This Month.",
+    };
+  }
+
+  if (range !== "custom") {
+    return {
+      range,
+      ...getRangeDates(range, undefined, undefined, now),
+      inputStart: params.startDate ?? "",
+      inputEnd: params.endDate ?? "",
+      error: null,
+    };
+  }
+
+  const today = getKarachiTodayDateString(now);
+  const inputStart = params.startDate ?? "";
+  const inputEnd = params.endDate ?? "";
+  const submitted = validateDateRange({
+    from: inputStart,
+    to: inputEnd,
+    fromLabel: "Start",
+    toLabel: "End",
+  });
+  const effectiveStart = inputStart || today;
+  const effectiveEnd = inputEnd || today;
+  const effective = submitted.error
+    ? submitted
+    : validateDateRange({
+        from: effectiveStart,
+        to: effectiveEnd,
+        fromLabel: "Start",
+        toLabel: "End",
+      });
+
+  if (effective.error) {
+    return {
+      range: "this_month" as const,
+      ...safeDefault,
+      inputStart,
+      inputEnd,
+      error: `${effective.error} Showing This Month.`,
+    };
+  }
+
+  return {
+    range,
+    start: effectiveStart,
+    end: effectiveEnd,
+    inputStart,
+    inputEnd,
+    error: null,
+  };
 }
 
 export default async function ReportsPage({
@@ -117,8 +200,8 @@ export default async function ReportsPage({
   }
 
   const params = await searchParams;
-  const range = params.range ?? "this_month";
-  const { start, end } = getRangeDates(range, params.startDate, params.endDate);
+  const parsedRange = parseReportFilterParams(params);
+  const { range, start, end } = parsedRange;
 
   const orgId = profile.organization_id;
   const branchId = profile.branch_id ?? null;
@@ -214,7 +297,8 @@ export default async function ReportsPage({
               <input
                 type="date"
                 name="startDate"
-                defaultValue={start}
+                defaultValue={parsedRange.inputStart || start}
+                aria-invalid={parsedRange.error ? true : undefined}
                 className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-600"
               />
             </label>
@@ -225,7 +309,8 @@ export default async function ReportsPage({
               <input
                 type="date"
                 name="endDate"
-                defaultValue={end}
+                defaultValue={parsedRange.inputEnd || end}
+                aria-invalid={parsedRange.error ? true : undefined}
                 className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-600"
               />
             </label>
@@ -237,6 +322,14 @@ export default async function ReportsPage({
             </button>
           </div>
         </div>
+        {parsedRange.error && (
+          <p
+            role="alert"
+            className="mt-3 text-sm font-semibold text-red-700 dark:text-red-400"
+          >
+            {parsedRange.error}
+          </p>
+        )}
       </form>
 
       {/* Corporate Letterhead for print only */}
@@ -601,26 +694,44 @@ export default async function ReportsPage({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm sm:p-6">
           <h3 className="text-base font-black text-slate-950 flex items-center gap-2">
             <Scale className="size-5 text-blue-600" />
-            Customer Outstanding Ledger
+            Current Customer Outstanding Ledger
           </h3>
-          <p className="text-xs text-slate-500 mt-1">Outstanding debt books and settlement recovery cycles.</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Outstanding balances are a current snapshot; settlements and
+            write-offs follow the selected range.
+          </p>
           <div className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Debtor Accounts</p>
-                <p className="mt-1 text-2xl font-black text-slate-900">{formatNumber(data.ledger.debtorCount)}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Debtor Accounts
+                </p>
+                <p className="mt-1 text-2xl font-black text-slate-900">
+                  {formatNumber(data.ledger.debtorCount)}
+                </p>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ledger Debt Settlements</p>
-                <p className="mt-1 text-2xl font-black text-emerald-800">+{formatCurrency(data.ledger.creditPaymentsReceived, currency)}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Ledger Debt Settlements
+                </p>
+                <p className="mt-1 text-2xl font-black text-emerald-800">
+                  +
+                  {formatCurrency(data.ledger.creditPaymentsReceived, currency)}
+                </p>
               </div>
               <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-4">
-                <p className="text-xs font-bold text-rose-800 uppercase tracking-wider">Credit Write-offs</p>
-                <p className="mt-1 text-2xl font-black text-rose-900">{formatCurrency(data.ledger.creditWriteOffs, currency)}</p>
+                <p className="text-xs font-bold text-rose-800 uppercase tracking-wider">
+                  Credit Write-offs
+                </p>
+                <p className="mt-1 text-2xl font-black text-rose-900">
+                  {formatCurrency(data.ledger.creditWriteOffs, currency)}
+                </p>
               </div>
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Top Debt Outstanding Profiles</h4>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+                Top Debt Outstanding Profiles
+              </h4>
               {data.ledger.topDebtors.length === 0 ? (
                 <div className="text-center text-sm text-slate-400 py-4 border border-dashed border-slate-100 rounded-xl">
                   No active debtors on ledger.
@@ -813,72 +924,127 @@ export default async function ReportsPage({
       </section>
 
       {/* Loss Prevention */}
-      <section id="loss-prevention" className="mt-6 scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm sm:p-6">
+      <section
+        id="loss-prevention"
+        className="mt-6 scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm sm:p-6"
+      >
         <h3 className="text-base font-black text-slate-950 flex items-center gap-2">
           <Award className="size-5 text-red-600" />
           Loss Prevention
         </h3>
         <p className="text-xs text-slate-500 mt-1">
-          Below-cost sales completed under admin override during this date range.
-          Standard checkouts that would have lost money are blocked entirely.
+          Below-cost sales completed under admin override during this date
+          range. Standard checkouts that would have lost money are blocked
+          entirely.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Below-cost sales (overrides used)</p>
-            <p className="mt-1 text-2xl font-black text-slate-950">{formatNumber(data.lossPrevention.belowCostSaleCount)}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Below-cost sales (overrides used)
+            </p>
+            <p className="mt-1 text-2xl font-black text-slate-950">
+              {formatNumber(data.lossPrevention.belowCostSaleCount)}
+            </p>
           </div>
           <div className="rounded-xl border border-slate-100 bg-red-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Total loss amount</p>
-            <p className="mt-1 text-2xl font-black text-red-900">{formatCurrency(data.lossPrevention.totalLossAmount, currency)}</p>
-            <p className="mt-1 text-[10px] text-red-700">FIFO cost − effective revenue.</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+              Total loss amount
+            </p>
+            <p className="mt-1 text-2xl font-black text-red-900">
+              {formatCurrency(data.lossPrevention.totalLossAmount, currency)}
+            </p>
+            <p className="mt-1 text-[10px] text-red-700">
+              FIFO cost − effective revenue.
+            </p>
           </div>
         </div>
 
         <div className="mt-4">
-          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Recent overrides</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+            Recent overrides
+          </h4>
           {data.lossPrevention.recent.length === 0 ? (
-            <p className="text-sm text-slate-400 py-2">No below-cost sales in this period. Loss prevention is doing its job.</p>
+            <p className="text-sm text-slate-400 py-2">
+              No below-cost sales in this period. Loss prevention is doing its
+              job.
+            </p>
           ) : (
             <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[520px] text-left text-sm">
-                <thead className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="py-2">Date</th>
-                    <th className="py-2">Invoice</th>
-                    <th className="py-2">Product</th>
-                    <th className="py-2 text-right">Loss</th>
-                    <th className="py-2">Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.lossPrevention.recent.map((r, i) => (
-                    <tr key={`${r.invoice_no}-${i}`} className="border-b border-slate-50">
-                      <td className="py-2 text-slate-700">{new Date(r.created_at).toLocaleDateString("en-PK")}</td>
-                      <td className="py-2 font-semibold text-slate-800">{r.invoice_no}</td>
-                      <td className="py-2 text-slate-700">{r.product_name}</td>
-                      <td className="py-2 text-right font-bold text-red-700">{formatCurrency(r.loss_amount, currency)}</td>
-                      <td className="py-2 text-slate-600">{r.reason || "—"}</td>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[520px] text-left text-sm">
+                  <thead className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="py-2">Date</th>
+                      <th className="py-2">Invoice</th>
+                      <th className="py-2">Product</th>
+                      <th className="py-2 text-right">Loss</th>
+                      <th className="py-2">Reason</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="space-y-2 md:hidden">
-              {data.lossPrevention.recent.map((r, i) => (
-                <div key={`${r.invoice_no}-${i}`} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-800">{r.invoice_no}</p>
-                      <p className="text-xs text-slate-500">{new Date(r.created_at).toLocaleDateString("en-PK")}</p>
+                  </thead>
+                  <tbody>
+                    {data.lossPrevention.recent.map((r, i) => (
+                      <tr
+                        key={`${r.invoice_no}-${i}`}
+                        className="border-b border-slate-50"
+                      >
+                        <td className="py-2 text-slate-700">
+                          {formatKarachiTimestamp(r.created_at, {
+                            year: "numeric",
+                            month: "short",
+                            day: "2-digit",
+                          })}
+                        </td>
+                        <td className="py-2 font-semibold text-slate-800">
+                          {r.invoice_no}
+                        </td>
+                        <td className="py-2 text-slate-700">
+                          {r.product_name}
+                        </td>
+                        <td className="py-2 text-right font-bold text-red-700">
+                          {formatCurrency(r.loss_amount, currency)}
+                        </td>
+                        <td className="py-2 text-slate-600">
+                          {r.reason || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-2 md:hidden">
+                {data.lossPrevention.recent.map((r, i) => (
+                  <div
+                    key={`${r.invoice_no}-${i}`}
+                    className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800">
+                          {r.invoice_no}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatKarachiTimestamp(r.created_at, {
+                            year: "numeric",
+                            month: "short",
+                            day: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-bold text-red-700">
+                        {formatCurrency(r.loss_amount, currency)}
+                      </span>
                     </div>
-                    <span className="shrink-0 font-bold text-red-700">{formatCurrency(r.loss_amount, currency)}</span>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Product: {r.product_name}
+                    </p>
+                    {r.reason && (
+                      <p className="text-xs text-slate-500">
+                        Reason: {r.reason}
+                      </p>
+                    )}
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">Product: {r.product_name}</p>
-                  {r.reason && <p className="text-xs text-slate-500">Reason: {r.reason}</p>}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
             </>
           )}
         </div>
@@ -890,31 +1056,56 @@ export default async function ReportsPage({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm sm:p-6">
           <h3 className="text-base font-black text-slate-950 flex items-center gap-2">
             <Boxes className="size-5 text-blue-600" />
-            FIFO Stock Lots Valuation
+            Current FIFO Stock Lots Valuation
           </h3>
-          <p className="text-xs text-slate-500 mt-1">Capital stock valuation computed at lot purchase cost.</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Current capital stock valuation at lot purchase cost, independent of
+            the selected report range.
+          </p>
           <div className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Physical Catalog Lines</p>
-                <p className="mt-1 text-2xl font-black text-slate-900">{formatNumber(data.inventory.activeProductCount)}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Physical Catalog Lines
+                </p>
+                <p className="mt-1 text-2xl font-black text-slate-900">
+                  {formatNumber(data.inventory.activeProductCount)}
+                </p>
               </div>
               <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Active Asset Value</p>
-                <p className="mt-1 text-2xl font-black text-emerald-950">{formatCurrency(data.inventory.stockValuation, currency)}</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                  Active Asset Value
+                </p>
+                <p className="mt-1 text-2xl font-black text-emerald-950">
+                  {formatCurrency(data.inventory.stockValuation, currency)}
+                </p>
               </div>
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Valuable Stock Concentrates</h4>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+                Valuable Stock Concentrates
+              </h4>
               {data.inventory.topStockValueProducts.length === 0 ? (
-                <p className="text-sm text-slate-400 py-2">No products in stock.</p>
+                <p className="text-sm text-slate-400 py-2">
+                  No products in stock.
+                </p>
               ) : (
                 <div className="space-y-2">
                   {data.inventory.topStockValueProducts.map((item) => (
-                    <div key={item.name} className="flex flex-wrap justify-between gap-2 border-b border-slate-50 py-1.5 text-sm">
-                      <span className="min-w-0 break-words font-semibold text-slate-700 sm:max-w-[280px] sm:truncate">{item.name}</span>
-                      <span className="font-bold text-slate-900">{formatCurrency(item.cost_value, currency)} <span className="ml-1 text-xs font-normal text-slate-400">({formatNumber(item.quantity)} units)</span></span>
+                    <div
+                      key={item.name}
+                      className="flex flex-wrap justify-between gap-2 border-b border-slate-50 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0 break-words font-semibold text-slate-700 sm:max-w-[280px] sm:truncate">
+                        {item.name}
+                      </span>
+                      <span className="font-bold text-slate-900">
+                        {formatCurrency(item.cost_value, currency)}{" "}
+                        <span className="ml-1 text-xs font-normal text-slate-400">
+                          ({formatNumber(item.quantity)} units)
+                        </span>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1064,41 +1255,68 @@ export default async function ReportsPage({
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-400 italic leading-relaxed">
-          Unrealized. Sale value is computed from current selling prices; cost value uses real FIFO lot purchase costs.
-          Services are excluded. Only active, in-stock physical products with remaining quantity &gt; 0 are counted.
+          Unrealized. Sale value is computed from current selling prices; cost
+          value uses real FIFO lot purchase costs. Services are excluded. Only
+          active, in-stock physical products with remaining quantity &gt; 0 are
+          counted.
         </p>
       </section>
 
       {/* Supplier Dues & Purchases Snapshot */}
-      <section id="supplier-dues" className="mt-6 scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm sm:p-6">
+      <section
+        id="supplier-dues"
+        className="mt-6 scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm sm:p-6"
+      >
         <h3 className="text-base font-black text-slate-950 flex items-center gap-2">
           <Truck className="size-5 text-blue-600" />
           Supplier Dues & Purchases Snapshot
         </h3>
         <p className="text-xs text-slate-500 mt-1">
-          Stock purchases create inventory value (not expenses). Dues are settled via supplier payments.
+          Current and this-month supplier context, independent of the selected
+          report range. Stock purchases create inventory value (not expenses).
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Purchases this month</p>
-            <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(purchaseCounts.monthTotal, currency)}</p>
-            <p className="text-xs text-slate-500">{formatNumber(purchaseCounts.monthCount)} purchase(s)</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Purchases this month
+            </p>
+            <p className="mt-1 text-xl font-black text-slate-900">
+              {formatCurrency(purchaseCounts.monthTotal, currency)}
+            </p>
+            <p className="text-xs text-slate-500">
+              {formatNumber(purchaseCounts.monthCount)} purchase(s)
+            </p>
           </div>
           <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
-            <p className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">Unpaid purchases</p>
-            <p className="mt-1 text-xl font-black text-rose-900">{formatCurrency(purchaseCounts.unpaidTotal, currency)}</p>
-            <p className="text-xs text-rose-600">{formatNumber(purchaseCounts.unpaidCount)} purchase(s) with balance</p>
+            <p className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">
+              Unpaid purchases
+            </p>
+            <p className="mt-1 text-xl font-black text-rose-900">
+              {formatCurrency(purchaseCounts.unpaidTotal, currency)}
+            </p>
+            <p className="text-xs text-rose-600">
+              {formatNumber(purchaseCounts.unpaidCount)} purchase(s) with
+              balance
+            </p>
           </div>
           <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
-            <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Total supplier dues</p>
-            <p className="mt-1 text-xl font-black text-amber-900">{formatCurrency(totalSupplierDues, currency)}</p>
-            <p className="text-xs text-amber-700">{topSupplierDues.length} supplier(s) owed</p>
+            <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+              Total supplier dues
+            </p>
+            <p className="mt-1 text-xl font-black text-amber-900">
+              {formatCurrency(totalSupplierDues, currency)}
+            </p>
+            <p className="text-xs text-amber-700">
+              {topSupplierDues.length} supplier(s) owed
+            </p>
           </div>
         </div>
 
         {topSupplierDues.length > 0 && (
           <div className="mt-5">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Top dues</h4>
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+              Top dues
+            </h4>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[480px] text-left text-sm">
                 <thead>

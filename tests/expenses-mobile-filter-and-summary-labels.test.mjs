@@ -17,7 +17,7 @@ const expenseLabels = [
   "Today expenses",
   "This month",
   "Top category (month)",
-  "Latest expense",
+  "Latest this month",
 ];
 
 const remainingDefaultConsumers = [
@@ -122,12 +122,21 @@ test("Expenses payment filter retains its GET form and AppSelect contract", () =
   }
   assert.match(expenseValidation, /m\) => m !== "customer_credit"/);
   assert.doesNotMatch(expensesPage, /customer_credit/);
-  assert.match(expensesPage, /<Link href="\/expenses"[^>]*>[\s\S]*?Reset filters[\s\S]*?<\/Link>/);
-  assert.doesNotMatch(expensesPage, /window\.location|location\.reload|router\.(?:push|replace)/);
+  assert.match(
+    expensesPage,
+    /<Link[\s\S]*?href="\/expenses"[^>]*>[\s\S]*?Reset filters[\s\S]*?<\/Link>/,
+  );
+  assert.doesNotMatch(
+    expensesPage,
+    /window\.location|location\.reload|router\.(?:push|replace)/,
+  );
 });
 
 test("AppSelect synchronizes new defaults only for uncontrolled consumers", () => {
-  const synchronization = effectContaining(appSelect, "setInternalValue(defaultValue);");
+  const synchronization = effectContaining(
+    appSelect,
+    "setInternalValue(defaultValue);",
+  );
   assert.match(synchronization, /if \(value !== undefined\) return;/);
   assert.match(synchronization, /setInternalValue\(defaultValue\);/);
   assert.match(synchronization, /setIsOpen\(false\);/);

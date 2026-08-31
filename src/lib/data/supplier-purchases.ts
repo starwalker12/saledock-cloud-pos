@@ -1,6 +1,11 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { escapeLike } from "@/lib/security/sanitize";
+import {
+  getKarachiMonthEndDate,
+  getKarachiMonthStartDate,
+  getKarachiTodayDateString,
+} from "@/lib/datetime";
 
 export type SupplierPurchaseStatus = "unpaid" | "partial" | "paid";
 
@@ -357,11 +362,12 @@ export type SupplierPurchaseCounts = {
 
 export async function supplierPurchaseCounts(
   organizationId: string,
+  now: Date = new Date(),
 ): Promise<SupplierPurchaseCounts> {
   const supabase = await createClient();
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
+  const karachiToday = getKarachiTodayDateString(now);
+  const monthStart = getKarachiMonthStartDate(karachiToday);
+  const monthEnd = getKarachiMonthEndDate(karachiToday);
   const { data, error } = await supabase
     .from("supplier_purchases")
     .select("grand_total, balance_due, purchase_date")
@@ -374,7 +380,7 @@ export async function supplierPurchaseCounts(
   for (const r of data ?? []) {
     const grand = Number(r.grand_total ?? 0);
     const bal = Number(r.balance_due ?? 0);
-    if (r.purchase_date >= monthStart) {
+    if (r.purchase_date >= monthStart && r.purchase_date <= monthEnd) {
       monthTotal += grand;
       monthCount += 1;
     }

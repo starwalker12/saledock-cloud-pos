@@ -13,7 +13,7 @@ const LATER_SECTIONS = [
   "Payment Methods Breakdown",
   "Operating Expenses Breakdown",
   "Returns & Refunds Summary",
-  "Customer Outstanding Ledger",
+  "Current Customer Outstanding Ledger",
 ] as const;
 const DOCUMENT_FINAL_SECTION = "Supplier Dues & Purchases Snapshot";
 const VALUE_SIGNATURE_LABELS = [

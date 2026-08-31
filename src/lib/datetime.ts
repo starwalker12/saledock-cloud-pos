@@ -19,6 +19,7 @@ export const BUSINESS_TIMEZONE = "Asia/Karachi";
 
 // PKT is UTC+5 all year (no DST). Anchors a Karachi calendar day to UTC instants.
 const KARACHI_UTC_OFFSET = "+05:00";
+const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const KARACHI_LOCAL_DATE_TIME =
   /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -50,17 +51,89 @@ function dateTimeParts(date: Date): Record<string, string> {
   );
 }
 
-/** Whether a value is an exact, valid `YYYY-MM-DDTHH:mm` Karachi wall time. */
-export function isKarachiDateTimeLocal(value: string): boolean {
-  const match = KARACHI_LOCAL_DATE_TIME.exec(value);
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) {
+    const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    return leapYear ? 29 : 28;
+  }
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+/** Whether a value is an exact, real Gregorian `YYYY-MM-DD` calendar date. */
+export function isValidCalendarDate(value: string): boolean {
+  const match = CALENDAR_DATE.exec(value);
   if (!match) return false;
   const [, yearText, monthText, dayText] = match;
   const year = Number(yearText);
   const month = Number(monthText);
   const day = Number(dayText);
-  if (year < 1 || month < 1 || month > 12) return false;
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return day >= 1 && day <= lastDay;
+  return (
+    year >= 1 &&
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= daysInMonth(year, month)
+  );
+}
+
+export type DateRangeValidationResult = {
+  from: string;
+  to: string;
+  error: string | null;
+  errorCode: "invalid_from" | "invalid_to" | "reversed" | null;
+};
+
+/** Validate optional calendar-date query values without normalizing invalid input. */
+export function validateDateRange({
+  from = "",
+  to = "",
+  fromLabel = "From",
+  toLabel = "To",
+}: {
+  from?: string;
+  to?: string;
+  fromLabel?: string;
+  toLabel?: string;
+}): DateRangeValidationResult {
+  if (from && !isValidCalendarDate(from)) {
+    return {
+      from,
+      to,
+      error: `Enter a valid ${fromLabel} date.`,
+      errorCode: "invalid_from",
+    };
+  }
+  if (to && !isValidCalendarDate(to)) {
+    return {
+      from,
+      to,
+      error: `Enter a valid ${toLabel} date.`,
+      errorCode: "invalid_to",
+    };
+  }
+  if (from && to && from > to) {
+    return {
+      from,
+      to,
+      error: `${fromLabel} date cannot be after ${toLabel} date.`,
+      errorCode: "reversed",
+    };
+  }
+  return { from, to, error: null, errorCode: null };
+}
+
+function assertValidCalendarDate(value: string): void {
+  if (!isValidCalendarDate(value)) {
+    throw new RangeError("Invalid calendar date.");
+  }
+}
+
+/** Whether a value is an exact, valid `YYYY-MM-DDTHH:mm` Karachi wall time. */
+export function isKarachiDateTimeLocal(value: string): boolean {
+  const match = KARACHI_LOCAL_DATE_TIME.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText] = match;
+  return isValidCalendarDate(`${yearText}-${monthText}-${dayText}`);
 }
 
 /** Convert a Karachi `datetime-local` wall time to its UTC `timestamptz` instant. */
@@ -90,32 +163,49 @@ export function getKarachiBusinessDate(date: Date = new Date()): string {
 }
 
 /** Today's calendar date in Asia/Karachi as `YYYY-MM-DD` (server-tz independent). */
-export function getKarachiTodayDateString(): string {
-  return getKarachiBusinessDate();
+export function getKarachiTodayDateString(date: Date = new Date()): string {
+  return getKarachiBusinessDate(date);
 }
 
 /** UTC ISO timestamp for the start (00:00:00.000) of a Karachi calendar day. */
 export function getKarachiDayStartIso(dateStr: string): string {
+  assertValidCalendarDate(dateStr);
   return new Date(`${dateStr}T00:00:00.000${KARACHI_UTC_OFFSET}`).toISOString();
 }
 
 /** UTC ISO timestamp for the end (23:59:59.999) of a Karachi calendar day. */
 export function getKarachiDayEndIso(dateStr: string): string {
+  assertValidCalendarDate(dateStr);
   return new Date(`${dateStr}T23:59:59.999${KARACHI_UTC_OFFSET}`).toISOString();
 }
 
 /** Start/end UTC ISO timestamps bounding a Karachi calendar day (`YYYY-MM-DD`). */
-export function getKarachiDayRange(dateStr: string): { start: string; end: string } {
-  return { start: getKarachiDayStartIso(dateStr), end: getKarachiDayEndIso(dateStr) };
+export function getKarachiDayRange(dateStr: string): {
+  start: string;
+  end: string;
+} {
+  return {
+    start: getKarachiDayStartIso(dateStr),
+    end: getKarachiDayEndIso(dateStr),
+  };
 }
 
 /** Start/end UTC ISO timestamps spanning a range of Karachi calendar days (inclusive). */
-export function getKarachiRangeIso(startDateStr: string, endDateStr: string): { start: string; end: string } {
-  return { start: getKarachiDayStartIso(startDateStr), end: getKarachiDayEndIso(endDateStr) };
+export function getKarachiRangeIso(
+  startDateStr: string,
+  endDateStr: string,
+): { start: string; end: string } {
+  const validation = validateDateRange({ from: startDateStr, to: endDateStr });
+  if (validation.error) throw new RangeError(validation.error);
+  return {
+    start: getKarachiDayStartIso(startDateStr),
+    end: getKarachiDayEndIso(endDateStr),
+  };
 }
 
 /** Add (or subtract, with a negative value) whole days to a Karachi calendar date → `YYYY-MM-DD`. */
 export function addKarachiDays(dateStr: string, days: number): string {
+  assertValidCalendarDate(dateStr);
   // Anchor at noon PKT so the +/- day arithmetic can never cross a day boundary by accident.
   const anchor = new Date(`${dateStr}T12:00:00.000${KARACHI_UTC_OFFSET}`);
   anchor.setUTCDate(anchor.getUTCDate() + days);
@@ -124,19 +214,48 @@ export function addKarachiDays(dateStr: string, days: number): string {
 
 /** First calendar date (`YYYY-MM-DD`) of the Karachi month containing `dateStr`. */
 export function getKarachiMonthStartDate(dateStr: string): string {
+  assertValidCalendarDate(dateStr);
   return `${dateStr.slice(0, 7)}-01`;
 }
 
 /** Last calendar date (`YYYY-MM-DD`) of the Karachi month containing `dateStr`. */
 export function getKarachiMonthEndDate(dateStr: string): string {
+  assertValidCalendarDate(dateStr);
   const [year, month] = dateStr.slice(0, 7).split("-").map(Number);
-  // `Date.UTC(year, month, 0)` = last day of the 1-based `month` (month as a
-  // 0-based index points to the next month; day 0 is the prior day).
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const lastDay = daysInMonth(year, month);
   return `${dateStr.slice(0, 7)}-${String(lastDay).padStart(2, "0")}`;
 }
 
 /** Weekday (0 = Sunday … 6 = Saturday) of a Karachi calendar date, server-tz independent. */
 export function getKarachiWeekday(dateStr: string): number {
+  assertValidCalendarDate(dateStr);
   return new Date(`${dateStr}T12:00:00.000${KARACHI_UTC_OFFSET}`).getUTCDay();
+}
+
+/** Format a business timestamp explicitly in Asia/Karachi. */
+export function formatKarachiTimestamp(
+  value: string | Date,
+  options: Omit<Intl.DateTimeFormatOptions, "timeZone">,
+): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError("Invalid UTC date and time.");
+  }
+  return date.toLocaleString("en-PK", {
+    ...options,
+    timeZone: BUSINESS_TIMEZONE,
+  });
+}
+
+/** Format a SQL DATE without allowing the viewer/server timezone to shift it. */
+export function formatCalendarDate(
+  value: string,
+  options: Omit<Intl.DateTimeFormatOptions, "timeZone">,
+): string {
+  assertValidCalendarDate(value);
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  return date.toLocaleDateString("en-PK", { ...options, timeZone: "UTC" });
 }
