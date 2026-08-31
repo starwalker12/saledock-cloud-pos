@@ -92,3 +92,31 @@ Focused SQL/RPC, browser identity, persistent-shell, dialog, role/account, concu
 
 - Date-range/filter work remains paused.
 - Cashier, RLS, POS trusted-write, and Audit Log security work remain paused and untouched.
+
+## Production Verification
+
+- Original source PR: `#355`
+- Original source squash: `f044bed1896fa2efba71acfa62dca841e1180c45`
+- The first production deployment exposed a browser-only initialization failure: server authentication was valid, but the browser Supabase client used its localhost/missing-key fallback and therefore could not recognize the production session or reach the lease RPC.
+- Proven root cause: the browser client read public Supabase values through a dynamic shared `process.env` parser, which Next.js did not inline into the browser bundle.
+- Correction PR: `#356`
+- Reviewed correction head: `9755bbfbed66fbb8dab9ec0e99c376571984da2e`
+- Correction source squash: `4855c910d4feacee982ac590181a6129baa7ffa8`
+- Correction merge timestamp: `2026-08-31T07:26:43Z`
+- Main CI: GitHub Actions run `33368403753`, successful.
+- Production deployment: `dpl_7E9MNQMXKKt6ahtyjsVTeRXzpyRW`, Ready/Current/Production for the correction squash; root and login returned HTTP 200.
+- Production browser configuration: the exact deployed chunk contained the expected `bvxyxrdskjryepwjmsvc.supabase.co` hostname and no localhost fallback. No key or session material was retained.
+- Browser auth: the approved existing Owner session and user were recognized without `AuthSessionMissingError`; the normal guard claimed generation 1 and made the shell interactive.
+- Same-account production test: a genuinely new tab became active and paused the older tab. Five bounded `Use Here` transfers completed in 0.49–1.05 seconds without auth loss, reload loops, duplicate dialogs, or a second lease row. Final bounded generation: 8.
+- Active reload preserved generation 6 and remained active. Paused reload preserved generation 6, remained paused, and did not steal control.
+- Production Duplicate Tab was not exercised because the available Chrome automation did not expose a true Duplicate Tab operation. The exact-head local cloned-session-storage proof remains authoritative.
+- Cross-device production acceptance was not exercised because no second already-approved authenticated Owner context was available. The exact-head local cross-context proof remains authoritative.
+- Different-account independence remains proven by the exact-head local Owner/Admin, Owner/Cashier, Manager/Technician, and two-distinct-Cashier matrix.
+- Enforcement boundary remains unchanged: reliable exclusivity in the normal SaleDock application, not cryptographic prevention of malicious manual API calls.
+- Coordination request rate remained one active heartbeat about every five seconds, with no duplicate poller or initialization retry loop.
+- Protected business/profile relation counts and digests were unchanged. Production business-data mutations: zero. Expected coordination state only: one approved-user lease row, heartbeat timestamps, and bounded generation increments.
+- Production evidence: `/Users/sw12/Projects/saledock-local-evidence/active-workspace-initialization-production-verification`
+- Evidence manifest SHA-256: `e7251e8a5e4b90278df68e299100ed5e999bedaad4a62e724ebaac6ff83e1f68`
+- Single-active-role-account workspace status: **CLOSED / VERIFIED IN PRODUCTION**.
+- Date-range work remains paused.
+- Cashier/security work remains paused.
