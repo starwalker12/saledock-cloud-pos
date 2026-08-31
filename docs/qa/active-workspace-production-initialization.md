@@ -41,3 +41,33 @@ Active-workspace initialization now records one sanitized internal stage and cod
 - PostgREST cache reload: not used.
 - The one-active-workspace guard remains fail closed until ownership is established.
 - Date-range and Cashier/security work remain paused.
+
+## Correction Delivery And Production Acceptance
+
+- Correction PR: `#356`
+- Reviewed head: `9755bbfbed66fbb8dab9ec0e99c376571984da2e`
+- Source squash: `4855c910d4feacee982ac590181a6129baa7ffa8`
+- Merge timestamp: `2026-08-31T07:26:43Z`
+- Main CI: GitHub Actions run `33368403753`, successful.
+- Production deployment: `dpl_7E9MNQMXKKt6ahtyjsVTeRXzpyRW`, Ready/Current/Production for the exact source squash.
+- Production availability: root and login returned HTTP 200.
+- Migration history remained 53 local / 53 remote / 0 pending. `20260830052210_single_active_role_account_workspace` remained present exactly once; no migration apply or schema-cache reload occurred.
+- The deployed browser bundle contained the production Supabase hostname and no localhost fallback hostname. No anon-key value was recorded.
+- `auth.getSession()` classification: valid authenticated browser session; no session material retained.
+- `auth.getUser()` classification: the approved authenticated Owner was recognized; `AuthSessionMissingError` was absent.
+- Initial guard claim reached PostgREST, succeeded, created exactly one lease row at generation 1, and made the shell interactive without `Session check unavailable` or retry loops.
+- Same-user production tab coordination passed: newest workspace won, the displaced tab remained authenticated and paused, and repeated `Use Here` transfers produced one winner and monotonic generation changes.
+- Active reload remained active with generation 6 unchanged. Paused reload remained paused with generation 6 unchanged and did not steal the winner.
+- Production Duplicate Tab was not exercised because the available Chrome automation lacked a true Duplicate Tab operation; exact-head local proof is retained.
+- Cross-device production acceptance was not exercised because no second already-approved authenticated context was available; exact-head local proof is retained.
+- Accepted local proof continues to cover different-account independence for every supported role pair, stale generation/release, sign-out release, offline/reconnect, and in-flight-request behavior.
+- The paused dialog passed focus trap, inert/assistive-technology blocking, Escape, no-close-button, and action reachability checks at 390×844 and 1440×900. Exact-head local proof covers 320×568, 430×932, light/dark, and reduced motion.
+- Dashboard → Invoices → Products retained one expanded 288px Sidebar and one guard, with no SidebarLoading, width jump, or route-triggered claim.
+- The active lease heartbeat followed the five-second cadence; no duplicate poller, sub-second loop, failed-RPC loop, hydration error, or auth refresh loop was observed.
+- Profile authorization containment remained unchanged: anon and authenticated table-wide profile UPDATE denied; authenticated `profile_picture_url` UPDATE retained; all other profile-column UPDATE denied.
+- All protected public business/profile relation counts and digests matched before and after. Production business-data mutation: zero.
+- Expected production coordination state only: one lease row for the approved account, heartbeat updates, and bounded generation increments ending at generation 8.
+- Evidence path: `/Users/sw12/Projects/saledock-local-evidence/active-workspace-initialization-production-verification`
+- Evidence manifest SHA-256: `e7251e8a5e4b90278df68e299100ed5e999bedaad4a62e724ebaac6ff83e1f68`
+- Single-active-role-account workspace status: **CLOSED / VERIFIED IN PRODUCTION**.
+- Date-range and Cashier/security work remain paused.
