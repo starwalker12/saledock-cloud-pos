@@ -15,6 +15,7 @@ import { ActiveWorkspacePausedDialog } from "@/components/auth/active-workspace-
 import {
   ACTIVE_WORKSPACE_COLLISION_WINDOW_MS,
   ACTIVE_WORKSPACE_POLL_INTERVAL_MS,
+  ActiveWorkspaceOperationError,
   claimActiveWorkspace,
   createWorkspaceMessageChannel,
   createWorkspaceContextId,
@@ -33,6 +34,14 @@ import {
 import { createClient } from "@/lib/supabase/client";
 
 type WorkspaceGuardStatus = "checking" | "active" | "paused";
+type WorkspaceInitializationStage =
+  | "auth-user"
+  | "storage-device"
+  | "storage-tab"
+  | "coordination-channel"
+  | "lease-read"
+  | "lease-claim"
+  | "lease-parse";
 
 type WorkspaceBroadcastMessage =
   | { type: "tab-probe"; tabId: string; contextId: string }
@@ -43,12 +52,45 @@ type ActiveWorkspaceContextValue = {
   releaseForSignOut: () => Promise<void>;
 };
 
-const ActiveWorkspaceContext = createContext<ActiveWorkspaceContextValue | null>(
-  null,
-);
+const ActiveWorkspaceContext =
+  createContext<ActiveWorkspaceContextValue | null>(null);
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function sanitizedInitializationFailure(
+  stage: WorkspaceInitializationStage,
+  error: unknown,
+) {
+  const operationError =
+    error instanceof ActiveWorkspaceOperationError ? error : null;
+  const details =
+    error && typeof error === "object"
+      ? (error as { code?: unknown; name?: unknown; message?: unknown })
+      : null;
+  const safeStage = operationError?.stage ?? stage;
+  const rawCode =
+    operationError?.code ??
+    (typeof details?.code === "string"
+      ? details.code
+      : typeof details?.name === "string"
+        ? details.name
+        : "WORKSPACE_INITIALIZATION_FAILED");
+  const rawMessage =
+    typeof details?.message === "string"
+      ? details.message
+      : "Workspace initialization failed.";
+
+  return {
+    stage: safeStage,
+    code: rawCode.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 64),
+    message: rawMessage
+      .replace(/Bearer\s+\S+/gi, "Bearer <redacted>")
+      .replace(/eyJ[A-Za-z0-9._-]+/g, "<redacted-token>")
+      .replace(/sb-[A-Za-z0-9._-]+/g, "<redacted-session>")
+      .slice(0, 180),
+  };
 }
 
 export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
@@ -160,6 +202,7 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
     let channel: WorkspaceMessageChannel | null = null;
 
     async function initialize() {
+      let initializationStage: WorkspaceInitializationStage = "auth-user";
       try {
         const {
           data: { user },
@@ -171,46 +214,48 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         userIdRef.current = user.id;
+        initializationStage = "storage-device";
         let identity = initializeWorkspaceIdentity(user.id);
         ownedGenerationRef.current = identity.previousGeneration;
         identityRef.current = identity;
 
+        initializationStage = "coordination-channel";
         const contextId = createWorkspaceContextId();
         let duplicateTabDetected = false;
         channel = createWorkspaceMessageChannel(
           workspaceChannelName(user.id),
           (value) => {
-          if (!value || typeof value !== "object") return;
-          const message = value as Partial<WorkspaceBroadcastMessage>;
-          const currentIdentity = identityRef.current;
-          if (!currentIdentity) return;
+            if (!value || typeof value !== "object") return;
+            const message = value as Partial<WorkspaceBroadcastMessage>;
+            const currentIdentity = identityRef.current;
+            if (!currentIdentity) return;
 
-          if (
-            message.type === "tab-probe" &&
-            message.tabId === currentIdentity.tabId &&
-            typeof message.contextId === "string" &&
-            message.contextId !== contextId
-          ) {
-            channel?.postMessage({
-              type: "tab-present",
-              tabId: currentIdentity.tabId,
-              targetContextId: message.contextId,
-            } satisfies WorkspaceBroadcastMessage);
-            return;
-          }
+            if (
+              message.type === "tab-probe" &&
+              message.tabId === currentIdentity.tabId &&
+              typeof message.contextId === "string" &&
+              message.contextId !== contextId
+            ) {
+              channel?.postMessage({
+                type: "tab-present",
+                tabId: currentIdentity.tabId,
+                targetContextId: message.contextId,
+              } satisfies WorkspaceBroadcastMessage);
+              return;
+            }
 
-          if (
-            message.type === "tab-present" &&
-            message.tabId === currentIdentity.tabId &&
-            message.targetContextId === contextId
-          ) {
-            duplicateTabDetected = true;
-            return;
-          }
+            if (
+              message.type === "tab-present" &&
+              message.tabId === currentIdentity.tabId &&
+              message.targetContextId === contextId
+            ) {
+              duplicateTabDetected = true;
+              return;
+            }
 
-          if (message.type === "lease-changed") {
-            void queueOperation(verifyOwnership);
-          }
+            if (message.type === "lease-changed") {
+              void queueOperation(verifyOwnership);
+            }
           },
         );
         channelRef.current = channel;
@@ -224,12 +269,14 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (duplicateTabDetected) {
+          initializationStage = "storage-tab";
           identity = replaceDuplicatedTabIdentity(user.id, identity);
           identityRef.current = identity;
           ownedGenerationRef.current = null;
         }
 
         if (identity.isNewWorkspace) {
+          initializationStage = "lease-claim";
           const lease = await claimActiveWorkspace(
             supabase,
             identity.deviceId,
@@ -237,11 +284,18 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
           );
           if (cancelled) return;
           if (!leaseBelongsTo(lease, identity.deviceId, identity.tabId)) {
-            throw new Error("The new workspace claim could not be confirmed.");
+            throw new ActiveWorkspaceOperationError(
+              "lease-parse",
+              "LEASE_OWNERSHIP_MISMATCH",
+              "The new workspace claim could not be confirmed.",
+            );
           }
           markActive(lease);
-          channel.postMessage({ type: "lease-changed" } satisfies WorkspaceBroadcastMessage);
+          channel.postMessage({
+            type: "lease-changed",
+          } satisfies WorkspaceBroadcastMessage);
         } else {
+          initializationStage = "lease-read";
           const lease = await getActiveWorkspace(supabase);
           if (cancelled) return;
 
@@ -256,10 +310,8 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
             )
           ) {
             markActive(lease as ActiveWorkspaceLease);
-          } else if (
-            identity.previousStatus === "active" &&
-            lease === null
-          ) {
+          } else if (identity.previousStatus === "active" && lease === null) {
+            initializationStage = "lease-claim";
             const reclaimed = await claimActiveWorkspace(
               supabase,
               identity.deviceId,
@@ -267,7 +319,9 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
             );
             if (cancelled) return;
             markActive(reclaimed);
-            channel.postMessage({ type: "lease-changed" } satisfies WorkspaceBroadcastMessage);
+            channel.postMessage({
+              type: "lease-changed",
+            } satisfies WorkspaceBroadcastMessage);
           } else {
             markPaused();
           }
@@ -276,8 +330,12 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
         intervalId = window.setInterval(() => {
           void queueOperation(verifyOwnership);
         }, ACTIVE_WORKSPACE_POLL_INTERVAL_MS);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
+        console.error(
+          "[active-workspace] initialization failed",
+          sanitizedInitializationFailure(initializationStage, error),
+        );
         statusRef.current = "checking";
         setStatus("checking");
         setInitializationError(
@@ -353,7 +411,9 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
         } satisfies WorkspaceBroadcastMessage);
       });
     } catch {
-      setClaimError("Could not take control. Check your connection and try again.");
+      setClaimError(
+        "Could not take control. Check your connection and try again.",
+      );
       markPaused();
     } finally {
       setIsClaiming(false);
@@ -418,7 +478,9 @@ export function ActiveWorkspaceGuard({ children }: { children: ReactNode }) {
             >
               {initializationError ? (
                 <>
-                  <h2 className="text-base font-black">Session check unavailable</h2>
+                  <h2 className="text-base font-black">
+                    Session check unavailable
+                  </h2>
                   <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     {initializationError}
                   </p>

@@ -1,11 +1,16 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
-import { env } from "@/lib/env";
+
+// Next.js only inlines public environment variables when they are referenced
+// directly. Reading them through the shared process.env parser leaves browser
+// bundles on the local fallback values.
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
+const supabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "supabase-anon-key-not-configured";
 
 export function createClient() {
-  return createBrowserClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
+  return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }
