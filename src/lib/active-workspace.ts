@@ -36,6 +36,31 @@ export type WorkspaceMessageChannel = {
   close: () => void;
 };
 
+export type ActiveWorkspaceFailureStage =
+  | "storage-device"
+  | "storage-tab"
+  | "lease-read"
+  | "lease-claim"
+  | "lease-parse"
+  | "lease-heartbeat"
+  | "lease-release";
+
+export class ActiveWorkspaceOperationError extends Error {
+  readonly stage: ActiveWorkspaceFailureStage;
+  readonly code: string;
+
+  constructor(
+    stage: ActiveWorkspaceFailureStage,
+    code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ActiveWorkspaceOperationError";
+    this.stage = stage;
+    this.code = code;
+  }
+}
+
 type LeaseRow = {
   device_id?: unknown;
   tab_id?: unknown;
@@ -68,6 +93,28 @@ function isUuid(value: unknown): value is string {
       value,
     )
   );
+}
+
+function operationError(
+  stage: ActiveWorkspaceFailureStage,
+  fallbackCode: string,
+  error: unknown,
+): ActiveWorkspaceOperationError {
+  const details =
+    error && typeof error === "object"
+      ? (error as { code?: unknown; name?: unknown; message?: unknown })
+      : null;
+  const code =
+    typeof details?.code === "string"
+      ? details.code
+      : typeof details?.name === "string"
+        ? details.name
+        : fallbackCode;
+  const message =
+    typeof details?.message === "string"
+      ? details.message
+      : "Workspace coordination could not complete.";
+  return new ActiveWorkspaceOperationError(stage, code, message);
 }
 
 export function createWorkspaceContextId(): string {
@@ -103,14 +150,63 @@ function readStoredTabState(): ActiveWorkspaceTabState | null {
 export function initializeWorkspaceIdentity(
   userId: string,
 ): InitialWorkspaceIdentity {
-  let deviceId = localStorage.getItem(ACTIVE_WORKSPACE_DEVICE_STORAGE_KEY);
-  if (!isUuid(deviceId)) {
-    deviceId = secureUuid();
-    localStorage.setItem(ACTIVE_WORKSPACE_DEVICE_STORAGE_KEY, deviceId);
+  let deviceId: string;
+  try {
+    const storedDeviceId = localStorage.getItem(
+      ACTIVE_WORKSPACE_DEVICE_STORAGE_KEY,
+    );
+    deviceId = isUuid(storedDeviceId) ? storedDeviceId : secureUuid();
+    if (deviceId !== storedDeviceId) {
+      localStorage.setItem(ACTIVE_WORKSPACE_DEVICE_STORAGE_KEY, deviceId);
+    }
+  } catch (error) {
+    throw operationError(
+      "storage-device",
+      "WORKSPACE_DEVICE_STORAGE_FAILED",
+      error,
+    );
   }
 
-  const stored = readStoredTabState();
-  if (!stored || stored.userId !== userId) {
+  try {
+    const stored = readStoredTabState();
+    if (!stored || stored.userId !== userId) {
+      const tabId = secureUuid();
+      sessionStorage.setItem(
+        ACTIVE_WORKSPACE_TAB_STORAGE_KEY,
+        JSON.stringify({
+          userId,
+          tabId,
+          status: "new",
+          generation: null,
+        } satisfies ActiveWorkspaceTabState),
+      );
+      return {
+        deviceId,
+        tabId,
+        previousStatus: null,
+        previousGeneration: null,
+        isNewWorkspace: true,
+      };
+    }
+
+    return {
+      deviceId,
+      tabId: stored.tabId,
+      previousStatus: stored.status === "new" ? null : stored.status,
+      previousGeneration: stored.generation,
+      isNewWorkspace: stored.status === "new",
+    };
+  } catch (error) {
+    if (error instanceof ActiveWorkspaceOperationError) throw error;
+    throw operationError("storage-tab", "WORKSPACE_TAB_STORAGE_FAILED", error);
+  }
+}
+
+export function replaceDuplicatedTabIdentity(
+  userId: string,
+  identity: InitialWorkspaceIdentity,
+): InitialWorkspaceIdentity {
+  try {
     const tabId = secureUuid();
     sessionStorage.setItem(
       ACTIVE_WORKSPACE_TAB_STORAGE_KEY,
@@ -122,44 +218,15 @@ export function initializeWorkspaceIdentity(
       } satisfies ActiveWorkspaceTabState),
     );
     return {
-      deviceId,
+      ...identity,
       tabId,
       previousStatus: null,
       previousGeneration: null,
       isNewWorkspace: true,
     };
+  } catch (error) {
+    throw operationError("storage-tab", "WORKSPACE_TAB_STORAGE_FAILED", error);
   }
-
-  return {
-    deviceId,
-    tabId: stored.tabId,
-    previousStatus: stored.status === "new" ? null : stored.status,
-    previousGeneration: stored.generation,
-    isNewWorkspace: stored.status === "new",
-  };
-}
-
-export function replaceDuplicatedTabIdentity(
-  userId: string,
-  identity: InitialWorkspaceIdentity,
-): InitialWorkspaceIdentity {
-  const tabId = secureUuid();
-  sessionStorage.setItem(
-    ACTIVE_WORKSPACE_TAB_STORAGE_KEY,
-    JSON.stringify({
-      userId,
-      tabId,
-      status: "new",
-      generation: null,
-    } satisfies ActiveWorkspaceTabState),
-  );
-  return {
-    ...identity,
-    tabId,
-    previousStatus: null,
-    previousGeneration: null,
-    isNewWorkspace: true,
-  };
 }
 
 export function persistWorkspaceTabState(
@@ -168,10 +235,19 @@ export function persistWorkspaceTabState(
   status: "active" | "paused",
   generation: number | null,
 ): void {
-  sessionStorage.setItem(
-    ACTIVE_WORKSPACE_TAB_STORAGE_KEY,
-    JSON.stringify({ userId, tabId, status, generation } satisfies ActiveWorkspaceTabState),
-  );
+  try {
+    sessionStorage.setItem(
+      ACTIVE_WORKSPACE_TAB_STORAGE_KEY,
+      JSON.stringify({
+        userId,
+        tabId,
+        status,
+        generation,
+      } satisfies ActiveWorkspaceTabState),
+    );
+  } catch (error) {
+    throw operationError("storage-tab", "WORKSPACE_TAB_STORAGE_FAILED", error);
+  }
 }
 
 export function workspaceChannelName(userId: string): string {
@@ -234,9 +310,9 @@ export function leaseBelongsTo(
 ): boolean {
   return Boolean(
     lease &&
-      lease.deviceId === deviceId &&
-      lease.tabId === tabId &&
-      (generation == null || lease.generation === generation),
+    lease.deviceId === deviceId &&
+    lease.tabId === tabId &&
+    (generation == null || lease.generation === generation),
   );
 }
 
@@ -252,7 +328,11 @@ function parseLeaseRow(value: unknown): ActiveWorkspaceLease | null {
     typeof row.heartbeat_at !== "string" ||
     typeof row.updated_at !== "string"
   ) {
-    throw new Error("The active workspace lease response was invalid.");
+    throw new ActiveWorkspaceOperationError(
+      "lease-parse",
+      "INVALID_LEASE_RESPONSE",
+      "The active workspace lease response was invalid.",
+    );
   }
   return {
     deviceId: row.device_id,
@@ -278,9 +358,17 @@ export async function claimActiveWorkspace(
     p_device_id: deviceId,
     p_tab_id: tabId,
   });
-  if (error) throw error;
+  if (error) {
+    throw operationError("lease-claim", "LEASE_CLAIM_FAILED", error);
+  }
   const lease = firstLeaseRow(data);
-  if (!lease) throw new Error("The active workspace claim returned no lease.");
+  if (!lease) {
+    throw new ActiveWorkspaceOperationError(
+      "lease-parse",
+      "EMPTY_LEASE_RESPONSE",
+      "The active workspace claim returned no lease.",
+    );
+  }
   return lease;
 }
 
@@ -288,7 +376,7 @@ export async function getActiveWorkspace(
   supabase: SupabaseClient,
 ): Promise<ActiveWorkspaceLease | null> {
   const { data, error } = await supabase.rpc("get_active_workspace");
-  if (error) throw error;
+  if (error) throw operationError("lease-read", "LEASE_READ_FAILED", error);
   return firstLeaseRow(data);
 }
 
@@ -303,7 +391,9 @@ export async function heartbeatActiveWorkspace(
     p_tab_id: tabId,
     p_generation: generation,
   });
-  if (error) throw error;
+  if (error) {
+    throw operationError("lease-heartbeat", "LEASE_HEARTBEAT_FAILED", error);
+  }
   return firstLeaseRow(data);
 }
 
@@ -318,6 +408,8 @@ export async function releaseActiveWorkspace(
     p_tab_id: tabId,
     p_generation: generation,
   });
-  if (error) throw error;
+  if (error) {
+    throw operationError("lease-release", "LEASE_RELEASE_FAILED", error);
+  }
   return data === true;
 }

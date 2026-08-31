@@ -204,7 +204,7 @@ test("browser identities are random, storage-scoped, and duplicate-tab aware", (
   assert.match(identity, /crypto\.getRandomValues/);
   assert.match(identity, /typeof BroadcastChannelConstructor === "function"/);
   assert.match(identity, /window\.addEventListener\("storage", handleStorage\)/);
-  assert.match(identity, /localStorage\.getItem\(ACTIVE_WORKSPACE_DEVICE_STORAGE_KEY\)/);
+  assert.match(identity, /localStorage\.getItem\(\s*ACTIVE_WORKSPACE_DEVICE_STORAGE_KEY,?\s*\)/);
   assert.match(identity, /sessionStorage\.getItem\(ACTIVE_WORKSPACE_TAB_STORAGE_KEY\)/);
   assert.match(identity, /replaceDuplicatedTabIdentity/);
   assert.match(guard, /type: "tab-probe"/);
