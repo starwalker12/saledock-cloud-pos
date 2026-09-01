@@ -14,6 +14,7 @@ import { RepairForm } from "./repair-form";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import { AppSelect } from "@/components/ui/app-select";
+import { formatKarachiTimestamp, validateDateRange } from "@/lib/datetime";
 
 type SearchParams = {
   q?: string;
@@ -43,9 +44,47 @@ const STATUS_OPTIONS = [
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
 ];
+const REPAIR_FILTER_STATUSES = STATUS_OPTIONS.flatMap((option) =>
+  option.value ? [option.value] : [],
+);
+
+export function parseRepairFilterParams(params: SearchParams) {
+  const search = params.q?.trim() ?? "";
+  const statusValue = params.status ?? "";
+  const dateRange = validateDateRange({
+    from: params.from ?? "",
+    to: params.to ?? "",
+  });
+  const status = REPAIR_FILTER_STATUSES.includes(statusValue)
+    ? statusValue
+    : "";
+  const error =
+    dateRange.error ??
+    (statusValue && !status ? "Select a valid repair status." : null);
+
+  return {
+    search,
+    status,
+    from: dateRange.from,
+    to: dateRange.to,
+    error,
+    dateError: dateRange.error,
+    hasFilterInput: Boolean(
+      search || statusValue || dateRange.from || dateRange.to,
+    ),
+    filters: error
+      ? {}
+      : {
+          status: status || undefined,
+          search: search || undefined,
+          startDate: dateRange.from || undefined,
+          endDate: dateRange.to || undefined,
+        },
+  };
+}
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PK", {
+  return formatKarachiTimestamp(iso, {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -65,25 +104,28 @@ export default async function RepairsPage({
 
   const orgId = profile.organization_id;
   const params = await searchParams;
+  const parsedFilters = parseRepairFilterParams(params);
   const canWrite = canCreateRepairs(profile.role);
   const currency = organization?.currency_code ?? "PKR";
 
-  // Build filter payload
-  const filters = {
-    status: params.status,
-    search: params.q,
-    startDate: params.from,
-    endDate: params.to,
-  };
-
   const [stats, repairs, customers] = await Promise.all([
     getRepairsStats(orgId),
-    listRepairs(orgId, filters),
+    parsedFilters.error
+      ? Promise.resolve([])
+      : listRepairs(orgId, parsedFilters.filters),
     listCustomers(orgId),
   ]);
 
   const sort = params.sort;
   const dir = params.dir === "desc" ? "desc" : "asc";
+  const sortableParams = {
+    q: parsedFilters.search,
+    status: parsedFilters.error ? "" : parsedFilters.status,
+    from: parsedFilters.error ? "" : parsedFilters.from,
+    to: parsedFilters.error ? "" : parsedFilters.to,
+    sort,
+    dir: params.dir,
+  };
 
   const repairsWithBalance = repairs.map((r) => ({
     ...r,
@@ -163,39 +205,53 @@ export default async function RepairsPage({
                 <input
                   type="text"
                   name="q"
-                  defaultValue={params.q ?? ""}
+                  defaultValue={parsedFilters.search}
                   placeholder="Search job no, model, serial..."
                   className="h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                 />
               </label>
-              <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer">
+              <button
+                type="submit"
+                className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer"
+              >
                 Apply
               </button>
             </div>
 
-            <details open={Boolean(params.status || params.from || params.to)} className="mt-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
+            <details
+              open={Boolean(
+                parsedFilters.status ||
+                parsedFilters.from ||
+                parsedFilters.to ||
+                parsedFilters.error,
+              )}
+              className="mt-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900"
+            >
               <summary className="cursor-pointer text-xs font-black uppercase tracking-wide text-slate-600 dark:text-slate-400 select-none">
                 Filters
               </summary>
               <div className="mt-3 grid gap-3">
                 <label className="block min-w-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Status
+                  </span>
                   <AppSelect
                     name="status"
-                    defaultValue={params.status ?? ""}
+                    defaultValue={parsedFilters.status}
                     options={STATUS_OPTIONS}
                     ariaLabel="Status"
                     className="mt-1"
                   />
                 </label>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2 min-[380px]:grid-cols-2">
                   <label className="block min-w-0">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">From</span>
                     <input
                       type="date"
                       name="from"
-                      defaultValue={params.from ?? ""}
+                      defaultValue={parsedFilters.from}
+                      aria-invalid={parsedFilters.dateError ? true : undefined}
                       className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                     />
                   </label>
@@ -204,7 +260,8 @@ export default async function RepairsPage({
                     <input
                       type="date"
                       name="to"
-                      defaultValue={params.to ?? ""}
+                      defaultValue={parsedFilters.to}
+                      aria-invalid={parsedFilters.dateError ? true : undefined}
                       className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                     />
                   </label>
@@ -212,21 +269,30 @@ export default async function RepairsPage({
               </div>
             </details>
 
-            {(params.q || params.status || params.from || params.to) && (
-              <Link href="/repairs" className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline dark:text-slate-400">
+            {parsedFilters.hasFilterInput && (
+              <Link
+                href="/repairs"
+                className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline dark:text-slate-400"
+              >
                 Reset filters
               </Link>
             )}
           </form>
 
           {/* Desktop Filter form */}
-          <form method="get" className="hidden md:grid md:gap-3 md:grid-cols-2 lg:flex lg:flex-wrap lg:items-end" action="/repairs">
+          <form
+            method="get"
+            className="hidden md:grid md:gap-3 md:grid-cols-2 lg:flex lg:flex-wrap lg:items-end"
+            action="/repairs"
+          >
             <div className="min-w-0 sm:col-span-2 lg:w-full lg:max-w-xs">
-              <label className="mb-1 block text-slate-500 text-xs font-semibold uppercase tracking-wide">Search</label>
+              <label className="mb-1 block text-slate-500 text-xs font-semibold uppercase tracking-wide">
+                Search
+              </label>
               <input
                 type="text"
                 name="q"
-                defaultValue={params.q ?? ""}
+                defaultValue={parsedFilters.search}
                 placeholder="Search job no, model, serial..."
                 className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-blue-600"
               />
@@ -236,7 +302,7 @@ export default async function RepairsPage({
               <label className="mb-1 block text-slate-500 text-xs font-semibold uppercase tracking-wide">Status</label>
               <AppSelect
                 name="status"
-                defaultValue={params.status ?? ""}
+                defaultValue={parsedFilters.status}
                 options={STATUS_OPTIONS}
                 ariaLabel="Status"
                 buttonClassName="h-9 text-xs"
@@ -250,7 +316,8 @@ export default async function RepairsPage({
                 <input
                   type="date"
                   name="from"
-                  defaultValue={params.from ?? ""}
+                  defaultValue={parsedFilters.from}
+                  aria-invalid={parsedFilters.dateError ? true : undefined}
                   className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none"
                 />
               </div>
@@ -259,7 +326,8 @@ export default async function RepairsPage({
                 <input
                   type="date"
                   name="to"
-                  defaultValue={params.to ?? ""}
+                  defaultValue={parsedFilters.to}
+                  aria-invalid={parsedFilters.dateError ? true : undefined}
                   className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none"
                 />
               </div>
@@ -272,7 +340,7 @@ export default async function RepairsPage({
               >
                 Filter
               </button>
-              {(params.q || params.status || params.from || params.to) && (
+              {parsedFilters.hasFilterInput && (
                 <Link
                   href="/repairs"
                   className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-slate-600 hover:bg-slate-50 transition"
@@ -282,6 +350,15 @@ export default async function RepairsPage({
               )}
             </div>
           </form>
+          {parsedFilters.error && (
+            <p
+              id="repairs-filter-error"
+              role="alert"
+              className="mt-3 text-sm font-semibold text-red-700 dark:text-red-400"
+            >
+              {parsedFilters.error}
+            </p>
+          )}
         </div>
 
         {/* Repairs list rendering */}
@@ -290,15 +367,24 @@ export default async function RepairsPage({
             <EmptyState
               title="No repairs found"
               description={
-                (params.q || params.status || params.from || params.to)
-                  ? "No repairs matched your search query or filters. Try adjusting filters."
+                parsedFilters.hasFilterInput
+                  ? (parsedFilters.error ??
+                    "No repairs matched your search query or filters. Try adjusting filters.")
                   : "Track device repairs by recording a new intake ticket."
               }
-              searchQuery={params.q}
-              resetHref={(params.q || params.status || params.from || params.to) ? "/repairs" : undefined}
-              actionHref={canWrite && !(params.q || params.status || params.from || params.to) ? "/repairs?add=1" : undefined}
-              actionLabel={canWrite && !(params.q || params.status || params.from || params.to) ? "Intake Repair" : undefined}
-              type={(params.q || params.status || params.from || params.to) ? "search" : "empty"}
+              searchQuery={parsedFilters.search}
+              resetHref={parsedFilters.hasFilterInput ? "/repairs" : undefined}
+              actionHref={
+                canWrite && !parsedFilters.hasFilterInput
+                  ? "/repairs?add=1"
+                  : undefined
+              }
+              actionLabel={
+                canWrite && !parsedFilters.hasFilterInput
+                  ? "Intake Repair"
+                  : undefined
+              }
+              type={parsedFilters.hasFilterInput ? "search" : "empty"}
             />
           </div>
         ) : (
@@ -308,50 +394,132 @@ export default async function RepairsPage({
               <table className="w-full text-left text-sm min-w-[900px]">
                 <thead className="border-b border-slate-200 bg-slate-50/50 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <tr>
-                    <SortableHeader label="Job No" columnKey="job_no" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Customer" columnKey="customer_name" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <th className="px-4 py-3 select-none border-b border-slate-200 dark:border-white/[0.07] font-bold uppercase text-slate-500">Device & Fault</th>
-                    <SortableHeader label="Estimate" columnKey="estimated_cost" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Advance Paid" columnKey="advance_paid" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Balance Due" columnKey="balance_due" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Status" columnKey="status" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Intake Date" columnKey="created_at" currentSortKey={sort} direction={dir} currentParams={params} />
+                    <SortableHeader
+                      label="Job No"
+                      columnKey="job_no"
+                      currentSortKey={sort}
+                      direction={dir}
+                      currentParams={sortableParams}
+                    />
+                    <SortableHeader
+                      label="Customer"
+                      columnKey="customer_name"
+                      currentSortKey={sort}
+                      direction={dir}
+                      currentParams={sortableParams}
+                    />
+                    <th className="px-4 py-3 select-none border-b border-slate-200 dark:border-white/[0.07] font-bold uppercase text-slate-500">
+                      Device & Fault
+                    </th>
+                    <SortableHeader
+                      label="Estimate"
+                      columnKey="estimated_cost"
+                      align="right"
+                      currentSortKey={sort}
+                      direction={dir}
+                      currentParams={sortableParams}
+                    />
+                    <SortableHeader
+                      label="Advance Paid"
+                      columnKey="advance_paid"
+                      align="right"
+                      currentSortKey={sort}
+                      direction={dir}
+                      currentParams={sortableParams}
+                    />
+                    <SortableHeader
+                      label="Balance Due"
+                      columnKey="balance_due"
+                      align="right"
+                      currentSortKey={sort}
+                      direction={dir}
+                      currentParams={sortableParams}
+                    />
+                    <SortableHeader
+                      label="Status"
+                      columnKey="status"
+                      currentSortKey={sort}
+                      direction={dir}
+                      currentParams={sortableParams}
+                    />
+                    <SortableHeader
+                      label="Intake Date"
+                      columnKey="created_at"
+                      currentSortKey={sort}
+                      direction={dir}
+                      currentParams={sortableParams}
+                    />
                     <th className="px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedRepairs.map((r) => {
-                    const balance = Math.max(r.estimated_cost - r.advance_paid, 0);
+                    const balance = Math.max(
+                      r.estimated_cost - r.advance_paid,
+                      0,
+                    );
 
                     return (
-                      <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                        <td className="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">{r.job_no}</td>
+                      <tr
+                        key={r.id}
+                        className="border-b border-slate-100 hover:bg-slate-50/50"
+                      >
+                        <td className="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
+                          {r.job_no}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <p className="font-semibold text-slate-800">{r.customer_name}</p>
-                          {r.customer_phone && <p className="text-xs text-slate-500">{r.customer_phone}</p>}
+                          <p className="font-semibold text-slate-800">
+                            {r.customer_name}
+                          </p>
+                          {r.customer_phone && (
+                            <p className="text-xs text-slate-500">
+                              {r.customer_phone}
+                            </p>
+                          )}
                         </td>
                         <td className="px-4 py-3 max-w-[220px]">
-                          <span className="font-semibold text-slate-800">{r.device_type}</span>
-                          {r.device_model && <span className="text-xs text-slate-500 ml-1">({r.device_model})</span>}
-                          <p className="text-xs text-slate-500 truncate" title={r.problem_description}>{r.problem_description}</p>
+                          <span className="font-semibold text-slate-800">
+                            {r.device_type}
+                          </span>
+                          {r.device_model && (
+                            <span className="text-xs text-slate-500 ml-1">
+                              ({r.device_model})
+                            </span>
+                          )}
+                          <p
+                            className="text-xs text-slate-500 truncate"
+                            title={r.problem_description}
+                          >
+                            {r.problem_description}
+                          </p>
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(r.estimated_cost, currency)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-700">{formatCurrency(r.advance_paid, currency)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(balance, currency)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                          {formatCurrency(r.estimated_cost, currency)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-700">
+                          {formatCurrency(r.advance_paid, currency)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                          {formatCurrency(balance, currency)}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                            r.status === "delivered"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : r.status === "completed"
-                              ? "bg-blue-50 text-blue-700"
-                              : r.status === "cancelled"
-                              ? "bg-rose-50 text-rose-700"
-                              : "bg-amber-50 text-amber-700"
-                          }`}>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                              r.status === "delivered"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : r.status === "completed"
+                                  ? "bg-blue-50 text-blue-700"
+                                  : r.status === "cancelled"
+                                    ? "bg-rose-50 text-rose-700"
+                                    : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
                             {STATUS_LABELS[r.status] || r.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                          {fmtDate(r.created_at)}
+                        </td>
                         <td className="px-4 py-3 text-center whitespace-nowrap">
                           <div className="flex justify-center gap-1.5">
                             <Link

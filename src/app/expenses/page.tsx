@@ -13,11 +13,15 @@ import {
   listExpenses,
   type ExpenseFilters,
 } from "@/lib/data/expenses";
-import { EXPENSE_PAYMENT_METHODS } from "@/lib/validation/expenses";
+import {
+  EXPENSE_PAYMENT_METHODS,
+  type ExpensePaymentMethod,
+} from "@/lib/validation/expenses";
 import {
   BUSINESS_TIMEZONE,
   getKarachiDayEndIso,
   getKarachiDayStartIso,
+  validateDateRange,
 } from "@/lib/datetime";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
@@ -58,6 +62,45 @@ type SearchParams = {
   dir?: string;
 };
 
+export function parseExpenseFilterParams(params: SearchParams) {
+  const search = params.q?.trim() ?? "";
+  const category = params.category?.trim() ?? "";
+  const paymentValue = params.payment_method ?? "";
+  const paymentMethod = EXPENSE_PAYMENT_METHODS.includes(
+    paymentValue as ExpensePaymentMethod,
+  )
+    ? (paymentValue as ExpensePaymentMethod)
+    : "";
+  const dateRange = validateDateRange({
+    from: params.from ?? "",
+    to: params.to ?? "",
+  });
+  const error =
+    dateRange.error ??
+    (paymentValue && !paymentMethod
+      ? "Select a valid expense payment method."
+      : null);
+
+  return {
+    search,
+    category,
+    paymentMethod,
+    from: dateRange.from,
+    to: dateRange.to,
+    includeArchived: params.archived === "1",
+    error,
+    dateError: dateRange.error,
+    hasFilterInput: Boolean(
+      search ||
+      category ||
+      paymentValue ||
+      dateRange.from ||
+      dateRange.to ||
+      params.archived === "1",
+    ),
+  };
+}
+
 function StatusPill({ status }: { status: string }) {
   if (status === "archived") {
     return (
@@ -86,26 +129,42 @@ export default async function ExpensesPage({
 
   const orgId = profile.organization_id;
   const params = await searchParams;
+  const parsedFilters = parseExpenseFilterParams(params);
   const canWrite = canManageExpenses(profile.role);
   const currency = organization?.currency_code ?? "PKR";
 
   const filters: ExpenseFilters = {
-    search: params.q,
-    category: params.category,
-    payment_method: params.payment_method,
-    from: params.from ? getKarachiDayStartIso(params.from) : undefined,
-    to: params.to ? getKarachiDayEndIso(params.to) : undefined,
-    includeArchived: params.archived === "1",
+    search: parsedFilters.search || undefined,
+    category: parsedFilters.category || undefined,
+    payment_method: parsedFilters.paymentMethod || undefined,
+    from: !parsedFilters.error && parsedFilters.from
+      ? getKarachiDayStartIso(parsedFilters.from)
+      : undefined,
+    to:
+      !parsedFilters.error && parsedFilters.to
+        ? getKarachiDayEndIso(parsedFilters.to)
+        : undefined,
+    includeArchived: parsedFilters.includeArchived,
   };
 
   const [counts, expenses, knownCategories] = await Promise.all([
     expenseCounts(orgId),
-    listExpenses(orgId, filters),
+    parsedFilters.error ? Promise.resolve([]) : listExpenses(orgId, filters),
     listExpenseCategories(orgId),
   ]);
 
   const sort = params.sort;
   const dir = params.dir === "desc" ? "desc" : "asc";
+  const sortableParams = {
+    q: parsedFilters.search,
+    category: parsedFilters.category,
+    payment_method: parsedFilters.error ? "" : parsedFilters.paymentMethod,
+    from: parsedFilters.error ? "" : parsedFilters.from,
+    to: parsedFilters.error ? "" : parsedFilters.to,
+    archived: parsedFilters.includeArchived ? "1" : "",
+    sort,
+    dir: params.dir,
+  };
 
   const sortedExpenses = sortData(expenses, sort || "spent_at", sort ? dir : "desc", {
     spent_at: "date",
@@ -164,7 +223,7 @@ export default async function ExpensesPage({
           icon={<Tag className="size-5" />}
         />
         <StatCard
-          label="Latest expense"
+          label="Latest this month"
           wrapLabel
           value={counts.latest ? formatCurrency(counts.latest.amount, currency) : "—"}
           detail={
@@ -221,26 +280,41 @@ export default async function ExpensesPage({
                 <span className="sr-only">Search expenses</span>
                 <input
                   name="q"
-                  defaultValue={params.q ?? ""}
+                  defaultValue={parsedFilters.search}
                   placeholder="Search category, vendor, notes"
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-900"
                 />
               </label>
-              <button type="submit" className="h-11 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer">
+              <button
+                type="submit"
+                className="h-11 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer"
+              >
                 Apply
               </button>
             </div>
 
-            <details open={Boolean(params.category || params.payment_method || params.from || params.to || params.archived === "1")} className="mt-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
+            <details
+              open={Boolean(
+                parsedFilters.category ||
+                parsedFilters.paymentMethod ||
+                parsedFilters.from ||
+                parsedFilters.to ||
+                parsedFilters.includeArchived ||
+                parsedFilters.error,
+              )}
+              className="mt-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900"
+            >
               <summary className="cursor-pointer text-xs font-black uppercase tracking-wide text-slate-600 dark:text-slate-400 select-none">
                 Filters
               </summary>
               <div className="mt-3 grid gap-3">
                 <label className="block min-w-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Category
+                  </span>
                   <AppSelect
                     name="category"
-                    defaultValue={params.category ?? ""}
+                    defaultValue={parsedFilters.category}
                     options={categoryOptions}
                     ariaLabel="Category"
                     searchable={knownCategories.length > 8}
@@ -252,20 +326,21 @@ export default async function ExpensesPage({
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
                   <AppSelect
                     name="payment_method"
-                    defaultValue={params.payment_method ?? ""}
+                    defaultValue={parsedFilters.paymentMethod}
                     options={paymentOptions}
                     ariaLabel="Payment method"
                     className="mt-1"
                   />
                 </label>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2 min-[380px]:grid-cols-2">
                   <label className="block min-w-0 font-bold">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">From</span>
                     <input
                       type="date"
                       name="from"
-                      defaultValue={params.from ?? ""}
+                      defaultValue={parsedFilters.from}
+                      aria-invalid={parsedFilters.dateError ? true : undefined}
                       className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                     />
                   </label>
@@ -274,7 +349,8 @@ export default async function ExpensesPage({
                     <input
                       type="date"
                       name="to"
-                      defaultValue={params.to ?? ""}
+                      defaultValue={parsedFilters.to}
+                      aria-invalid={parsedFilters.dateError ? true : undefined}
                       className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950"
                     />
                   </label>
@@ -285,28 +361,38 @@ export default async function ExpensesPage({
                     type="checkbox"
                     name="archived"
                     value="1"
-                    defaultChecked={params.archived === "1"}
+                    defaultChecked={parsedFilters.includeArchived}
                     className="size-4"
                   />
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Show voided</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Show voided
+                  </span>
                 </label>
               </div>
             </details>
 
-            {(params.q || params.category || params.payment_method || params.from || params.to || params.archived === "1") && (
-              <Link href="/expenses" className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline dark:text-slate-400">
+            {parsedFilters.hasFilterInput && (
+              <Link
+                href="/expenses"
+                className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline dark:text-slate-400"
+              >
                 Reset filters
               </Link>
             )}
           </form>
 
           {/* Desktop Filter form */}
-          <form className="hidden md:grid md:gap-3 md:grid-cols-2 lg:flex lg:flex-wrap lg:items-end" action="/expenses">
+          <form
+            className="hidden md:grid md:gap-3 md:grid-cols-2 lg:flex lg:flex-wrap lg:items-end"
+            action="/expenses"
+          >
             <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Search
+              </span>
               <input
                 name="q"
-                defaultValue={params.q ?? ""}
+                defaultValue={parsedFilters.search}
                 placeholder="Category, vendor, notes"
                 className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-56"
               />
@@ -315,7 +401,7 @@ export default async function ExpensesPage({
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
               <AppSelect
                 name="category"
-                defaultValue={params.category ?? ""}
+                defaultValue={parsedFilters.category}
                 options={categoryOptions}
                 ariaLabel="Category"
                 searchable={knownCategories.length > 8}
@@ -326,7 +412,7 @@ export default async function ExpensesPage({
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
               <AppSelect
                 name="payment_method"
-                defaultValue={params.payment_method ?? ""}
+                defaultValue={parsedFilters.paymentMethod}
                 options={paymentOptions}
                 ariaLabel="Payment method"
                 className="mt-1 lg:w-44"
@@ -337,7 +423,8 @@ export default async function ExpensesPage({
               <input
                 type="date"
                 name="from"
-                defaultValue={params.from ?? ""}
+                defaultValue={parsedFilters.from}
+                aria-invalid={parsedFilters.dateError ? true : undefined}
                 className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
               />
             </label>
@@ -346,7 +433,8 @@ export default async function ExpensesPage({
               <input
                 type="date"
                 name="to"
-                defaultValue={params.to ?? ""}
+                defaultValue={parsedFilters.to}
+                aria-invalid={parsedFilters.dateError ? true : undefined}
                 className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600 lg:w-auto"
               />
             </label>
@@ -355,7 +443,7 @@ export default async function ExpensesPage({
                 type="checkbox"
                 name="archived"
                 value="1"
-                defaultChecked={params.archived === "1"}
+                defaultChecked={parsedFilters.includeArchived}
                 className="size-4"
               />
               <span className="text-sm font-semibold text-slate-700">Show voided</span>
@@ -363,37 +451,38 @@ export default async function ExpensesPage({
             <button type="submit" className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white cursor-pointer">
               Apply
             </button>
-            {(params.q ||
-              params.category ||
-              params.payment_method ||
-              params.from ||
-              params.to ||
-              params.archived) && (
-              <Link href="/expenses" className="self-center text-xs font-semibold text-slate-600 underline">
+            {parsedFilters.hasFilterInput && (
+              <Link
+                href="/expenses"
+                className="self-center text-xs font-semibold text-slate-600 underline"
+              >
                 Reset
               </Link>
             )}
           </form>
 
+          {parsedFilters.error && (
+            <p
+              id="expenses-filter-error"
+              role="alert"
+              className="text-sm font-semibold text-red-700 dark:text-red-400"
+            >
+              {parsedFilters.error}
+            </p>
+          )}
+
           {expenses.length === 0 ? (
             <EmptyState
               title="No expenses found"
               description={
-                (params.q || params.category || params.payment_method || params.from || params.to || params.archived)
-                  ? "No expenses matched your search criteria or filters. Try adjusting filters."
+                parsedFilters.hasFilterInput
+                  ? (parsedFilters.error ??
+                    "No expenses matched your search criteria or filters. Try adjusting filters.")
                   : "Get started by adding your first expense using the form above."
               }
-              searchQuery={params.q}
-              resetHref={
-                (params.q || params.category || params.payment_method || params.from || params.to || params.archived)
-                  ? "/expenses"
-                  : undefined
-              }
-              type={
-                (params.q || params.category || params.payment_method || params.from || params.to || params.archived)
-                  ? "search"
-                  : "empty"
-              }
+              searchQuery={parsedFilters.search}
+              resetHref={parsedFilters.hasFilterInput ? "/expenses" : undefined}
+              type={parsedFilters.hasFilterInput ? "search" : "empty"}
             />
           ) : (
             <>
@@ -401,28 +490,90 @@ export default async function ExpensesPage({
                 <table className="w-full min-w-[820px] text-left text-sm">
                   <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                     <tr>
-                      <SortableHeader label="Date" columnKey="spent_at" currentSortKey={sort} direction={dir} currentParams={params} />
-                      <SortableHeader label="Category" columnKey="category" currentSortKey={sort} direction={dir} currentParams={params} />
-                      <SortableHeader label="Vendor" columnKey="vendor_name" currentSortKey={sort} direction={dir} currentParams={params} />
-                      <SortableHeader label="Method" columnKey="payment_method" currentSortKey={sort} direction={dir} currentParams={params} />
-                      <th className="px-3 py-3 select-none border-b border-slate-200 dark:border-white/[0.07] font-bold uppercase text-slate-500">Created by</th>
-                      <SortableHeader label="Amount" columnKey="amount" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                      <SortableHeader label="Status" columnKey="status" currentSortKey={sort} direction={dir} currentParams={params} />
+                      <SortableHeader
+                        label="Date"
+                        columnKey="spent_at"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Category"
+                        columnKey="category"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Vendor"
+                        columnKey="vendor_name"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Method"
+                        columnKey="payment_method"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <th className="px-3 py-3 select-none border-b border-slate-200 dark:border-white/[0.07] font-bold uppercase text-slate-500">
+                        Created by
+                      </th>
+                      <SortableHeader
+                        label="Amount"
+                        columnKey="amount"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Status"
+                        columnKey="status"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
                       <th className="px-3 py-3 text-right" />
                     </tr>
                   </thead>
                   <tbody>
                     {sortedExpenses.map((e) => (
-                      <tr key={e.id} className="border-b border-slate-100 align-top">
-                        <td className="px-3 py-3 text-slate-700">{fmtDate(e.spent_at)}</td>
-                        <td className="px-3 py-3 font-bold text-slate-900">{e.category}</td>
-                        <td className="px-3 py-3 text-slate-700">{e.vendor_name ?? "—"}</td>
-                        <td className="px-3 py-3 text-slate-700">{PAYMENT_LABELS[e.payment_method] ?? e.payment_method}</td>
-                        <td className="px-3 py-3 text-slate-600">{e.created_by_name ?? "—"}</td>
-                        <td className="px-3 py-3 text-right font-bold text-slate-900">{formatCurrency(e.amount, currency)}</td>
-                        <td className="px-3 py-3"><StatusPill status={e.status} /></td>
+                      <tr
+                        key={e.id}
+                        className="border-b border-slate-100 align-top"
+                      >
+                        <td className="px-3 py-3 text-slate-700">
+                          {fmtDate(e.spent_at)}
+                        </td>
+                        <td className="px-3 py-3 font-bold text-slate-900">
+                          {e.category}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700">
+                          {e.vendor_name ?? "—"}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700">
+                          {PAYMENT_LABELS[e.payment_method] ?? e.payment_method}
+                        </td>
+                        <td className="px-3 py-3 text-slate-600">
+                          {e.created_by_name ?? "—"}
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-slate-900">
+                          {formatCurrency(e.amount, currency)}
+                        </td>
+                        <td className="px-3 py-3">
+                          <StatusPill status={e.status} />
+                        </td>
                         <td className="px-3 py-3 text-right">
-                          {canWrite ? <ExpenseActions id={e.id} status={e.status} /> : <span className="text-xs text-slate-400">View only</span>}
+                          {canWrite ? (
+                            <ExpenseActions id={e.id} status={e.status} />
+                          ) : (
+                            <span className="text-xs text-slate-400">
+                              View only
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}

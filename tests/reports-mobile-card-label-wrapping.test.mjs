@@ -30,7 +30,7 @@ const expenseLabels = [
   "Today expenses",
   "This month",
   "Top category (month)",
-  "Latest expense",
+  "Latest this month",
 ];
 
 function conditionalBranch(source, marker, endMarker) {

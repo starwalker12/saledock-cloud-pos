@@ -69,6 +69,19 @@ const recordedMethods = [
   "bank_transfer",
 ];
 const statuses = ["draft", "paid", "partial", "unpaid", "void"];
+const isValidCalendarDate = (value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (year < 1 || month < 1 || month > 12) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days =
+    month === 2 ? (leap ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31;
+  return day >= 1 && day <= days;
+};
 const pageModule = loadTypeScriptModule(pagePath, {
   "next/link": { default: () => null },
   "next/navigation": { redirect: () => undefined },
@@ -82,10 +95,24 @@ const pageModule = loadTypeScriptModule(pagePath, {
     listInvoices: async () => [],
   },
   "@/lib/datetime": {
+    isValidCalendarDate,
+    validateDateRange: ({ from = "", to = "" }) => ({
+      from,
+      to,
+      error:
+        from && !isValidCalendarDate(from)
+          ? "Enter a valid From date."
+          : to && !isValidCalendarDate(to)
+            ? "Enter a valid To date."
+            : from && to && from > to
+              ? "From date cannot be after To date."
+              : null,
+    }),
     getKarachiDayStartIso: (date) =>
       new Date(`${date}T00:00:00.000+05:00`).toISOString(),
     getKarachiDayEndIso: (date) =>
       new Date(`${date}T23:59:59.999+05:00`).toISOString(),
+    formatKarachiTimestamp: (value) => value,
   },
   "@/lib/env": { env: { isSupabaseConfigured: true } },
   "@/lib/formatters": { formatCurrency: String },
@@ -114,10 +141,7 @@ test("invoice-filter evidence roots are unique and existing targets fail closed"
   assert.match(e2eSource, /process\.env\.INVOICE_FILTER_EVIDENCE_ROOT/);
   assert.match(e2eSource, /mkdtemp\(/);
   assert.doesNotMatch(e2eSource, /mkdir\([^)]*recursive:\s*true/);
-  assert.match(
-    e2eSource,
-    /join\(requireEvidenceRoot\(\), name\)/,
-  );
+  assert.match(e2eSource, /join\(requireEvidenceRoot\(\), name\)/);
   assert.match(
     e2eSource,
     /async function writeManifest[\s\S]*?const root = requireEvidenceRoot\(\)[\s\S]*?join\(root, "evidence-manifest\.sha256"\)/,
@@ -125,10 +149,16 @@ test("invoice-filter evidence roots are unique and existing targets fail closed"
 
   const workflowStart = e2eSource.indexOf("await initializeEvidenceRoot()");
   assert.ok(workflowStart >= 0);
-  assert.ok(workflowStart < e2eSource.indexOf("getLocalAdminClient()", workflowStart));
-  assert.ok(workflowStart < e2eSource.indexOf("createFixture(admin)", workflowStart));
+  assert.ok(
+    workflowStart < e2eSource.indexOf("getLocalAdminClient()", workflowStart),
+  );
+  assert.ok(
+    workflowStart < e2eSource.indexOf("createFixture(admin)", workflowStart),
+  );
 
-  const sandbox = mkdtempSync(join(tmpdir(), "invoice-filter-evidence-contract-"));
+  const sandbox = mkdtempSync(
+    join(tmpdir(), "invoice-filter-evidence-contract-"),
+  );
   const existing = join(sandbox, "existing");
   const screenshot = join(existing, "screenshots", "sealed.png");
   const manifest = join(existing, "evidence-manifest.sha256");
@@ -160,9 +190,7 @@ test("invoice-filter evidence roots are unique and existing targets fail closed"
       assert.match(disposableA, /saledock-invoice-filter-evidence-/);
       assert.match(disposableB, /saledock-invoice-filter-evidence-/);
       assert.equal(
-        disposableA.startsWith(
-          "/Users/sw12/Projects/saledock-local-evidence/",
-        ),
+        disposableA.startsWith("/Users/sw12/Projects/saledock-local-evidence/"),
         false,
       );
     } finally {
@@ -394,7 +422,9 @@ test("database queries apply organization, date, status, and payment before limi
 test("recorded payment filtering uses an inner organization-scoped relationship", async () => {
   const invoice = row("MULTI", "2026-08-10T10:00:00.000Z", "Buyer");
   const { loadedModule, traces } = loadDataModule(() => [invoice]);
-  const result = await loadedModule.listInvoices("org-a", { paymentMethod: "cash" });
+  const result = await loadedModule.listInvoices("org-a", {
+    paymentMethod: "cash",
+  });
 
   assert.deepEqual(
     result.map(({ id }) => id),

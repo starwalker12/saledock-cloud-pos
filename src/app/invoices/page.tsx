@@ -11,7 +11,13 @@ import {
   type InvoiceListStatus,
   type RecordedInvoicePaymentMethod,
 } from "@/lib/data/invoices";
-import { getKarachiDayEndIso, getKarachiDayStartIso } from "@/lib/datetime";
+import {
+  formatKarachiTimestamp,
+  getKarachiDayEndIso,
+  getKarachiDayStartIso,
+  isValidCalendarDate,
+  validateDateRange,
+} from "@/lib/datetime";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/formatters";
 import { sortData } from "@/lib/sort";
@@ -60,14 +66,7 @@ function singleParam(value: string | string[] | undefined): string {
 }
 
 export function isValidInvoiceFilterDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-  const [, yearText, monthText, dayText] = match;
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  if (year < 1 || month < 1 || month > 12) return false;
-  return day >= 1 && day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return isValidCalendarDate(value);
 }
 
 export function parseInvoiceFilterParams(
@@ -81,15 +80,8 @@ export function parseInvoiceFilterParams(
   const hasFilterInput = Boolean(
     search || from || to || paymentValue || statusValue,
   );
-  let error: string | null = null;
-
-  if (from && !isValidInvoiceFilterDate(from)) {
-    error = "Enter a valid From date.";
-  } else if (to && !isValidInvoiceFilterDate(to)) {
-    error = "Enter a valid To date.";
-  } else if (from && to && from > to) {
-    error = "From date cannot be after To date.";
-  }
+  const dateRange = validateDateRange({ from, to });
+  let error = dateRange.error;
 
   const payment = RECORDED_INVOICE_PAYMENT_METHODS.includes(
     paymentValue as RecordedInvoicePaymentMethod,
@@ -130,7 +122,7 @@ export function parseInvoiceFilterParams(
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString("en-PK", {
+  return formatKarachiTimestamp(iso, {
     year: "numeric",
     month: "short",
     day: "2-digit",

@@ -16,7 +16,11 @@ import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
-import { PurchaseFilterSelect, type PurchaseFilterOption } from "./filter-select";
+import {
+  PurchaseFilterSelect,
+  type PurchaseFilterOption,
+} from "./filter-select";
+import { formatCalendarDate, validateDateRange } from "@/lib/datetime";
 
 type SearchParams = {
   q?: string;
@@ -38,17 +42,57 @@ const STATUS_CLASS: Record<SupplierPurchaseStatus, string> = {
   partial: "bg-amber-100 text-amber-800",
   paid: "bg-emerald-100 text-emerald-800",
 };
+const PURCHASE_FILTER_STATUSES = ["all", "unpaid", "partial", "paid"] as const;
 const FILTER_GROUP_CLASS = "flex min-w-0 flex-col gap-1.5";
 const FILTER_LABEL_CLASS = "text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const FILTER_INPUT_CLASS =
   "h-10 w-full rounded-lg border border-slate-200 bg-[#fff] px-3 text-sm text-slate-900 outline-none focus:border-blue-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100";
 
 function fmtDate(d: string) {
-  return new Date(`${d}T00:00:00`).toLocaleDateString("en-PK", {
+  return formatCalendarDate(d, {
     year: "numeric",
     month: "short",
     day: "2-digit",
   });
+}
+
+export function parseSupplierPurchaseFilterParams(params: SearchParams) {
+  const search = params.q?.trim() ?? "";
+  const supplierId = params.supplier_id ?? "";
+  const statusValue = params.status ?? "all";
+  const status = PURCHASE_FILTER_STATUSES.includes(
+    statusValue as (typeof PURCHASE_FILTER_STATUSES)[number],
+  )
+    ? (statusValue as (typeof PURCHASE_FILTER_STATUSES)[number])
+    : "all";
+  const dateRange = validateDateRange({
+    from: params.from ?? "",
+    to: params.to ?? "",
+  });
+  const error =
+    dateRange.error ??
+    (!PURCHASE_FILTER_STATUSES.includes(
+      statusValue as (typeof PURCHASE_FILTER_STATUSES)[number],
+    )
+      ? "Select a valid purchase status."
+      : null);
+
+  return {
+    search,
+    supplierId,
+    status,
+    from: dateRange.from,
+    to: dateRange.to,
+    error,
+    dateError: dateRange.error,
+    hasFilterInput: Boolean(
+      search ||
+      supplierId ||
+      statusValue !== "all" ||
+      dateRange.from ||
+      dateRange.to,
+    ),
+  };
 }
 
 export default async function SupplierPurchasesPage({
@@ -63,27 +107,39 @@ export default async function SupplierPurchasesPage({
 
   const orgId = profile.organization_id;
   const params = await searchParams;
+  const parsedFilters = parseSupplierPurchaseFilterParams(params);
   const canWrite = canManageSupplierPurchases(profile.role);
   const currency = organization?.currency_code ?? "PKR";
 
-  const statusValue = (params.status ?? "all") as SupplierPurchaseStatus | "all";
+  const statusValue = parsedFilters.status;
 
   const filters: SupplierPurchaseFilters = {
-    search: params.q,
-    supplier_id: params.supplier_id,
+    search: parsedFilters.search || undefined,
+    supplier_id: parsedFilters.supplierId || undefined,
     status: statusValue === "all" ? undefined : statusValue,
-    from: params.from || undefined,
-    to: params.to || undefined,
+    from: parsedFilters.from || undefined,
+    to: parsedFilters.to || undefined,
   };
 
   const [counts, suppliers, purchases] = await Promise.all([
     supplierPurchaseCounts(orgId),
     listSuppliersWithBalances(orgId),
-    listSupplierPurchases(orgId, filters),
+    parsedFilters.error
+      ? Promise.resolve([])
+      : listSupplierPurchases(orgId, filters),
   ]);
 
   const sort = params.sort;
   const dir = params.dir === "desc" ? "desc" : "asc";
+  const sortableParams = {
+    q: parsedFilters.search,
+    supplier_id: parsedFilters.supplierId,
+    status: parsedFilters.error ? "all" : parsedFilters.status,
+    from: parsedFilters.error ? "" : parsedFilters.from,
+    to: parsedFilters.error ? "" : parsedFilters.to,
+    sort,
+    dir: params.dir,
+  };
 
   const sortedPurchases = sortData(purchases, sort || "purchase_date", sort ? dir : "desc", {
     purchase_date: "date",
@@ -183,17 +239,29 @@ export default async function SupplierPurchasesPage({
                 <span className={FILTER_LABEL_CLASS}>Search</span>
                 <input
                   name="q"
-                  defaultValue={params.q ?? ""}
+                  defaultValue={parsedFilters.search}
                   placeholder="Purchase #, ref, notes"
                   className={FILTER_INPUT_CLASS}
                 />
               </label>
-              <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer">
+              <button
+                type="submit"
+                className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 cursor-pointer"
+              >
                 Apply
               </button>
             </div>
 
-            <details open={Boolean(params.supplier_id || (params.status && params.status !== "all") || params.from || params.to)} className="mt-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
+            <details
+              open={Boolean(
+                parsedFilters.supplierId ||
+                parsedFilters.status !== "all" ||
+                parsedFilters.from ||
+                parsedFilters.to ||
+                parsedFilters.error,
+              )}
+              className="mt-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900"
+            >
               <summary className="cursor-pointer text-xs font-black uppercase tracking-wide text-slate-600 dark:text-slate-400 select-none">
                 Filters
               </summary>
@@ -201,7 +269,7 @@ export default async function SupplierPurchasesPage({
                 <PurchaseFilterSelect
                   name="supplier_id"
                   label="Supplier"
-                  defaultValue={params.supplier_id ?? ""}
+                  defaultValue={parsedFilters.supplierId}
                   options={supplierFilterOptions}
                 />
 
@@ -212,13 +280,14 @@ export default async function SupplierPurchasesPage({
                   options={statusFilterOptions}
                 />
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2 min-[380px]:grid-cols-2">
                   <label className={FILTER_GROUP_CLASS}>
                     <span className={FILTER_LABEL_CLASS}>From</span>
                     <input
                       type="date"
                       name="from"
-                      defaultValue={params.from ?? ""}
+                      defaultValue={parsedFilters.from}
+                      aria-invalid={parsedFilters.dateError ? true : undefined}
                       className={FILTER_INPUT_CLASS}
                     />
                   </label>
@@ -227,7 +296,8 @@ export default async function SupplierPurchasesPage({
                     <input
                       type="date"
                       name="to"
-                      defaultValue={params.to ?? ""}
+                      defaultValue={parsedFilters.to}
+                      aria-invalid={parsedFilters.dateError ? true : undefined}
                       className={FILTER_INPUT_CLASS}
                     />
                   </label>
@@ -235,20 +305,26 @@ export default async function SupplierPurchasesPage({
               </div>
             </details>
 
-            {(params.q || params.supplier_id || (params.status && params.status !== "all") || params.from || params.to) && (
-              <Link href="/suppliers/purchases" className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline dark:text-slate-400">
+            {parsedFilters.hasFilterInput && (
+              <Link
+                href="/suppliers/purchases"
+                className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-slate-600 underline dark:text-slate-400"
+              >
                 Reset filters
               </Link>
             )}
           </form>
 
           {/* Desktop Filter form */}
-          <form className="hidden md:grid md:grid-cols-2 md:items-end md:gap-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(14rem,1fr)_9rem_10.5rem_10.5rem_auto_auto]" action="/suppliers/purchases">
+          <form
+            className="hidden md:grid md:grid-cols-2 md:items-end md:gap-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(14rem,1fr)_9rem_10.5rem_10.5rem_auto_auto]"
+            action="/suppliers/purchases"
+          >
             <label className={FILTER_GROUP_CLASS}>
               <span className={FILTER_LABEL_CLASS}>Search</span>
               <input
                 name="q"
-                defaultValue={params.q ?? ""}
+                defaultValue={parsedFilters.search}
                 placeholder="Purchase #, ref, notes"
                 className={FILTER_INPUT_CLASS}
               />
@@ -256,7 +332,7 @@ export default async function SupplierPurchasesPage({
             <PurchaseFilterSelect
               name="supplier_id"
               label="Supplier"
-              defaultValue={params.supplier_id ?? ""}
+              defaultValue={parsedFilters.supplierId}
               options={supplierFilterOptions}
             />
             <PurchaseFilterSelect
@@ -270,7 +346,8 @@ export default async function SupplierPurchasesPage({
               <input
                 type="date"
                 name="from"
-                defaultValue={params.from ?? ""}
+                defaultValue={parsedFilters.from}
+                aria-invalid={parsedFilters.dateError ? true : undefined}
                 className={FILTER_INPUT_CLASS}
               />
             </label>
@@ -279,157 +356,261 @@ export default async function SupplierPurchasesPage({
               <input
                 type="date"
                 name="to"
-                defaultValue={params.to ?? ""}
+                defaultValue={parsedFilters.to}
+                aria-invalid={parsedFilters.dateError ? true : undefined}
                 className={FILTER_INPUT_CLASS}
               />
             </label>
-            <button type="submit" className="h-10 self-end rounded-lg bg-slate-900 px-4 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900">
+            <button
+              type="submit"
+              className="h-10 self-end rounded-lg bg-slate-900 px-4 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+            >
               Apply
             </button>
-            {(params.q || params.supplier_id || (params.status && params.status !== "all") || params.from || params.to) && (
-              <Link href="/suppliers/purchases" className="self-center text-xs font-semibold text-slate-600 underline">
+            {parsedFilters.hasFilterInput && (
+              <Link
+                href="/suppliers/purchases"
+                className="self-center text-xs font-semibold text-slate-600 underline"
+              >
                 Reset
               </Link>
             )}
           </form>
 
+          {parsedFilters.error && (
+            <p
+              id="supplier-purchases-filter-error"
+              role="alert"
+              className="text-sm font-semibold text-red-700 dark:text-red-400"
+            >
+              {parsedFilters.error}
+            </p>
+          )}
+
           {purchases.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-              <p className="text-sm font-semibold text-slate-600">No purchases match these filters.</p>
+              <p className="text-sm font-semibold text-slate-600">
+                {parsedFilters.error ?? "No purchases match these filters."}
+              </p>
               {canWrite && (
                 <p className="mt-1 text-xs text-slate-500">
-                  Click <strong>Record purchase</strong> above to add your first stock purchase.
+                  Click <strong>Record purchase</strong> above to add your first
+                  stock purchase.
                 </p>
               )}
             </div>
           ) : (
             <>
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[820px] text-left text-sm">
-                <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
-                  <tr>
-                    <SortableHeader label="Date" columnKey="purchase_date" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Purchase #" columnKey="purchase_no" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Supplier" columnKey="supplier_name" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Total" columnKey="grand_total" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Paid" columnKey="amount_paid" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Balance" columnKey="balance_due" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <SortableHeader label="Status" columnKey="status" currentSortKey={sort} direction={dir} currentParams={params} />
-                    <th className="px-3 py-3 text-right" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedPurchases.map((p) => (
-                    <tr key={p.id} className="border-b border-slate-100 align-top dark:border-white/[0.06]">
-                      <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{fmtDate(p.purchase_date)}</td>
-                      <td className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100">{p.purchase_no}</td>
-                      <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{p.supplier_name ?? "—"}</td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-900 dark:text-slate-100">
-                        {formatCurrency(p.grand_total, currency)}
-                      </td>
-                      <td className="px-3 py-3 text-right text-emerald-700 dark:text-emerald-300">{formatCurrency(p.amount_paid, currency)}</td>
-                      <td className="px-3 py-3 text-right text-rose-700 dark:text-rose-300">{formatCurrency(p.balance_due, currency)}</td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CLASS[p.status]}`}
-                        >
-                          {STATUS_LABEL[p.status]}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <Link
-                          href={`/suppliers/purchases/${p.id}`}
-                          className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                        >
-                          Open
-                        </Link>
-                      </td>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="w-full min-w-[820px] text-left text-sm">
+                  <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
+                    <tr>
+                      <SortableHeader
+                        label="Date"
+                        columnKey="purchase_date"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Purchase #"
+                        columnKey="purchase_no"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Supplier"
+                        columnKey="supplier_name"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Total"
+                        columnKey="grand_total"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Paid"
+                        columnKey="amount_paid"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Balance"
+                        columnKey="balance_due"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Status"
+                        columnKey="status"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <th className="px-3 py-3 text-right" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
-              {/* Mobile Sort Controls */}
-              <div className="flex flex-nowrap overflow-x-auto items-center gap-2 pb-3 text-xs font-semibold text-slate-500 border-b border-slate-100 dark:border-slate-800 scrollbar-none">
-                <span className="shrink-0">Sort by:</span>
-                {(
-                  [
-                    { key: "purchase_date", label: "Date" },
-                    { key: "purchase_no", label: "Purchase #" },
-                    { key: "supplier_name", label: "Supplier" },
-                    { key: "grand_total", label: "Total" },
-                    { key: "amount_paid", label: "Paid" },
-                    { key: "balance_due", label: "Balance" },
-                    { key: "status", label: "Status" },
-                  ] as const
-                ).map(({ key, label }) => {
-                  const isCurrent = sort === key;
-                  const activeDir = isCurrent && dir === "asc" ? "desc" : "asc";
-                  const newParams = new URLSearchParams();
-                  Object.entries(params).forEach(([k, v]) => {
-                    if (v != null && v !== "") newParams.set(k, String(v));
-                  });
-                  newParams.set("sort", key);
-                  newParams.set("dir", activeDir);
-                  const href = `?${newParams.toString()}`;
-
-                  return (
-                    <Link
-                      key={key}
-                      href={href}
-                      className={`shrink-0 rounded-full px-2.5 py-1 transition-colors ${
-                        isCurrent
-                          ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 font-bold"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-                      }`}
-                      aria-label={`Sort by ${label} ${isCurrent && dir === "asc" ? "descending" : "ascending"}`}
-                    >
-                      {label} {isCurrent && (dir === "asc" ? "↑" : "↓")}
-                    </Link>
-                  );
-                })}
+                  </thead>
+                  <tbody>
+                    {sortedPurchases.map((p) => (
+                      <tr
+                        key={p.id}
+                        className="border-b border-slate-100 align-top dark:border-white/[0.06]"
+                      >
+                        <td className="px-3 py-3 text-slate-700 dark:text-slate-300">
+                          {fmtDate(p.purchase_date)}
+                        </td>
+                        <td className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100">
+                          {p.purchase_no}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 dark:text-slate-300">
+                          {p.supplier_name ?? "—"}
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-slate-900 dark:text-slate-100">
+                          {formatCurrency(p.grand_total, currency)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-emerald-700 dark:text-emerald-300">
+                          {formatCurrency(p.amount_paid, currency)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-rose-700 dark:text-rose-300">
+                          {formatCurrency(p.balance_due, currency)}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CLASS[p.status]}`}
+                          >
+                            {STATUS_LABEL[p.status]}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <Link
+                            href={`/suppliers/purchases/${p.id}`}
+                            className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                          >
+                            Open
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              {sortedPurchases.map((p) => (
-                <div key={p.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 dark:border-white/[0.07] dark:bg-slate-950">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 dark:text-slate-100">{p.purchase_no}</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">{fmtDate(p.purchase_date)}</p>
-                    </div>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CLASS[p.status]}`}>
-                      {STATUS_LABEL[p.status]}
-                    </span>
-                  </div>
-                  <dl className="mt-3 grid gap-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-slate-500 dark:text-slate-400">Supplier</dt>
-                      <dd className="font-semibold text-slate-700 dark:text-slate-300">{p.supplier_name ?? "—"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-slate-500 dark:text-slate-400">Total</dt>
-                      <dd className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(p.grand_total, currency)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-slate-500 dark:text-slate-400">Paid</dt>
-                      <dd className="font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(p.amount_paid, currency)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-slate-500 dark:text-slate-400">Balance</dt>
-                      <dd className="font-bold text-rose-700 dark:text-rose-300">{formatCurrency(p.balance_due, currency)}</dd>
-                    </div>
-                  </dl>
-                  <div className="mt-3 flex justify-end">
-                    <Link
-                      href={`/suppliers/purchases/${p.id}`}
-                      className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      Open
-                    </Link>
-                  </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
+                {/* Mobile Sort Controls */}
+                <div className="flex flex-nowrap overflow-x-auto items-center gap-2 pb-3 text-xs font-semibold text-slate-500 border-b border-slate-100 dark:border-slate-800 scrollbar-none">
+                  <span className="shrink-0">Sort by:</span>
+                  {(
+                    [
+                      { key: "purchase_date", label: "Date" },
+                      { key: "purchase_no", label: "Purchase #" },
+                      { key: "supplier_name", label: "Supplier" },
+                      { key: "grand_total", label: "Total" },
+                      { key: "amount_paid", label: "Paid" },
+                      { key: "balance_due", label: "Balance" },
+                      { key: "status", label: "Status" },
+                    ] as const
+                  ).map(({ key, label }) => {
+                    const isCurrent = sort === key;
+                    const activeDir =
+                      isCurrent && dir === "asc" ? "desc" : "asc";
+                    const newParams = new URLSearchParams();
+                    Object.entries(sortableParams).forEach(([k, v]) => {
+                      if (v != null && v !== "") newParams.set(k, String(v));
+                    });
+                    newParams.set("sort", key);
+                    newParams.set("dir", activeDir);
+                    const href = `?${newParams.toString()}`;
+
+                    return (
+                      <Link
+                        key={key}
+                        href={href}
+                        className={`shrink-0 rounded-full px-2.5 py-1 transition-colors ${
+                          isCurrent
+                            ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 font-bold"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                        }`}
+                        aria-label={`Sort by ${label} ${isCurrent && dir === "asc" ? "descending" : "ascending"}`}
+                      >
+                        {label} {isCurrent && (dir === "asc" ? "↑" : "↓")}
+                      </Link>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+                {sortedPurchases.map((p) => (
+                  <div
+                    key={p.id}
+                    className="rounded-xl border border-slate-200 bg-[#fff] p-4 dark:border-white/[0.07] dark:bg-slate-950"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 dark:text-slate-100">
+                          {p.purchase_no}
+                        </p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {fmtDate(p.purchase_date)}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CLASS[p.status]}`}
+                      >
+                        {STATUS_LABEL[p.status]}
+                      </span>
+                    </div>
+                    <dl className="mt-3 grid gap-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500 dark:text-slate-400">
+                          Supplier
+                        </dt>
+                        <dd className="font-semibold text-slate-700 dark:text-slate-300">
+                          {p.supplier_name ?? "—"}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500 dark:text-slate-400">
+                          Total
+                        </dt>
+                        <dd className="font-bold text-slate-900 dark:text-slate-100">
+                          {formatCurrency(p.grand_total, currency)}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500 dark:text-slate-400">
+                          Paid
+                        </dt>
+                        <dd className="font-bold text-emerald-700 dark:text-emerald-300">
+                          {formatCurrency(p.amount_paid, currency)}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500 dark:text-slate-400">
+                          Balance
+                        </dt>
+                        <dd className="font-bold text-rose-700 dark:text-rose-300">
+                          {formatCurrency(p.balance_due, currency)}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="mt-3 flex justify-end">
+                      <Link
+                        href={`/suppliers/purchases/${p.id}`}
+                        className="inline-flex min-h-9 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </div>
