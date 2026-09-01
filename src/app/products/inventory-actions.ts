@@ -175,12 +175,18 @@ export async function getProductInventoryDataAction(
   const orgId = await requireInventoryReader();
   const parsed = parseMovementFilters(movementFilters);
   if (parsed.error) throw new Error(parsed.error);
-  const [lots, movements, summary] = await Promise.all([
+  const [lots, movementResult, summary] = await Promise.all([
     listStockLots(productId, orgId),
     listStockMovements(productId, orgId, parsed.query),
     getProductStockSummary(productId, orgId),
   ]);
-  return { lots, movements, summary };
+  return {
+    lots,
+    movements: movementResult.rows,
+    movementTotalCount: movementResult.totalCount,
+    movementLimitExceeded: movementResult.limitExceeded,
+    summary,
+  };
 }
 
 export async function getProductStockMovementsAction(
@@ -192,12 +198,17 @@ export async function getProductStockMovementsAction(
   if (parsed.error) {
     return {
       movements: [],
+      totalCount: null,
+      limitExceeded: false,
       error: parsed.error,
       errorCode: parsed.errorCode,
     };
   }
+  const movementResult = await listStockMovements(productId, orgId, parsed.query);
   return {
-    movements: await listStockMovements(productId, orgId, parsed.query),
+    movements: movementResult.rows,
+    totalCount: movementResult.totalCount,
+    limitExceeded: movementResult.limitExceeded,
     error: null,
     errorCode: null,
   };

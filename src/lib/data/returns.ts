@@ -1,5 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import {
+  OPERATIONAL_HISTORY_MAX_ROWS,
+  operationalHistoryResult,
+  type OperationalHistoryResult,
+} from "@/lib/operational-history";
 
 export type ReturnableInvoiceItem = {
   id: string;
@@ -166,8 +171,30 @@ export type ReturnListFilters = {
 export async function listReturns(
   organizationId: string,
   filters: ReturnListFilters = {},
-): Promise<ReturnListRow[]> {
+): Promise<OperationalHistoryResult<ReturnListRow>> {
   const supabase = await createClient();
+  const hasRange = Boolean(filters.from || filters.to);
+  let totalCount: number | null = null;
+
+  if (hasRange) {
+    let countQuery = supabase
+      .from("returns")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", organizationId);
+
+    if (filters.from) countQuery = countQuery.gte("created_at", filters.from);
+    if (filters.to) countQuery = countQuery.lte("created_at", filters.to);
+
+    const { count, error: countError } = await countQuery;
+    if (countError || count === null) {
+      throw new Error("Unable to count return history.");
+    }
+    totalCount = count;
+    if (count > OPERATIONAL_HISTORY_MAX_ROWS) {
+      return operationalHistoryResult([], count);
+    }
+  }
+
   let query = supabase
     .from("returns")
     .select(
@@ -181,19 +208,17 @@ export async function listReturns(
   if (filters.from) query = query.gte("created_at", filters.from);
   if (filters.to) query = query.lte("created_at", filters.to);
 
-  // Preserve the bounded recent-history default, but never silently truncate an
-  // explicit history range with the old 50-row cap.
-  if (!filters.from && !filters.to) {
+  if (!hasRange) {
     query = query.limit(filters.limit ?? 50);
-  } else if (filters.limit) {
-    query = query.limit(filters.limit);
+  } else {
+    query = query.limit(OPERATIONAL_HISTORY_MAX_ROWS);
   }
 
   const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((row) => {
+  const rows = (data ?? []).map((row) => {
     const invoices = row.invoices as { invoice_no?: string } | { invoice_no?: string }[] | null;
     const customers = row.customers as { name?: string } | { name?: string }[] | null;
     return {
@@ -209,6 +234,7 @@ export async function listReturns(
       customer_name: Array.isArray(customers) ? customers[0]?.name ?? null : customers?.name ?? null,
     } satisfies ReturnListRow;
   });
+  return operationalHistoryResult(rows, totalCount);
 }
 
 export type ReturnDetail = {

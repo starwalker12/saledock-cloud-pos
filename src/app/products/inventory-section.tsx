@@ -15,6 +15,7 @@ import type { ActionState } from "./inventory-actions";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { AppSelect } from "@/components/ui/app-select";
 import { formatCalendarDate, formatKarachiTimestamp } from "@/lib/datetime";
+import { OPERATIONAL_HISTORY_MAX_ROWS } from "@/lib/operational-history";
 
 type Props = {
   productId: string;
@@ -44,6 +45,8 @@ export function InventorySection({ productId, productName, suppliers, currency, 
     useState<MovementFilterInput>({});
   const [movementError, setMovementError] = useState<string | null>(null);
   const [movementErrorCode, setMovementErrorCode] = useState<string | null>(null);
+  const [movementTotalCount, setMovementTotalCount] = useState<number | null>(null);
+  const [movementLimitExceeded, setMovementLimitExceeded] = useState(false);
 
   // Sub-tabs
   const [activeSubTab, setActiveSubTab] = useState<"lots" | "movements" | "restock" | "adjust">("lots");
@@ -58,6 +61,8 @@ export function InventorySection({ productId, productName, suppliers, currency, 
       const res = await getProductInventoryDataAction(productId, appliedMovementFilters);
       setLots(res.lots);
       setMovements(res.movements);
+      setMovementTotalCount(res.movementTotalCount);
+      setMovementLimitExceeded(res.movementLimitExceeded);
       setSummary(res.summary);
     } catch (e) {
       console.error(e);
@@ -70,6 +75,8 @@ export function InventorySection({ productId, productName, suppliers, currency, 
       const res = await getProductInventoryDataAction(productId, appliedMovementFilters);
       setLots(res.lots);
       setMovements(res.movements);
+      setMovementTotalCount(res.movementTotalCount);
+      setMovementLimitExceeded(res.movementLimitExceeded);
       setSummary(res.summary);
     } catch (e) {
       console.error(e);
@@ -121,6 +128,8 @@ export function InventorySection({ productId, productName, suppliers, currency, 
         setMovementErrorCode(result.errorCode);
         if (!result.error) {
           setMovements(result.movements);
+          setMovementTotalCount(result.totalCount);
+          setMovementLimitExceeded(result.limitExceeded);
           setAppliedMovementFilters({
             from: movementFrom || undefined,
             to: movementTo || undefined,
@@ -144,6 +153,8 @@ export function InventorySection({ productId, productName, suppliers, currency, 
         setMovementErrorCode(result.errorCode);
         if (!result.error) {
           setMovements(result.movements);
+          setMovementTotalCount(result.totalCount);
+          setMovementLimitExceeded(result.limitExceeded);
           setAppliedMovementFilters({});
         }
       } catch (error) {
@@ -401,7 +412,14 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                       )}
                     </form>
 
-                    {movements.length === 0 && !movementError ? (
+                    {movementLimitExceeded && !movementError ? (
+                      <p
+                        role="alert"
+                        className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+                      >
+                        {formatNumber(movementTotalCount ?? 0)} movements {movementHasRange ? "match this date range" : "exist"}. {movementHasRange ? `Narrow the range to ${formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to view complete history.` : `Select a date range that matches ${formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to view complete history.`}
+                      </p>
+                    ) : movements.length === 0 && !movementError ? (
                       <p className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
                         {movementHasRange
                           ? "No inventory movements match this date range."

@@ -4,7 +4,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
 import { listReturns } from "@/lib/data/returns";
 import { env } from "@/lib/env";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { OPERATIONAL_HISTORY_MAX_ROWS } from "@/lib/operational-history";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import {
@@ -72,8 +73,8 @@ export default async function ReturnsPage({
 
   const params = await searchParams;
   const parsedFilters = parseReturnFilterParams(params);
-  const returns = parsedFilters.error
-    ? []
+  const returnResult = parsedFilters.error
+    ? { rows: [], totalCount: null, limitExceeded: false }
     : await listReturns(profile.organization_id, {
         from: parsedFilters.from
           ? getKarachiDayStartIso(parsedFilters.from)
@@ -82,6 +83,7 @@ export default async function ReturnsPage({
           ? getKarachiDayEndIso(parsedFilters.to)
           : undefined,
       });
+  const returns = returnResult.rows;
   const currency = organization?.currency_code ?? "PKR";
 
   const sort = params.sort;
@@ -217,7 +219,19 @@ export default async function ReturnsPage({
         )}
       </section>
 
-      {parsedFilters.error ? null : returns.length === 0 ? (
+      {parsedFilters.error ? null : returnResult.limitExceeded ? (
+        <section
+          role="alert"
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-6 shadow-sm dark:border-amber-800 dark:bg-amber-950/30"
+        >
+          <h2 className="text-lg font-black text-amber-950 dark:text-amber-100">
+            This date range is too large to display safely
+          </h2>
+          <p className="mt-2 text-sm text-amber-900 dark:text-amber-200">
+            {formatNumber(returnResult.totalCount ?? 0)} returns match this date range. Narrow the range to {formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to view complete history.
+          </p>
+        </section>
+      ) : returns.length === 0 ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h2 className="text-lg font-black text-slate-950">
             {parsedFilters.hasRange ? "No returns match this date range" : "No returns yet"}

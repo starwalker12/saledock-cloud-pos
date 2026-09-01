@@ -1,5 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import {
+  OPERATIONAL_HISTORY_MAX_ROWS,
+  operationalHistoryResult,
+  type OperationalHistoryResult,
+} from "@/lib/operational-history";
 import { emptyMethodTotals, FINALIZED_INVOICE_STATUSES, type MethodTotals, type PaymentMethodKey, type ExpenseBreakdown } from "./daily-closing";
 
 export type CashShiftRow = {
@@ -73,8 +78,31 @@ export async function getShiftHistory(
   organizationId: string,
   branchId: string,
   filters: ShiftHistoryFilters = {},
-): Promise<CashShiftRow[]> {
+): Promise<OperationalHistoryResult<CashShiftRow>> {
   const supabase = await createClient();
+  const hasRange = Boolean(filters.from || filters.to);
+  let totalCount: number | null = null;
+
+  if (hasRange) {
+    let countQuery = supabase
+      .from("cash_shifts")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId);
+
+    if (filters.from) countQuery = countQuery.gte("opened_at", filters.from);
+    if (filters.to) countQuery = countQuery.lte("opened_at", filters.to);
+
+    const { count, error: countError } = await countQuery;
+    if (countError || count === null) {
+      throw new Error("Unable to count shift history.");
+    }
+    totalCount = count;
+    if (count > OPERATIONAL_HISTORY_MAX_ROWS) {
+      return operationalHistoryResult([], count);
+    }
+  }
+
   let query = supabase
     .from("cash_shifts")
     .select(
@@ -91,15 +119,16 @@ export async function getShiftHistory(
   if (filters.from) query = query.gte("opened_at", filters.from);
   if (filters.to) query = query.lte("opened_at", filters.to);
 
-  if (!filters.from && !filters.to) {
+  if (!hasRange) {
     query = query.limit(filters.limit ?? 20);
-  } else if (filters.limit) {
-    query = query.limit(filters.limit);
+  } else {
+    query = query.limit(OPERATIONAL_HISTORY_MAX_ROWS);
   }
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []).map(mapRow);
+  const rows = (data ?? []).map(mapRow);
+  return operationalHistoryResult(rows, totalCount);
 }
 
 function mapRow(data: Record<string, unknown>): CashShiftRow {

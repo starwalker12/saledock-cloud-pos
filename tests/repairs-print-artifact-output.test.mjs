@@ -310,9 +310,14 @@ test("Returns detail, mutation, and print sources remain unchanged", () => {
   const path = "src/lib/data/returns.ts";
   const current = readFileSync(path, "utf8");
   const head = sourceAtHead(path);
+  const protectedStart = "export async function listReturnableInvoiceItems";
+  const protectedEnd = "export type ReturnListFilters";
   assert.equal(
-    current.slice(0, current.indexOf("export type ReturnListFilters")),
-    head.slice(0, head.indexOf("export async function listRecentReturns")),
+    current.slice(
+      current.indexOf(protectedStart),
+      current.indexOf(protectedEnd),
+    ),
+    head.slice(head.indexOf(protectedStart), head.indexOf(protectedEnd)),
     "return processing and invoice-history reads changed outside scope",
   );
   assert.equal(

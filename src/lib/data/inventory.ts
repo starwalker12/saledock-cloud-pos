@@ -1,4 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  OPERATIONAL_HISTORY_MAX_ROWS,
+  operationalHistoryResult,
+  type OperationalHistoryResult,
+} from "@/lib/operational-history";
 
 export type StockLotRow = {
   id: string;
@@ -82,8 +87,25 @@ export async function listStockMovements(
   productId: string,
   orgId: string,
   filters: StockMovementFilters = {},
-): Promise<StockMovementRow[]> {
+): Promise<OperationalHistoryResult<StockMovementRow>> {
   const supabase = await createClient();
+  let countQuery = supabase
+    .from("stock_movements")
+    .select("id", { count: "exact", head: true })
+    .eq("product_id", productId)
+    .eq("organization_id", orgId);
+
+  if (filters.from) countQuery = countQuery.gte("created_at", filters.from);
+  if (filters.to) countQuery = countQuery.lte("created_at", filters.to);
+
+  const { count, error: countError } = await countQuery;
+  if (countError || count === null) {
+    throw new Error("Unable to count movement history.");
+  }
+  if (count > OPERATIONAL_HISTORY_MAX_ROWS) {
+    return operationalHistoryResult([], count);
+  }
+
   let query = supabase
     .from("stock_movements")
     .select(`
@@ -104,15 +126,16 @@ export async function listStockMovements(
 
   if (filters.from) query = query.gte("created_at", filters.from);
   if (filters.to) query = query.lte("created_at", filters.to);
+  query = query.limit(OPERATIONAL_HISTORY_MAX_ROWS);
 
   const { data, error } = await query;
 
   if (error) {
     console.error("Error listing stock movements:", error);
-    return [];
+    throw new Error("Unable to load movement history.");
   }
 
-  return (data || []).map((row) => {
+  const rows = (data || []).map((row) => {
     const invoices = row.invoices as unknown as { invoice_no: string | null }[] | { invoice_no: string | null } | null;
     const invoiceNo = Array.isArray(invoices)
       ? invoices[0]?.invoice_no ?? null
@@ -136,6 +159,7 @@ export async function listStockMovements(
       created_by_name: createdByName,
     };
   });
+  return operationalHistoryResult(rows, count);
 }
 
 export async function getProductStockSummary(productId: string, orgId: string) {

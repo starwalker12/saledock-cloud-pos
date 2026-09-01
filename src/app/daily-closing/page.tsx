@@ -28,6 +28,7 @@ import {
 import { getCurrentShift, getShiftHistory, getShiftActivity, getShiftStaffSummary } from "@/lib/data/shifts";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { OPERATIONAL_HISTORY_MAX_ROWS } from "@/lib/operational-history";
 import { CloseDayForm, ReopenDayForm } from "./closing-form";
 import { ClosingPrintButtons, ShiftPrintButton } from "./print-button";
 import { sortData } from "@/lib/sort";
@@ -133,11 +134,16 @@ export default async function DailyClosingPage({
   const reopener = canReopenDay(profile.role);
   const canOpen = canOpenShift(profile.role);
 
-  const [activity, closing, recent, currentShift, shiftHistory] = await Promise.all([
+  const emptyHistoryResult = {
+    rows: [],
+    totalCount: null,
+    limitExceeded: false,
+  };
+  const [activity, closing, recentResult, currentShift, shiftHistoryResult] = await Promise.all([
     getDayActivity(orgId, branchId, date),
     getClosing(orgId, branchId, date),
     historyRange.error
-      ? Promise.resolve([])
+      ? Promise.resolve(emptyHistoryResult)
       : listRecentClosings(orgId, branchId, {
           from: historyRange.from || undefined,
           to: historyRange.to || undefined,
@@ -145,7 +151,7 @@ export default async function DailyClosingPage({
         }),
     getCurrentShift(orgId, branchId),
     historyRange.error
-      ? Promise.resolve([])
+      ? Promise.resolve(emptyHistoryResult)
       : getShiftHistory(orgId, branchId, {
           from: historyRange.from
             ? getKarachiDayStartIso(historyRange.from)
@@ -156,6 +162,8 @@ export default async function DailyClosingPage({
           limit: historyRange.hasRange ? undefined : 10,
         }),
   ]);
+  const recent = recentResult.rows;
+  const shiftHistory = shiftHistoryResult.rows;
 
   const sort = params.sort;
   const dir = params.dir === "desc" ? "desc" : "asc";
@@ -625,17 +633,26 @@ export default async function DailyClosingPage({
             </p>
           </div>
         </div>
-        <ShiftHistoryTable
-          shifts={shiftHistory}
-          currency={currency}
-          emptyMessage={
-            historyRange.error
-              ? "Fix the History range to load shift history."
-              : historyRange.hasRange
-                ? "No shifts match this history range."
-                : "No shifts recorded yet."
-          }
-        />
+        {shiftHistoryResult.limitExceeded ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+          >
+            {formatNumber(shiftHistoryResult.totalCount ?? 0)} shifts opened in this history range. Narrow the range to {formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to view complete Shift History.
+          </div>
+        ) : (
+          <ShiftHistoryTable
+            shifts={shiftHistory}
+            currency={currency}
+            emptyMessage={
+              historyRange.error
+                ? "Fix the History range to load shift history."
+                : historyRange.hasRange
+                  ? "No shifts match this history range."
+                  : "No shifts recorded yet."
+            }
+          />
+        )}
       </section>
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -648,7 +665,14 @@ export default async function DailyClosingPage({
           </div>
           <CalendarCheck className="size-5 text-slate-400" />
         </div>
-        {recent.length === 0 ? (
+        {recentResult.limitExceeded ? (
+          <div
+            role="alert"
+            className="border-t border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+          >
+            {formatNumber(recentResult.totalCount ?? 0)} closings match this history range. Narrow the range to {formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to view complete closing history.
+          </div>
+        ) : recent.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
             {historyRange.error
               ? "Fix the History range to load closing history."

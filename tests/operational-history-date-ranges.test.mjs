@@ -37,9 +37,14 @@ function loadTypeScriptModule(path, mocks = {}) {
 }
 
 const datetime = loadTypeScriptModule("src/lib/datetime.ts");
+const operationalHistory = loadTypeScriptModule(
+  "src/lib/operational-history.ts",
+);
 
-function queryHarness() {
+function queryHarness({ countResults = [], dataResults = [], countErrors = [] } = {}) {
   const traces = [];
+  let countIndex = 0;
+  let dataIndex = 0;
   return {
     traces,
     client: {
@@ -49,6 +54,7 @@ function queryHarness() {
         const query = {
           select(...args) {
             trace.operations.push(["select", ...args]);
+            trace.isCount = args[1]?.count === "exact" && args[1]?.head === true;
             return query;
           },
           eq(...args) {
@@ -72,7 +78,15 @@ function queryHarness() {
             return query;
           },
           then(resolve) {
-            return Promise.resolve({ data: [], error: null }).then(resolve);
+            if (trace.isCount) {
+              const error = countErrors[countIndex] ?? null;
+              const count = countResults[countIndex] ?? 0;
+              countIndex += 1;
+              return Promise.resolve({ data: null, error, count }).then(resolve);
+            }
+            const data = dataResults[dataIndex] ?? [];
+            dataIndex += 1;
+            return Promise.resolve({ data, error: null, count: null }).then(resolve);
           },
         };
         return query;
@@ -109,30 +123,45 @@ test("Karachi history presets use exact business calendar dates", () => {
   });
 });
 
-test("Returns preserves recent 50 by default and never caps an explicit range", async () => {
-  const harness = queryHarness();
-  const returns = loadTypeScriptModule("src/lib/data/returns.ts", {
+test("Returns preserves recent 50 and count-gates an explicit range", async () => {
+  const defaultHarness = queryHarness();
+  const defaultReturns = loadTypeScriptModule("src/lib/data/returns.ts", {
     "server-only": {},
-    "@/lib/supabase/server": { createClient: async () => harness.client },
+    "@/lib/supabase/server": { createClient: async () => defaultHarness.client },
+    "@/lib/operational-history": operationalHistory,
   });
 
-  await returns.listReturns("org-a");
-  assert.deepEqual(operations(harness.traces[0], "limit"), [["limit", 50]]);
+  const defaultResult = await defaultReturns.listReturns("org-a");
+  assert.deepEqual(operations(defaultHarness.traces[0], "limit"), [["limit", 50]]);
+  assert.equal(defaultResult.totalCount, null);
 
-  await returns.listReturns("org-a", {
+  const rangeHarness = queryHarness({ countResults: [55] });
+  const rangeReturns = loadTypeScriptModule("src/lib/data/returns.ts", {
+    "server-only": {},
+    "@/lib/supabase/server": { createClient: async () => rangeHarness.client },
+    "@/lib/operational-history": operationalHistory,
+  });
+
+  const rangeResult = await rangeReturns.listReturns("org-a", {
     from: "2026-07-31T19:00:00.000Z",
     to: "2026-08-31T18:59:59.999Z",
   });
-  assert.deepEqual(operations(harness.traces[1], "limit"), []);
-  assert.deepEqual(operations(harness.traces[1], "gte"), [
-    ["gte", "created_at", "2026-07-31T19:00:00.000Z"],
-  ]);
-  assert.deepEqual(operations(harness.traces[1], "lte"), [
-    ["lte", "created_at", "2026-08-31T18:59:59.999Z"],
-  ]);
+  assert.equal(rangeResult.totalCount, 55);
+  assert.equal(rangeResult.limitExceeded, false);
+  assert.equal(rangeHarness.traces.length, 2);
+  for (const trace of rangeHarness.traces) {
+    assert.deepEqual(operations(trace, "gte"), [
+      ["gte", "created_at", "2026-07-31T19:00:00.000Z"],
+    ]);
+    assert.deepEqual(operations(trace, "lte"), [
+      ["lte", "created_at", "2026-08-31T18:59:59.999Z"],
+    ]);
+  }
+  assert.deepEqual(operations(rangeHarness.traces[0], "limit"), []);
+  assert.deepEqual(operations(rangeHarness.traces[1], "limit"), [["limit", 1000]]);
 });
 
-test("movement, closing, and shift histories filter server-side without explicit-range caps", async () => {
+test("movement, closing, and shift histories count and fetch with identical range scope", async () => {
   const cases = [
     {
       path: "src/lib/data/inventory.ts",
@@ -158,27 +187,111 @@ test("movement, closing, and shift histories filter server-side without explicit
   ];
 
   for (const entry of cases) {
-    const harness = queryHarness();
+    const harness = queryHarness({ countResults: [7] });
     const loadedModule = loadTypeScriptModule(entry.path, {
       "server-only": {},
       "@/lib/supabase/server": { createClient: async () => harness.client },
+      "@/lib/operational-history": operationalHistory,
       "@/lib/datetime": datetime,
       "./daily-closing": {
         emptyMethodTotals: () => ({}),
         FINALIZED_INVOICE_STATUSES: ["paid", "partial", "unpaid"],
       },
     });
-    await loadedModule[entry.method](...entry.args);
-    const trace = harness.traces.find(({ table }) => table === entry.table);
-    assert.ok(trace, entry.table);
-    assert.deepEqual(operations(trace, "gte"), [
-      ["gte", entry.column, entry.args.at(-1).from],
-    ]);
-    assert.deepEqual(operations(trace, "lte"), [
-      ["lte", entry.column, entry.args.at(-1).to],
-    ]);
-    assert.deepEqual(operations(trace, "limit"), []);
+    const result = await loadedModule[entry.method](...entry.args);
+    const traces = harness.traces.filter(({ table }) => table === entry.table);
+    assert.equal(traces.length, 2, entry.table);
+    for (const trace of traces) {
+      assert.deepEqual(operations(trace, "gte"), [
+        ["gte", entry.column, entry.args.at(-1).from],
+      ]);
+      assert.deepEqual(operations(trace, "lte"), [
+        ["lte", entry.column, entry.args.at(-1).to],
+      ]);
+    }
+    assert.deepEqual(operations(traces[0], "limit"), []);
+    assert.deepEqual(operations(traces[1], "limit"), [["limit", 1000]]);
+    assert.equal(result.totalCount, 7);
+    assert.equal(result.limitExceeded, false);
   }
+});
+
+test("all explicit histories fail closed after the exact count exceeds max_rows", async () => {
+  const cases = [
+    {
+      path: "src/lib/data/returns.ts",
+      method: "listReturns",
+      args: ["org-a", { from: "start", to: "end" }],
+      table: "returns",
+    },
+    {
+      path: "src/lib/data/inventory.ts",
+      method: "listStockMovements",
+      args: ["product-a", "org-a", { from: "start", to: "end" }],
+      table: "stock_movements",
+    },
+    {
+      path: "src/lib/data/daily-closing.ts",
+      method: "listRecentClosings",
+      args: ["org-a", "branch-a", { from: "2020-01-01", to: "2022-12-31" }],
+      table: "daily_closings",
+    },
+    {
+      path: "src/lib/data/shifts.ts",
+      method: "getShiftHistory",
+      args: ["org-a", "branch-a", { from: "start", to: "end" }],
+      table: "cash_shifts",
+    },
+  ];
+
+  for (const entry of cases) {
+    const harness = queryHarness({ countResults: [1001] });
+    const loadedModule = loadTypeScriptModule(entry.path, {
+      "server-only": {},
+      "@/lib/supabase/server": { createClient: async () => harness.client },
+      "@/lib/operational-history": operationalHistory,
+      "@/lib/datetime": datetime,
+      "./daily-closing": {
+        emptyMethodTotals: () => ({}),
+        FINALIZED_INVOICE_STATUSES: ["paid", "partial", "unpaid"],
+      },
+    });
+    const result = await loadedModule[entry.method](...entry.args);
+    assert.deepEqual(result.rows, []);
+    assert.equal(result.totalCount, 1001);
+    assert.equal(result.limitExceeded, true);
+    assert.equal(
+      harness.traces.filter(({ table }) => table === entry.table).length,
+      1,
+      `${entry.table} must not run a data query after overflow`,
+    );
+  }
+});
+
+test("an exact-count failure stops before the history data query", async () => {
+  const harness = queryHarness({
+    countErrors: [{ message: "synthetic count failure" }],
+  });
+  const loadedReturns = loadTypeScriptModule("src/lib/data/returns.ts", {
+    "server-only": {},
+    "@/lib/supabase/server": { createClient: async () => harness.client },
+    "@/lib/operational-history": operationalHistory,
+  });
+
+  await assert.rejects(
+    loadedReturns.listReturns("org-a", { from: "start", to: "end" }),
+    /Unable to count return history/,
+  );
+  assert.equal(harness.traces.length, 1);
+  assert.equal(harness.traces[0].isCount, true);
+});
+
+test("application history limit is locked to the current PostgREST max_rows", () => {
+  const config = source("supabase/config.toml");
+  const configured = Number(config.match(/^max_rows\s*=\s*(\d+)$/m)?.[1]);
+  assert.equal(configured, 1000);
+  assert.equal(operationalHistory.OPERATIONAL_HISTORY_MAX_ROWS, configured);
+  assert.match(source("src/lib/operational-history.ts"), /OPERATIONAL_HISTORY_MAX_ROWS = 1000/);
 });
 
 test("movement read action rejects invalid ranges before querying and preserves reader permission", async () => {
@@ -205,7 +318,7 @@ test("movement read action rejects invalid ranges before querying and preserves 
         getProductStockSummary: async () => ({ marker: "unchanged" }),
         listStockMovements: async (...args) => {
           movementCalls.push(args);
-          return [];
+          return { rows: [], totalCount: 0, limitExceeded: false };
         },
       },
       "@/lib/audit": { logAudit: () => undefined },
@@ -247,6 +360,7 @@ test("route validation is strict and Daily Closing keeps operational reads outsi
     "@/components/ui/stat-card": { StatCard: () => null },
     "@/lib/auth/session": { getCurrentContext: async () => ({}) },
     "@/lib/datetime": datetime,
+    "@/lib/operational-history": operationalHistory,
     "@/lib/env": { env: { isSupabaseConfigured: true } },
     "@/lib/formatters": { formatCurrency: String, formatNumber: String },
     "@/lib/sort": { sortData: (rows) => rows },
@@ -312,11 +426,11 @@ test("route validation is strict and Daily Closing keeps operational reads outsi
   assert.match(dailySource, /getCurrentShift\(orgId, branchId\)/);
   assert.match(
     dailySource,
-    /historyRange\.error\s*\? Promise\.resolve\(\[\]\)\s*:\s*listRecentClosings/,
+    /historyRange\.error\s*\? Promise\.resolve\(emptyHistoryResult\)\s*:\s*listRecentClosings/,
   );
   assert.match(
     dailySource,
-    /historyRange\.error\s*\? Promise\.resolve\(\[\]\)\s*:\s*getShiftHistory/,
+    /historyRange\.error\s*\? Promise\.resolve\(emptyHistoryResult\)\s*:\s*getShiftHistory/,
   );
 });
 
@@ -332,6 +446,7 @@ test("new controls retain accessible errors, range-only reset, and isolated hist
     assert.match(page, />\s*Reset\s*</);
   }
   assert.match(returnsPage, /No returns match this date range/);
+  assert.match(returnsPage, /This date range is too large to display safely/);
   assert.match(inventorySection, /getProductStockMovementsAction/);
   assert.match(
     inventorySection,
@@ -344,4 +459,6 @@ test("new controls retain accessible errors, range-only reset, and isolated hist
     /Selected Closing Date and Active Shift stay unchanged/,
   );
   assert.match(dailyPage, /new URLSearchParams\(\{ date \}\)/);
+  assert.match(dailyPage, /shifts opened in this history range/);
+  assert.match(dailyPage, /closings match this history range/);
 });
