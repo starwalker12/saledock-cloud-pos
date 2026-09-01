@@ -103,3 +103,58 @@ remain paused. The active-workspace feature remains closed and unchanged.
 
 Accepted evidence is stored outside Git at
 `/Users/sw12/Projects/saledock-local-evidence/date-range-validation-timezone-hardening`.
+
+## Production Verification
+
+PR #358 was independently reviewed at
+`cc05bc9ff909a9bc417ea33fc3b131fd9674c8e5` and squash-merged at
+`2026-09-01T00:35:25Z` as
+`994b649d5a885c4c4e4ffd62483e73aac26b298a`. Main CI run `33455363970`
+passed, and Vercel production deployment
+`dpl_EqgpHSFkCQqD2PsFhs3N6F7NU1yK` became Ready for that exact source at
+`2026-09-01T00:36:40.042Z`.
+
+Authenticated read-only production verification under the approved Owner
+session confirmed:
+
+- impossible dates such as `2026-02-31` and reversed ranges fail closed with
+  visible inline alerts and without list queries, propagated sort links, page
+  crashes, or broad fallback data;
+- `2026-09-01` retains the exact Karachi boundary
+  `2026-08-31T19:00:00.000Z` through `2026-09-01T18:59:59.999Z`;
+- Invoices preserve valid search, payment, status, date, and sort parameters,
+  reject invalid ranges, and render timestamps in Karachi;
+- Repairs preserve Intake Date filtering, reject invalid ranges, and reconcile
+  `Delivered (this month)` exactly to the production Karachi-month query (`0`);
+- Expenses preserve search, category, payment, archived, date, and sort
+  parameters, reject invalid ranges and enums, and label the fixed summary
+  `Latest this month`;
+- Reports render all six presets, visibly fall back to This Month for invalid
+  preset/custom input, preserve financial formulas, and distinguish current
+  snapshot summaries from the selected report range;
+- Supplier Purchases preserve valid supplier, status, search, date, and sort
+  parameters, reject invalid ranges and enums, reconcile `Purchases this month`
+  exactly to the production Karachi-month query (`PKR 0`), and display SQL
+  `DATE` values as their literal stored calendar day without timezone shift;
+- responsive checks at 320x568, 390x844, and 430x932 kept date controls and
+  actions reachable without horizontal overflow; validation alerts and
+  `aria-invalid` remained accessible;
+- the persistent authenticated shell, Sidebar width/state, route loading, and
+  active-workspace behavior remained stable;
+- opening and closing signatures for 32 protected production relations were
+  exactly equal. Production business-data mutations were zero.
+
+The production browser invoked the report print control, but the system print
+preview could not be retained through the browser tooling. No artifact was
+saved or exported. The sealed exact-head local full-document, pagination, and
+no-application-chrome print proof remains the accepted print evidence.
+
+Production verification evidence is sealed outside Git at
+`/Users/sw12/Projects/saledock-local-evidence/date-range-validation-timezone-production-verification`.
+Its 20-entry manifest verifies successfully; the manifest file SHA-256 is
+`4255a6d645db2e15bd10f83e7ddb0f6bf2f992f9800b92294333c6722abe5fb9`.
+
+Batch 1 is production verified. Batch 2 remains pending. Supplier/customer
+opening- and closing-balance accounting remains deferred for review-first work;
+Audit Log date work is deferred; Cashier/security work remains paused. The
+active-workspace feature remains closed and unchanged.
