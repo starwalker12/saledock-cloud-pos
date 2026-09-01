@@ -10,6 +10,11 @@ import { stockLotSchema, stockAdjustmentSchema } from "@/lib/validation/inventor
 import { listStockLots, listStockMovements, getProductStockSummary } from "@/lib/data/inventory";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
+import {
+  getKarachiDayEndIso,
+  getKarachiDayStartIso,
+  validateDateRange,
+} from "@/lib/datetime";
 
 export type ActionState = { error: string | null; success: string | null };
 const ok = (msg: string): ActionState => ({ error: null, success: msg });
@@ -33,6 +38,39 @@ function flatten(error: z.ZodError): string {
 
 function fd(formData: FormData) {
   return Object.fromEntries(formData.entries());
+}
+
+export type MovementFilterInput = {
+  from?: string;
+  to?: string;
+};
+
+async function requireInventoryReader() {
+  const ctx = await getCurrentContext();
+  if (!ctx.user || !ctx.profile?.organization_id) {
+    throw new Error("Unauthorized");
+  }
+  if (!(await canManageStockNew(ctx.profile))) {
+    logAudit({ module: "inventory", action: "permission.denied", details: "Attempted to view inventory data without permission" });
+    throw new Error("You do not have permission to view inventory data.");
+  }
+  return ctx.profile.organization_id;
+}
+
+function parseMovementFilters(filters: MovementFilterInput) {
+  const range = validateDateRange({
+    from: filters.from ?? "",
+    to: filters.to ?? "",
+  });
+  return {
+    ...range,
+    query: range.error
+      ? {}
+      : {
+          from: range.from ? getKarachiDayStartIso(range.from) : undefined,
+          to: range.to ? getKarachiDayEndIso(range.to) : undefined,
+        },
+  };
 }
 
 export async function addStockLotAction(
@@ -130,19 +168,37 @@ export async function recordStockAdjustmentAction(
   return ok(`Stock adjustment '${parsed.data.adjustment_type.toUpperCase()}' completed successfully.`);
 }
 
-export async function getProductInventoryDataAction(productId: string) {
-  const ctx = await getCurrentContext();
-  if (!ctx.user || !ctx.profile?.organization_id) {
-    throw new Error("Unauthorized");
-  }
-  if (!(await canManageStockNew(ctx.profile))) {
-    logAudit({ module: "inventory", action: "permission.denied", details: "Attempted to view inventory data without permission" });
-    throw new Error("You do not have permission to view inventory data.");
-  }
-  const orgId = ctx.profile.organization_id;
-  const lots = await listStockLots(productId, orgId);
-  const movements = await listStockMovements(productId, orgId);
-  const summary = await getProductStockSummary(productId, orgId);
+export async function getProductInventoryDataAction(
+  productId: string,
+  movementFilters: MovementFilterInput = {},
+) {
+  const orgId = await requireInventoryReader();
+  const parsed = parseMovementFilters(movementFilters);
+  if (parsed.error) throw new Error(parsed.error);
+  const [lots, movements, summary] = await Promise.all([
+    listStockLots(productId, orgId),
+    listStockMovements(productId, orgId, parsed.query),
+    getProductStockSummary(productId, orgId),
+  ]);
   return { lots, movements, summary };
 }
 
+export async function getProductStockMovementsAction(
+  productId: string,
+  movementFilters: MovementFilterInput = {},
+) {
+  const orgId = await requireInventoryReader();
+  const parsed = parseMovementFilters(movementFilters);
+  if (parsed.error) {
+    return {
+      movements: [],
+      error: parsed.error,
+      errorCode: parsed.errorCode,
+    };
+  }
+  return {
+    movements: await listStockMovements(productId, orgId, parsed.query),
+    error: null,
+    errorCode: null,
+  };
+}

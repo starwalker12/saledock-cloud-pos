@@ -157,12 +157,18 @@ export async function listReturnsForInvoice(
   });
 }
 
-export async function listRecentReturns(
+export type ReturnListFilters = {
+  from?: string;
+  to?: string;
+  limit?: number;
+};
+
+export async function listReturns(
   organizationId: string,
-  limit = 50,
+  filters: ReturnListFilters = {},
 ): Promise<ReturnListRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("returns")
     .select(
       `id, return_no, created_at, status, subtotal, refund_amount, refund_method, invoice_id,
@@ -170,8 +176,20 @@ export async function listRecentReturns(
        customers(name)`,
     )
     .eq("organization_id", organizationId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
+
+  if (filters.from) query = query.gte("created_at", filters.from);
+  if (filters.to) query = query.lte("created_at", filters.to);
+
+  // Preserve the bounded recent-history default, but never silently truncate an
+  // explicit history range with the old 50-row cap.
+  if (!filters.from && !filters.to) {
+    query = query.limit(filters.limit ?? 50);
+  } else if (filters.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -303,4 +321,3 @@ export async function getReturnDetail(
     })),
   };
 }
-

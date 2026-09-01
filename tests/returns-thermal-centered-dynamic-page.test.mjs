@@ -246,12 +246,25 @@ test("AppShell retains the full-document print boundary", () => {
   assert.match(appShell, /print:block print:h-auto print:min-h-0 print:max-h-none print:flex-none print:overflow-visible/);
 });
 
-test("Returns data and page and Reports print control remain at HEAD", () => {
+test("Returns detail data and page and Reports print control remain at HEAD", () => {
   for (const path of [
     "src/app/returns/[id]/page.tsx",
-    "src/lib/data/returns.ts",
     "src/app/reports/print-button.tsx",
   ]) {
     assert.equal(readFileSync(path, "utf8"), sourceAtHead(path), `${path}: changed outside scope`);
   }
+
+  const path = "src/lib/data/returns.ts";
+  const current = readFileSync(path, "utf8");
+  const head = sourceAtHead(path);
+  assert.equal(
+    current.slice(0, current.indexOf("export type ReturnListFilters")),
+    head.slice(0, head.indexOf("export async function listRecentReturns")),
+    `${path}: return processing and invoice history changed outside scope`,
+  );
+  assert.equal(
+    current.slice(current.indexOf("export type ReturnDetail")).trimEnd(),
+    head.slice(head.indexOf("export type ReturnDetail")).trimEnd(),
+    `${path}: return detail changed outside scope`,
+  );
 });

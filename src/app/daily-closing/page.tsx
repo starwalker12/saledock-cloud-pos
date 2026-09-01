@@ -39,15 +39,35 @@ import {
   ShiftStaffSummary,
   ShiftPrintSection,
 } from "./shift-ui";
+import {
+  formatCalendarDate,
+  formatKarachiTimestamp,
+  getKarachiDayEndIso,
+  getKarachiDayStartIso,
+  getKarachiHistoryPresetRange,
+  isValidCalendarDate,
+  type KarachiHistoryPreset,
+  validateDateRange,
+} from "@/lib/datetime";
 
 type SearchParams = {
   date?: string;
+  history_from?: string;
+  history_to?: string;
   sort?: string;
   dir?: string;
 };
 
+const HISTORY_PRESETS: Array<{ label: string; value: KarachiHistoryPreset }> = [
+  { label: "Today", value: "today" },
+  { label: "Yesterday", value: "yesterday" },
+  { label: "This week", value: "this_week" },
+  { label: "This month", value: "this_month" },
+  { label: "Last month", value: "last_month" },
+];
+
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString("en-PK", {
+  return formatKarachiTimestamp(iso, {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -57,7 +77,7 @@ function fmtDate(iso: string) {
 }
 
 function fmtDay(d: string) {
-  return new Date(`${d}T00:00:00`).toLocaleDateString("en-PK", {
+  return formatCalendarDate(d, {
     year: "numeric",
     month: "long",
     day: "2-digit",
@@ -66,8 +86,21 @@ function fmtDay(d: string) {
 }
 
 function isoToInput(d: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  if (isValidCalendarDate(d)) return d;
   return todayLocalDate();
+}
+
+export function parseDailyClosingHistoryParams(params: SearchParams) {
+  const range = validateDateRange({
+    from: params.history_from ?? "",
+    to: params.history_to ?? "",
+    fromLabel: "History From",
+    toLabel: "History To",
+  });
+  return {
+    ...range,
+    hasRange: Boolean(range.from || range.to),
+  };
 }
 
 export default async function DailyClosingPage({
@@ -92,6 +125,7 @@ export default async function DailyClosingPage({
 
   const params = await searchParams;
   const date = isoToInput(params.date ?? todayLocalDate());
+  const historyRange = parseDailyClosingHistoryParams(params);
   const orgId = profile.organization_id;
   const branchId = profile.branch_id;
   const currency = organization?.currency_code ?? "PKR";
@@ -102,13 +136,57 @@ export default async function DailyClosingPage({
   const [activity, closing, recent, currentShift, shiftHistory] = await Promise.all([
     getDayActivity(orgId, branchId, date),
     getClosing(orgId, branchId, date),
-    listRecentClosings(orgId, branchId, 14),
+    historyRange.error
+      ? Promise.resolve([])
+      : listRecentClosings(orgId, branchId, {
+          from: historyRange.from || undefined,
+          to: historyRange.to || undefined,
+          limit: historyRange.hasRange ? undefined : 14,
+        }),
     getCurrentShift(orgId, branchId),
-    getShiftHistory(orgId, branchId, 10),
+    historyRange.error
+      ? Promise.resolve([])
+      : getShiftHistory(orgId, branchId, {
+          from: historyRange.from
+            ? getKarachiDayStartIso(historyRange.from)
+            : undefined,
+          to: historyRange.to
+            ? getKarachiDayEndIso(historyRange.to)
+            : undefined,
+          limit: historyRange.hasRange ? undefined : 10,
+        }),
   ]);
 
   const sort = params.sort;
   const dir = params.dir === "desc" ? "desc" : "asc";
+  const sortableParams = {
+    date,
+    history_from: historyRange.error ? "" : historyRange.from,
+    history_to: historyRange.error ? "" : historyRange.to,
+    sort,
+    dir: params.dir,
+  };
+
+  function pageHref(next: {
+    date?: string;
+    historyFrom?: string;
+    historyTo?: string;
+  }) {
+    const query = new URLSearchParams();
+    query.set("date", next.date ?? date);
+    const from = next.historyFrom ?? historyRange.from;
+    const to = next.historyTo ?? historyRange.to;
+    if (from) query.set("history_from", from);
+    if (to) query.set("history_to", to);
+    if (sort) query.set("sort", sort);
+    if (params.dir) query.set("dir", params.dir);
+    return `/daily-closing?${query.toString()}`;
+  }
+
+  const resetHistoryQuery = new URLSearchParams({ date });
+  if (sort) resetHistoryQuery.set("sort", sort);
+  if (params.dir) resetHistoryQuery.set("dir", params.dir);
+  const resetHistoryHref = `/daily-closing?${resetHistoryQuery.toString()}`;
 
   const sortedRecent = sortData(recent, sort || "closing_date", sort ? dir : "desc", {
     closing_date: "date",
@@ -170,6 +248,14 @@ export default async function DailyClosingPage({
         action="/daily-closing"
         className="mb-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
       >
+        {historyRange.from && (
+          <input type="hidden" name="history_from" value={historyRange.from} />
+        )}
+        {historyRange.to && (
+          <input type="hidden" name="history_to" value={historyRange.to} />
+        )}
+        {sort && <input type="hidden" name="sort" value={sort} />}
+        {params.dir && <input type="hidden" name="dir" value={params.dir} />}
         <div className="grid gap-3 min-[380px]:grid-cols-[1fr_auto_auto] min-[380px]:items-end">
           <label className="block min-w-0">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -190,7 +276,7 @@ export default async function DailyClosingPage({
             Load
           </button>
           {!isToday && (
-            <Link href="/daily-closing" className="pb-2 text-xs font-semibold text-slate-600 underline">
+            <Link href={pageHref({ date: todayLocalDate() })} className="pb-2 text-xs font-semibold text-slate-600 underline">
               Today
             </Link>
           )}
@@ -233,7 +319,10 @@ export default async function DailyClosingPage({
       </div>
 
       {/* ── Shift Card ──────────────────────────────────────────────────── */}
-      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section
+        data-testid="active-shift-section"
+        className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      >
         <div className="mb-4 flex items-center gap-2">
           <Clock className="size-5 text-slate-400" />
           <h2 className="text-base font-black text-slate-950">
@@ -262,7 +351,10 @@ export default async function DailyClosingPage({
       </section>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-3">
+      <div
+        data-testid="selected-day-summary"
+        className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-3"
+      >
         <div className="col-span-1">
           <StatCard
             label="Gross sales"
@@ -435,38 +527,148 @@ export default async function DailyClosingPage({
         </div>
       )}
 
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div>
+          <h2 className="text-sm font-black text-slate-950 dark:text-slate-100">
+            History range
+          </h2>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Filters Recent closings by closing date and Shift History by shift opened date. Selected Closing Date and Active Shift stay unchanged.
+          </p>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {HISTORY_PRESETS.map((preset) => {
+            const range = getKarachiHistoryPresetRange(preset.value);
+            const active =
+              historyRange.from === range.from && historyRange.to === range.to;
+            return (
+              <Link
+                key={preset.value}
+                href={pageHref({ historyFrom: range.from, historyTo: range.to })}
+                className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                  active
+                    ? "border-blue-700 bg-blue-700 text-white"
+                    : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                }`}
+              >
+                {preset.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        <form
+          method="get"
+          action="/daily-closing"
+          className="mt-3 grid gap-3 min-[380px]:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] lg:items-end"
+        >
+          <input type="hidden" name="date" value={date} />
+          {sort && <input type="hidden" name="sort" value={sort} />}
+          {params.dir && <input type="hidden" name="dir" value={params.dir} />}
+          <label className="block min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              From
+            </span>
+            <input
+              type="date"
+              name="history_from"
+              defaultValue={historyRange.from}
+              aria-invalid={historyRange.errorCode === "invalid_from" || historyRange.errorCode === "reversed"}
+              className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <label className="block min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              To
+            </span>
+            <input
+              type="date"
+              name="history_to"
+              defaultValue={historyRange.to}
+              aria-invalid={historyRange.errorCode === "invalid_to" || historyRange.errorCode === "reversed"}
+              className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <button
+            type="submit"
+            className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+          >
+            Apply
+          </button>
+          <Link
+            href={resetHistoryHref}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Reset
+          </Link>
+        </form>
+
+        {historyRange.error && (
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+          >
+            {historyRange.error} Selected-day and Active Shift information remain available.
+          </p>
+        )}
+      </section>
+
       {/* Shift history */}
       <section className="mt-6">
         <div className="mb-3 flex items-center gap-2">
           <Clock className="size-5 text-slate-400" />
-          <h2 className="text-base font-black text-slate-950">Shift History</h2>
+          <div>
+            <h2 className="text-base font-black text-slate-950">Shift History</h2>
+            <p className="text-xs text-slate-500">
+              {historyRange.hasRange ? "Shifts opened in the selected history range." : "10 most recent shifts."}
+            </p>
+          </div>
         </div>
-        <ShiftHistoryTable shifts={shiftHistory} currency={currency} />
+        <ShiftHistoryTable
+          shifts={shiftHistory}
+          currency={currency}
+          emptyMessage={
+            historyRange.error
+              ? "Fix the History range to load shift history."
+              : historyRange.hasRange
+                ? "No shifts match this history range."
+                : "No shifts recorded yet."
+          }
+        />
       </section>
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h2 className="text-base font-black text-slate-950">Recent closings</h2>
-            <p className="text-xs text-slate-500">Last 14 days. Click a row to load it.</p>
+            <p className="text-xs text-slate-500">
+              {historyRange.hasRange ? "Selected closing-date range. Click a row to load it." : "14 most recent closings. Click a row to load it."}
+            </p>
           </div>
           <CalendarCheck className="size-5 text-slate-400" />
         </div>
         {recent.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-500">No closings recorded yet.</div>
+          <div className="p-8 text-center text-sm text-slate-500">
+            {historyRange.error
+              ? "Fix the History range to load closing history."
+              : historyRange.hasRange
+                ? "No closings match this history range."
+                : "No closings recorded yet."}
+          </div>
         ) : (
           <>
           <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <SortableHeader label="Date" columnKey="closing_date" currentSortKey={sort} direction={dir} currentParams={params} />
-                  <SortableHeader label="Status" columnKey="is_closed" currentSortKey={sort} direction={dir} currentParams={params} />
-                  <SortableHeader label="Bills" columnKey="bills_count" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                  <SortableHeader label="Cash sales" columnKey="cash_sales" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                  <SortableHeader label="Expected" columnKey="expected_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                  <SortableHeader label="Counted" columnKey="actual_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
-                  <SortableHeader label="Difference" columnKey="cash_difference" align="right" currentSortKey={sort} direction={dir} currentParams={params} />
+                  <SortableHeader label="Date" columnKey="closing_date" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
+                  <SortableHeader label="Status" columnKey="is_closed" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
+                  <SortableHeader label="Bills" columnKey="bills_count" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
+                  <SortableHeader label="Cash sales" columnKey="cash_sales" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
+                  <SortableHeader label="Expected" columnKey="expected_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
+                  <SortableHeader label="Counted" columnKey="actual_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
+                  <SortableHeader label="Difference" columnKey="cash_difference" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -504,7 +706,7 @@ export default async function DailyClosingPage({
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/daily-closing?date=${r.closing_date}`}
+                        href={pageHref({ date: r.closing_date })}
                         className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         Open
@@ -561,7 +763,7 @@ export default async function DailyClosingPage({
                     Diff: {formatCurrency(r.cash_difference, currency)}
                   </span>
                   <Link
-                    href={`/daily-closing?date=${r.closing_date}`}
+                    href={pageHref({ date: r.closing_date })}
                     className="rounded-md border border-slate-200 dark:border-slate-700 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-305 hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     Open

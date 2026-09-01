@@ -40,6 +40,12 @@ export type ShiftActivity = {
   creditWriteOffs: number;
 };
 
+export type ShiftHistoryFilters = {
+  from?: string;
+  to?: string;
+  limit?: number;
+};
+
 export async function getCurrentShift(
   organizationId: string,
   branchId: string,
@@ -66,10 +72,10 @@ export async function getCurrentShift(
 export async function getShiftHistory(
   organizationId: string,
   branchId: string,
-  limit = 20,
+  filters: ShiftHistoryFilters = {},
 ): Promise<CashShiftRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("cash_shifts")
     .select(
       `id, organization_id, branch_id, opened_at, closed_at, opened_by, closed_by,
@@ -80,8 +86,18 @@ export async function getShiftHistory(
     )
     .eq("organization_id", organizationId)
     .eq("branch_id", branchId)
-    .order("opened_at", { ascending: false })
-    .limit(limit);
+    .order("opened_at", { ascending: false });
+
+  if (filters.from) query = query.gte("opened_at", filters.from);
+  if (filters.to) query = query.lte("opened_at", filters.to);
+
+  if (!filters.from && !filters.to) {
+    query = query.limit(filters.limit ?? 20);
+  } else if (filters.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapRow);
 }

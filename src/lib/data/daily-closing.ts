@@ -318,13 +318,19 @@ export type RecentClosing = {
   finalized_by_name: string | null;
 };
 
+export type ClosingHistoryFilters = {
+  from?: string;
+  to?: string;
+  limit?: number;
+};
+
 export async function listRecentClosings(
   organizationId: string,
   branchId: string,
-  limit = 14,
+  filters: ClosingHistoryFilters = {},
 ): Promise<RecentClosing[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("daily_closings")
     .select(
       `id, closing_date, bills_count, cash_sales, expected_closing_cash, actual_closing_cash,
@@ -333,8 +339,18 @@ export async function listRecentClosings(
     )
     .eq("organization_id", organizationId)
     .eq("branch_id", branchId)
-    .order("closing_date", { ascending: false })
-    .limit(limit);
+    .order("closing_date", { ascending: false });
+
+  if (filters.from) query = query.gte("closing_date", filters.from);
+  if (filters.to) query = query.lte("closing_date", filters.to);
+
+  if (!filters.from && !filters.to) {
+    query = query.limit(filters.limit ?? 14);
+  } else if (filters.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => {
     const profs = r.profiles as { full_name?: string } | { full_name?: string }[] | null;

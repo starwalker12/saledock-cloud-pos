@@ -73,9 +73,18 @@ export async function listStockLots(productId: string, orgId: string): Promise<S
   });
 }
 
-export async function listStockMovements(productId: string, orgId: string): Promise<StockMovementRow[]> {
+export type StockMovementFilters = {
+  from?: string;
+  to?: string;
+};
+
+export async function listStockMovements(
+  productId: string,
+  orgId: string,
+  filters: StockMovementFilters = {},
+): Promise<StockMovementRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("stock_movements")
     .select(`
       id,
@@ -92,6 +101,11 @@ export async function listStockMovements(productId: string, orgId: string): Prom
     .eq("product_id", productId)
     .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
+
+  if (filters.from) query = query.gte("created_at", filters.from);
+  if (filters.to) query = query.lte("created_at", filters.to);
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error listing stock movements:", error);
