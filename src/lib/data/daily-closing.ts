@@ -1,5 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import {
+  OPERATIONAL_HISTORY_MAX_ROWS,
+  operationalHistoryResult,
+  type OperationalHistoryResult,
+} from "@/lib/operational-history";
 import type { InvoiceStatus } from "@/lib/types";
 import { getKarachiDayRange, getKarachiTodayDateString } from "@/lib/datetime";
 
@@ -318,13 +323,42 @@ export type RecentClosing = {
   finalized_by_name: string | null;
 };
 
+export type ClosingHistoryFilters = {
+  from?: string;
+  to?: string;
+  limit?: number;
+};
+
 export async function listRecentClosings(
   organizationId: string,
   branchId: string,
-  limit = 14,
-): Promise<RecentClosing[]> {
+  filters: ClosingHistoryFilters = {},
+): Promise<OperationalHistoryResult<RecentClosing>> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const hasRange = Boolean(filters.from || filters.to);
+  let totalCount: number | null = null;
+
+  if (hasRange) {
+    let countQuery = supabase
+      .from("daily_closings")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId);
+
+    if (filters.from) countQuery = countQuery.gte("closing_date", filters.from);
+    if (filters.to) countQuery = countQuery.lte("closing_date", filters.to);
+
+    const { count, error: countError } = await countQuery;
+    if (countError || count === null) {
+      throw new Error("Unable to count closing history.");
+    }
+    totalCount = count;
+    if (count > OPERATIONAL_HISTORY_MAX_ROWS) {
+      return operationalHistoryResult([], count);
+    }
+  }
+
+  let query = supabase
     .from("daily_closings")
     .select(
       `id, closing_date, bills_count, cash_sales, expected_closing_cash, actual_closing_cash,
@@ -333,10 +367,20 @@ export async function listRecentClosings(
     )
     .eq("organization_id", organizationId)
     .eq("branch_id", branchId)
-    .order("closing_date", { ascending: false })
-    .limit(limit);
+    .order("closing_date", { ascending: false });
+
+  if (filters.from) query = query.gte("closing_date", filters.from);
+  if (filters.to) query = query.lte("closing_date", filters.to);
+
+  if (!hasRange) {
+    query = query.limit(filters.limit ?? 14);
+  } else {
+    query = query.limit(OPERATIONAL_HISTORY_MAX_ROWS);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => {
+  const rows = (data ?? []).map((r) => {
     const profs = r.profiles as { full_name?: string } | { full_name?: string }[] | null;
     const name = Array.isArray(profs) ? profs[0]?.full_name ?? null : profs?.full_name ?? null;
     return {
@@ -352,6 +396,7 @@ export async function listRecentClosings(
       finalized_by_name: name,
     } satisfies RecentClosing;
   });
+  return operationalHistoryResult(rows, totalCount);
 }
 
 export function todayLocalDate(): string {

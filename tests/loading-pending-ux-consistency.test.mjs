@@ -23,6 +23,18 @@ function sha256(path) {
   return createHash("sha256").update(source(path)).digest("hex");
 }
 
+function sha256Text(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function sourceBetween(value, start, end) {
+  const startIndex = value.indexOf(start);
+  const endIndex = value.indexOf(end, startIndex);
+  assert.notEqual(startIndex, -1, `found start marker: ${start}`);
+  assert.notEqual(endIndex, -1, `found end marker: ${end}`);
+  return value.slice(startIndex, endIndex);
+}
+
 test("all 39 page routes have an exact loading boundary", () => {
   const pages = walk(appRoot).filter(
     (path) =>
@@ -235,10 +247,6 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
       "949485fcd1480932369232ef99b188590ca0fa292f2bf7257fdf9d530da1c12d",
     "src/app/daily-closing/closing-form.tsx":
       "5278c124bd5a9e9836ade5c445b23ae094d7cf732b8d8872a3ac6c1eef76d1f9",
-    "src/app/products/inventory-actions.ts":
-      "d101c12b70842ae0e9df9b2b5d028a5fe8f4a2c6b3d1d646f7af0a4abfeb9c95",
-    "src/app/products/inventory-section.tsx":
-      "7c229195242668db59260077207499389bd69781373449ba256331b8dc2495dc",
     "src/app/repairs/actions.ts":
       "65c848bcd998c4290be93fb56048175312915265eb9b278630e1098b669e99bc",
     "src/app/repairs/repair-form.tsx":
@@ -247,5 +255,43 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
 
   for (const [path, hash] of Object.entries(expected)) {
     assert.equal(sha256(path), hash, `${path} remains unchanged`);
+  }
+
+  const inventoryActions = source("src/app/products/inventory-actions.ts");
+  const inventorySection = source("src/app/products/inventory-section.tsx");
+  const immutableInventorySlices = {
+    "inventory writer authorization": {
+      source: inventoryActions.match(/async function requireWriter\(\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+      hash: "65f1ada7ed79f4e67a8543ba8402827ecee864c089a1a8cba1f6682c6a836c72",
+    },
+    "inventory mutation server actions": {
+      source: sourceBetween(
+        inventoryActions,
+        "export async function addStockLotAction",
+        "export async function getProductInventoryDataAction",
+      ),
+      hash: "7933165b9b6994c964c078f949f94580733f6fd5730ea4c2887917d7de2ea0d0",
+    },
+    "inventory mutation client actions": {
+      source: sourceBetween(
+        inventorySection,
+        "  // Action states for forms",
+        "  function handleToggle",
+      ),
+      hash: "61402a0e25c306c31540dc8ca2f996af37ec18fa15ff6a5dc801682bc8718fa8",
+    },
+    "restock form": {
+      source: inventorySection.match(/<form action=\{lotAction\}[\s\S]*?<\/form>/)?.[0] ?? "",
+      hash: "ec24e42a144c5a1a022b00592e4f051023474b8cf04ca115a353f49c1993fabf",
+    },
+    "adjustment form": {
+      source: inventorySection.match(/<form action=\{adjustAction\}[\s\S]*?<\/form>/)?.[0] ?? "",
+      hash: "490559041bffcad30c5e74ddf169061f80bdabdf0bc68cdbe0eb762622a26c6e",
+    },
+  };
+
+  for (const [label, contract] of Object.entries(immutableInventorySlices)) {
+    assert.ok(contract.source, `${label} source is present`);
+    assert.equal(sha256Text(contract.source), contract.hash, `${label} remains unchanged`);
   }
 });

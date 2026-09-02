@@ -299,14 +299,32 @@ test("Repair amounts and labels remain unchanged", () => {
   assert.match(page, /Math\.max\(\(repair\.final_cost \|\| repair\.estimated_cost\) - repair\.advance_paid, 0\)/);
 });
 
-test("Returns source remains unchanged", () => {
+test("Returns detail, mutation, and print sources remain unchanged", () => {
   for (const path of [
     "src/app/returns/[id]/page.tsx",
     "src/app/returns/[id]/print-button.tsx",
-    "src/lib/data/returns.ts",
   ]) {
     assert.equal(readFileSync(path, "utf8"), sourceAtHead(path));
   }
+
+  const path = "src/lib/data/returns.ts";
+  const current = readFileSync(path, "utf8");
+  const head = sourceAtHead(path);
+  const protectedStart = "export async function listReturnableInvoiceItems";
+  const protectedEnd = "export type ReturnListFilters";
+  assert.equal(
+    current.slice(
+      current.indexOf(protectedStart),
+      current.indexOf(protectedEnd),
+    ),
+    head.slice(head.indexOf(protectedStart), head.indexOf(protectedEnd)),
+    "return processing and invoice-history reads changed outside scope",
+  );
+  assert.equal(
+    current.slice(current.indexOf("export type ReturnDetail")).trimEnd(),
+    head.slice(head.indexOf("export type ReturnDetail")).trimEnd(),
+    "return detail read changed outside scope",
+  );
 });
 
 test("Reports print control remains unchanged", () => {

@@ -232,6 +232,39 @@ export function getKarachiWeekday(dateStr: string): number {
   return new Date(`${dateStr}T12:00:00.000${KARACHI_UTC_OFFSET}`).getUTCDay();
 }
 
+export type KarachiHistoryPreset =
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "this_month"
+  | "last_month";
+
+/** Calendar dates for compact operational-history presets in Asia/Karachi. */
+export function getKarachiHistoryPresetRange(
+  preset: KarachiHistoryPreset,
+  now: Date = new Date(),
+): { from: string; to: string } {
+  const today = getKarachiTodayDateString(now);
+  if (preset === "today") return { from: today, to: today };
+  if (preset === "yesterday") {
+    const yesterday = addKarachiDays(today, -1);
+    return { from: yesterday, to: yesterday };
+  }
+  if (preset === "this_week") {
+    const sinceMonday = (getKarachiWeekday(today) + 6) % 7;
+    return { from: addKarachiDays(today, -sinceMonday), to: today };
+  }
+  if (preset === "this_month") {
+    return { from: getKarachiMonthStartDate(today), to: today };
+  }
+
+  const previousMonthEnd = addKarachiDays(getKarachiMonthStartDate(today), -1);
+  return {
+    from: getKarachiMonthStartDate(previousMonthEnd),
+    to: previousMonthEnd,
+  };
+}
+
 /** Format a business timestamp explicitly in Asia/Karachi. */
 export function formatKarachiTimestamp(
   value: string | Date,

@@ -313,6 +313,14 @@ async function cleanupFixture(input: {
     if (error) throw new Error(`Return cleanup failed: ${error.message}`);
   }
   if (invoiceId) {
+    const { error: returnError } = await admin
+      .from("returns")
+      .delete()
+      .eq("organization_id", LOCAL_QA_ORG_ID)
+      .eq("invoice_id", invoiceId);
+    if (returnError) {
+      throw new Error(`Invoice return cleanup failed: ${returnError.message}`);
+    }
     const { error } = await admin
       .from("invoices")
       .delete()

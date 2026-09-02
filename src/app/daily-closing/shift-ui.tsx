@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { openShiftAction, closeShiftAction, type ShiftActionState } from "./shift-actions";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { formatKarachiTimestamp } from "@/lib/datetime";
 
 // ── Types & constants replicated for client-side safety (no "server-only" deps) ─
 
@@ -86,7 +87,7 @@ export type StaffActivity = {
 const initial: ShiftActionState = { error: null, success: null };
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleString("en-PK", {
+  return formatKarachiTimestamp(iso, {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -370,9 +371,11 @@ function SortableHeader({
 export function ShiftHistoryTable({
   shifts,
   currency,
+  emptyMessage = "No shifts recorded yet.",
 }: {
   shifts: CashShiftRow[];
   currency: string;
+  emptyMessage?: string;
 }) {
   const fmt = (n: number) => formatCurrency(n, currency);
 
@@ -419,7 +422,7 @@ export function ShiftHistoryTable({
   if (shifts.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 p-8 text-center text-sm text-slate-500 dark:text-slate-400 shadow-sm">
-        No shifts recorded yet.
+        {emptyMessage}
       </div>
     );
   }
