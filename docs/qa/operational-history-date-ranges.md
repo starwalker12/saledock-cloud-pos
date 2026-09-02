@@ -131,9 +131,9 @@ ordering and does not change runtime return behavior.
 
 ## Safety and Deferrals
 
-Source acceptance used isolated local fixtures, and fixture cleanup completed.
-The later delivery acceptance used authenticated, read-only production access;
-it created no business-data mutation.
+Source acceptance used isolated local fixtures, and all task-owned fixtures were
+cleaned up successfully. The later delivery acceptance used authenticated,
+read-only production access; it created no business-data mutations.
 
 Supplier and customer ledger opening/closing-balance ranges remain deferred to
 their accounting-sensitive, review-first batch. Audit Log date work remains
@@ -184,12 +184,12 @@ counts:
   history suppressed only the two history sections, and Reset cleared only the
   history parameters.
 
-No natural accepted production range exceeded 1,000 rows, so the sealed local
-exact-head 1,001-row proof remains authoritative for overflow behavior. All 32
-opening and closing protected-relation counts and order-independent digests
-matched exactly. Production business-data mutations were zero; ordinary
-active-workspace heartbeat activity and a restored theme preference were not
-business mutations.
+None of the production ranges verified during this run exceeded 1,000 rows, so
+the sealed local exact-head 1,001-row proof remains authoritative for overflow
+behavior. All 32 opening and closing protected-relation counts and
+order-independent digests matched exactly. Production business-data mutations
+were zero; ordinary active-workspace heartbeat activity and a restored theme
+preference were not business mutations.
 
 The production evidence is sealed at
 `/Users/sw12/Projects/saledock-local-evidence/operational-history-date-ranges-production-verification`.
