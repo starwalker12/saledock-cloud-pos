@@ -131,9 +131,9 @@ ordering and does not change runtime return behavior.
 
 ## Safety and Deferrals
 
-All acceptance used isolated local fixtures. Fixture cleanup completed and no
-production system, account, or data was accessed. Production access and
-mutations were zero.
+Source acceptance used isolated local fixtures, and all task-owned fixtures were
+cleaned up successfully. The later delivery acceptance used authenticated,
+read-only production access; it created no business-data mutations.
 
 Supplier and customer ledger opening/closing-balance ranges remain deferred to
 their accounting-sensitive, review-first batch. Audit Log date work remains
@@ -145,3 +145,58 @@ The sealed original Batch 2 evidence remains unchanged at
 `/Users/sw12/Projects/saledock-local-evidence/operational-history-date-ranges`.
 PostgREST-limit correction evidence is stored separately at
 `/Users/sw12/Projects/saledock-local-evidence/operational-history-date-ranges-postgrest-limit-correction`.
+
+## Production Verification
+
+PR #360 was independently reviewed at
+`d34c5c671753bd62821014465ca745b2534b8ec3` over base
+`918d5f11e50316779d64d79e9d95715541831d7e`. Before delivery, the exact
+production PostgREST configuration was read directly and confirmed
+`max_rows = 1000`, matching the fixed application safety threshold of 1,000.
+The local 1,001-row proof remains retained: PostgREST returned 1,000 rows while
+the exact count returned 1,001, and every overflowing application path stopped
+after its scoped count instead of rendering a partial history.
+
+The disclosed Return connected-page pending behavior reproduced in the same
+production-mode Chromium harness on both the untouched exact base and the
+reviewed head. It is classified as pre-existing exact-base behavior rather than
+a PR #360 regression. PR #360 was squash-merged as
+`3878beed5df07cdd06ba4ed9c26f9813e69d2607` at
+`2026-09-02T06:47:05Z`. Main CI run `33600420236` succeeded. Vercel production
+deployment `dpl_HDvcK6vfA8kEkbnY7MwPuuHj8gEz` became Ready and current for that
+exact commit; the public root and login routes returned HTTP 200.
+
+Authenticated production verification reconciled the following read-only
+results against exact tenant-, branch-, product-, and range-scoped database
+counts:
+
+- Returns rendered all 10 organization rows by default and 5 of 5 rows for the
+  Karachi-bounded July 2026 range. Valid sorting and presets preserved the
+  range; impossible and reversed ranges failed closed.
+- The sanitized Product Movement candidate rendered all 149 scoped rows by
+  default and 84 of 84 rows for July 2026. Its FIFO summary remained 1,650
+  items, PKR 52 weighted cost, 10 active lots, and PKR 52 last-restock cost.
+  No stock action was invoked.
+- Daily Closing kept selected date `2026-05-28` isolated from its May history
+  range. Closing History rendered 1 of 1 scoped row, while Shift History
+  rendered 2 of 2 shifts qualified by Karachi `opened_at` boundaries. The
+  selected closing and no-active-shift state remained unchanged. Invalid
+  history suppressed only the two history sections, and Reset cleared only the
+  history parameters.
+
+None of the production ranges verified during this run exceeded 1,000 rows, so
+the sealed local exact-head 1,001-row proof remains authoritative for overflow
+behavior. All 32 opening and closing protected-relation counts and
+order-independent digests matched exactly. Production business-data mutations
+were zero; ordinary active-workspace heartbeat activity and a restored theme
+preference were not business mutations.
+
+The production evidence is sealed at
+`/Users/sw12/Projects/saledock-local-evidence/operational-history-date-ranges-production-verification`.
+The SHA-256 of its 24-entry `evidence-manifest.sha256` is
+`5d4caf967f90a357d5ed7f791e3561c4fe07d65c2b10fdff8f8ab6fbfa49c3a9`.
+
+Batch 2 is production verified. Supplier and customer opening/closing-balance
+date ranges remain deferred to their accounting-sensitive review-first batch.
+Audit Log date work remains deferred. Cashier/security work remains paused.
+The active-workspace feature and Batch 1 remain closed.
