@@ -1,6 +1,14 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useRouter } from "next/navigation";
 import { createInvoiceReturnAction, type ReturnActionState } from "./actions";
 import type { ReturnableInvoiceItem } from "@/lib/data/returns";
 import { formatCurrency } from "@/lib/formatters";
@@ -9,6 +17,8 @@ import { Loader2, Check } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
 
 const initial: ReturnActionState = { error: null, success: null };
+const UNCERTAIN_RESULT_MESSAGE =
+  "We couldn't confirm the result. Refresh the invoice before trying again.";
 
 const METHOD_LABELS: Record<string, string> = {
   cash: "Cash",
@@ -33,16 +43,53 @@ export function ReturnForm({
   currency: string;
   canProcess: boolean;
 }) {
-  const [state, action, pending] = useActionState(createInvoiceReturnAction, initial);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const router = useRouter();
+  const [outcomeUncertain, setOutcomeUncertain] = useState(false);
   const [localSuccess, setLocalSuccess] = useState<ReturnActionState | null>(null);
-  const [prevSuccess, setPrevSuccess] = useState<string | null>(null);
+  const outcomeUncertainRef = useRef(false);
+  const returnAction = useCallback(
+    async (previous: ReturnActionState, formData: FormData) => {
+      try {
+        const result = await createInvoiceReturnAction(previous, formData);
+        if (result.success) setLocalSuccess(result);
+        return result;
+      } catch {
+        outcomeUncertainRef.current = true;
+        setOutcomeUncertain(true);
+        return { error: UNCERTAIN_RESULT_MESSAGE, success: null };
+      }
+    },
+    [],
+  );
+  const [state, action, pending] = useActionState(returnAction, initial);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const submissionLocked = useRef(false);
+  const reconciledReturn = useRef<string | null>(null);
 
-  if (state.success !== prevSuccess) {
-    setPrevSuccess(state.success);
-    if (state.success) {
-      setLocalSuccess(state);
+  useEffect(() => {
+    if (!state.success) return;
+
+    const resultKey = state.returnId ?? state.success;
+    if (reconciledReturn.current === resultKey) return;
+    reconciledReturn.current = resultKey;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("returnstate", crypto.randomUUID());
+    router.replace(`${url.pathname}${url.search}`, { scroll: false });
+  }, [router, state]);
+
+  useEffect(() => {
+    if (!pending && !outcomeUncertainRef.current) {
+      submissionLocked.current = false;
     }
+  }, [pending]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (submissionLocked.current || outcomeUncertainRef.current) {
+      event.preventDefault();
+      return;
+    }
+    submissionLocked.current = true;
   }
 
   const successData = state.success ? state : localSuccess;
@@ -71,7 +118,11 @@ export function ReturnForm({
 
   if (successData?.success) {
     return (
-      <section className="print-hidden mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/30 p-5 dark:border-emerald-800 dark:bg-emerald-950/20 text-center flex flex-col items-center">
+      <section
+        role="status"
+        aria-live="polite"
+        className="print-hidden mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/30 p-5 dark:border-emerald-800 dark:bg-emerald-950/20 text-center flex flex-col items-center"
+      >
         <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 mb-3">
           <Check className="size-6 stroke-[3]" />
         </div>
@@ -149,7 +200,12 @@ export function ReturnForm({
           All items on this invoice have already been returned.
         </p>
       ) : (
-        <form action={action} className="mt-5 space-y-4">
+        <form
+          action={action}
+          onSubmit={handleSubmit}
+          aria-busy={pending}
+          className="mt-5 space-y-4"
+        >
           <input type="hidden" name="invoice_id" value={invoiceId} />
 
           <div className="overflow-x-auto rounded-xl border border-slate-200 md:border block md:table w-full">
@@ -187,6 +243,9 @@ export function ReturnForm({
                       </td>
                       <td className="px-3 py-1.5 md:py-3 block md:table-cell text-left md:text-right flex justify-between items-center md:table-cell">
                         <span className="text-xs font-bold text-slate-600 dark:text-slate-400 md:hidden">Return Qty:</span>
+                        {item.quantity_returnable === 0 && (
+                          <input type="hidden" name="quantity" value="0" />
+                        )}
                         <input
                           name="quantity"
                           type="number"
@@ -283,7 +342,10 @@ export function ReturnForm({
           </label>
 
           {state.error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+            <p
+              role="alert"
+              className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+            >
               {state.error}
             </p>
           )}
@@ -295,7 +357,7 @@ export function ReturnForm({
 
           <button
             type="submit"
-            disabled={pending || refundTotal <= 0}
+            disabled={pending || refundTotal <= 0 || outcomeUncertain}
             className="inline-flex h-11 items-center justify-center gap-1.5 w-full rounded-lg bg-blue-700 text-sm font-black text-white transition hover:bg-blue-800 disabled:opacity-60 sm:w-auto sm:px-6 cursor-pointer"
           >
             {pending ? (
