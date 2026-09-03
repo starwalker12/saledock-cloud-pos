@@ -34,14 +34,43 @@ test("the Return mutation remains one authenticated RPC with unchanged inputs", 
     returnAction.match(/\.rpc\("create_invoice_return"/g)?.length,
     1,
   );
-  assert.match(returnAction, /if \(!ctx\.user\) redirect\("\/login"\)/);
-  assert.match(returnAction, /if \(!ctx\.profile\?\.organization_id\) redirect\("\/setup"\)/);
+  assert.match(
+    actionSource,
+    /authRedirect\?: "\/login" \| "\/setup" \| null/,
+  );
+  assert.match(
+    returnAction,
+    /if \(!ctx\.user\) return \{ error: null, success: null, authRedirect: "\/login" \}/,
+  );
+  assert.match(
+    returnAction,
+    /if \(!ctx\.profile\?\.organization_id\) \{[\s\S]*authRedirect: "\/setup"/,
+  );
   assert.match(returnAction, /canReturnNew\(ctx\.profile\)/);
   assert.match(
     returnAction,
     /p_invoice_id: parsed\.data\.invoice_id,[\s\S]*p_items: selectedItems,[\s\S]*p_refund_amount: parsed\.data\.refund_amount,[\s\S]*p_refund_method: parsed\.data\.refund_method \?\? null/,
   );
   assert.doesNotMatch(returnAction, /retry|setTimeout|setInterval|sleep\s*\(/i);
+});
+
+test("Return auth routing is typed, pre-mutation, and free of private Next internals", () => {
+  const rpcAt = returnAction.indexOf('.rpc("create_invoice_return"');
+  const loginAt = returnAction.indexOf('authRedirect: "/login"');
+  const setupAt = returnAction.indexOf('authRedirect: "/setup"');
+  assert.ok(loginAt >= 0 && setupAt > loginAt && rpcAt > setupAt);
+  assert.match(
+    formSource,
+    /if \(result\.authRedirect\) \{[\s\S]*router\.replace\(result\.authRedirect\);[\s\S]*return result;/,
+  );
+  assert.match(
+    formSource,
+    /catch \{[\s\S]*supabase\.auth\.getSession\(\)[\s\S]*if \(!session\) \{[\s\S]*const loginPath = "\/login" as const;[\s\S]*authRedirect: loginPath[\s\S]*router\.replace\(loginPath\);[\s\S]*return authResult;[\s\S]*outcomeUncertainRef\.current = true/,
+  );
+  assert.doesNotMatch(actionSource + formSource, /next\/dist\//);
+  assert.doesNotMatch(actionSource + formSource, /NEXT_REDIRECT/);
+  assert.doesNotMatch(actionSource + formSource, /redirect[^\n]*digest|digest[^\n]*redirect/i);
+  assert.doesNotMatch(actionSource, /from "next\/navigation"/);
 });
 
 test("cache reconciliation and action audit run after the Action response", () => {
@@ -100,7 +129,7 @@ test("same-tick repeats and uncertain outcomes cannot resubmit", () => {
   assert.match(formSource, /submissionLocked\.current = true/);
   assert.match(
     formSource,
-    /catch \{[\s\S]*outcomeUncertainRef\.current = true;[\s\S]*setOutcomeUncertain\(true\);[\s\S]*UNCERTAIN_RESULT_MESSAGE/,
+    /if \(result\.authRedirect\)[\s\S]*router\.replace\(result\.authRedirect\)[\s\S]*catch \{[\s\S]*outcomeUncertainRef\.current = true;[\s\S]*setOutcomeUncertain\(true\);[\s\S]*UNCERTAIN_RESULT_MESSAGE/,
   );
   assert.match(
     formSource,

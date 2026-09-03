@@ -22,6 +22,9 @@ const ERROR_EVIDENCE_FILE =
 const UNCERTAIN_EVIDENCE_FILE =
   process.env.RETURN_SETTLEMENT_UNCERTAIN_EVIDENCE_FILE ??
   "/tmp/saledock-return-success-pending-settlement/uncertain-outcome.json";
+const AUTH_REDIRECT_EVIDENCE_FILE =
+  process.env.RETURN_AUTH_REDIRECT_EVIDENCE_FILE ??
+  "/tmp/saledock-return-success-pending-settlement/auth-redirect.json";
 
 type Fixture = {
   marker: string;
@@ -293,9 +296,12 @@ function attachBrowserEvidence(page: Page) {
   const actionPosts: string[] = [];
   const actionResponses: number[] = [];
   const pageErrors: string[] = [];
-  const consoleErrors: string[] = [];
+  const rawConsoleErrors: string[] = [];
   const httpErrors: string[] = [];
-  const expectedLocalTelemetryErrors: string[] = [];
+  const expectedLocalDiagnostics: string[] = [];
+  const abortedLocalAuthRequests: string[] = [];
+  const allowDevelopmentDiagnostics =
+    process.env.RETURN_SETTLEMENT_ALLOW_DEV_DIAGNOSTICS === "1";
   const expectedLocalTelemetryAsset = (path: string, text = "") => {
     for (const asset of [
       "/_vercel/insights/script.js",
@@ -327,29 +333,71 @@ function attachBrowserEvidence(page: Page) {
       : "unknown";
     const telemetryAsset = expectedLocalTelemetryAsset(path, text);
     if (telemetryAsset) {
-      expectedLocalTelemetryErrors.push(`console ${telemetryAsset}`);
+      expectedLocalDiagnostics.push(`console ${telemetryAsset}`);
+      return;
+    }
+    if (
+      allowDevelopmentDiagnostics &&
+      text.includes("A tree hydrated but some attributes") &&
+      text.includes('nonce="')
+    ) {
+      expectedLocalDiagnostics.push("development nonce hydration diagnostic");
+      return;
+    }
+    if (
+      allowDevelopmentDiagnostics &&
+      text.includes("TypeError: Failed to fetch") &&
+      text.includes("supabase_auth-js")
+    ) {
+      expectedLocalDiagnostics.push(
+        "development auth fetch diagnostic after intentional session removal",
+      );
       return;
     }
     if (/clarity\.ms|user_ui_preferences/i.test(text)) return;
-    consoleErrors.push(`${path}: ${text}`);
+    rawConsoleErrors.push(`${path}: ${text}`);
+  });
+  page.on("requestfailed", (request) => {
+    const url = new URL(request.url());
+    if (
+      isLocalPlaywrightRun() &&
+      url.pathname === "/auth/v1/user" &&
+      request.failure()?.errorText === "net::ERR_ABORTED"
+    ) {
+      abortedLocalAuthRequests.push("GET /auth/v1/user net::ERR_ABORTED");
+    }
   });
   page.on("response", (response) => {
     if (response.status() < 400) return;
     const path = new URL(response.url()).pathname;
     const telemetryAsset = expectedLocalTelemetryAsset(path);
     if (telemetryAsset) {
-      expectedLocalTelemetryErrors.push(`HTTP ${response.status()} ${telemetryAsset}`);
+      expectedLocalDiagnostics.push(`HTTP ${response.status()} ${telemetryAsset}`);
       return;
     }
     httpErrors.push(`${response.status()} ${path}`);
   });
+  const unexpectedConsoleErrors = () => {
+    let authAbortAllowance = abortedLocalAuthRequests.length;
+    return rawConsoleErrors.filter((error) => {
+      if (authAbortAllowance > 0 && error.includes("TypeError: Failed to fetch")) {
+        authAbortAllowance -= 1;
+        return false;
+      }
+      return true;
+    });
+  };
   return {
     actionPosts,
     actionResponses,
     pageErrors,
-    consoleErrors,
     httpErrors,
-    expectedLocalTelemetryErrors,
+    get consoleErrors() {
+      return unexpectedConsoleErrors();
+    },
+    get expectedLocalTelemetryErrors() {
+      return [...expectedLocalDiagnostics, ...abortedLocalAuthRequests];
+    },
   };
 }
 
@@ -546,6 +594,76 @@ test("a durable Return settles the original form before route reconciliation", a
       failure,
       cleanup,
     }, null, 2));
+    expect(Object.values(cleanup).every((count) => count === 0)).toBe(true);
+  }
+});
+
+test("an expired session navigates to login without a Return mutation", async ({ page }) => {
+  test.skip(!isLocalPlaywrightRun() || !PROXY_URL, "The loopback revalidation proxy is required.");
+  test.setTimeout(90_000);
+
+  await proxyControl("/__qa/reset");
+  const fixture = await seedFixture();
+  const browser = attachBrowserEvidence(page);
+  let result: Record<string, unknown> = {};
+  try {
+    await seedRejectedCookieConsent(page);
+    await loginLocalOwnerDirectly(page);
+    await page.goto(`/invoices/${fixture.invoiceId}`);
+    const form = await prepareReturn(page, fixture, {
+      item: "Service",
+      refundAmount: 0,
+    });
+
+    await page.context().clearCookies();
+    await form.getByRole("button", { name: "Process return", exact: true }).click();
+    await expect(page).toHaveURL(/\/login(?:\?|$)/, { timeout: 15_000 });
+    await expect(page.getByText("We couldn't confirm the result.", { exact: false })).toHaveCount(0);
+    await expect(invoiceReturnForm(page, fixture.invoiceId)).toHaveCount(0);
+
+    const proxy = await proxyControl("/__qa/status");
+    const truth = await readTruth(fixture);
+    expect(browser.actionPosts).toHaveLength(1);
+    expect(proxy.rpcCount).toBe(0);
+    expect(truth.returns).toHaveLength(0);
+    expect(truth.items).toHaveLength(0);
+    expect(truth.allocations).toHaveLength(0);
+    expect(truth.movements).toHaveLength(0);
+    expect(truth.productQuantity).toBe(3);
+    expect(truth.lotQuantity).toBe(3);
+    expect(truth.customerOutstanding).toBe(150);
+    expect(truth.ledger).toHaveLength(0);
+    expect(browser.pageErrors).toEqual([]);
+    expect(browser.consoleErrors).toEqual([]);
+    expect(browser.httpErrors).toEqual([]);
+    result = {
+      exactHeadSource: "typed-auth-routing-correction",
+      finalPath: new URL(page.url()).pathname,
+      actionPosts: browser.actionPosts.length,
+      rpcCount: proxy.rpcCount,
+      returns: truth.returns.length,
+      returnItems: truth.items.length,
+      stockAllocations: truth.allocations.length,
+      stockMovements: truth.movements.length,
+      customerLedgerEntries: truth.ledger.length,
+      uncertainMessageVisible: false,
+      staleReturnFormVisible: false,
+      noAutomaticRetry: true,
+      browserErrors: {
+        pageErrors: browser.pageErrors,
+        consoleErrors: browser.consoleErrors,
+        httpErrors: browser.httpErrors,
+        expectedLocalTelemetryErrors: browser.expectedLocalTelemetryErrors,
+      },
+    };
+  } finally {
+    await proxyControl("/__qa/release").catch(() => undefined);
+    const cleanup = await cleanupFixture(fixture);
+    mkdirSync(dirname(AUTH_REDIRECT_EVIDENCE_FILE), { recursive: true });
+    writeFileSync(
+      AUTH_REDIRECT_EVIDENCE_FILE,
+      JSON.stringify({ ...result, cleanup }, null, 2),
+    );
     expect(Object.values(cleanup).every((count) => count === 0)).toBe(true);
   }
 });

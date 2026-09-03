@@ -3,9 +3,11 @@
 ## Scope
 
 Task 32176 corrects the Invoice Return form lifecycle after a successful,
-durable `create_invoice_return` call. The work is limited to the Return Server
-Action response boundary, client success/error settlement, submission
-integrity, focused tests, and this QA record.
+durable `create_invoice_return` call. Task 66831 continues the same draft after
+its delivery gate found that the client wrapper swallowed auth redirect control
+flow. The work remains limited to the Return Server Action response boundary,
+client auth/success/error settlement, submission integrity, focused tests, and
+this QA record.
 
 No Return SQL, migration, eligibility, permission, refund, customer ledger,
 FIFO, stock movement, invoice, numbering, or accounting rule changed.
@@ -14,6 +16,7 @@ FIFO, stock movement, invoice, numbering, or accounting rule changed.
 
 - Main: `7a7c2fbd9e08ab4d3607a25580329a029c65dd78`
 - Branch: `fix/return-success-pending-settlement`
+- First blocked PR head: `9606d73c202ed50f36b25fff517573109dde757c`
 - Production access or mutation: none
 - Test target: local Supabase and local Next.js production/development servers
 
@@ -87,12 +90,40 @@ remaining item quantities against their item IDs. An exhausted row now submits
 an explicit hidden zero so the existing positional Server Action contract stays
 aligned. This does not change Return eligibility or mutation mathematics.
 
+## Auth redirect correction
+
+The mandatory delivery auth gate removed the authenticated browser session
+after the Return page loaded and then submitted once. Middleware correctly
+started navigation to `/login`, and no Return RPC or mutation ran, but the
+client `catch` treated the framework control flow as an uncertain business
+result. The stale Invoice page remained visible and locked.
+
+The correction avoids private or unstable Next.js exception inspection. The
+Return Action now exposes one narrow typed field whose only values are
+`/login` and `/setup`, and returns either auth destination before validation or
+the `create_invoice_return` RPC. The client handles those confirmed results
+with `router.replace`. When middleware intercepts an unauthenticated Action
+POST before the typed result can reach the browser, the client checks its
+Supabase session: an absent session routes explicitly to `/login`; a present
+session, or a failed auth-state check, retains the existing uncertain-result
+lock. This keeps a real transport interruption distinct from lost auth without
+matching `NEXT_REDIRECT`, parsing digests, or importing `next/dist` internals.
+
+The production-mode login regression now proves one Action POST, zero Return
+RPCs, zero Return/Return Item/stock/customer-ledger mutations, navigation to
+`/login`, no uncertain alert, and no automatic retry. The `/setup` path is
+protected by the focused Action contract rather than a browser fixture because
+constructing a profile-less authenticated workspace would bypass the normal
+route bootstrap. The contract proves both auth results precede the sole Return
+RPC and accept no other destination.
+
 ## Connected proof
 
 The fixed production-mode browser matrix passed with automatic retries set to
 zero:
 
 - durable Return success while post-response reads were held;
+- expired auth leaves the workspace for `/login` with zero Return RPC/mutation;
 - rapid same-tick activation: one Action, one RPC, one Return;
 - partial physical Return with Card refund and FIFO restock;
 - second legitimate partial Return with zero payout and no restock;
@@ -103,15 +134,21 @@ zero:
 - mobile widths `320x568`, `390x844`, and `430x932` had no overflow;
 - persistent sidebar remained mounted and no workspace pause appeared.
 
-The same held-reconciliation control passed in Next.js development mode.
+The held-reconciliation and expired-auth controls both passed in Next.js
+development mode. Development emitted the pre-existing request-nonce hydration
+diagnostic; the harness classifies it only under an explicit dev-control flag.
+In production-mode runs, a loopback `/auth/v1/user` request cancelled by client
+navigation is accepted only when Playwright observes the matching
+`net::ERR_ABORTED`; an unpaired fetch error still fails the test.
 
 ## Regression proof
 
-- Focused Return/browser scenarios: `4/4`.
+- Focused Return/browser scenarios: `5/5`.
+- Development-mode Return/auth controls: `2/2`.
 - Focused Return and cross-surface Node contracts: `107/107`.
 - Loading and persistent-shell browser scenarios: `7/7`.
 - Active-workspace browser scenarios: `5/5`.
-- Complete Node suite with local Supabase environment: `433/433`.
+- Complete Node suite with local Supabase environment: `434/434`.
 - Return A4/80mm artifact generation completed with valid outputs and fixture
   cleanup. Its legacy final no-write assertion still treats the current-main
   active-workspace claim/heartbeat RPCs as unexpected writes.
@@ -132,6 +169,10 @@ Every task-owned local customer, product, lot, invoice, Return, Return Item,
 allocation, movement, customer ledger entry, and audit marker was removed.
 Opening/closing marker counts are zero. No production account, database,
 deployment, or business data was accessed.
+
+The correction uses no private Next.js internals and adds no migration, RPC,
+retry, timer, auth redesign, or production operation. PR #362 remains open and
+draft for independent owner review.
 
 Exchange, accounting ledger ordering/schema, Supplier Statement correction,
 Customer period ledger work, Audit Log work, and Cashier/security work remain

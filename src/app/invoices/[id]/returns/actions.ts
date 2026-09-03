@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import { getCurrentContext } from "@/lib/auth/session";
@@ -14,6 +13,7 @@ import { getSafeActionError } from "@/lib/errors/safe-action-error";
 export type ReturnActionState = {
   error: string | null;
   success: string | null;
+  authRedirect?: "/login" | "/setup" | null;
   returnId?: string | null;
   returnNo?: string | null;
   refundAmount?: number | null;
@@ -30,8 +30,10 @@ export async function createInvoiceReturnAction(
   formData: FormData,
 ): Promise<ReturnActionState> {
   const ctx = await getCurrentContext();
-  if (!ctx.user) redirect("/login");
-  if (!ctx.profile?.organization_id) redirect("/setup");
+  if (!ctx.user) return { error: null, success: null, authRedirect: "/login" };
+  if (!ctx.profile?.organization_id) {
+    return { error: null, success: null, authRedirect: "/setup" };
+  }
   if (!(await canReturnNew(ctx.profile))) {
     logAudit({ module: "returns", action: "permission.denied", details: "Attempted return without return permission" });
     return err("You do not have permission to process returns.");

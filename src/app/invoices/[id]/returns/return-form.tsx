@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { REFUND_METHODS } from "@/lib/validation/returns";
 import { Loader2, Check } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
+import { createClient } from "@/lib/supabase/client";
 
 const initial: ReturnActionState = { error: null, success: null };
 const UNCERTAIN_RESULT_MESSAGE =
@@ -44,6 +45,7 @@ export function ReturnForm({
   canProcess: boolean;
 }) {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [outcomeUncertain, setOutcomeUncertain] = useState(false);
   const [localSuccess, setLocalSuccess] = useState<ReturnActionState | null>(null);
   const outcomeUncertainRef = useRef(false);
@@ -51,15 +53,36 @@ export function ReturnForm({
     async (previous: ReturnActionState, formData: FormData) => {
       try {
         const result = await createInvoiceReturnAction(previous, formData);
+        if (result.authRedirect) {
+          router.replace(result.authRedirect);
+          return result;
+        }
         if (result.success) setLocalSuccess(result);
         return result;
       } catch {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!session) {
+            const loginPath = "/login" as const;
+            const authResult: ReturnActionState = {
+              error: null,
+              success: null,
+              authRedirect: loginPath,
+            };
+            router.replace(loginPath);
+            return authResult;
+          }
+        } catch {
+          // If auth state cannot be confirmed, preserve the uncertain-result lock.
+        }
         outcomeUncertainRef.current = true;
         setOutcomeUncertain(true);
         return { error: UNCERTAIN_RESULT_MESSAGE, success: null };
       }
     },
-    [],
+    [router, supabase],
   );
   const [state, action, pending] = useActionState(returnAction, initial);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
