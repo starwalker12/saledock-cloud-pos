@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canReturnNew } from "@/lib/staff-permissions";
@@ -13,6 +13,7 @@ import { getSafeActionError } from "@/lib/errors/safe-action-error";
 export type ReturnActionState = {
   error: string | null;
   success: string | null;
+  authRedirect?: "/login" | "/setup" | null;
   returnId?: string | null;
   returnNo?: string | null;
   refundAmount?: number | null;
@@ -29,8 +30,10 @@ export async function createInvoiceReturnAction(
   formData: FormData,
 ): Promise<ReturnActionState> {
   const ctx = await getCurrentContext();
-  if (!ctx.user) redirect("/login");
-  if (!ctx.profile?.organization_id) redirect("/setup");
+  if (!ctx.user) return { error: null, success: null, authRedirect: "/login" };
+  if (!ctx.profile?.organization_id) {
+    return { error: null, success: null, authRedirect: "/setup" };
+  }
   if (!(await canReturnNew(ctx.profile))) {
     logAudit({ module: "returns", action: "permission.denied", details: "Attempted return without return permission" });
     return err("You do not have permission to process returns.");
@@ -72,23 +75,25 @@ export async function createInvoiceReturnAction(
   if (error) return err(getSafeActionError(error, "We couldn't process this return. Please refresh and try again."));
 
   const row = Array.isArray(data) ? data[0] : data;
-  revalidatePath(`/invoices/${parsed.data.invoice_id}`);
-  revalidatePath("/invoices");
-  revalidatePath("/returns");
-  revalidatePath("/products");
-  revalidatePath("/customers");
-  revalidatePath("/dashboard");
+  after(async () => {
+    revalidatePath(`/invoices/${parsed.data.invoice_id}`);
+    revalidatePath("/invoices");
+    revalidatePath("/returns");
+    revalidatePath("/products");
+    revalidatePath("/customers");
+    revalidatePath("/dashboard");
 
-  logAudit({
-    module: "returns",
-    action: "returns.created",
-    details: `Return processed for Invoice ${parsed.data.invoice_id}. Refund Amount: Rs. ${parsed.data.refund_amount} (${parsed.data.refund_method ?? "Cash"})`,
-    metadata: {
-      invoice_id: parsed.data.invoice_id,
-      refund_amount: parsed.data.refund_amount,
-      refund_method: parsed.data.refund_method,
-      return_no: row?.return_no ?? null,
-    },
+    await logAudit({
+      module: "returns",
+      action: "returns.created",
+      details: `Return processed for Invoice ${parsed.data.invoice_id}. Refund Amount: Rs. ${parsed.data.refund_amount} (${parsed.data.refund_method ?? "Cash"})`,
+      metadata: {
+        invoice_id: parsed.data.invoice_id,
+        refund_amount: parsed.data.refund_amount,
+        refund_method: parsed.data.refund_method,
+        return_no: row?.return_no ?? null,
+      },
+    });
   });
 
   return {
