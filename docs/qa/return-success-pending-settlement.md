@@ -5,9 +5,10 @@
 Task 32176 corrects the Invoice Return form lifecycle after a successful,
 durable `create_invoice_return` call. Task 66831 continues the same draft after
 its delivery gate found that the client wrapper swallowed auth redirect control
-flow. The work remains limited to the Return Server Action response boundary,
-client auth/success/error settlement, submission integrity, focused tests, and
-this QA record.
+flow. Task 84751 delivered the reviewed source and completed one bounded
+authenticated production acceptance. The work remains limited to the Return
+Server Action response boundary, client auth/success/error settlement,
+submission integrity, focused tests, and this QA record.
 
 No Return SQL, migration, eligibility, permission, refund, customer ledger,
 FIFO, stock movement, invoice, numbering, or accounting rule changed.
@@ -17,7 +18,7 @@ FIFO, stock movement, invoice, numbering, or accounting rule changed.
 - Main: `7a7c2fbd9e08ab4d3607a25580329a029c65dd78`
 - Branch: `fix/return-success-pending-settlement`
 - First blocked PR head: `9606d73c202ed50f36b25fff517573109dde757c`
-- Production access or mutation: none
+- Implementation-stage production access or mutation: none
 - Test target: local Supabase and local Next.js production/development servers
 
 ## Exact reproduction
@@ -167,12 +168,67 @@ files and are not represented as passing browser runs.
 
 Every task-owned local customer, product, lot, invoice, Return, Return Item,
 allocation, movement, customer ledger entry, and audit marker was removed.
-Opening/closing marker counts are zero. No production account, database,
-deployment, or business data was accessed.
+Opening/closing marker counts are zero. The implementation and correction tasks
+did not access production.
 
 The correction uses no private Next.js internals and adds no migration, RPC,
-retry, timer, auth redesign, or production operation. PR #362 remains open and
-draft for independent owner review.
+retry, timer, or auth redesign.
+
+## Production delivery and verification
+
+Owner-authorized Task 84751 delivered PR #362 at reviewed head
+`9101f43260378967a95e952abad91105ed2f1c8c`. The source was squash-merged as
+`f112c07da9e2c4b020ba49434360dfdf19b2a43b` at
+`2026-09-04T01:56:26Z`. Main CI run `33827646199` succeeded. Vercel deployment
+`dpl_6eBFez7Zpw42SDeTXztwfQKiD6B4` became Ready, Current, and Production for the
+exact source squash; the public root and login routes returned HTTP 200.
+
+The authenticated Owner acceptance used one disposable PKR 10 service-only
+invoice with one service Invoice Item, no customer, no product, no payment, no
+stock, and no customer-ledger row. The browser submitted `Process return`
+exactly once with quantity 1, refund amount zero, and no payout method. Vercel
+recorded exactly one successful Server Action POST. `Processing return...`
+appeared only while pending and settled to `Return Processed` after an observed
+23,588 ms, with Return `RET-001010`, `Refund Amount: PKR 0`, `View return`, and
+`Refresh invoice` visible without a manual refresh.
+
+Database reconciliation found exactly one completed Return and one service
+Return Item. Refund amount was zero, refund method was null, and the service
+item was not restocked. Return stock allocations, stock movements, customer
+ledger entries, and payments were all zero. One synchronous
+`return.completed` audit and one eventual `returns.created` audit were present.
+Refresh Invoice showed the item as fully returned and retained the previous
+Return link. View Return opened the completed Return document, and the Returns
+list showed the same Return with no payout.
+
+The persistent authenticated shell remained stable: no SidebarLoading, sidebar
+width jump, duplicate Topbar, active-workspace takeover, route-level reclaim,
+or session loss appeared. Production Return detail at `390x844` had a 390 px
+document width with no horizontal overflow. The live success state was observed
+at the normal desktop viewport; the sealed exact-head local proof remains
+authoritative for the `320x568`, `390x844`, and `430x932` success layout and its
+`role="status"` / `aria-live="polite"` contract.
+
+The exact-head local proof remains retained for Cash and Card refunds, one
+customer refund ledger credit, FIFO Restock, no-restock, expired-auth login,
+setup routing, uncertain-network locking, and confirmed-error recovery. Those
+money, stock, auth-loss, and failure paths were not deliberately exercised in
+production.
+
+Cleanup deleted only the exact disposable fixture and its two audit rows. Final
+fixture-linked counts were zero for Invoices, Invoice Items, Returns, Return
+Items, Return Stock Allocations, Stock Movements, Customer Ledger, Payments,
+and audit rows. All 32 opening/closing protected relation counts and digests
+matched exactly, so permanent SaleDock production business-data mutation was
+zero.
+
+Production evidence is sealed at
+`/Users/sw12/Projects/saledock-local-evidence/return-success-pending-settlement-production-verification`.
+The SHA-256 of `evidence-manifest.sha256` is
+`6edd9e7d608195d49dfa3485a22afef081076b542657524a91dadad542c432f2`.
+
+The original durable-success stuck-pending defect is closed and production
+verified.
 
 Exchange, accounting ledger ordering/schema, Supplier Statement correction,
 Customer period ledger work, Audit Log work, and Cashier/security work remain
