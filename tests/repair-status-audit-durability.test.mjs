@@ -121,6 +121,7 @@ function createStatusHarness(options = {}) {
     histories: [],
     audits: [],
     clients: 0,
+    afterTasks: [],
   };
 
   function createSupabase() {
@@ -202,6 +203,7 @@ function createStatusHarness(options = {}) {
     "next/cache": {
       revalidatePath: (path) => store.events.push(`revalidate:${path}`),
     },
+    "next/server": { after: (callback) => store.afterTasks.push(callback) },
     "next/navigation": {
       redirect: (path) => {
         throw new Error(`redirect:${path}`);
@@ -210,8 +212,8 @@ function createStatusHarness(options = {}) {
     "@/lib/supabase/server": { createClient: async () => createSupabase() },
     "@/lib/auth/session": {
       getCurrentContext: async () => ({
-        user: { id: "auth-user" },
-        profile: {
+        user: options.signedOut ? null : { id: "auth-user" },
+        profile: options.missingProfile ? null : {
           id: ACTOR_ID,
           organization_id: ORG_ID,
           branch_id: BRANCH_ID,
@@ -313,6 +315,12 @@ test("successful status change awaits one exact audit after the scoped update an
   assert.ok(store.events.indexOf("repair:complete") < store.events.indexOf("history:complete"));
   assert.ok(store.events.indexOf("history:complete") < store.events.indexOf("audit:started"));
   assert.equal(store.events.filter((event) => event === "audit:complete").length, 1);
+  assert.equal(store.afterTasks.length, 1);
+  assert.equal(store.events.some(event => event.startsWith("revalidate:")), false);
+  await store.afterTasks[0]();
+  assert.deepEqual(store.events.filter(event => event.startsWith("revalidate:")), [
+    "revalidate:/repairs", `revalidate:/repairs/${REPAIR_ID}`, "revalidate:/dashboard",
+  ]);
 });
 
 test("delayed audit keeps the action pending until the audit completes", async () => {
@@ -333,6 +341,8 @@ test("delayed audit keeps the action pending until the audit completes", async (
   assert.equal(store.updates.length, 1);
   assert.equal(store.histories.length, 1);
   assert.equal(store.audits.length, 0);
+
+  assert.equal(store.afterTasks.length, 0);
 
   auditGate.resolve();
   const result = await actionPromise;
@@ -384,6 +394,8 @@ test("returned and thrown audit failures return safe partial-save truth without 
     assert.equal(store.updates.length, 1);
     assert.equal(store.histories.length, 1);
     assert.equal(store.audits.length, 0);
+    assert.equal(store.afterTasks.length, 1);
+    assert.equal(store.events.some(event => event.startsWith("revalidate:")), false);
     assert.equal(store.events.filter((event) => event === "repair:complete").length, 1);
     assert.equal(store.events.filter((event) => event === "history:complete").length, 1);
     assert.equal(
@@ -404,6 +416,43 @@ test("history failure preserves current partial-save result and skips audit", as
   assert.equal(store.updates.length, 1);
   assert.equal(store.histories.length, 0);
   assert.equal(store.events.some((event) => event.startsWith("audit:")), false);
+  assert.equal(store.afterTasks.length, 0);
+});
+
+test("auth redirects propagate without converting them to action errors", async () => {
+  for (const [options, location] of [[{ signedOut: true }, "/login"], [{ missingProfile: true }, "/setup"]]) {
+    const { store, updateRepairStatusAction } = createStatusHarness(options);
+    await assert.rejects(updateRepairStatusAction({ error: null, success: null }, statusFormData()), {
+      message: `redirect:${location}`,
+    });
+    assert.equal(store.clients, 0);
+    assert.equal(store.afterTasks.length, 0);
+  }
+});
+
+test("confirmed update failure skips history, audit, and reconciliation", async () => {
+  const { store, updateRepairStatusAction } = createStatusHarness({ updateError: true });
+  const result = await updateRepairStatusAction({ error: null, success: null }, statusFormData());
+  assert.equal(result.error, "We couldn't update the repair status. Please try again.");
+  assert.equal(store.histories.length, 0);
+  assert.equal(store.audits.length, 0);
+  assert.equal(store.afterTasks.length, 0);
+});
+
+test("delivered status preserves final cost, diagnosis, delivery timestamp, history and audit payloads", async () => {
+  const { store, updateRepairStatusAction } = createStatusHarness();
+  const result = await updateRepairStatusAction({ error: null, success: null }, statusFormData({
+    old_status: "completed", status: "delivered", final_cost: "125.50", diagnosis: "Local QA diagnosis",
+  }));
+  assert.equal(result.success, "Status updated successfully.");
+  assert.equal(store.updates.length, 1);
+  assert.deepEqual(Object.keys(store.updates[0]).sort(), ["delivered_at", "diagnosis", "final_cost", "status", "updated_at"]);
+  assert.equal(store.updates[0].final_cost, 125.5);
+  assert.equal(store.updates[0].diagnosis, "Local QA diagnosis");
+  assert.ok(Number.isFinite(Date.parse(store.updates[0].delivered_at)));
+  assert.equal(store.histories[0].old_status, "completed");
+  assert.equal(store.histories[0].new_status, "delivered");
+  assert.deepEqual(store.audits[0].metadata, { repair_id: REPAIR_ID, old_status: "completed", new_status: "delivered" });
 });
 
 test("input and permission rejection do not mutate, write history, or audit", async () => {
@@ -459,10 +508,13 @@ test("durable status audit is caller-local without privacy or protected-boundary
     digest(repairFormSource),
     "fa7e4affa5e29cc16c84069bdf5446bb4dcb819133b8abaea2d566846bb22959",
   );
-  assert.equal(
-    digest(statusFormSource),
-    "9975f77dfaff2f776baa432cb716f8fc0a27069beb017e4998e2085dc78850e1",
-  );
+  assert.match(statusFormSource, /useActionState\(settleStatusAction, defaultState\)/);
+  assert.match(statusFormSource, /name="old_status" value=\{repair.status\}/);
+  assert.match(statusFormSource, /disabled=\{isPending \|\| waitingForRepair\}/);
+  assert.match(statusFormSource, /submitLocked.current \|\| isPending \|\| waitingForRepair/);
+  assert.match(statusFormSource, /role="alert"/);
+  assert.match(statusFormSource, /role="status"/);
+  assert.doesNotMatch(statusFormSource, /setTimeout|location.reload|router.refresh|catch\s*\(/);
   assert.equal(
     digest(permissionSource),
     "2a946839c4babf6b3114de79229c56ba00ec72a65cf2a3528d446a898096b25d",

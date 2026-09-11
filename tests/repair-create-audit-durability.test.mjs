@@ -245,6 +245,7 @@ function createHarness(options = {}) {
     options.selectedCustomer ? { customer_id: CUSTOMER_ID } : {},
   );
   const saveRepairAction = compileModule(actionSource, {
+    "next/server": { after: () => { throw new Error("Intake settlement must remain unchanged"); } },
     "next/cache": {
       revalidatePath: (path) => store.events.push(`revalidate:${path}`),
     },
