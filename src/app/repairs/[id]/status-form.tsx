@@ -1,12 +1,21 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { updateRepairStatusAction } from "../actions";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { updateRepairStatusAction, type ActionState } from "../actions";
 import type { RepairRow } from "@/lib/data/repairs";
 import type { RepairStatus } from "@/lib/validation/repairs";
 import { AppSelect } from "@/components/ui/app-select";
 
-const defaultState = { error: null as string | null, success: null as string | null };
+type StatusActionState = ActionState & { reconciliationKey?: string };
+const defaultState: StatusActionState = { error: null, success: null };
+
+async function settleStatusAction(previous: StatusActionState, formData: FormData): Promise<StatusActionState> {
+  const next = await updateRepairStatusAction(previous, formData);
+  if (!next.success && !next.id) return next;
+  return { ...next, reconciliationKey: crypto.randomUUID() };
+}
+
 const STATUS_OPTIONS = [
   { value: "received", label: "Received" },
   { value: "waiting_for_parts", label: "Waiting for Parts" },
@@ -17,15 +26,47 @@ const STATUS_OPTIONS = [
 ];
 
 export function StatusForm({ repair }: { repair: RepairRow }) {
-  const [state, formAction, isPending] = useActionState(updateRepairStatusAction, defaultState);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [state, formAction, isPending] = useActionState(settleStatusAction, defaultState);
+  const submitLocked = useRef(false);
+  const reconciledKey = useRef<string | null>(null);
+  const waitingForRepair = Boolean(
+    state.reconciliationKey && searchParams.get("repairstatusstate") !== state.reconciliationKey,
+  );
   const [status, setStatus] = useState(repair.status);
   const [finalCost, setFinalCost] = useState(repair.final_cost || repair.estimated_cost);
+
+  useEffect(() => {
+    const key = state.reconciliationKey;
+    if (!key || reconciledKey.current === key) return;
+    reconciledKey.current = key;
+    const url = new URL(window.location.href);
+    url.searchParams.set("repairstatusstate", key);
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+  }, [router, state.reconciliationKey]);
+
+  useEffect(() => {
+    // Keep old_status protected until fresh Server Component props arrive.
+    if (!isPending && !waitingForRepair) submitLocked.current = false;
+  }, [isPending, waitingForRepair, state]);
 
   const showFinalCost = status === "delivered" || status === "completed";
   const showDiagnosis = status === "completed" || status === "in_progress" || status === "waiting_for_parts";
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      aria-busy={isPending}
+      onSubmit={(event) => {
+        if (submitLocked.current || isPending || waitingForRepair) {
+          event.preventDefault();
+          return;
+        }
+        submitLocked.current = true;
+      }}
+      className="space-y-4"
+    >
       <input type="hidden" name="id" value={repair.id} />
       <input type="hidden" name="old_status" value={repair.status} />
 
@@ -90,22 +131,22 @@ export function StatusForm({ repair }: { repair: RepairRow }) {
       </div>
 
       {state.error && (
-        <div className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">
+        <div role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">
           {state.error}
         </div>
       )}
       {state.success && (
-        <div className="rounded-xl bg-green-50 p-3 text-xs font-semibold text-green-700">
+        <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3 text-xs font-semibold text-green-700">
           {state.success}
         </div>
       )}
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || waitingForRepair}
         className="h-10 w-full rounded-xl bg-slate-900 text-sm font-bold text-white hover:bg-slate-800 transition disabled:opacity-60"
       >
-        {isPending ? "Updating status..." : "Log Status Change"}
+        {isPending ? "Updating status..." : waitingForRepair ? "Refreshing repair..." : "Log Status Change"}
       </button>
     </form>
   );

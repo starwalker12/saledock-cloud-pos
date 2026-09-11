@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import {
@@ -304,10 +305,6 @@ export async function updateRepairStatusAction(
 
   if (histErr) return err("The status was updated, but we couldn't save the history note.");
 
-  revalidatePath("/repairs");
-  revalidatePath(`/repairs/${id}`);
-  revalidatePath("/dashboard");
-
   let auditFailed = false;
   try {
     const { error: auditError } = await supabase.from("audit_logs").insert({
@@ -323,6 +320,13 @@ export async function updateRepairStatusAction(
   } catch {
     auditFailed = true;
   }
+
+  // Return the confirmed audit outcome before reconciling the connected route.
+  after(() => {
+    revalidatePath("/repairs");
+    revalidatePath(`/repairs/${id}`);
+    revalidatePath("/dashboard");
+  });
 
   if (auditFailed) {
     return {

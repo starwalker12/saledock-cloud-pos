@@ -159,6 +159,12 @@ async function newOwnerPage(
   await expect(page.locator("header h1").first()).toHaveText("Dashboard", {
     timeout: 30_000,
   });
+  // A hard navigation must not abort the shell's initial authenticated lookups.
+  await expect(page.locator("[data-active-workspace-guard]")).toHaveAttribute(
+    "data-active-workspace-state",
+    "active",
+  );
+  await page.waitForLoadState("networkidle");
   return { context, page, errors };
 }
 
