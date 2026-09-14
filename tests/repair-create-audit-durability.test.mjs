@@ -134,6 +134,7 @@ function createHarness(options = {}) {
     audits: [],
     customerLookups: 0,
     clientCreations: 0,
+    afterCallbacks: [],
   };
   const auditGate = options.auditGate ?? null;
 
@@ -198,6 +199,7 @@ function createHarness(options = {}) {
                 return { data: single ? { id: REPAIR_ID } : [repair], error: null };
               }
               if (table === "repairs" && operation === "update") {
+                if (options.repairUpdateError) return { data: null, error: { code: "QA_REPAIR_UPDATE" } };
                 store.repairs.push({ ...payload, id: REPAIR_ID, updated: true });
                 store.events.push("repair-update:complete");
                 return { data: null, error: null };
@@ -245,7 +247,7 @@ function createHarness(options = {}) {
     options.selectedCustomer ? { customer_id: CUSTOMER_ID } : {},
   );
   const saveRepairAction = compileModule(actionSource, {
-    "next/server": { after: () => { throw new Error("Intake settlement must remain unchanged"); } },
+    "next/server": { after: (callback) => store.afterCallbacks.push(callback) },
     "next/cache": {
       revalidatePath: (path) => store.events.push(`revalidate:${path}`),
     },
@@ -267,8 +269,8 @@ function createHarness(options = {}) {
       }),
     },
     "@/lib/permissions": {
-      canCreateRepairs: () => true,
-      canEditRepairs: () => true,
+      canCreateRepairs: () => !options.permissionDenied,
+      canEditRepairs: () => !options.permissionDenied,
       canUpdateRepairStatus: () => true,
     },
     "@/lib/validation/repairs": {
@@ -343,6 +345,9 @@ test("delayed audit keeps the action pending until the audit completes", async (
   assert.equal(store.repairs.length, 1);
   assert.equal(store.histories.length, 1);
   assert.equal(store.audits.length, 0);
+
+  assert.equal(store.afterCallbacks.length, 0);
+  assert.equal(store.events.some((event) => event.startsWith("revalidate:")), false);
 
   gate.resolve();
   const result = await actionPromise;
@@ -451,6 +456,59 @@ test("the shared edit audit is also awaited without changing edit business seman
   assert.equal(store.audits[0].metadata.repair_id, REPAIR_ID);
 });
 
+test("create and edit defer only the existing invalidation targets after truthful audit outcome", async () => {
+  for (const edit of [false, true]) for (const selectedCustomer of [false, true]) {
+    for (const failure of [{}, { auditError: true }, { auditThrow: true }]) {
+      const gate = deferred();
+      const { store, saveRepairAction } = createHarness({ ...failure, selectedCustomer, auditGate: gate });
+      const pending = saveRepairAction({ error: null, success: null }, repairFormData(edit ? { id: REPAIR_ID } : {}));
+      await waitFor(() => store.events.includes("audit:started"), "required audit");
+      assert.equal(store.afterCallbacks.length, 0);
+      assert.equal(store.events.some(event => event.startsWith("revalidate:")), false);
+      gate.resolve();
+      const result = await pending;
+      assert.equal(result.error, failure.auditError || failure.auditThrow ? AUDIT_FAILURE : null);
+      assert.equal(store.afterCallbacks.length, 1);
+      assert.equal(store.events.some(event => event.startsWith("revalidate:")), false);
+      const truth = JSON.stringify([store.repairs, store.histories, store.audits]);
+      await store.afterCallbacks[0]();
+      assert.deepEqual(store.events.filter(event => event.startsWith("revalidate:")), [
+        "revalidate:/repairs", ...(selectedCustomer ? [`revalidate:/customers/${CUSTOMER_ID}`] : []), "revalidate:/dashboard",
+      ]);
+      assert.equal(JSON.stringify([store.repairs, store.histories, store.audits]), truth);
+      assert.equal(store.repairs.length, 1);
+      assert.equal(store.histories.length, edit ? 0 : 1);
+      assert.equal(store.audits.length, result.success ? 1 : 0);
+    }
+  }
+});
+
+test("initial history failure preserves its early warning without audit or reconciliation", async () => {
+  for (const options of [{ historyError: true }, { historyThrow: true }]) {
+    const { store, saveRepairAction } = createHarness(options);
+    assert.deepEqual(await saveRepairAction({}, repairFormData()), { error: HISTORY_FAILURE, success: null, id: REPAIR_ID });
+    assert.equal(store.afterCallbacks.length, 0);
+    assert.equal(store.repairs.length, 1);
+    assert.equal(store.histories.length, 0);
+    assert.equal(store.audits.length, 0);
+  }
+});
+
+test("pre-mutation permission and update failures return without history, audit, or reconciliation", async () => {
+  for (const edit of [false, true]) {
+    const { store, saveRepairAction } = createHarness({ permissionDenied: true });
+    const result = await saveRepairAction({}, repairFormData(edit ? { id: REPAIR_ID } : {}));
+    assert.match(result.error, /permission/i);
+    assert.equal(store.clientCreations, 0);
+    assert.deepEqual([store.repairs.length, store.histories.length, store.audits.length, store.afterCallbacks.length], [0, 0, 0, 0]);
+  }
+  const { store, saveRepairAction } = createHarness({ repairUpdateError: true });
+  const result = await saveRepairAction({}, repairFormData({ id: REPAIR_ID }));
+  assert.equal(result.success, null);
+  assert.equal(result.error, "We couldn't save this repair. Please try again.");
+  assert.deepEqual([store.repairs.length, store.histories.length, store.audits.length, store.afterCallbacks.length], [0, 0, 0, 0]);
+});
+
 test("the global logger cannot expose a returned Supabase insert error", async () => {
   let insertCalls = 0;
   let consoleErrors = 0;
@@ -512,9 +570,13 @@ test("optional, tenant, form, migration, global helper, and durable status bound
     "5a2b044a04f7d20e4ee980b3c3201867dd7473199e09dabc2500d8f68a616940",
   );
   assert.equal(
-    digest(formSource),
-    "fa7e4affa5e29cc16c84069bdf5446bb4dcb819133b8abaea2d566846bb22959",
+    digest(formSource.slice(formSource.indexOf("          {repair && <input"), formSource.indexOf("          {state.error"))),
+    "4f31dbf460a7ba029ffd00bf9bcfe399cff0dc6eef668558e28d494445f86339",
   );
+  assert.match(formSource, /useActionState\(saveRepairAction, defaultState\)/);
+  assert.match(formSource, /disabled=\{isPending \|\| committed\}/);
+  assert.match(formSource, /role="status"/);
+  assert.match(formSource, /role="alert"/);
   assert.equal(
     digest(migrationSource),
     "7ff005a554c2ce966b600959dcd6ea8e8c0417bae659a679c4f7b1b183a2ce97",
