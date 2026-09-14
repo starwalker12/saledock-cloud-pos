@@ -205,12 +205,6 @@ export async function saveRepairAction(
     }
   }
 
-  revalidatePath("/repairs");
-  if (finalCustomerId) {
-    revalidatePath(`/customers/${finalCustomerId}`);
-  }
-  revalidatePath("/dashboard");
-
   let auditFailed = false;
   try {
     const { error: auditError } = await supabase.from("audit_logs").insert({
@@ -230,6 +224,15 @@ export async function saveRepairAction(
   } catch {
     auditFailed = true;
   }
+
+  // Settle the required save/history/audit result before route reconciliation.
+  after(() => {
+    revalidatePath("/repairs");
+    if (finalCustomerId) {
+      revalidatePath(`/customers/${finalCustomerId}`);
+    }
+    revalidatePath("/dashboard");
+  });
 
   if (auditFailed) {
     return {

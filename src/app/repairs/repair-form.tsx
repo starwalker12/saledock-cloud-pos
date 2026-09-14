@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Search, Loader2 } from "lucide-react";
-import { saveRepairAction } from "./actions";
+import { saveRepairAction, type ActionState } from "./actions";
 import type { CustomerRow } from "@/lib/data/customers";
 import type { RepairRow } from "@/lib/data/repairs";
 import { AppSelect } from "@/components/ui/app-select";
 
-const defaultState = { error: null as string | null, success: null as string | null };
+const defaultState: ActionState = { error: null, success: null };
 const PAYMENT_OPTIONS = [
   { value: "cash", label: "Cash" },
   { value: "card", label: "Card" },
@@ -34,6 +35,10 @@ export function RepairForm({
   onClose: () => void;
 }) {
   const [state, formAction, isPending] = useActionState(saveRepairAction, defaultState);
+  const router = useRouter();
+  const submitLocked = useRef(false);
+  const reconciled = useRef(false);
+  const committed = Boolean(state.id);
   const [customerId, setCustomerId] = useState(repair?.customer_id || "");
   const [customerName, setCustomerName] = useState(repair?.customer_name || "");
   const [customerPhone, setCustomerPhone] = useState(repair?.customer_phone || "");
@@ -67,10 +72,18 @@ export function RepairForm({
   };
 
   useEffect(() => {
-    if (state.success) {
-      onClose();
-    }
-  }, [state, onClose]);
+    if (!state.success || reconciled.current) return;
+    reconciled.current = true;
+    // The save has settled; leaving its form must not call a second Server Action.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("add");
+    url.searchParams.delete("edit");
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+  }, [router, state.success]);
+
+  useEffect(() => {
+    if (!isPending && !committed) submitLocked.current = false;
+  }, [isPending, committed, state]);
 
   // Format expected delivery for datetime-local value
   const getFmtDeliveryDate = () => {
@@ -99,7 +112,18 @@ export function RepairForm({
           </button>
         </div>
 
-        <form action={formAction} className="space-y-4">
+        <form
+          action={formAction}
+          aria-busy={isPending}
+          onSubmit={(event) => {
+            if (submitLocked.current || isPending || committed) {
+              event.preventDefault();
+              return;
+            }
+            submitLocked.current = true;
+          }}
+          className="space-y-4"
+        >
           {repair && <input type="hidden" name="id" value={repair.id} />}
 
           {/* Customer Selection Section */}
@@ -391,8 +415,13 @@ export function RepairForm({
           </div>
 
           {state.error && (
-            <div className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">
+            <div role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">
               {state.error}
+            </div>
+          )}
+          {state.success && (
+            <div role="status" className="rounded-xl bg-green-50 p-3 text-xs font-semibold text-green-700">
+              {state.success}
             </div>
           )}
 
@@ -406,7 +435,7 @@ export function RepairForm({
             </button>
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || committed}
               className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white hover:bg-blue-800 transition disabled:opacity-60 cursor-pointer"
             >
               {isPending ? (
