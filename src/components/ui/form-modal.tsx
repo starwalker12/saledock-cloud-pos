@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -23,6 +23,7 @@ type FormModalProps = {
   maxWidthClass?: string;
   bodyClassName?: string;
   preventDismiss?: boolean;
+  closeDisabled?: boolean;
   zIndexClass?: string;
 };
 
@@ -36,38 +37,42 @@ export function FormModal({
   maxWidthClass = "sm:max-w-lg",
   bodyClassName = "space-y-5 overflow-y-auto px-4 py-5 sm:px-6",
   preventDismiss = false,
+  closeDisabled = false,
   zIndexClass = "z-[200]",
 }: FormModalProps) {
   const dialogRef = useRef<HTMLElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  const focusHeading = useCallback((heading: HTMLHeadingElement | null) => {
+    heading?.focus({ preventScroll: true });
+  }, []);
   const titleId = useId();
 
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusTimer = window.setTimeout(() => headingRef.current?.focus(), 0);
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
         if (dialogRef.current?.querySelector('[aria-expanded="true"]')) return;
-        if (!preventDismiss) onClose();
+        if (!preventDismiss && !closeDisabled) onClose();
         return;
       }
       if (event.key !== "Tab") return;
 
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
         'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusable?.length) return;
+      ) ?? []).filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) return;
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      const active = document.activeElement;
+      const outsideTabOrder = !focusable.includes(active as HTMLElement);
+      if (event.shiftKey && (active === first || outsideTabOrder)) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && (active === last || outsideTabOrder)) {
         event.preventDefault();
         first.focus();
       }
@@ -75,11 +80,10 @@ export function FormModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.clearTimeout(focusTimer);
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose, preventDismiss]);
+  }, [open, onClose, preventDismiss, closeDisabled]);
 
   if (!open) return null;
 
@@ -88,7 +92,7 @@ export function FormModal({
       <div
         className={`fixed inset-0 flex h-dvh min-h-dvh items-end justify-center bg-slate-950/70 backdrop-blur-sm sm:items-center sm:p-4 ${zIndexClass}`}
         onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !preventDismiss) onClose();
+          if (event.target === event.currentTarget && !preventDismiss && !closeDisabled) onClose();
         }}
       >
         <section
@@ -102,7 +106,7 @@ export function FormModal({
             <div className="min-w-0">
               <h2
                 id={titleId}
-                ref={headingRef}
+                ref={focusHeading}
                 tabIndex={-1}
                 className="text-lg font-black text-slate-950 outline-none sm:text-xl dark:text-slate-100"
               >
@@ -115,6 +119,7 @@ export function FormModal({
             <button
               type="button"
               onClick={onClose}
+              disabled={closeDisabled}
               aria-label="Close"
               className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
