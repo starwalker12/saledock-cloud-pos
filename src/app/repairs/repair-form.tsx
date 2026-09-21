@@ -2,11 +2,12 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Search, Loader2 } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { saveRepairAction, type ActionState } from "./actions";
 import type { CustomerRow } from "@/lib/data/customers";
 import type { RepairRow } from "@/lib/data/repairs";
 import { AppSelect } from "@/components/ui/app-select";
+import { FormModal } from "@/components/ui/form-modal";
 
 const defaultState: ActionState = { error: null, success: null };
 const PAYMENT_OPTIONS = [
@@ -78,6 +79,8 @@ export function RepairForm({
     const url = new URL(window.location.href);
     url.searchParams.delete("add");
     url.searchParams.delete("edit");
+    // A locally opened modal may otherwise return the already-cached list.
+    url.searchParams.set("repairsavestate", crypto.randomUUID());
     router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   }, [router, state.success]);
 
@@ -94,24 +97,15 @@ export function RepairForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="animate-scale-in relative w-full h-full sm:h-auto sm:max-w-2xl rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 bg-[#fff] dark:bg-slate-900 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-6 shadow-2xl overflow-y-auto max-h-full sm:max-h-[90vh]">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
-          <div>
-            <h3 className="text-lg font-black text-slate-950 dark:text-slate-50">
-              {repair ? `Edit Job Details (${repair.job_no})` : "New Repair Intake"}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Record customer device issues and advances.</p>
-          </div>
-          <button
-            onClick={onClose}
-            type="button"
-            className="h-11 w-11 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
-          >
-            <X className="size-6" />
-          </button>
-        </div>
-
+    <FormModal
+      open
+      onClose={onClose}
+      closeDisabled={isPending}
+      title={repair ? `Edit Job Details (${repair.job_no})` : "New Repair Intake"}
+      description="Record customer device issues and advances."
+      maxWidthClass="sm:max-w-2xl"
+      bodyClassName="flex min-h-0 flex-col"
+    >
         <form
           action={formAction}
           aria-busy={isPending}
@@ -122,8 +116,9 @@ export function RepairForm({
             }
             submitLocked.current = true;
           }}
-          className="space-y-4"
+          className="flex min-h-0 flex-1 flex-col"
         >
+          <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
           {repair && <input type="hidden" name="id" value={repair.id} />}
 
           {/* Customer Selection Section */}
@@ -425,10 +420,12 @@ export function RepairForm({
             </div>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-6">
+          </div>
+          <footer className="flex shrink-0 justify-end gap-3 border-t border-slate-200 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
+              disabled={isPending}
               className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
             >
               Cancel
@@ -436,7 +433,7 @@ export function RepairForm({
             <button
               type="submit"
               disabled={isPending || committed}
-              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white hover:bg-blue-800 transition disabled:opacity-60 cursor-pointer"
+              className="inline-flex h-11 min-w-36 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white hover:bg-blue-800 transition disabled:opacity-60 cursor-pointer"
             >
               {isPending ? (
                 <>
@@ -449,9 +446,8 @@ export function RepairForm({
                 "Record Intake"
               )}
             </button>
-          </div>
+          </footer>
         </form>
-      </div>
-    </div>
+    </FormModal>
   );
 }

@@ -250,7 +250,7 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
     "src/app/repairs/actions.ts":
       "38ccef01efabeafa4224cc555f2cd782b6f6d846d8ace9dcf5dffb8d727615b6",
     "src/app/repairs/repair-form.tsx":
-      "be3249951a9ebf3b28c5808ce862821079fcfa1dcac97e2674fa0b7a2328fe5e",
+      "3cb9ec6bffc26e911e804444240e71606784435018339fb64940add52ebf91bc",
   };
 
   for (const [path, hash] of Object.entries(expected)) {

@@ -77,7 +77,11 @@ const repairPage = loadTypeScriptModule("src/app/repairs/page.tsx", {
   },
   "@/lib/data/customers": { listCustomers: async () => [] },
   "@/lib/permissions": { canCreateRepairs: () => true },
-  "./repair-form": { RepairForm: () => null },
+  "./repair-modal-controller": {
+    RepairModalController: () => null,
+    RepairIntakeButton: () => null,
+    RepairEmptyState: () => null,
+  },
 });
 
 const expenseMethods = [

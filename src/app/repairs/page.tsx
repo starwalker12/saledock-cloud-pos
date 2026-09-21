@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Wrench, Layers, CalendarCheck, Coins, Plus, Eye } from "lucide-react";
+import { Wrench, Layers, CalendarCheck, Coins, Eye } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/ui/stat-card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canCreateRepairs } from "@/lib/permissions";
 import { listRepairs, getRepairsStats } from "@/lib/data/repairs";
 import { listCustomers } from "@/lib/data/customers";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
-import { RepairForm } from "./repair-form";
+import { RepairModalController, RepairIntakeButton, RepairEmptyState } from "./repair-modal-controller";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import { AppSelect } from "@/components/ui/app-select";
@@ -142,12 +141,11 @@ export default async function RepairsPage({
     created_at: "date",
   });
 
-  const showIntake = params.add === "1";
   const editing = params.edit ? sortedRepairs.find((r) => r.id === params.edit) : undefined;
-  const showModal = showIntake || Boolean(editing);
 
   return (
     <AppShell pageTitle="Repairs">
+      <RepairModalController customers={customers} editing={editing}>
       {/* Dynamic Summary Cards */}
       <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <StatCard
@@ -184,14 +182,7 @@ export default async function RepairsPage({
               <h2 className="text-base font-black text-slate-950">Active Repairs</h2>
               <p className="text-xs text-slate-500">Track faults, advances, and timeline history.</p>
             </div>
-            {canWrite && (
-              <Link
-                href="/repairs?add=1"
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 transition"
-              >
-                <Plus className="size-4" /> Intake Repair
-              </Link>
-            )}
+            {canWrite && <RepairIntakeButton />}
           </div>
         </div>
 
@@ -364,7 +355,7 @@ export default async function RepairsPage({
         {/* Repairs list rendering */}
         {repairs.length === 0 ? (
           <div className="p-6">
-            <EmptyState
+            <RepairEmptyState
               title="No repairs found"
               description={
                 parsedFilters.hasFilterInput
@@ -374,11 +365,6 @@ export default async function RepairsPage({
               }
               searchQuery={parsedFilters.search}
               resetHref={parsedFilters.hasFilterInput ? "/repairs" : undefined}
-              actionHref={
-                canWrite && !parsedFilters.hasFilterInput
-                  ? "/repairs?add=1"
-                  : undefined
-              }
               actionLabel={
                 canWrite && !parsedFilters.hasFilterInput
                   ? "Intake Repair"
@@ -604,18 +590,8 @@ export default async function RepairsPage({
         )}
       </div>
 
-      {/* Intake / Edit Modal */}
-      {showModal && (
-        <RepairForm
-          customers={customers}
-          repair={editing}
-          onClose={async () => {
-            "use server";
-            redirect("/repairs");
-          }}
-        />
-      )}
       <div className="h-20 lg:hidden" />
+      </RepairModalController>
     </AppShell>
   );
 }

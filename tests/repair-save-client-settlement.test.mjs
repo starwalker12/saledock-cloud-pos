@@ -26,12 +26,13 @@ function harness() {
     "lucide-react": { X: "X", Search: "Search", Loader2: "Loader2" },
     "./actions": { saveRepairAction: action },
     "@/components/ui/app-select": { AppSelect: "AppSelect" },
+    "@/components/ui/form-modal": { FormModal: "FormModal" },
   };
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const compiledModule = { exports: {} };
-  new Function("require", "module", "exports", "window", compiled)(id => {
+  new Function("require", "module", "exports", "window", "crypto", compiled)(id => {
     assert.ok(id in dependencies, id); return dependencies[id];
-  }, compiledModule, compiledModule.exports, { location: { href: "http://localhost/repairs?q=phone&status=received&from=2026-09-01&sort=job_no&dir=asc&add=1&edit=old#list" } });
+  }, compiledModule, compiledModule.exports, { location: { href: "http://localhost/repairs?q=phone&status=received&from=2026-09-01&sort=job_no&dir=asc&add=1&edit=old#list" } }, { randomUUID: () => "save-generation" });
   const render = (next = result, isPending = false) => {
     result = next; pending = isPending; index = 0; effects.length = 0;
     return compiledModule.exports.RepairForm({ customers: [], onClose: () => closes++ });
@@ -57,7 +58,7 @@ test("confirmed success is rendered before one client-only reconciliation preser
   assert.equal(submit(tree).props.disabled, true);
   assert.deepEqual(h.routes, []);
   h.effects.forEach(effect => effect());
-  assert.deepEqual(h.routes, [["/repairs?q=phone&status=received&from=2026-09-01&sort=job_no&dir=asc#list", { scroll: false }]]);
+  assert.deepEqual(h.routes, [["/repairs?q=phone&status=received&from=2026-09-01&sort=job_no&dir=asc&repairsavestate=save-generation#list", { scroll: false }]]);
   h.render({ success: "Repair job created.", error: null, id: "saved-id" });
   h.effects.forEach(effect => effect());
   assert.equal(h.routes.length, 1); assert.equal(h.closes(), 0);
@@ -72,6 +73,8 @@ test("same-tick and pending submits are blocked, but a no-write error unlocks in
   assert.equal(blocked, 1);
   tree = h.render({ error: null, success: null }, true);
   assert.equal(form(tree).props["aria-busy"], true); assert.equal(submit(tree).props.disabled, true);
+  assert.equal(tree.props.closeDisabled, true);
+  assert.equal(find(tree, n => n.type === "button" && n.props.children === "Cancel").props.disabled, true);
   form(tree).props.onSubmit(event); assert.equal(blocked, 2);
   tree = h.render({ error: "Invalid input", success: null });
   h.effects.forEach(effect => effect());
@@ -94,11 +97,12 @@ test("committed warnings stay visible and cannot repeat a mutation or navigate a
   }
 });
 
-test("manual dismissal and modal infrastructure are not absorbed into save settlement", () => {
+test("manual dismissal stays separate from save settlement in the shared modal", () => {
   const h = harness(); const tree = h.render();
   const cancel = find(tree, n => n.type === "button" && n.props.children === "Cancel");
   cancel.props.onClick(); assert.equal(h.closes(), 1);
-  assert.doesNotMatch(source, /FormModal|createPortal|repair-modal-controller|setTimeout|location.reload|router.refresh|catch\s*\(/);
+  assert.match(source, /<FormModal/);
+  assert.doesNotMatch(source, /createPortal|repair-modal-controller|setTimeout|location.reload|router.refresh|catch\s*\(/);
   assert.equal((source.match(/useActionState\(saveRepairAction/g) ?? []).length, 1);
 });
 
