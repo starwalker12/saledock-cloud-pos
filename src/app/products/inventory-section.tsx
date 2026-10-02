@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useActionState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useTransition, useActionState, type FormEvent } from "react";
 import { PlusCircle, ArrowUpDown, Loader2, Info } from "lucide-react";
 import {
   getProductInventoryDataAction,
@@ -14,8 +14,11 @@ import type { StockLotRow, StockMovementRow } from "@/lib/data/inventory";
 import type { ActionState } from "./inventory-actions";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { AppSelect } from "@/components/ui/app-select";
-import { formatCalendarDate, formatKarachiTimestamp } from "@/lib/datetime";
+import { formatCalendarDate, formatKarachiTimestamp, getKarachiTodayDateString } from "@/lib/datetime";
 import { OPERATIONAL_HISTORY_MAX_ROWS } from "@/lib/operational-history";
+import { FormModal } from "@/components/ui/form-modal";
+
+export type InventoryTab = "lots" | "movements" | "restock" | "adjust";
 
 type Props = {
   productId: string;
@@ -28,7 +31,32 @@ type Props = {
 
 export function InventorySection({ productId, productName, suppliers, currency, canWrite, compact = false }: Props) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  return (
+    <div className={compact ? "" : "mt-2 border-t border-slate-100 pt-2 dark:border-slate-800"}>
+      <button
+        ref={trigger}
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300"
+      >
+        <ArrowUpDown className="size-3.5" />
+        {compact ? "Stock & FIFO" : "Manage Stock lots & FIFO Ledger"}
+      </button>
+      {open && <InventoryModal
+        productId={productId}
+        productName={productName}
+        suppliers={suppliers}
+        currency={currency}
+        canWrite={canWrite}
+        onClose={() => { setOpen(false); trigger.current?.focus(); }}
+      />}
+    </div>
+  );
+}
+
+export function InventoryModal({ productId, productName, suppliers, currency, canWrite, initialTab = "lots", onClose }: Omit<Props, "compact"> & { initialTab?: InventoryTab; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
   
   // Data State
   const [lots, setLots] = useState<StockLotRow[]>([]);
@@ -49,10 +77,9 @@ export function InventorySection({ productId, productName, suppliers, currency, 
   const [movementLimitExceeded, setMovementLimitExceeded] = useState(false);
 
   // Sub-tabs
-  const [activeSubTab, setActiveSubTab] = useState<"lots" | "movements" | "restock" | "adjust">("lots");
+  const [activeSubTab, setActiveSubTab] = useState<InventoryTab>(initialTab);
 
   // Form transition
-  const [pending] = useTransition();
   const [movementPending, startMovementTransition] = useTransition();
 
   // Helper load functions (declared prior to hook usage)
@@ -69,24 +96,24 @@ export function InventorySection({ productId, productName, suppliers, currency, 
     }
   }
 
-  async function loadData() {
-    setLoading(true);
-    try {
-      const res = await getProductInventoryDataAction(productId, appliedMovementFilters);
+  useEffect(() => {
+    let cancelled = false;
+    getProductInventoryDataAction(productId).then((res) => {
+      if (cancelled) return;
       setLots(res.lots);
       setMovements(res.movements);
       setMovementTotalCount(res.movementTotalCount);
       setMovementLimitExceeded(res.movementLimitExceeded);
       setSummary(res.summary);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }
+    }).catch((error) => {
+      console.error(error);
+      if (!cancelled) setMovementError("We couldn't load inventory. Please close and try again.");
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [productId]);
 
   // Action states for forms
-  const [lotState, lotAction] = useActionState(
+  const [lotState, lotAction, lotPending] = useActionState(
     async (prev: ActionState, formData: FormData) => {
       const res = await addStockLotAction(productId, prev, formData);
       if (res.success) {
@@ -97,7 +124,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
     { error: null, success: null }
   );
 
-  const [adjustState, adjustAction] = useActionState(
+  const [adjustState, adjustAction, adjustPending] = useActionState(
     async (prev: ActionState, formData: FormData) => {
       const res = await recordStockAdjustmentAction(productId, prev, formData);
       if (res.success) {
@@ -108,13 +135,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
     { error: null, success: null }
   );
 
-  function handleToggle() {
-    const next = !open;
-    setOpen(next);
-    if (next) {
-      loadData();
-    }
-  }
+  const pending = lotPending || adjustPending;
 
   function applyMovementRange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -197,44 +218,8 @@ export function InventorySection({ productId, productName, suppliers, currency, 
   ];
 
   return (
-    <div className={compact ? "" : "mt-2 border-t border-slate-100 pt-2 md:mt-4 md:pt-3 dark:border-slate-800"}>
-      <button
-        type="button"
-        onClick={handleToggle}
-        className={compact
-          ? "inline-flex min-h-9 items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 outline-none transition hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70"
-          : "inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 text-xs font-bold text-blue-700 outline-none hover:bg-blue-100 md:bg-transparent md:px-0 md:uppercase md:tracking-wider md:hover:underline dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 md:dark:bg-transparent"}
-      >
-        <ArrowUpDown className="size-3.5" />
-        {open ? "Hide Inventory Ledger" : compact ? "Stock & FIFO" : (
-          <>
-            <span className="md:hidden">Stock lots &amp; FIFO</span>
-            <span className="hidden md:inline">Manage Stock lots &amp; FIFO Ledger</span>
-          </>
-        )}
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-[#fff] p-4 shadow-2xl overflow-y-auto max-h-[90vh] md:p-6 dark:border-slate-800 dark:bg-slate-950 text-left">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 dark:border-slate-800">
-              <div>
-                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                  Inventory & FIFO Ledger: {productName}
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Manage restock batches, track movement history, and audit stock levels.
-                </p>
-              </div>
-              <button
-                onClick={handleToggle}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-
+    <FormModal open onClose={onClose} closeDisabled={pending} preventDismiss={pending}
+      title={`Inventory & FIFO Ledger: ${productName}`} maxWidthClass="sm:max-w-4xl">
             {loading ? (
               <div className="flex items-center justify-center py-12 text-sm text-slate-500 gap-2">
                 <Loader2 className="size-4 animate-spin text-blue-700 dark:text-slate-100" />
@@ -267,6 +252,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                 {/* Navigation Sub-Tabs */}
                 <div className="flex flex-wrap gap-1 border-b border-slate-200 pb-2 mb-3 dark:border-slate-800">
                   <button
+                    disabled={pending}
                     onClick={() => setActiveSubTab("lots")}
                     className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
                       activeSubTab === "lots" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
@@ -275,6 +261,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                     Active Lots
                   </button>
                   <button
+                    disabled={pending}
                     onClick={() => setActiveSubTab("movements")}
                     className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
                       activeSubTab === "movements" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
@@ -285,6 +272,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                   {canWrite && (
                     <>
                       <button
+                        disabled={pending}
                         onClick={() => setActiveSubTab("restock")}
                         className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
                           activeSubTab === "restock" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
@@ -294,6 +282,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                         Add Stock Lot
                       </button>
                       <button
+                        disabled={pending}
                         onClick={() => setActiveSubTab("adjust")}
                         className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
                           activeSubTab === "adjust" ? "bg-[#fff] text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
@@ -482,7 +471,7 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                     </h5>
 
                     {lotState.error && (
-                      <p className="rounded bg-red-50 border border-red-100 px-3 py-2 text-xs font-semibold text-red-700">{lotState.error}</p>
+                      <p role="alert" className="rounded bg-red-50 border border-red-100 px-3 py-2 text-xs font-semibold text-red-700">{lotState.error}</p>
                     )}
                     {lotState.success && (
                       <p className="rounded bg-emerald-50 border border-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-800">{lotState.success}</p>
@@ -531,11 +520,11 @@ export function InventorySection({ productId, productName, suppliers, currency, 
                         />
                       </label>
                       <label className="block text-xs font-bold text-slate-600">
-                        Purchase Date (Optional)
+                        Purchase Date (Optional, defaults to today)
                         <input
                           type="date"
                           name="purchase_date"
-                          defaultValue={new Date().toISOString().split("T")[0]}
+                          defaultValue={getKarachiTodayDateString()}
                           className="mt-1 h-9 w-full rounded-md border border-slate-200 px-2 outline-none focus:border-blue-600 text-sm font-semibold"
                         />
                       </label>
@@ -631,9 +620,6 @@ export function InventorySection({ productId, productName, suppliers, currency, 
               </div>
             </div>
           )}
-          </div>
-        </div>
-      )}
-    </div>
+    </FormModal>
   );
 }

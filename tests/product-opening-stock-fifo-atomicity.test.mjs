@@ -48,7 +48,7 @@ test("product form distinguishes opening stock from read-only existing stock", (
   assert.match(formSource, />Opening stock</);
   assert.match(formSource, />Current stock</);
   assert.match(formSource, /data-testid="product-current-stock"/);
-  assert.match(formSource, /use Inventory Restock or Stock Adjustment/);
+  assert.match(formSource, /Restock and adjustments are recorded in the FIFO inventory ledger/);
   const stockInput = formSource.match(/<input[\s\S]*?name="stock_quantity"[\s\S]*?\/>/)?.[0] ?? "";
   assert.match(stockInput, /defaultValue=\{0\}/);
   assert.match(formSource, /initialValues\?\.id \?/);

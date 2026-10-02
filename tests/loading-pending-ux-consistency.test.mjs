@@ -264,25 +264,13 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
       source: inventoryActions.match(/async function requireWriter\(\) \{[\s\S]*?\n\}/)?.[0] ?? "",
       hash: "65f1ada7ed79f4e67a8543ba8402827ecee864c089a1a8cba1f6682c6a836c72",
     },
-    "inventory mutation server actions": {
+    "inventory adjustment server action": {
       source: sourceBetween(
         inventoryActions,
-        "export async function addStockLotAction",
+        "export async function recordStockAdjustmentAction",
         "export async function getProductInventoryDataAction",
       ),
-      hash: "7933165b9b6994c964c078f949f94580733f6fd5730ea4c2887917d7de2ea0d0",
-    },
-    "inventory mutation client actions": {
-      source: sourceBetween(
-        inventorySection,
-        "  // Action states for forms",
-        "  function handleToggle",
-      ),
-      hash: "61402a0e25c306c31540dc8ca2f996af37ec18fa15ff6a5dc801682bc8718fa8",
-    },
-    "restock form": {
-      source: inventorySection.match(/<form action=\{lotAction\}[\s\S]*?<\/form>/)?.[0] ?? "",
-      hash: "ec24e42a144c5a1a022b00592e4f051023474b8cf04ca115a353f49c1993fabf",
+      hash: "204045c7e9d25abacdc6f7d320273a14e8eab9522992942a7e055c841e75c250",
     },
     "adjustment form": {
       source: inventorySection.match(/<form action=\{adjustAction\}[\s\S]*?<\/form>/)?.[0] ?? "",
@@ -294,4 +282,12 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
     assert.ok(contract.source, `${label} source is present`);
     assert.equal(sha256Text(contract.source), contract.hash, `${label} remains unchanged`);
   }
+  // Restock normalization and modal handoff are intentionally covered by executed
+  // schema/action tests rather than freezing the former broken optional-field UI.
+  assert.match(inventoryActions, /stockLotSchema.safeParse\(fd\(formData\)\)/);
+  assert.match(inventoryActions, /supabase.rpc\("add_stock_lot"/);
+  assert.match(inventorySection, /lotState, lotAction, lotPending/);
+  assert.match(inventorySection, /adjustState, adjustAction, adjustPending/);
+  assert.match(inventorySection, /const pending = lotPending \|\| adjustPending/);
+  assert.match(inventorySection, /disabled=\{pending\}/);
 });

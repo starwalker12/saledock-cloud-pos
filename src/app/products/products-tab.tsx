@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, Pencil, Plus, RotateCcw } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
@@ -9,8 +9,8 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import { ProductThumbnail } from "@/components/products/product-thumbnail";
-import { archiveProductAction, unarchiveProductAction } from "./actions";
-import { InventorySection } from "./inventory-section";
+import { archiveProductAction, unarchiveProductAction, type SavedProduct } from "./actions";
+import { InventoryModal, InventorySection } from "./inventory-section";
 import { ProductFormModal } from "./product-form-modal";
 import type { CategoryRow, ProductRow, SupplierRow } from "@/lib/data/catalog";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
@@ -57,6 +57,8 @@ export function ProductsTab({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [inventoryProduct, setInventoryProduct] = useState<SavedProduct | null>(null);
+  const productTrigger = useRef<HTMLElement | null>(null);
 
   const products = initialProducts;
   const [createdCategories, setCreatedCategories] = useState<CategoryRow[]>([]);
@@ -134,11 +136,24 @@ export function ProductsTab({
     ...categories.map((c) => ({ value: c.id, label: c.name })),
   ];
 
-  function handleSaved() {
+  function handleSaved(product: SavedProduct, manageStock: boolean) {
     startTransition(() => {
       router.refresh();
     });
     setModal(null);
+    if (manageStock && product.type === "product") setInventoryProduct(product);
+    else productTrigger.current?.focus();
+  }
+
+  function openProduct(next: ModalState) {
+    productTrigger.current = document.activeElement as HTMLElement;
+    setModal(next);
+  }
+
+  function handleManageStock(product: SavedProduct) {
+    if (product.type !== "product") return;
+    setModal(null);
+    setInventoryProduct(product);
   }
 
   async function handleArchive(formData: FormData) {
@@ -163,7 +178,7 @@ export function ProductsTab({
         {canWrite && (
           <button
             type="button"
-            onClick={() => setModal({ mode: "add" })}
+            onClick={() => openProduct({ mode: "add" })}
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
           >
             <Plus className="size-4" />
@@ -182,9 +197,26 @@ export function ProductsTab({
           canManageOverride={canManageOverride}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
+          onManageStock={handleManageStock}
           onCategoryCreated={(category) =>
             setCreatedCategories((previous) => [...previous, category])
           }
+        />
+      )}
+      {inventoryProduct && (
+        <InventoryModal
+          key={inventoryProduct.id}
+          productId={inventoryProduct.id}
+          productName={inventoryProduct.name}
+          initialTab="restock"
+          suppliers={suppliers}
+          currency={currency}
+          canWrite={canWrite}
+          onClose={() => {
+            setInventoryProduct(null);
+            productTrigger.current?.focus();
+            startTransition(() => router.refresh());
+          }}
         />
       )}
 
@@ -355,7 +387,7 @@ export function ProductsTab({
                     currency={currency}
                     canWrite={canWrite}
                     suppliers={suppliers}
-                    onEdit={() => setModal({ mode: "edit", initial: p })}
+                    onEdit={() => openProduct({ mode: "edit", initial: p })}
                     onArchive={handleArchive}
                     onUnarchive={handleUnarchive}
                   />
@@ -371,7 +403,7 @@ export function ProductsTab({
                 currency={currency}
                 canWrite={canWrite}
                 suppliers={suppliers}
-                onEdit={() => setModal({ mode: "edit", initial: p })}
+                onEdit={() => openProduct({ mode: "edit", initial: p })}
                 onArchive={handleArchive}
                 onUnarchive={handleUnarchive}
               />
