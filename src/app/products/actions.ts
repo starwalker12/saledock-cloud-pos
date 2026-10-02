@@ -18,6 +18,8 @@ import {
   uploadProductImage,
 } from "@/lib/storage/product-images.server";
 
+export type SavedProduct = { id: string; name: string; type: "product" | "service" };
+export type ProductActionState = ActionState & { product?: SavedProduct };
 export type ActionState = { error: string | null; success: string | null; record?: { id: string; name: string } | null };
 const ok = (msg: string, record?: { id: string; name: string }): ActionState => ({ error: null, success: msg, record: record ?? null });
 const err = (msg: string): ActionState => ({ error: msg, success: null });
@@ -263,9 +265,9 @@ export async function unarchiveSupplierAction(formData: FormData) {
 // ─────────────────────────── Products ───────────────────────────
 
 export async function saveProductAction(
-  _prev: ActionState,
+  _prev: ProductActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ProductActionState> {
   const w = await requireWriter();
   if (w.denied) return err("You do not have permission to manage catalog.");
 
@@ -273,6 +275,7 @@ export async function saveProductAction(
   if (!parsed.success) return err(flatten(parsed.error));
 
   const id = (formData.get("id") as string | null) || null;
+  const productId = id ?? crypto.randomUUID();
   const imageValue = formData.get("product_image");
   const imageFile = imageValue instanceof File && imageValue.size > 0 ? imageValue : null;
   const removeImage = formData.get("remove_image") === "1";
@@ -412,7 +415,6 @@ export async function saveProductAction(
       }
     }
   } else {
-    const productId = crypto.randomUUID();
     let imagePath: string | null = null;
     if (imageFile) {
       const upload = await uploadProductImage(supabase, orgId, productId, imageFile);
@@ -462,7 +464,10 @@ export async function saveProductAction(
     details: `${id ? "Updated" : "Created"} product: ${parsed.data.name}`,
     metadata: { product_name: parsed.data.name, sku: parsed.data.sku ?? null, type: isService ? "service" : "product" },
   });
-  return ok(id ? "Product updated." : "Product created.");
+  return {
+    ...ok(id ? "Product updated." : "Product created."),
+    product: { id: productId, name: payload.name, type: payload.type },
+  };
 }
 
 

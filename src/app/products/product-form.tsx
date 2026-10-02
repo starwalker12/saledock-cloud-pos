@@ -1,22 +1,24 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { ArrowUpDown, Loader2, Plus } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
 import type { CategoryRow, ProductRow, SupplierRow } from "@/lib/data/catalog";
-import { saveCategoryAction, saveProductAction, type ActionState } from "./actions";
+import { saveCategoryAction, saveProductAction, type ActionState, type ProductActionState, type SavedProduct } from "./actions";
 import { BarcodeScanner } from "./barcode-scanner";
 import { ProductImageField } from "./product-image-field";
 
-const initial: ActionState = { error: null, success: null };
+const initial: ProductActionState = { error: null, success: null };
 
 type ProductFormProps = {
   initialValues?: Partial<ProductRow>;
   categories: CategoryRow[];
   suppliers: SupplierRow[];
-  onSaved?: () => void;
+  onSaved?: (product: SavedProduct, manageStock: boolean) => void;
+  onManageStock?: (product: SavedProduct) => void;
   onCancel?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onPendingChange?: (pending: boolean) => void;
   onCategoryCreated?: (category: CategoryRow) => void;
   canWrite: boolean;
   canManageOverride: boolean;
@@ -32,14 +34,20 @@ export function ProductForm({
   categories,
   suppliers,
   onSaved,
+  onManageStock,
   onCancel,
   onDirtyChange,
+  onPendingChange,
   onCategoryCreated,
   canWrite,
   canManageOverride,
 }: ProductFormProps) {
   const [state, action, pending] = useActionState(saveProductAction, initial);
   const formRef = useRef<HTMLFormElement>(null);
+  const [dirty, setDirty] = useState(false);
+  const manageStockAfterSave = useRef(false);
+  const submitting = useRef(false);
+  const handledState = useRef(state);
   const [isService, setIsService] = useState(initialValues?.type === "service");
   const [allowSellAtLoss, setAllowSellAtLoss] = useState(
     initialValues?.allow_sell_at_loss ?? false,
@@ -53,6 +61,11 @@ export function ProductForm({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [isCreatingCategory, startCategoryTransition] = useTransition();
+
+  function markDirty() {
+    setDirty(true);
+    onDirtyChange?.(true);
+  }
 
   function handleCreateCategory() {
     const name = newCategoryName.trim();
@@ -76,7 +89,7 @@ export function ProductForm({
         };
         onCategoryCreated?.(newCategory);
         setCategoryId(result.record.id);
-        onDirtyChange?.(true);
+        markDirty();
       }
       setNewCategoryName("");
       setShowCategoryCreator(false);
@@ -84,8 +97,17 @@ export function ProductForm({
   }
 
   useEffect(() => {
-    if (state.success) onSaved?.();
-  }, [state.success, onSaved]);
+    if (handledState.current === state) return;
+    handledState.current = state;
+    submitting.current = false;
+    if (state.success && state.product) {
+      onSaved?.(state.product, manageStockAfterSave.current && state.product.type === "product");
+    }
+  }, [state, onSaved]);
+
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
 
   const activeCategories = categories.filter(
     (category) =>
@@ -115,13 +137,22 @@ export function ProductForm({
       ref={formRef}
       action={action}
       className="flex min-h-0 flex-1 flex-col"
-      onChangeCapture={() => onDirtyChange?.(true)}
+      onChangeCapture={markDirty}
+      onSubmit={(event) => {
+        if (pending || submitting.current) {
+          event.preventDefault();
+          return;
+        }
+        const submitter = (event.nativeEvent as SubmitEvent).submitter;
+        manageStockAfterSave.current = submitter instanceof HTMLButtonElement && submitter.value === "manage-stock";
+        submitting.current = true;
+      }}
     >
       {initialValues?.id && (
         <input type="hidden" name="id" value={initialValues.id} />
       )}
 
-      <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-4 py-5 pb-8 sm:px-6">
+      <fieldset disabled={pending} className="min-h-0 min-w-0 flex-1 space-y-7 overflow-y-auto px-4 py-5 pb-8 sm:px-6">
         <section aria-labelledby="basic-product-heading">
           <div className="mb-4">
             <h3
@@ -139,7 +170,7 @@ export function ProductForm({
               <ProductImageField
                 currentUrl={initialValues?.image_url}
                 disabled={!canWrite || pending}
-                onDirty={() => onDirtyChange?.(true)}
+                onDirty={markDirty}
                 onFileStateChange={() => setDismissedImageErrorState(state)}
               />
             </div>
@@ -188,7 +219,7 @@ export function ProductForm({
                     onDetected={(code) => {
                       setBarcode(code);
                       barcodeRef.current?.focus();
-                      onDirtyChange?.(true);
+                      markDirty();
                     }}
                     disabled={pending}
                   />
@@ -203,7 +234,7 @@ export function ProductForm({
                 value={categoryId}
                 onChange={(value) => {
                   setCategoryId(value);
-                  onDirtyChange?.(true);
+                  markDirty();
                 }}
                 disabled={!canWrite}
                 options={categoryOptions}
@@ -435,18 +466,28 @@ export function ProductForm({
               />
               <span className={labelClass}>Active and available for sale</span>
             </label>
-            {initialValues?.id ? (
+            {!isService && (initialValues?.id ? (
               <div className="block">
                 <span className={labelClass}>Current stock</span>
                 <output
                   data-testid="product-current-stock"
                   className={`${inputClass} flex items-center`}
                 >
-                  {isService ? "Not tracked for services" : initialValues.stock_quantity ?? 0}
+                  {initialValues.stock_quantity ?? 0}
                 </output>
+                {onManageStock && !dirty && (
+                  <button
+                    type="button"
+                    disabled={!canWrite || pending}
+                    onClick={() => onManageStock({ id: initialValues.id!, name: initialValues.name ?? "Product", type: "product" })}
+                    className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-lg border border-blue-300 px-4 text-sm font-bold text-blue-700 disabled:opacity-60 dark:border-blue-700 dark:text-blue-300"
+                  >
+                    <ArrowUpDown className="size-4" />
+                    Manage stock
+                  </button>
+                )}
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Close this form and use Inventory Restock or Stock Adjustment
-                  to change stock safely.
+                  Restock and adjustments are recorded in the FIFO inventory ledger.
                 </p>
               </div>
             ) : (
@@ -462,8 +503,8 @@ export function ProductForm({
                   className={inputClass}
                 />
               </label>
-            )}
-            <label className={isService ? "block opacity-60" : "block"}>
+            ))}
+            {!isService && <label className="block">
               <span className={labelClass}>Reorder level</span>
               <input
                 type="number"
@@ -474,7 +515,7 @@ export function ProductForm({
                 disabled={!canWrite || isService}
                 className={inputClass}
               />
-            </label>
+            </label>}
           </div>
         </section>
 
@@ -517,7 +558,7 @@ export function ProductForm({
             {state.success}
           </p>
         )}
-      </div>
+      </fieldset>
 
       <footer className="sticky bottom-0 z-10 flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-[#fff] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6 dark:border-slate-800 dark:bg-slate-950">
         <button
@@ -536,12 +577,20 @@ export function ProductForm({
           {pending && (
             <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
           )}
-          {pending
-            ? "Saving..."
-            : initialValues?.id
-              ? "Save changes"
-              : "Add product"}
+          {pending ? "Saving..." : "Save product"}
         </button>
+        {!isService && onManageStock && (
+          <button
+            type="submit"
+            name="stock_intent"
+            value="manage-stock"
+            disabled={pending || !canWrite}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-300 px-4 text-sm font-bold text-blue-700 disabled:opacity-60 dark:border-blue-700 dark:text-blue-300"
+          >
+            <ArrowUpDown className="size-4" />
+            Save &amp; manage stock
+          </button>
+        )}
       </footer>
     </form>
   );

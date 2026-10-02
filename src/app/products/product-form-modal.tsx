@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { FormModal } from "@/components/ui/form-modal";
 import { ProductForm } from "./product-form";
 import type { CategoryRow, ProductRow, SupplierRow } from "@/lib/data/catalog";
+import type { SavedProduct } from "./actions";
 
 type ProductFormModalProps = {
   initialValues?: Partial<ProductRow>;
@@ -12,7 +13,8 @@ type ProductFormModalProps = {
   canWrite: boolean;
   canManageOverride: boolean;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (product: SavedProduct, manageStock: boolean) => void;
+  onManageStock?: (product: SavedProduct) => void;
   onCategoryCreated?: (category: CategoryRow) => void;
 };
 
@@ -24,19 +26,21 @@ export function ProductFormModal({
   canManageOverride,
   onClose,
   onSaved,
+  onManageStock,
   onCategoryCreated,
 }: ProductFormModalProps) {
   const isEdit = Boolean(initialValues?.id);
   const [dirty, setDirty] = useState(false);
+  const [pending, setPending] = useState(false);
 
-  const handleSaved = useCallback(() => {
-    onSaved?.();
-    onClose();
+  const handleSaved = useCallback((product: SavedProduct, manageStock: boolean) => {
+    if (onSaved) onSaved(product, manageStock);
+    else onClose();
   }, [onClose, onSaved]);
 
   const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
+    if (!pending) onClose();
+  }, [onClose, pending]);
 
   return (
     <FormModal
@@ -51,6 +55,7 @@ export function ProductFormModal({
       maxWidthClass="sm:max-w-4xl"
       bodyClassName="flex overflow-hidden p-0"
       preventDismiss={dirty}
+      closeDisabled={pending}
     >
       <ProductForm
         key={initialValues?.id ?? `new-${initialValues?.barcode ?? "blank"}`}
@@ -60,8 +65,10 @@ export function ProductFormModal({
         canWrite={canWrite}
         canManageOverride={canManageOverride}
         onSaved={handleSaved}
+        onManageStock={onManageStock}
         onCancel={handleClose}
         onDirtyChange={setDirty}
+        onPendingChange={setPending}
         onCategoryCreated={onCategoryCreated}
       />
     </FormModal>

@@ -13,6 +13,7 @@ import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import {
   getKarachiDayEndIso,
   getKarachiDayStartIso,
+  getKarachiTodayDateString,
   validateDateRange,
 } from "@/lib/datetime";
 
@@ -81,19 +82,15 @@ export async function addStockLotAction(
   const w = await requireWriter();
   if (w.denied) return err("You do not have permission to manage inventory.");
 
-  const raw = fd(formData);
-  // Handle empty optional fields
-  if (raw.supplier_id === "") delete raw.supplier_id;
-  if (raw.purchase_date === "") delete raw.purchase_date;
-
-  const parsed = stockLotSchema.safeParse(raw);
+  const parsed = stockLotSchema.safeParse(fd(formData));
   if (!parsed.success) return err(flatten(parsed.error));
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("add_stock_lot", {
     p_product_id: productId,
     p_lot_number: parsed.data.lot_number ?? null,
-    p_purchase_date: parsed.data.purchase_date ?? null,
+    // The existing lot table/RPC requires a date; blanks use the form's default day.
+    p_purchase_date: parsed.data.purchase_date ?? getKarachiTodayDateString(),
     p_qty_received: parsed.data.quantity_received,
     p_unit_cost: parsed.data.unit_cost,
     p_supplier_id: parsed.data.supplier_id ?? null,

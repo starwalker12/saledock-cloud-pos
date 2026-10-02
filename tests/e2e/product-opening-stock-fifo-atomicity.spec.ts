@@ -110,10 +110,11 @@ test.describe("product opening-stock FIFO atomicity", () => {
     let invoiceId: string | null = null;
     try {
       await loginLocalOwnerDirectly(page);
+      await page.waitForLoadState("networkidle");
       await page.goto("/products?tab=products");
       await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
       await page.getByRole("button", { name: "Add product" }).click();
-      const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Add product" }) }).last();
+      const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Save product", exact: true }) }).last();
       await form.locator('input[name="name"]').fill(productName);
       await form.locator('input[name="sku"]').fill(marker.replaceAll("-", ""));
       await form.locator('input[name="purchase_price"]').fill("100");
@@ -121,7 +122,7 @@ test.describe("product opening-stock FIFO atomicity", () => {
       await form.locator('input[name="stock_quantity"]').fill("10");
       await form.locator('input[name="minimum_stock"]').fill("3");
       await form.locator('textarea[name="notes"]').fill(`${marker} opening stock baseline`);
-      await form.getByRole("button", { name: "Add product" }).click();
+      await form.getByRole("button", { name: "Save product", exact: true }).click();
       await expect(page.getByText(productName, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
 
       const { data: product, error: productError } = await admin
@@ -175,7 +176,7 @@ test.describe("product opening-stock FIFO atomicity", () => {
         await productRow.getByRole("button", { name: "Edit" }).click();
         const editForm = page
           .locator("form")
-          .filter({ has: page.getByRole("button", { name: "Save changes" }) })
+          .filter({ has: page.getByRole("button", { name: "Save product", exact: true }) })
           .last();
         await expect(editForm.getByTestId("product-current-stock")).toHaveText("10");
         await expect(editForm.locator('input[name="stock_quantity"]')).toHaveCount(0);
@@ -201,7 +202,7 @@ test.describe("product opening-stock FIFO atomicity", () => {
           forged.value = "999";
           form.append(forged);
         });
-        await editForm.getByRole("button", { name: "Save changes" }).click();
+        await editForm.getByRole("button", { name: "Save product", exact: true }).click();
         await expect(page.getByText(`${productName} Updated`, { exact: true }).first()).toBeVisible({
           timeout: 20_000,
         });
