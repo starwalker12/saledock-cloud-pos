@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isLocalPlaywrightRun, loginLocalOwnerDirectly } from "./helpers/local-supabase";
+import { getKarachiTodayDateString } from "../../src/lib/datetime";
 
 test.describe.configure({ mode: "serial", retries: 0 });
 test.use({ trace: "off", video: "off", screenshot: "off" });
@@ -18,9 +19,14 @@ const inventoryDialog = (page: Page) => page.getByRole("dialog", { name: /^Inven
 function checked(error: { message: string } | null) { if (error) throw new Error(error.message); }
 async function stock(id: string) {
   const product = await admin.from("products").select("id,name,stock_quantity,type,notes").eq("id", id).single(); checked(product.error);
-  const lots = await admin.from("product_stock_lots").select("id,quantity_received,quantity_remaining,unit_cost,lot_number,notes,supplier_id").eq("product_id", id); checked(lots.error);
+  const lots = await admin.from("product_stock_lots").select("id,quantity_received,quantity_remaining,unit_cost,lot_number,notes,supplier_id,purchase_date").eq("product_id", id); checked(lots.error);
   const movements = await admin.from("stock_movements").select("id,movement_type,quantity,notes").eq("product_id", id); checked(movements.error);
   return { product: product.data!, lots: lots.data!, movements: movements.data! };
+}
+function previousCalendarDate(date: string): string {
+  const day = new Date(`${date}T00:00:00.000Z`);
+  day.setUTCDate(day.getUTCDate() - 1);
+  return day.toISOString().slice(0, 10);
 }
 async function savedProduct(name: string) {
   const rows = await admin.from("products").select("id").eq("organization_id", org).eq("name", name); checked(rows.error);
@@ -112,20 +118,28 @@ for (const width of [1440, 390]) {
     await dialog.locator('[name="quantity_received"]').fill("5");
     await dialog.locator('[name="unit_cost"]').fill("100");
     await dialog.locator('[name="purchase_date"]').fill("");
+    const blankDateBefore = getKarachiTodayDateString();
     await dialog.getByRole("button", { name: "Add Restock Lot Batch" }).click();
     await expect(dialog.getByText("Stock lot successfully restocked.", { exact: true })).toBeVisible({ timeout: 20_000 });
     const blank = await stock(id); expect(blank.product.stock_quantity).toBe(5); expect(blank.lots).toHaveLength(1); expect(blank.movements).toHaveLength(1);
     expect(blank.lots[0].notes).toBeNull(); expect(blank.lots[0].supplier_id).toBeNull();
+    expect([blankDateBefore, getKarachiTodayDateString()]).toContain(blank.lots[0].purchase_date);
+    // Base chronology on the stored Karachi day, including a run across midnight.
+    const olderPurchaseDate = previousCalendarDate(blank.lots[0].purchase_date);
+    expect(olderPurchaseDate < blank.lots[0].purchase_date).toBe(true);
     await dialog.locator('[name="quantity_received"]').fill("2");
     await dialog.locator('[name="unit_cost"]').fill("120");
     await dialog.locator('[name="lot_number"]').fill(" QA48326-EXPLICIT ");
     await dialog.locator('[name="notes"]').fill(" QA48326 retained notes ");
-    await dialog.locator('[name="purchase_date"]').fill("2026-10-02");
+    await dialog.locator('[name="purchase_date"]').fill(olderPurchaseDate);
     await dialog.getByRole("button", { name: "Add Restock Lot Batch" }).click();
     await expect.poll(async () => (await stock(id)).product.stock_quantity).toBe(7);
     await expect(dialog.getByRole("button", { name: "Add Restock Lot Batch" })).toBeEnabled();
     const explicit = await stock(id); expect(explicit.lots).toHaveLength(2); expect(explicit.movements).toHaveLength(2);
     expect(explicit.lots.find(l => l.lot_number === "QA48326-EXPLICIT")?.notes).toBe("QA48326 retained notes");
+    expect(explicit.lots.find(l => l.unit_cost === 120)?.purchase_date).toBe(olderPurchaseDate);
+    expect(explicit.lots.find(l => l.unit_cost === 120)?.quantity_remaining).toBe(2);
+    expect(explicit.lots.find(l => l.unit_cost === 100)?.quantity_remaining).toBe(5);
     await dialog.getByRole("button", { name: "Manual Audit", exact: true }).click();
     await dialog.getByRole("button", { name: "Adjustment type" }).click();
     await dialog.getByRole("option", { name: "Adjustment OUT (- Stock)", exact: true }).click();
@@ -134,7 +148,9 @@ for (const width of [1440, 390]) {
     await dialog.getByRole("button", { name: "Execute Adjustment" }).click();
     await expect(dialog.getByText("Stock adjustment 'OUT' completed successfully.", { exact: true })).toBeVisible({ timeout: 20_000 });
     const adjusted = await stock(id); expect(adjusted.product.stock_quantity).toBe(6);
-    expect(adjusted.lots.find(l => l.unit_cost === 100)?.quantity_remaining).toBe(4);
+    expect(adjusted.lots).toHaveLength(2);
+    expect(adjusted.lots.find(l => l.unit_cost === 120)?.quantity_remaining).toBe(1);
+    expect(adjusted.lots.find(l => l.unit_cost === 100)?.quantity_remaining).toBe(5);
     expect(adjusted.movements).toHaveLength(3);
     expect(calls).toEqual({ product: 1, restock: 2, adjust: 1 });
     observations[`restock-${width}`] = { calls, blank, explicit, adjusted };
