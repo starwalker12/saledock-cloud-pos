@@ -883,6 +883,20 @@ body {
     color: #17212b !important;
     overflow: visible !important;
   }
+  body[data-print-mode="a4"] #invoice-print.customer-invoice:is([data-invoice-a4-measuring="true"], [data-invoice-a4-short="true"]) {
+    width: 186mm !important;
+  }
+  body[data-print-mode="a4"] #invoice-print.customer-invoice[data-invoice-a4-short="true"] {
+    display: flex;
+    flex-direction: column;
+    min-height: 264mm;
+  }
+  body[data-print-mode="a4"] #invoice-print[data-invoice-a4-short="true"] > * {
+    flex-shrink: 0;
+  }
+  body[data-print-mode="a4"] #invoice-print[data-invoice-a4-short="true"] .invoice-footer {
+    margin-top: auto;
+  }
   #invoice-print .invoice-header { padding-top: 16px; padding-bottom: 20px; }
   #invoice-print .invoice-logo { max-height: 72px !important; max-width: 200px; }
   #invoice-print .invoice-location img { max-height: none !important; width: 112px !important; height: 112px !important; }

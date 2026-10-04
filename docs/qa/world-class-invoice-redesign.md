@@ -48,6 +48,47 @@ starting main, protected by source/AST contracts.
 
 ## Visual Review
 
+### Short A4 Page Balance Continuation (Task 41928)
+
+Owner feedback identified accidental whitespace below the closing block on short
+A4 invoices. Only this closing composition is refined in the existing draft #372.
+The customer document, stored amounts, invoice queries and thermal markup remain
+byte-identical to reviewed head `01088670ca0ca01d60112388f6389aa644398265`.
+
+Within an owned A4 print attempt, `beforeprint` and print-media entry measure the
+complete natural document after print styles apply. A temporary measuring marker
+sets the 186mm A4 content width, then is removed in `finally`. Natural height must
+fit within 262mm: the 273mm printable area minus 9mm footer clearance and a 2mm
+safety allowance. There is no item-count/status classification.
+
+Only `data-invoice-a4-short="true"` enables a print-only 264mm minimum-height
+column with an automatic footer top margin. Its children cannot shrink. Long
+documents immediately regain their original natural-width/block layout; no
+unconditional page fill, fixed/absolute footer, extra terms or stretched rows.
+Owned cleanup removes both markers on afterprint, media exit, cancellation/focus
+fallback, exceptions, unmount and the next attempt. Thermal cannot enable them.
+
+Baseline/footer-content clearance for paid/unpaid/partial one-item fixtures was
+68.85/53.24/38.42mm. Final Chromium PDFs retain exactly one page and measure
+10.11mm below footer content and 14.34mm below the QR image. QR-off/default-footer
+clearance is 10.37mm. Accepted PDF bounds are 6-15mm. Custom/default footer, QR
+on/off, notes absent/present, one/two payments, custom/no logo, long address,
+mobile print and dark application mode are covered. Installed Chrome
+154.0.8037.93 also exercises the browser's actual PDF print lifecycle without
+synthetic events or prior media emulation.
+
+Before/after screen and mobile document geometry is exact. Download Image remains
+natural height. Financial/header word coordinates differ by less than 1pt, with
+no content stretching. Long 10/40/80-item fixtures retain exactly 2/4/7 pages,
+all items once, repeated table headers, and one final footer. PDF rasters were
+visually reviewed: breathing room now sits above the grounded closing block.
+
+Continuation evidence is separate from the original immutable seal:
+`/Users/sw12/Projects/saledock-local-evidence/world-class-invoice-redesign-a4-balance`.
+The full numbered report, logs, PDF/PNG geometry, privacy scan and independent
+`SHA256SUMS` manifest are stored there. No production access, schema/financial RPC
+change, merge or deployment is part of this continuation.
+
 Pass 1 reviewed issuer/invoice identity, three-second due scan, all four states,
 mobile flow and long pagination. This moved the single due figure upfront and
 removed a redundant payment-status row.

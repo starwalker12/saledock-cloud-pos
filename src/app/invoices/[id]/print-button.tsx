@@ -74,6 +74,38 @@ const FOCUS_CLEANUP_DELAY_MS = 250;
 const MIN_THERMAL_PAGE_HEIGHT_MM = 20;
 const MAX_THERMAL_PAGE_HEIGHT_MM = 5000;
 const THERMAL_ERROR_MESSAGE = "Unable to prepare the thermal invoice. Please try again.";
+const A4_PRINTABLE_HEIGHT_MM = 273;
+const A4_FOOTER_CLEARANCE_MM = 9;
+const A4_FIT_SAFETY_MM = 2;
+
+function clearShortA4(): void {
+  document.querySelectorAll<HTMLElement>("[data-invoice-a4-short], [data-invoice-a4-measuring]")
+    .forEach((element) => {
+      delete element.dataset.invoiceA4Short;
+      delete element.dataset.invoiceA4Measuring;
+    });
+}
+
+function prepareShortA4(): void {
+  clearShortA4();
+  if (document.body.dataset.printMode !== "a4" || !window.matchMedia("print").matches) return;
+  const invoice = document.querySelector<HTMLElement>("#invoice-print.customer-invoice");
+  if (!invoice) return;
+  // Measure at the A4 content width without changing long-document pagination.
+  invoice.dataset.invoiceA4Measuring = "true";
+  let bounds: DOMRect;
+  try {
+    bounds = invoice.getBoundingClientRect();
+  } finally {
+    delete invoice.dataset.invoiceA4Measuring;
+  }
+  const heightMm = bounds.height * CSS_PX_TO_MM;
+  if (Math.abs(bounds.width * CSS_PX_TO_MM - 186) > 0.5) return;
+  if (Number.isFinite(heightMm) && heightMm > 0 &&
+      heightMm <= A4_PRINTABLE_HEIGHT_MM - A4_FOOTER_CLEARANCE_MM - A4_FIT_SAFETY_MM) {
+    invoice.dataset.invoiceA4Short = "true";
+  }
+}
 
 function nextAnimationFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -288,6 +320,7 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName, curre
       };
       activeAttemptRef.current = attempt;
 
+      clearShortA4();
       document.getElementById(THERMAL_PAGE_STYLE_ID)?.remove();
       document
         .querySelectorAll<HTMLElement>('[data-invoice-thermal-measuring="true"]')
@@ -308,6 +341,7 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName, curre
         const ownsActiveState = activeAttemptRef.current === attempt;
         if (ownsActiveState) {
           activeAttemptRef.current = null;
+          clearShortA4();
           document
             .querySelectorAll<HTMLElement>('[data-invoice-thermal-measuring="true"]')
             .forEach((element) => delete element.dataset.invoiceThermalMeasuring);
@@ -326,11 +360,17 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName, curre
         if (cleanupRef.current === cleanup) cleanupRef.current = null;
       };
       const onBeforePrint = () => {
-        if (isAttemptActive(attempt)) attempt.printMediaEntered = true;
+        if (isAttemptActive(attempt)) {
+          attempt.printMediaEntered = true;
+          prepareShortA4();
+        }
       };
       const onPrintMediaChange = (event: MediaQueryListEvent) => {
         if (!isAttemptActive(attempt)) return;
-        if (event.matches) attempt.printMediaEntered = true;
+        if (event.matches) {
+          attempt.printMediaEntered = true;
+          prepareShortA4();
+        }
         else if (attempt.printMediaEntered) cleanup();
       };
       const onWindowBlur = () => {

@@ -4,7 +4,7 @@ import {
   createDiscountPrintFixture,
 } from "./pos-discount-print-fixture";
 
-export async function createInvoiceDesignFixture() {
+export async function createInvoiceDesignFixture(shortAccountingStates = false) {
   const base = await createDiscountPrintFixture();
   const customer = randomUUID();
   const invoices: Record<string, { id: string; count: number; total: number }> =
@@ -87,6 +87,11 @@ export async function createInvoiceDesignFixture() {
       { key: "single999", count: 1, status: "paid", price: 999 },
       { key: "forty", count: 40, status: "paid", price: 999 },
       { key: "eighty", count: 80, status: "paid", price: 999 },
+      ...(shortAccountingStates ? [
+        { key: "shortpaid", count: 1, status: "paid", price: 4993, simple: true },
+        { key: "shortunpaid", count: 1, status: "unpaid", price: 4993 },
+        { key: "shortpartial", count: 1, status: "partial", price: 4993 },
+      ] : []),
     ];
     for (const definition of definitions) {
       const id = randomUUID();
@@ -146,7 +151,7 @@ export async function createInvoiceDesignFixture() {
               amount_tendered: paid + (definition.change ? 7 : 0),
               change_due: definition.change ? 7 : 0,
               balance_due: total - paid,
-              note: "Please keep this invoice for your records.\nSynthetic customer-facing transaction note.",
+              note: "simple" in definition ? null : "Please keep this invoice for your records.\nSynthetic customer-facing transaction note.",
             })
         ).error,
       );
@@ -154,7 +159,13 @@ export async function createInvoiceDesignFixture() {
       if (paid > 0)
         checked(
           (
-            await base.admin.from("payments").insert([
+            await base.admin.from("payments").insert("simple" in definition ? [{
+              organization_id: base.org,
+              branch_id: base.branch,
+              invoice_id: id,
+              method: "cash",
+              amount: paid,
+            }] : [
               {
                 organization_id: base.org,
                 branch_id: base.branch,

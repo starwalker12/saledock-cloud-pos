@@ -351,7 +351,7 @@ test("image capture absence/failure is explicit, never a silent successful downl
     /Unable to prepare the invoice image\. Please try again\./,
   );
 });
-test("reviewed thermal markup and print lifecycle remain byte-identical to starting main", () => {
+test("reviewed thermal markup and thermal sizing remain byte-identical to starting main", () => {
   const hash = (value) => createHash("sha256").update(value).digest("hex");
   let thermal;
   const ast = ts.createSourceFile(
@@ -385,7 +385,7 @@ test("reviewed thermal markup and print lifecycle remain byte-identical to start
   function visit(node) {
     if (
       ts.isVariableDeclaration(node) &&
-      ["beginPrint", "printA4", "printThermal"].includes(
+      ["printA4", "printThermal"].includes(
         node.name.getText(buttonAst),
       )
     )
@@ -394,8 +394,6 @@ test("reviewed thermal markup and print lifecycle remain byte-identical to start
   }
   visit(buttonAst);
   assert.deepEqual(functions, {
-    beginPrint:
-      "1234c1c227f39ed22349055ce15bfe053f87abc92213e887ff9e8fc4948d0e0f",
     printA4: "6aa7842f3d7779ac7db099f9f377b4db21534ae9a31ad36eadce1d59cc08749e",
     printThermal:
       "44443f86908a3e55865aed411912ffd58f9bfa5a59685f72de10b133375a485b",
@@ -425,4 +423,40 @@ test("white A4 ancestors and natural pagination are preserved; customer styling 
     ),
     /min-height:|position: fixed|gradient/,
   );
+});
+
+test("short A4 classification requires real print media, correct width and a complete safe natural height", () => {
+  let print = false;
+  let mode = "a4";
+  let width = 186 * 96 / 25.4;
+  let height = 180 * 96 / 25.4;
+  const element = { dataset: {}, getBoundingClientRect: () => ({ width, height }) };
+  const classification = load(button + "\nexport { prepareShortA4, clearShortA4 };", {
+    react: React, "react/jsx-runtime": runtime, "lucide-react": {},
+    "@/lib/formatters": formatters, "@/components/ui/form-modal": {},
+  }, {
+    window: { matchMedia: () => ({ matches: print }) },
+    document: { body: { get dataset() { return { printMode: mode }; } },
+      querySelectorAll: () => [element], querySelector: () => element },
+  });
+  classification.prepareShortA4(); assert.equal(element.dataset.invoiceA4Short, undefined);
+  print = true;
+  classification.prepareShortA4(); assert.equal(element.dataset.invoiceA4Short, "true");
+  height = 263 * 96 / 25.4;
+  classification.prepareShortA4(); assert.equal(element.dataset.invoiceA4Short, undefined);
+  height = 180 * 96 / 25.4; width = 896;
+  classification.prepareShortA4(); assert.equal(element.dataset.invoiceA4Short, undefined);
+  width = 186 * 96 / 25.4; mode = "thermal";
+  classification.prepareShortA4(); assert.equal(element.dataset.invoiceA4Short, undefined);
+  mode = "a4"; height = NaN;
+  classification.prepareShortA4(); assert.equal(element.dataset.invoiceA4Short, undefined);
+  height = 180 * 96 / 25.4;
+  classification.prepareShortA4(); classification.clearShortA4();
+  assert.equal(element.dataset.invoiceA4Short, undefined);
+  assert.match(button, /const onBeforePrint[\s\S]*?prepareShortA4\(\)/);
+  assert.match(button, /if \(event.matches\)[\s\S]*?prepareShortA4\(\)/);
+  assert.match(button, /if \(ownsActiveState\)[\s\S]*?clearShortA4\(\)/);
+  assert.match(css, /body\[data-print-mode="a4"\] #invoice-print.customer-invoice\[data-invoice-a4-short="true"\][\s\S]*?min-height: 264mm/);
+  assert.match(css, /\[data-invoice-a4-short="true"\] \.invoice-footer \{\s*margin-top: auto/);
+  assert.doesNotMatch(button.slice(button.indexOf("function prepareShortA4"), button.indexOf("function nextAnimationFrame")), /items\.length|status|setTimeout/);
 });
