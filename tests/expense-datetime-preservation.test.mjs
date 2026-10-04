@@ -154,7 +154,7 @@ test("Expenses list, filters, Dashboard, and Reports retain explicit Karachi bou
   assert.match(reportsSource, /getKarachiRangeIso\(startDate, endDate\)/);
 });
 
-test("Cash Drawer behavior and import/demo timestamp paths are untouched", () => {
+test("Cash Drawer and import timestamp paths remain intact; retired demo cannot write expenses", () => {
   assert.match(
     shiftsSource,
     /if \(e\.payment_method === "cash"\) expensesCash \+= amount/,
@@ -163,5 +163,6 @@ test("Cash Drawer behavior and import/demo timestamp paths are untouched", () =>
     backupSource,
     /spent_at: row\.Date \|\| new Date\(\)\.toISOString\(\)/,
   );
-  assert.match(demoSource, /spent_at: new Date\(\)\.toISOString\(\)/);
+  assert.doesNotMatch(demoSource, /\.from\("expenses"\)|spent_at\s*:/);
+  assert.match(demoSource, /Demo data creation is temporarily unavailable/);
 });

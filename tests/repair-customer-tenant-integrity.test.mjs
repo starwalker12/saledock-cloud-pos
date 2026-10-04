@@ -112,7 +112,7 @@ test("migration contract preserves nullable links and rejects insert and update 
   assert.match(e2eSource, /markerMismatchCount/);
 });
 
-test("backup and demo repair writers retain same-organization customer provenance", () => {
+test("backup retains same-organization customer provenance; retired demo cannot write repairs", () => {
   assert.match(
     backupSource,
     /resolveTargetIdsBatch\(supabase, orgId, jobId, "Customers", customerIds\)/,
@@ -125,10 +125,8 @@ test("backup and demo repair writers retain same-organization customer provenanc
     backupSource,
     /tableName === "RepairJobs"[\s\S]*?organization_id: orgId,[\s\S]*?customer_id: custId \|\| null/,
   );
-  assert.match(
-    demoSource,
-    /const repairsData = \[[\s\S]*?organization_id: orgId,[\s\S]*?customer_id: aliceCust\?\.id \?\? null/,
-  );
+  assert.doesNotMatch(demoSource, /\.from\("repairs"\)|const repairsData\s*=/);
+  assert.match(demoSource, /Demo data creation is temporarily unavailable/);
 });
 
 test("optional normalization stays validation-local without relaxing tenant integrity", () => {
