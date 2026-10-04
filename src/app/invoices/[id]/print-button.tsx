@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MessageCircle, Printer, X, Loader2, Image as ImageIcon, Copy, Check, ExternalLink } from "lucide-react";
-import { useTheme } from "next-themes";
+import { MessageCircle, Printer, Loader2, Image as ImageIcon, Copy, Check, ExternalLink } from "lucide-react";
+import { formatCurrency } from "@/lib/formatters";
+import { FormModal } from "@/components/ui/form-modal";
 
 type PrintItem = {
   product_name: string;
@@ -14,6 +15,9 @@ type PrintItem = {
   service_provider?: string | null;
   service_direction?: string | null;
   service_total_charged?: number;
+  service_transaction_amount?: number;
+  service_commission?: number;
+  service_reference_no?: string | null;
 };
 
 type PrintPayment = {
@@ -46,6 +50,8 @@ type PrintButtonProps = {
   customerPhone?: string | null;
   invoice?: PrintInvoice | null;
   shopName?: string;
+  currency?: string;
+  invoiceFooter?: string;
 };
 
 type PrintAttempt = {
@@ -136,8 +142,9 @@ function getWhatsAppPhone(phone: string | null | undefined): string {
   return "";
 }
 
-function buildTextMessage(invoice: PrintInvoice | null | undefined, shopName: string): string {
+export function buildTextMessage(invoice: PrintInvoice | null | undefined, shopName: string, currency = "PKR", footer?: string): string {
   if (!invoice) return "";
+  const money = (value: number) => formatCurrency(value, currency);
 
   const lines: string[] = [];
 
@@ -169,25 +176,34 @@ function buildTextMessage(invoice: PrintInvoice | null | undefined, shopName: st
     const price = item.unit_price;
     const total = item.line_total;
 
-    let qtyLine = `   Qty: ${qty} x PKR ${price} = PKR ${total}`;
+    let qtyLine = `   ${qty} x ${money(price)} = ${money(total)}`;
     if (item.item_discount > 0) {
-      qtyLine += `\n   Discount: PKR ${item.item_discount}`;
+      qtyLine += `\n   Discount: ${money(item.item_discount)}`;
     }
 
     if (isService && item.service_provider) {
       qtyLine += `\n   Provider: ${item.service_provider}`;
+    }
+    if (isService && (item.service_transaction_amount ?? 0) > 0) {
+      qtyLine += `\n   Principal: ${money(item.service_transaction_amount!)}`;
+    }
+    if (isService && (item.service_commission ?? 0) > 0) {
+      qtyLine += `\n   Commission: ${money(item.service_commission!)}`;
+    }
+    if (isService && item.service_reference_no) {
+      qtyLine += `\n   Reference: ${item.service_reference_no}`;
     }
 
     lines.push(qtyLine);
   });
   lines.push("");
 
-  lines.push("Summary:");
-  lines.push(`Subtotal: PKR ${invoice.subtotal}`);
-  lines.push(`Discount: PKR ${invoice.discount_total}`);
-  lines.push(`Total: PKR ${invoice.grand_total}`);
-  lines.push(`Paid: PKR ${invoice.amount_paid}`);
-  lines.push(`Balance Due: PKR ${invoice.balance_due}`);
+  lines.push(`Subtotal: ${money(invoice.subtotal)}`);
+  if (invoice.discount_total > 0) lines.push(`Discount: ${money(invoice.discount_total)}`);
+  lines.push(`Grand total: ${money(invoice.grand_total)}`);
+  lines.push(`Paid: ${money(invoice.amount_paid)}`);
+  if (invoice.balance_due > 0) lines.push(`Balance due: ${money(invoice.balance_due)}`);
+  if (invoice.change_due > 0) lines.push(`Change: ${money(invoice.change_due)}`);
   lines.push("");
 
   if (invoice.payments && invoice.payments.length > 0) {
@@ -201,7 +217,8 @@ function buildTextMessage(invoice: PrintInvoice | null | undefined, shopName: st
       else if (pmt.method) {
         payLine = pmt.method.charAt(0).toUpperCase() + pmt.method.slice(1);
       }
-      lines.push(`${payLine}: PKR ${pmt.amount}`);
+      lines.push(`${payLine}: ${money(pmt.amount)}`);
+      if (pmt.reference_no) lines.push(`Ref: ${pmt.reference_no}`);
     });
     lines.push("");
   }
@@ -211,24 +228,42 @@ function buildTextMessage(invoice: PrintInvoice | null | undefined, shopName: st
     lines.push("");
   }
 
-  lines.push(`Thank you for shopping with ${shopName || "us"}.`);
+  lines.push(footer?.trim() || `Thank you for shopping with ${shopName || "us"}.`);
 
   return lines.join("\n");
 }
 
-export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: PrintButtonProps) {
+export async function captureInvoiceImage(): Promise<Blob> {
+  const node = document.getElementById("invoice-print");
+  if (!node) throw new Error("Invoice document is unavailable.");
+  await waitForReceiptReadiness(node);
+  const { toBlob } = await import("html-to-image");
+  const blob = await toBlob(node, {
+    cacheBust: true,
+    backgroundColor: "#ffffff",
+    filter: (element) => !(element instanceof Element) ||
+      !element.matches(".print-hidden, [data-invoice-internal]"),
+    style: { margin: "0", borderRadius: "0", boxShadow: "none" },
+  });
+  if (!blob) throw new Error("Invoice image could not be prepared.");
+  return blob;
+}
+
+export function PrintButton({ invoiceNo, customerPhone, invoice, shopName, currency = "PKR", invoiceFooter }: PrintButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imgBlob, setImgBlob] = useState<Blob | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [thermalError, setThermalError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageCaptureRef = useRef<Promise<Blob | null> | null>(null);
+  const shareTriggerRef = useRef<HTMLButtonElement>(null);
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const attemptSequenceRef = useRef(0);
   const activeAttemptRef = useRef<PrintAttempt | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const { resolvedTheme } = useTheme();
 
   const isAttemptActive = useCallback(
     (attempt: PrintAttempt) =>
@@ -401,59 +436,51 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
     }
   }, [beginPrint, invoiceNo, isAttemptActive]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false);
-    };
-    window.addEventListener("keydown", handleEscape);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
+  const closeShare = useCallback(() => {
+    setIsOpen(false);
+    shareTriggerRef.current?.focus({ preventScroll: true });
+  }, []);
 
-  const message = buildTextMessage(invoice, shopName || "SaleDock Shop");
+  const message = buildTextMessage(invoice, shopName || "SaleDock Shop", currency, invoiceFooter);
   const phone = getWhatsAppPhone(customerPhone);
   const whatsappUrl = phone
     ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`
     : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
 
+  const prepareImage = async () => {
+    if (imageCaptureRef.current) return imageCaptureRef.current;
+    setIsLoading(true);
+    setImageError(null);
+    const capture = captureInvoiceImage().then((blob) => {
+      if (mountedRef.current) setImgBlob(blob);
+      return blob;
+    }).catch(() => {
+      if (mountedRef.current) {
+        setImgBlob(null);
+        setImageError("Unable to prepare the invoice image. Please try again.");
+      }
+      return null;
+    }).finally(() => {
+      imageCaptureRef.current = null;
+      if (mountedRef.current) setIsLoading(false);
+    });
+    imageCaptureRef.current = capture;
+    return capture;
+  };
+
   const handleShare = async () => {
     // Attempt to open WhatsApp directly
     try {
-      window.open(whatsappUrl, "_blank");
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error("Popup blocked or failed to open WhatsApp:", err);
     }
 
     setIsOpen(true);
 
-    // Capture image in the background so it is ready if user decides to download it
-    if (!imgBlob) {
-      setIsLoading(true);
-      try {
-        const node = document.getElementById("invoice-print");
-        if (node) {
-          const { toBlob } = await import("html-to-image");
-          const isDark = resolvedTheme === "dark";
-          const blob = await toBlob(node, {
-            cacheBust: true,
-            backgroundColor: isDark ? "#0f172a" : "#ffffff",
-            style: {
-              borderRadius: "0",
-              boxShadow: "none",
-            },
-          });
-          if (blob) setImgBlob(blob);
-        }
-      } catch (err) {
-        console.error("Background image capture failed:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    // Always capture current document truth rather than reusing an older invoice image.
+    setImgBlob(null);
+    await prepareImage();
   };
 
   const handleCopy = async () => {
@@ -466,9 +493,8 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
     }
   };
 
-  const downloadImage = useCallback(() => {
-    if (!imgBlob) return;
-    const url = URL.createObjectURL(imgBlob);
+  const downloadImage = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `SaleDock-Invoice-${invoiceNo}.png`;
@@ -476,7 +502,12 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [imgBlob, invoiceNo]);
+  };
+
+  const handleDownload = async () => {
+    const blob = await prepareImage();
+    if (blob) downloadImage(blob);
+  };
 
   return (
     <>
@@ -507,46 +538,29 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
         <button
           type="button"
           onClick={handleShare}
+          ref={shareTriggerRef}
           className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 cursor-pointer"
         >
           <MessageCircle className="size-4" />
           Share WhatsApp
         </button>
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={isLoading}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ImageIcon className="size-4" />}
+          {isLoading ? "Preparing Image..." : "Download Image"}
+        </button>
+        {imageError && !isOpen ? <p role="alert" className="basis-full text-sm text-red-700">{imageError}</p> : null}
       </div>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Modal content */}
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-[#fff] p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 z-10">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-            >
-              <X className="size-5" />
-            </button>
-
-            <div className="flex flex-col items-center text-center">
-              <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-                <MessageCircle className="size-6" />
-              </div>
-              <h3 className="mt-4 text-lg font-black text-slate-900 dark:text-white">
-                Share Invoice
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                We have attempted to open WhatsApp with the text invoice. If it did not open, you can click the button below or copy the message.
-              </p>
-            </div>
-
-            <div className="mt-4 w-full">
+      <FormModal open={isOpen} onClose={closeShare} title="Share Invoice" maxWidthClass="sm:max-w-md" zIndexClass="z-[200] print:hidden">
+            <div className="w-full">
               <textarea
                 readOnly
+                aria-label="WhatsApp invoice message"
                 value={message}
                 className="w-full h-40 p-3 text-xs font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg resize-none focus:outline-none"
               />
@@ -574,10 +588,10 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
                 </a>
               </div>
 
-              {imgBlob ? (
+              {imgBlob && !isLoading ? (
                 <button
                   type="button"
-                  onClick={downloadImage}
+                  onClick={() => downloadImage(imgBlob)}
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   <ImageIcon className="size-4" />
@@ -589,13 +603,14 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
                   Preparing Image Download...
                 </div>
               ) : null}
+              {imageError ? <p role="alert" className="text-sm text-red-700">{imageError}</p> : null}
 
               <button
                 type="button"
                 aria-label="Print or save invoice as PDF"
                 onClick={() => {
                   printA4();
-                  setIsOpen(false);
+                  closeShare();
                 }}
                 disabled={isPrinting}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
@@ -604,17 +619,8 @@ export function PrintButton({ invoiceNo, customerPhone, invoice, shopName }: Pri
                 Print / Save as PDF
               </button>
 
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer bg-slate-50 dark:bg-slate-800"
-              >
-                Close
-              </button>
             </div>
-          </div>
-        </div>
-      )}
+      </FormModal>
     </>
   );
 }
