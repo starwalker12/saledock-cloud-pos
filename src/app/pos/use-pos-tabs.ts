@@ -88,7 +88,7 @@ type TabsAction =
   | { type: "switch"; id: string }
   | { type: "update"; tab: Partial<BillTab> }
   | { type: "close"; id: string; allowHold?: boolean }
-  | { type: "resume"; heldBillId: string; cart: CartLine[]; customerId?: string; customerName?: string; label?: string }
+  | { type: "resume"; heldBillId: string; cart: CartLine[]; customerId?: string; customerName?: string; label?: string; discountTotal?: number }
   | { type: "markHeld"; id: string; heldBillId: string }
   | { type: "clearActive" };
 
@@ -138,6 +138,7 @@ function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         customerId: action.customerId ?? "",
         customerName: action.customerName,
         cart: action.cart,
+        discountTotal: action.discountTotal ?? 0,
       };
       return { tabs: [...state.tabs, newTab], activeId: newTab.id };
     }
@@ -293,8 +294,8 @@ export function usePosTabs({
   const updateActiveTab = useCallback((tab: Partial<BillTab>) => dispatch({ type: "update", tab }), []);
   const closeTab = useCallback((id: string) => dispatch({ type: "close", id }), []);
   const resumeHeldBill = useCallback(
-    (heldBillId: string, cart: CartLine[], customerId?: string, customerName?: string, label?: string) =>
-      dispatch({ type: "resume", heldBillId, cart, customerId, customerName, label }),
+    (heldBillId: string, cart: CartLine[], customerId?: string, customerName?: string, label?: string, discountTotal?: number) =>
+      dispatch({ type: "resume", heldBillId, cart, customerId, customerName, label, discountTotal }),
     [],
   );
   const markHeld = useCallback((id: string, heldBillId: string) => dispatch({ type: "markHeld", id, heldBillId }), []);
@@ -387,8 +388,14 @@ export function buildHeldBillPayload(
     totals_snapshot: {
       item_count: tab.cart.reduce((sum, l) => sum + l.quantity, 0),
       grand_total: tab.cart.reduce((sum, l) => sum + Math.max(l.unit_price * l.quantity - l.discount, 0), 0) - tab.discountTotal,
+      discount_total: tab.discountTotal,
     },
   };
+}
+
+export function heldBillDiscountTotal(snapshot: HeldBillPayload["totals_snapshot"]): number {
+  const discount = snapshot?.discount_total;
+  return typeof discount === "number" && Number.isFinite(discount) && discount >= 0 ? discount : 0;
 }
 
 export { defaultServiceForProduct, EMPTY_SERVICE };

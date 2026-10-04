@@ -697,6 +697,19 @@ body {
   main {
     padding: 0 !important;
   }
+  body[data-print-mode="a4"]:has(#invoice-print) {
+    transition: none !important;
+  }
+  body[data-print-mode="a4"]:has(#invoice-print) :is(
+    [data-persistent-authenticated-frame],
+    [data-app-shell-root],
+    [data-app-shell-column],
+    [data-app-shell-main],
+    [data-app-shell-content],
+    #invoice-print
+  ) {
+    background: #ffffff !important;
+  }
   #invoice-print {
     box-shadow: none !important;
     border: 0 !important;

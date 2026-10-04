@@ -33,6 +33,7 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   usePosTabs,
   buildHeldBillPayload,
+  heldBillDiscountTotal,
   heldItemsToCart,
   defaultServiceForProduct,
   type CartLine,
@@ -40,6 +41,7 @@ import {
 } from "./use-pos-tabs";
 import { HoldBillModal } from "./hold-bill-modal";
 import { HeldBillsDrawer } from "./held-bills-drawer";
+import { PosMoneyInput } from "./pos-money-input";
 
 type Props = {
   products: PosProduct[];
@@ -176,9 +178,9 @@ export function PosClient({
   );
 
   const resumeHeldBill = useCallback(
-    (heldBillId: string, cart: CartLine[], customerId?: string, customerName?: string, label?: string) => {
+    (heldBillId: string, cart: CartLine[], customerId?: string, customerName?: string, label?: string, discountTotal?: number) => {
       clearMessages();
-      rawResumeHeldBill(heldBillId, cart, customerId, customerName, label);
+      rawResumeHeldBill(heldBillId, cart, customerId, customerName, label, discountTotal);
     },
     [rawResumeHeldBill],
   );
@@ -383,13 +385,13 @@ export function PosClient({
     setCart((prev) => prev.filter((l) => l.product.id !== id));
   }
 
-  function setLinePrice(id: string, v: string) {
-    const n = Math.max(Number(v) || 0, 0);
+  function setLinePrice(id: string, v: number) {
+    const n = Math.max(v || 0, 0);
     setCart((prev) => prev.map((l) => (l.product.id === id ? { ...l, unit_price: n } : l)));
   }
 
-  function setLineDiscount(id: string, v: string) {
-    const n = Math.max(Number(v) || 0, 0);
+  function setLineDiscount(id: string, v: number) {
+    const n = Math.max(v || 0, 0);
     setCart((prev) => prev.map((l) => (l.product.id === id ? { ...l, discount: n } : l)));
   }
 
@@ -609,7 +611,7 @@ export function PosClient({
         toast.show({ type: "error", message: "No products from this held bill are available." });
         return;
       }
-      resumeHeldBill(bill.id, resumedCart, getRes.bill.customer_id ?? undefined, bill.customer_name ?? undefined, bill.label ?? undefined);
+      resumeHeldBill(bill.id, resumedCart, getRes.bill.customer_id ?? undefined, bill.customer_name ?? undefined, bill.label ?? undefined, heldBillDiscountTotal(getRes.bill.totals_snapshot));
       toast.show({ message: "Held bill resumed." });
     });
   }
@@ -993,23 +995,23 @@ export function PosClient({
                     </div>
                     <label className="text-xs min-[380px]:col-span-2">
                       <span className="text-slate-500 dark:text-slate-400">Unit price</span>
-                      <input
-                        type="number"
+                      <PosMoneyInput
+                        key={activeTab.id}
                         min={0}
                         step="0.01"
                         value={l.unit_price}
-                        onChange={(e) => setLinePrice(l.product.id, e.target.value)}
+                        onValueChange={(value) => setLinePrice(l.product.id, value)}
                         className="mt-1 h-9 w-full min-w-0 rounded-md border border-slate-200 bg-[#fff] px-2 outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900"
                       />
                     </label>
                     <label className="text-xs">
                       <span className="text-slate-500 dark:text-slate-400">Discount</span>
-                      <input
-                        type="number"
+                      <PosMoneyInput
+                        key={activeTab.id}
                         min={0}
                         step="0.01"
                         value={l.discount}
-                        onChange={(e) => setLineDiscount(l.product.id, e.target.value)}
+                        onValueChange={(value) => setLineDiscount(l.product.id, value)}
                         className="mt-1 h-9 w-full min-w-0 rounded-md border border-slate-200 bg-[#fff] px-2 outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900"
                       />
                     </label>
@@ -1111,12 +1113,13 @@ export function PosClient({
             </div>
             <div className="flex items-center justify-between gap-2 text-sm">
               <span className="text-slate-600 dark:text-slate-400">Cart discount</span>
-              <input
-                type="number"
+              <PosMoneyInput
+                key={activeTab.id}
+                aria-label="Cart discount"
                 min={0}
                 step="0.01"
                 value={discountTotal}
-                onChange={(e) => setDiscountTotal(Math.max(Number(e.target.value) || 0, 0))}
+                onValueChange={(value) => setDiscountTotal(Math.max(value || 0, 0))}
                 className="h-9 w-24 min-w-0 rounded-md border border-slate-200 bg-[#fff] px-2 text-right outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 sm:w-32"
               />
             </div>

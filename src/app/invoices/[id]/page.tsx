@@ -166,6 +166,7 @@ export default async function InvoiceDetailPage({
     <AppShell
       pageTitle={`Invoice ${invoice.invoice_no}`}
       mainClassName="p-3 pb-3 sm:p-6 sm:pb-4 md:pb-6 print:p-0"
+      printFullDocument
       showMobileTabBar={false}
     >
       {/* ── Action bar ── */}

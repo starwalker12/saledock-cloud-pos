@@ -432,6 +432,7 @@ function observeBrowser(page: Page) {
     consoleErrors: [] as string[],
     requestFailures: [] as string[],
     writes: [] as string[],
+    workspaceCoordination: [] as string[],
     expectedPreferences406: 0,
     unexpectedHttpErrors: [] as string[],
   };
@@ -453,6 +454,10 @@ function observeBrowser(page: Page) {
   });
   page.on("request", (request) => {
     const url = new URL(request.url());
+    if (request.method() === "POST" && /^\/rest\/v1\/rpc\/(?:get|claim|heartbeat)_active_workspace$/.test(url.pathname)) {
+      result.workspaceCoordination.push(url.pathname);
+      return;
+    }
     if (
       !["GET", "HEAD", "OPTIONS"].includes(request.method()) &&
       !url.pathname.startsWith("/_vercel/")
@@ -477,8 +482,11 @@ function observeBrowser(page: Page) {
 
 async function dismissCookieBanner(page: Page): Promise<void> {
   const reject = page.getByRole("button", { name: /reject optional cookies/i });
-  if (await reject.isVisible({ timeout: 3000 }).catch(() => false))
+  if (await reject.isVisible({ timeout: 3000 }).catch(() => false)) {
     await reject.click();
+    // Withdrawing a seeded account's consent can reload after its persistence request.
+    await page.waitForLoadState("networkidle");
+  }
 }
 
 async function expectNotClipped(
@@ -787,6 +795,10 @@ test("hardens real Invoice thermal artifacts and lifecycle without business resi
   prepareEvidenceRoot();
   const { url } = getLocalAuthConfig();
   expect(["localhost", "127.0.0.1", "::1"]).toContain(new URL(url).hostname);
+  // Local print QA must not send synthetic browsing activity to external analytics.
+  await page.route("https://static.cloudflareinsights.com/beacon.min.js", (route) =>
+    route.fulfill({ status: 200, contentType: "application/javascript", body: "" }),
+  );
 
   writeJson("baseline-reference.json", {
     frozenPath: FROZEN_BASELINE_PATH,

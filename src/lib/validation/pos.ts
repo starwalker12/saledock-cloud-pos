@@ -195,6 +195,7 @@ export const heldBillPayloadSchema = z.object({
     .object({
       item_count: z.number().int().min(0),
       grand_total: z.number().min(0),
+      discount_total: z.number().min(0).optional(),
     })
     .optional()
     .nullable(),
