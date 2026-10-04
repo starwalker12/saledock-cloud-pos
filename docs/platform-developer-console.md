@@ -34,7 +34,7 @@ Platform settings are initialized in the migration with these defaults:
 | `public_signup_enabled` | `true` | Allow new user registration |
 | `maintenance_mode_enabled` | `false` | Put the platform in read-only mode |
 | `backup_import_enabled` | `true` | Allow backup imports in tenant settings |
-| `demo_data_enabled` | `true` | Allow demo data seeding |
+| `demo_data_enabled` | `true` | Retained for compatibility; tenant demo creation/removal is retired regardless of this flag |
 | `factory_reset_enabled` | `true` | Allow factory reset of tenant data |
 
 ## Sidebar Visibility
