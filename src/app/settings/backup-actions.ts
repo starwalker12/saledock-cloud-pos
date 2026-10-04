@@ -6,7 +6,46 @@ import { getCurrentContext } from "@/lib/auth/session";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getLinkedProviders } from "@/lib/auth/identities";
+import { accountingTable, IMPORT_REQUEST_BYTE_LIMIT, serializedBytes } from "@/lib/backup/accounting-import";
+
+const LEGACY_ANCILLARY_TABLES = new Set([
+  "Expenses", "RepairJobs", "DailyClosings", "ActivityLog", "CashShifts", "StaffPermissions", "LossPreventionEvents",
+]);
+
+const ACCOUNTING_IMPORT_OPERATIONS = new Set([
+  "start_job", "stage_chunk", "seal_job", "validate_job", "finalize_job", "get_job", "cancel_job",
+  "restore_ancillary", "finish_job",
+]);
+
+export async function accountingImportAction(
+  operation: string,
+  args: Record<string, unknown>,
+): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  if (!ACCOUNTING_IMPORT_OPERATIONS.has(operation) || !args || Array.isArray(args) ||
+      serializedBytes({ operation, args }) > IMPORT_REQUEST_BYTE_LIMIT) {
+    return { success: false, error: "Invalid or oversized restore request." };
+  }
+  const { user, profile } = await getCurrentContext();
+  if (!user || !profile?.is_active || profile.role !== "owner" || !profile.organization_id) {
+    return { success: false, error: "Only an active Owner can restore accounting data." };
+  }
+  if (operation === "start_job" && !await isPlatformSettingEnabled("backup_import_enabled")) {
+    return { success: false, error: "Backup import has been disabled by the platform administrator." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc(`accounting_import_${operation}`, args);
+  if (error) {
+    return { success: false, error: getSafeActionError(error, "Restore could not be confirmed. Check its status before trying again.") };
+  }
+  if (operation === "finish_job" && data?.ok === true) {
+    after(() => {
+      for (const path of ["/settings", "/products", "/customers", "/invoices", "/returns", "/repairs", "/expenses", "/audit-log"]) revalidatePath(path);
+    });
+  }
+  return { success: true, data: data as Record<string, unknown> };
+}
 
 async function isPlatformSettingEnabled(key: string): Promise<boolean> {
   try {
@@ -31,6 +70,7 @@ export type ExportData = {
   customers: unknown[];
   invoices: unknown[];
   invoiceItems: unknown[];
+  invoiceItemStockAllocations: unknown[];
   payments: unknown[];
   ledgerEntries: unknown[];
   returns: unknown[];
@@ -469,6 +509,10 @@ export async function importTableChunkAction(
   rows: unknown[],
   orphanPolicy?: OrphanPolicy,
 ): Promise<ChunkImportState> {
+  if (accountingTable(tableName) || !LEGACY_ANCILLARY_TABLES.has(tableName)) {
+    return { success: false, inserted: 0, skipped: 0, failed: 0, warnings: [],
+      error: "Accounting and inventory tables require the atomic restore workflow." };
+  }
   // Note: return_stock_allocations, cash_shifts, and staff_permissions are intentionally
   // excluded from the import actions sequence (handled as NOOP/skipped) because the desktop
   // source lacks compatible schemas, and online JSON restores do not populate them through this action.
@@ -2213,6 +2257,10 @@ export async function importOnlineTableChunkAction(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rows: any[]
 ): Promise<ChunkImportState> {
+  if (accountingTable(tableName) || !LEGACY_ANCILLARY_TABLES.has(tableName)) {
+    return { success: false, inserted: 0, skipped: 0, failed: 0, warnings: [],
+      error: "Accounting and inventory tables require the atomic restore workflow." };
+  }
   let inserted = 0;
   let skipped = 0;
   let failed = 0;
@@ -2368,6 +2416,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       custs,
       invs,
       invItems,
+      invAllocations,
       pays,
       ledgers,
       returns,
@@ -2396,6 +2445,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supabase.from("customers").select("*").eq("organization_id", orgId),
       supabase.from("invoices").select("*").eq("organization_id", orgId),
       supabase.from("invoice_items").select("*").eq("organization_id", orgId),
+      supabase.from("invoice_item_stock_allocations").select("*").eq("organization_id", orgId),
       supabase.from("payments").select("*").eq("organization_id", orgId),
       supabase.from("customer_ledger_entries").select("*").eq("organization_id", orgId),
       supabase.from("returns").select("*").eq("organization_id", orgId),
@@ -2421,6 +2471,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
     if (cats.error) throw new Error("Failed to export categories: " + cats.error.message);
     if (sups.error) throw new Error("Failed to export suppliers: " + sups.error.message);
     if (prods.error) throw new Error("Failed to export products: " + prods.error.message);
+    if (invAllocations.error) throw new Error("Failed to export invoice stock allocations: " + invAllocations.error.message);
     if (returns.error) throw new Error("Failed to export returns: " + returns.error.message);
     if (returnItems.error) throw new Error("Failed to export return items: " + returnItems.error.message);
     if (returnStockAllocations.error) {
@@ -2442,6 +2493,7 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       customers: custs.data ?? [],
       invoices: invs.data ?? [],
       invoiceItems: invItems.data ?? [],
+      invoiceItemStockAllocations: invAllocations.data ?? [],
       payments: pays.data ?? [],
       ledgerEntries: ledgers.data ?? [],
       returns: returns.data ?? [],
