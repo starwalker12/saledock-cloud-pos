@@ -226,7 +226,7 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
     "src/app/pos/actions.ts":
       "fb02ef6726f2af3dd38792aacc4c98643ce1ae3b5f9f0665c837bb379d5e03fe",
     "src/app/pos/pos-client.tsx":
-      "8016996f179a475f5268c9016f7fe0275d15d45b309d3d8915385b5148176a51",
+      "a71a26f7abd646caf50ea0ac71238acc11ac18d50bb288873526452cf6398537",
     "src/app/customers/[id]/settlement-form.tsx":
       "67aa6a41e22a7e79ad02873c18c64012296a3bcaf0ff4a299f287e60be3657ad",
     "src/app/customers/[id]/write-off-form.tsx":

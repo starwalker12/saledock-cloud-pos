@@ -48,34 +48,29 @@ test.describe("POS Held Bills QA", () => {
 
     await expect(first('button:has-text("+ New bill")')).toBeVisible({ timeout: 10000 });
 
-    async function addFirstAvailableProduct(nth = 0) {
-      const products = page.locator('[data-testid="pos-product-btn"]');
-      await expect(products.first()).toBeVisible();
-      const count = await products.count();
-      for (let i = nth; i < count; i++) {
-        const btn = products.nth(i);
-        if (await btn.isDisabled().catch(() => true)) continue;
-        await btn.click();
-        return i;
-      }
-      throw new Error("No in-stock product available to add");
+    async function addSeededProduct() {
+      const product = page.locator(`[data-testid="pos-product-btn"][data-product-id="${SEEDED_PHYSICAL_PRODUCT_ID}"]`);
+      await expect(product).toBeVisible();
+      await expect(product).toBeEnabled();
+      await product.click();
     }
 
-    // ---- Tab 1: Customer A (service, no stock lots needed) ----
+    // Use a known valid item, not catalog order (which may select a required-detail service).
+    // ---- Tab 1: Customer A ----
     const tabInput = first('div[class*="group flex shrink-0"] input[type="text"]');
     await expect(tabInput).toBeVisible();
     await tabInput.fill("Customer A");
-    await addFirstAvailableProduct(1);
+    await addSeededProduct();
     await expect(first('[data-testid="pos-checkout-btn"]')).toBeEnabled();
 
-    // ---- Tab 2: Customer B (service, no stock lots needed) ----
+    // ---- Tab 2: Customer B ----
     await first('button:has-text("+ New bill")').click();
     const firstTab = first('div[class*="group flex shrink-0"]');
     await expect(firstTab).toBeVisible();
     const tab2Input = page.locator('div[class*="group flex shrink-0"] input[type="text"]').nth(1);
     await expect(tab2Input).toBeVisible();
     await tab2Input.fill("Customer B");
-    await addFirstAvailableProduct(1);
+    await addSeededProduct();
 
     // ---- Switch back to Tab 1 and verify it still has Customer A's item ----
     await firstTab.click();
@@ -147,7 +142,7 @@ test.describe("POS Held Bills QA", () => {
 
     // ---- Close-tab confirmation: add a new item, click tab X, expect prompt ----
     await page.goto("/pos");
-    await addFirstAvailableProduct(0);
+    await addSeededProduct();
     await first('button[aria-label="Close tab"]').click();
     await expect(first('h2:has-text("Close this bill?")')).toBeVisible();
     await expect(page.locator('[role="dialog"]:has-text("Close this bill?") button:has-text("Hold & close")')).toBeVisible();
@@ -312,7 +307,7 @@ test.describe("POS physical-product held bill safety", () => {
     await expect(activeLabel()).toHaveValue(heldLabel);
     const resumedLine = page.locator("li").filter({ hasText: before.name }).first();
     await expect(resumedLine).toBeVisible();
-    await expect(resumedLine.locator('input[type="number"]').first()).toHaveValue(String(before.salePrice));
+    await expect(resumedLine.getByRole("textbox", { name: "Unit price", exact: true })).toHaveValue(String(before.salePrice));
     await expect(page.getByText(/Sale recorded as INV-/)).toHaveCount(0);
 
     const beforeCustomerACheckout = await productSnapshot();
