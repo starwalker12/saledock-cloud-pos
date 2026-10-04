@@ -31,6 +31,8 @@ type PdfPage = {
   width: number;
   height: number;
   text: string;
+  itemColumnText: string;
+  identityColumnText: string;
   left: number;
   right: number;
 };
@@ -284,6 +286,8 @@ with pdfplumber.open(sys.argv[1]) as pdf:
             "width": round(page.width, 2),
             "height": round(page.height, 2),
             "text": page.extract_text() or "",
+            "itemColumnText": page.crop((0, 0, page.width * 0.44, page.height)).extract_text() or "",
+            "identityColumnText": page.crop((page.width * 0.53, 0, page.width, page.height)).extract_text() or "",
             "left": round(min((w["x0"] for w in words), default=0), 2),
             "right": round(max((w["x1"] for w in words), default=0), 2),
         })
@@ -367,7 +371,7 @@ async function captureThermal(
   return { pages, heightMm };
 }
 
-async function captureA4(page: Page): Promise<PdfPage[]> {
+async function captureA4(page: Page, name = "a4"): Promise<PdfPage[]> {
   await installPrintStub(page);
   await page
     .getByRole("button", { name: "Print A4 / Save PDF", exact: true })
@@ -392,12 +396,24 @@ async function captureA4(page: Page): Promise<PdfPage[]> {
   await page.emulateMedia({ media: "print" });
   await expect(page.locator("#invoice-print")).toBeVisible();
   await expect(page.locator("article.thermal-print")).toBeHidden();
-  const path = join(EVIDENCE_ROOT, "a4.pdf");
+  const itemNames = await page.locator("#invoice-print .invoice-item-name").filter({ visible: true }).allTextContents();
+  expect(itemNames.length).toBeGreaterThan(0);
+  const path = join(EVIDENCE_ROOT, `${name}.pdf`);
   await page.pdf({ path, format: "A4", printBackground: true });
   const pages = measurePdf(path);
-  expect(pages).toHaveLength(1);
-  expect(pages[0].width).toBeGreaterThanOrEqual(594);
-  expect(pages[0].width).toBeLessThanOrEqual(596);
+  expect(pages.length).toBeGreaterThanOrEqual(1);
+  const text = pages.map(page => page.text).join(" ").replace(/\s+/g, " ");
+  // Extract the item column independently so wrapped names cannot interleave with amounts.
+  const itemText = pages.map(page => page.itemColumnText).join(" ").replace(/\s+/g, " ");
+  for (const item of itemNames) expect(itemText.split(item.trim().replace(/\s+/g, " ")).length - 1).toBe(1);
+  expect(text.match(/Grand total/g)).toHaveLength(1);
+  for (const printed of pages) {
+    expect(printed.text.trim()).not.toBe("");
+    expect(printed.width).toBeGreaterThanOrEqual(594);
+    expect(printed.width).toBeLessThanOrEqual(596);
+    expect(printed.left).toBeGreaterThanOrEqual(25);
+    expect(printed.right).toBeLessThanOrEqual(printed.width - 25);
+  }
   await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
   await page.emulateMedia({ media: "screen" });
   return pages;
@@ -440,6 +456,7 @@ test("Chrome 151 keeps Invoice thermal output on one named page", async () => {
     await loginLocalOwnerDirectly(page);
     page.on("request", (request) => {
       const url = new URL(request.url());
+      if (request.method() === "POST" && /^\/rest\/v1\/rpc\/(?:get|claim|heartbeat)_active_workspace$/.test(url.pathname)) return;
       if (
         !["GET", "HEAD", "OPTIONS"].includes(request.method()) &&
         !url.pathname.startsWith("/_vercel/")
@@ -462,6 +479,8 @@ test("Chrome 151 keeps Invoice thermal output on one named page", async () => {
       expect(attempt.pages[0].text).toContain("Grand total");
       expect(attempt.pages[0].text).toContain("PAYMENTS");
     }
+    const shortA4 = await captureA4(page, "a4-short");
+    expect(shortA4).toHaveLength(1);
 
     await expandLongFixture(admin, fixture);
     await page.goto(`/invoices/${fixture.invoiceId}`, {
@@ -476,7 +495,7 @@ test("Chrome 151 keeps Invoice thermal output on one named page", async () => {
     expect(longText).toContain("long note remains complete");
 
     const a4 = await captureA4(page);
-    expect(a4[0].text).toContain(fixture.invoiceNo);
+    expect(a4[0].identityColumnText.replace(/\s+/g, "")).toContain(fixture.invoiceNo);
     expect(a4[0].text).toContain("INVOICE");
 
     await page.reload({ waitUntil: "networkidle" });
@@ -517,6 +536,7 @@ test("Chrome 151 keeps Invoice thermal output on one named page", async () => {
         pages: attempt.pages.length,
         heightMm: attempt.heightMm,
       })),
+      shortA4Pages: shortA4.length,
       long: { pages: long.pages.length, heightMm: long.heightMm },
       a4Pages: a4.length,
       browserWrites,

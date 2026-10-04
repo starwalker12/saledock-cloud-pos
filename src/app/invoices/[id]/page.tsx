@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { canProcessReturns } from "@/lib/permissions";
 import { PrintButton } from "./print-button";
 import { ReturnForm } from "./returns/return-form";
-import { QrCodeImage } from "@/components/shared/qr-code";
+import { InvoiceDocument } from "./invoice-document";
 import { buildMapLinkUrl, hasMapData } from "@/lib/map-utils";
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -33,13 +33,6 @@ function fmtDate(iso: string) {
   });
 }
 
-function fmtDateShort(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PK", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
-}
 
 
 function hasServiceSplit(item: { service_transaction_amount: number; service_commission: number; service_total_charged: number }) {
@@ -48,15 +41,6 @@ function hasServiceSplit(item: { service_transaction_amount: number; service_com
 
 const DEFAULT_LOGO = "/saledock-logo-full.png";
 
-function statusBadgeClass(status: string) {
-  switch (status) {
-    case "paid": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
-    case "partial": return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
-    case "unpaid": return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-    case "void": return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
-    default: return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400";
-  }
-}
 
 function hasShoLogo(logoUrl: string): boolean {
   return Boolean(logoUrl) && logoUrl !== DEFAULT_LOGO;
@@ -180,321 +164,50 @@ export default async function InvoiceDetailPage({
         <PrintButton
           invoiceNo={invoice.invoice_no}
           customerPhone={invoice.customer?.phone}
-          invoice={invoice}
+          invoice={{
+            invoice_no: invoice.invoice_no,
+            invoice_date: invoice.invoice_date,
+            status: invoice.status,
+            subtotal: invoice.subtotal,
+            discount_total: invoice.discount_total,
+            grand_total: invoice.grand_total,
+            amount_paid: invoice.amount_paid,
+            change_due: invoice.change_due,
+            balance_due: invoice.balance_due,
+            note: invoice.note,
+            customer: invoice.customer ? { name: invoice.customer.name, phone: invoice.customer.phone } : null,
+            items: invoice.items.map(item => ({
+              product_name: item.product_name, product_type: item.product_type,
+              quantity: item.quantity, unit_price: item.unit_price,
+              item_discount: item.item_discount, line_total: item.line_total,
+              service_provider: item.service_provider,
+              service_transaction_amount: item.service_transaction_amount,
+              service_commission: item.service_commission,
+              service_reference_no: item.service_reference_no,
+            })),
+            payments: invoice.payments.map(payment => ({
+              method: payment.method, amount: payment.amount, reference_no: payment.reference_no,
+            })),
+          }}
           shopName={orgName}
+          currency={currency}
+          invoiceFooter={branding.invoiceFooter}
         />
       </div>
 
-      {/* ── Invoice document card ── */}
-      <article
-        id="invoice-print"
-        className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 print:max-w-none print:border-0 print:shadow-none"
-      >
-        {/* ── Header ── */}
-        <header className="border-b border-slate-200 px-6 py-6 dark:border-slate-800 sm:px-8 sm:py-8 print:px-0 print:py-6">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-            {/* Left: Logo / Shop name */}
-            <div className="min-w-0">
-              {showLogo ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={branding.logoUrl}
-                  alt={`${orgName} logo`}
-                  className="mb-4 h-14 w-auto max-w-[180px] object-contain print:h-12"
-                />
-              ) : (
-                <div className="mb-4">
-                  <h2 className="text-xl font-black text-slate-900 dark:text-slate-50 print:text-slate-900">
-                    {orgName}
-                  </h2>
-                </div>
-              )}
-              <div className="space-y-0.5 text-sm text-slate-600 dark:text-slate-400 print:text-slate-700">
-                <p className="font-semibold text-slate-800 dark:text-slate-200 print:text-slate-800">
-                  {branchName}
-                </p>
-                {branchAddress && <p>{branchAddress}</p>}
-                {branchPhone && <p>{branchPhone}</p>}
-                {branding.email && <p className="text-xs">{branding.email}</p>}
-              </div>
-            </div>
-            {/* Right: Invoice meta */}
-            <div className="sm:text-right">
-              <p className="mb-1 text-xs font-bold uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
-                Invoice
-              </p>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-slate-50 print:text-slate-900">
-                {invoice.invoice_no}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {fmtDateShort(invoice.invoice_date)}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-1.5 sm:justify-end">
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${statusBadgeClass(invoice.status)}`}
-                >
-                  {invoice.status}
-                </span>
-                {invoice.balance_due > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700 dark:bg-red-950/30 dark:text-red-400">
-                    {formatCurrency(invoice.balance_due, currency)} due
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
+      <InvoiceDocument
+        invoice={invoice} branding={branding} orgName={orgName}
+        branchName={branchName} branchAddress={branchAddress} branchPhone={branchPhone}
+        currency={currency} showLogo={showLogo} mapLinkUrl={mapLinkUrl} showInvoiceQr={showInvoiceQr}
+      />
 
-        {/* ── Customer & cashier ── */}
-        <section className="grid gap-6 border-b border-slate-200 px-6 py-5 dark:border-slate-800 sm:grid-cols-2 sm:px-8 print:px-0 print:py-4">
-          <div>
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-              Bill to
-            </p>
-            {invoice.customer ? (
-              <div className="space-y-0.5">
-                <p className="font-bold text-slate-900 dark:text-slate-100 print:text-slate-900">
-                  <Link
-                    href={`/customers/${invoice.customer.id}`}
-                    className="text-blue-700 hover:underline dark:text-blue-400"
-                  >
-                    {invoice.customer.name}
-                  </Link>
-                </p>
-                {invoice.customer.phone && (
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{invoice.customer.phone}</p>
-                )}
-                {invoice.customer.address && (
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{invoice.customer.address}</p>
-                )}
-              </div>
-            ) : (
-              <p className="font-semibold text-slate-600 dark:text-slate-400">Walk-in customer</p>
-            )}
-          </div>
-          <div className="sm:text-right">
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-              Salesperson
-            </p>
-            <p className="font-bold text-slate-900 dark:text-slate-100 print:text-slate-900">
-              {invoice.cashier_name ?? "\u2014"}
-            </p>
-            {invoice.customer && invoice.balance_due > 0 && (
-              <div className="print-hidden mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
-                <span className="block text-[10px] font-bold uppercase tracking-wide">Outstanding balance</span>
-                {formatCurrency(invoice.balance_due, currency)} remaining on this invoice
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ── Items table (Desktop/Print) ── */}
-        <div className="hidden md:block print:block overflow-x-auto px-6 py-5 sm:px-8 print:px-0 print:py-4">
-          <table className="w-full min-w-[480px] text-left text-sm print:min-w-0">
-            <thead>
-              <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:text-slate-500">
-                <th className="pb-3 pr-3">Item</th>
-                <th className="pb-3 px-2 text-right">Qty</th>
-                {isPrivileged && (
-                  <th className="pb-3 px-2 text-right print-hidden text-slate-400 dark:text-slate-500">Cost</th>
-                )}
-                <th className="pb-3 px-2 text-right">Unit price</th>
-                <th className="pb-3 px-2 text-right">Discount</th>
-                <th className="pb-3 pl-3 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoice.items.map((it, idx) => (
-                <tr key={it.id} className={idx < invoice.items.length - 1 ? "border-b border-slate-100 dark:border-slate-800" : ""}>
-                  <td className="py-3 pr-3">
-                    <div className="font-semibold text-slate-900 dark:text-slate-100 print:text-slate-900">
-                      {it.product_name}
-                    </div>
-                    <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-                      {it.product_type === "service" ? "Service" : "Product"}
-                    </div>
-                    {it.product_type === "service" && hasServiceSplit(it) && (
-                      <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-400 dark:text-slate-500">
-                        {it.service_provider && <p>Provider: {it.service_provider}</p>}
-                        {it.service_transaction_amount > 0 && (
-                          <p>Principal: {formatCurrency(it.service_transaction_amount, currency)}</p>
-                        )}
-                        {it.service_commission > 0 && (
-                          <p>Commission: {formatCurrency(it.service_commission, currency)}</p>
-                        )}
-                        {it.service_reference_no && <p>Ref: {it.service_reference_no}</p>}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3 px-2 text-right tabular-nums">{it.quantity}</td>
-                  {isPrivileged && (
-                    <td className="py-3 px-2 text-right print-hidden tabular-nums text-slate-400 dark:text-slate-500">
-                      {formatCurrency(it.purchase_price, currency)}
-                    </td>
-                  )}
-                  <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(it.unit_price, currency)}</td>
-                  <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(it.item_discount, currency)}</td>
-                  <td className="py-3 pl-3 text-right tabular-nums font-bold text-slate-900 dark:text-slate-100 print:text-slate-900">
-                    {formatCurrency(it.line_total, currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── Items cards (Mobile only) ── */}
-        <div className="md:hidden print:hidden space-y-3 px-6 py-4">
-          {invoice.items.map((it) => (
-            <div key={it.id} className="rounded-xl border border-slate-100 bg-[#fff] p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-start justify-between gap-3 mb-1.5">
-                <div>
-                  <h4 className="font-bold text-slate-950 dark:text-slate-50 text-sm leading-tight">
-                    {it.product_name}
-                  </h4>
-                  <span className="text-[10px] text-slate-500 font-medium">
-                    {it.product_type === "service" ? "Service" : "Product"}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs font-semibold text-slate-500">Qty: {it.quantity}</span>
-                </div>
-              </div>
-
-              {it.product_type === "service" && hasServiceSplit(it) && (
-                <div className="mb-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg text-[11px] text-slate-500 space-y-0.5 leading-relaxed">
-                  {it.service_provider && <p>Provider: {it.service_provider}</p>}
-                  {it.service_transaction_amount > 0 && (
-                    <p>Principal: {formatCurrency(it.service_transaction_amount, currency)}</p>
-                  )}
-                  {it.service_commission > 0 && (
-                    <p>Commission: {formatCurrency(it.service_commission, currency)}</p>
-                  )}
-                  {it.service_reference_no && <p>Ref: {it.service_reference_no}</p>}
-                </div>
-              )}
-
-              <div className="flex justify-between items-center text-xs border-t border-slate-100 dark:border-slate-800 pt-2">
-                <div className="space-y-0.5 text-slate-500">
-                  <div>
-                    Unit Price: <span className="font-semibold text-slate-800 dark:text-slate-200">{formatCurrency(it.unit_price, currency)}</span>
-                  </div>
-                  {it.item_discount > 0 && (
-                    <div>
-                      Discount: <span className="font-semibold text-red-600 dark:text-red-400">-{formatCurrency(it.item_discount, currency)}</span>
-                    </div>
-                  )}
-                  {isPrivileged && (
-                    <div className="text-[10px]">
-                      Cost: <span>{formatCurrency(it.purchase_price, currency)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">
-                    {formatCurrency(it.line_total, currency)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Totals ── */}
-        <section className="border-t border-slate-200 px-6 py-5 dark:border-slate-800 sm:px-8 print:px-0 print:pt-4 print:pb-2">
-          <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
-              <span className="tabular-nums font-medium">{formatCurrency(invoice.subtotal, currency)}</span>
-            </div>
-            {invoice.discount_total > 0 && (
-              <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Cart discount</span>
-                <span className="tabular-nums font-medium text-red-600 dark:text-red-400">
-                  &minus;{formatCurrency(invoice.discount_total, currency)}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-base dark:border-slate-700">
-              <span className="font-bold text-slate-800 dark:text-slate-200">Grand total</span>
-              <span className="tabular-nums font-black text-slate-900 dark:text-slate-50 print:text-slate-900">
-                {formatCurrency(invoice.grand_total, currency)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Paid</span>
-              <span className="tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
-                {formatCurrency(invoice.amount_paid, currency)}
-              </span>
-            </div>
-            {hasChangeDue && (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Tendered</span>
-                  <span className="tabular-nums font-semibold">
-                    {formatCurrency(invoice.amount_tendered, currency)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">Change</span>
-                  <span className="tabular-nums font-bold text-emerald-700 dark:text-emerald-400">
-                    {formatCurrency(invoice.change_due, currency)}
-                  </span>
-                </div>
-              </>
-            )}
-            {invoice.balance_due > 0 && (
-              <div className="flex justify-between">
-                <span className="text-sm font-semibold text-red-600 dark:text-red-400">Balance due</span>
-                <span className="tabular-nums font-bold text-red-600 dark:text-red-400">
-                  {formatCurrency(invoice.balance_due, currency)}
-                </span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ── Payments ── */}
-        {invoice.payments.length > 0 && (
-          <section className="border-t border-slate-200 px-6 py-5 dark:border-slate-800 sm:px-8 print:px-0 print:py-3">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-              Payment{invoice.payments.length > 1 ? "s" : ""}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {invoice.payments.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/50"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      {PAYMENT_LABELS[p.method] ?? p.method}
-                    </p>
-                    {p.reference_no && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{p.reference_no}</p>
-                    )}
-                  </div>
-                  <span className="text-sm font-bold text-slate-900 dark:text-slate-50 tabular-nums">
-                    {formatCurrency(p.amount, currency)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Note ── */}
-        {invoice.note && (
-          <section className="border-t border-slate-200 px-6 py-5 dark:border-slate-800 sm:px-8 print:px-0 print:py-3">
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-              Note
-            </p>
-            <p className="whitespace-pre-line text-sm text-slate-700 dark:text-slate-300 print:text-slate-800">
-              {invoice.note}
-            </p>
-          </section>
-        )}
-
+      <div className="print-hidden mx-auto mt-8 max-w-4xl" data-invoice-internal aria-label="Internal invoice management">
+        {isPrivileged && <section className="mx-6 mb-6 sm:mx-8">
+          <h2 className="mb-3 text-sm font-semibold">Internal purchase costs</h2>
+          <dl className="space-y-2 text-sm">{invoice.items.map(item => <div key={item.id} className="flex justify-between gap-4">
+            <dt className="min-w-0 break-words">{item.product_name}</dt><dd className="shrink-0 tabular-nums">{formatCurrency(item.purchase_price, currency)}</dd>
+          </div>)}</dl>
+        </section>}
         {/* ── Profitability (privileged, screen only) ── */}
         {isPrivileged && (
           <section className="print-hidden mx-6 mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/30 sm:mx-8">
@@ -614,34 +327,7 @@ export default async function InvoiceDetailPage({
           </section>
         )}
 
-        {/* ── Location QR / link ── */}
-        {showInvoiceQr && mapLinkUrl && (
-          <section className="border-t border-slate-200 px-6 py-5 dark:border-slate-800 sm:px-8 print:px-0 print:py-3">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-              Find us
-            </p>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <a
-                href={mapLinkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400 print:text-slate-900"
-              >
-                Open shop location
-              </a>
-              <div className="flex flex-col items-start gap-2">
-                <QrCodeImage value={mapLinkUrl} size={128} alt="Shop location QR code" />
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">Scan for directions</span>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ── Footer ── */}
-        <footer className="border-t border-slate-200 px-6 py-5 text-center text-sm text-slate-400 dark:border-slate-800 dark:text-slate-500 print:px-0">
-          {branding.invoiceFooter || `Thank you for shopping at ${orgName}.`}
-        </footer>
-      </article>
+      </div>
 
       {/* ── Thermal receipt print version ── */}
       <article className="thermal-print hidden bg-white text-black">

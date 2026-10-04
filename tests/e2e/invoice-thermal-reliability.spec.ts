@@ -829,6 +829,7 @@ test("hardens real Invoice thermal artifacts and lifecycle without business resi
     });
 
     await loginLocalOwnerDirectly(page);
+    await page.waitForLoadState("networkidle");
     await dismissCookieBanner(page);
     const browser = observeBrowser(page);
     await verifyScreen(

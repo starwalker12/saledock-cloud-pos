@@ -66,7 +66,7 @@ test("invoice Share modal action wording matches browser print behavior", async 
 
   // Open the Share Invoice modal.
   await page.getByRole("button", { name: "Share WhatsApp", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Share Invoice", level: 3 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Share Invoice", level: 2 })).toBeVisible();
 
   // The modal should contain the corrected wording and should not contain the old wording.
   const correctedAction = page.locator("button").filter({ hasText: "Print / Save as PDF" });
@@ -76,7 +76,7 @@ test("invoice Share modal action wording matches browser print behavior", async 
 
   // Click the corrected action and verify the browser print flow is invoked with A4 mode.
   await correctedAction.click();
-  await expect(page.getByRole("heading", { name: "Share Invoice", level: 3 })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Share Invoice", level: 2 })).toHaveCount(0);
 
   const printMetrics = await page.evaluate(() => ({
     calls: (window as typeof window & { _printCalls: number })._printCalls,
