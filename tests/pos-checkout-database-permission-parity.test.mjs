@@ -9,6 +9,8 @@ import ts from 'typescript';
 const migrationPath = 'supabase/migrations/20260907110844_pos_checkout_database_permission_parity.sql';
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const previous = fs.readFileSync('supabase/migrations/20260630000000_pos_checkout_service_total_charged.sql', 'utf8');
+const precisionCheckout = fs.readFileSync('supabase/migrations/20261005100523_reject_sub_paisa_balance_movements.sql', 'utf8')
+  .match(/create or replace function public\.pos_checkout[\s\S]*?\$\$;/)[0];
 const action = fs.readFileSync('src/app/pos/actions.ts', 'utf8');
 const body = text => text.split('as $$')[1].split('$$;')[0];
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -105,7 +107,7 @@ function sql(text) {
 
 test('local direct RPC role/override parity, atomic denial and accounting regression matrix', { skip: !local }, async () => {
   const current = sql("select prosrc from pg_proc where oid='public.pos_checkout(uuid,uuid,jsonb,numeric,public.payment_method,numeric,text,text,boolean,text)'::regprocedure;");
-  assert.equal(current.trim(), body(previous).trim(), 'Local baseline must be exact pre-migration implementation');
+  assert.equal(current.trim(), body(precisionCheckout).trim(), 'Local candidate must be exact precision-guarded implementation');
   const cases = [];
   for (const role of ['owner', 'admin', 'manager', 'cashier', 'technician']) {
     for (const permission of ['can_sell', 'can_discount', 'can_sell_at_loss']) {
@@ -131,6 +133,9 @@ test('local direct RPC role/override parity, atomic denial and accounting regres
     }
   }
   cases.push(
+    { name: 'service/exact-decimal-credit', role: 'cashier', cart: [{ ...service[0], unit_price: 550.3, service_transaction_amount: 500.1, service_commission: 50.2, service_total_charged: 550.3 }], paid: 0, expected: true },
+    { name: 'service/float-artifact-debt', role: 'cashier', cart: [{ ...service[0], unit_price: 550.3000000000001, service_transaction_amount: 500.1, service_commission: 50.2, service_total_charged: 550.3000000000001 }], paid: 0, expected: false },
+    { name: 'service/subpaisa-debt', role: 'cashier', cart: [{ ...service[0], unit_price: 0.015, service_transaction_amount: 0.015, service_commission: 0, service_total_charged: 0.015 }], paid: 0, expected: false },
     { name: 'discount-denied/full-price', role: 'cashier', overrides: { can_discount: false }, expected: true },
     { name: 'discount-denied/price-tolerance', role: 'cashier', overrides: { can_discount: false }, cart: physical(99.999), expected: true },
     { name: 'discount-denied/service-price-independent', role: 'cashier', overrides: { can_discount: false }, cart: [{ ...service[0], service_transaction_amount: 40, service_commission: 10, service_total_charged: 50 }], expected: true },
@@ -163,9 +168,9 @@ test('local direct RPC role/override parity, atomic denial and accounting regres
   const baselineCase = { name: 'baseline/technician-direct', role: 'technician', cart: [{ ...service[0], service_total_charged: 50, service_transaction_amount: 40, service_commission: 10 }], paid: 0, loss: false };
   cases.push({ ...baselineCase, expected: false });
   const regressions = cases.filter(c => ['physical/cash-change-replay', 'physical/credit', 'physical/fifo-two-lots', 'service/zero-price', 'service/fallback'].includes(c.name));
-  const query = `BEGIN;\n${fixture}\nselect 'BASELINE:' || pg_temp.parity_case(${quote(baselineCase)})::text;\n` +
+  const query = `BEGIN;\n${previous}\n${fixture}\nselect 'BASELINE:' || pg_temp.parity_case(${quote(baselineCase)})::text;\n` +
     regressions.map(c => `select 'OLDMATH:' || pg_temp.parity_case(${quote(c)})::text;`).join('\n') +
-    `\n${migration}\n` +
+    `\n${migration}\n${precisionCheckout}\n` +
     cases.map(c => `select 'CASE:' || pg_temp.parity_case(${quote(c)})::text;`).join('\n') +
     "\nDO $$ BEGIN BEGIN PERFORM 'unsupported_checkout_role'::public.user_role; RAISE EXCEPTION 'Invalid role was accepted'; EXCEPTION WHEN invalid_text_representation THEN NULL; END; END $$;\n" +
     "\nselect 'CATALOG:' || json_build_object('invoker',not prosecdef,'owner',pg_get_userbyid(proowner),'config',proconfig,'anon',has_function_privilege('anon',oid,'EXECUTE'),'authenticated',has_function_privilege('authenticated',oid,'EXECUTE'),'serviceRole',has_function_privilege('service_role',oid,'EXECUTE'),'publicExecute',exists(select from aclexplode(proacl) a where a.grantee=0 and a.privilege_type='EXECUTE'),'overloads',(select count(*) from pg_proc where proname='pos_checkout' and pronamespace='public'::regnamespace)) from pg_proc where oid='public.pos_checkout(uuid,uuid,jsonb,numeric,public.payment_method,numeric,text,text,boolean,text)'::regprocedure;\nROLLBACK;";
@@ -188,6 +193,12 @@ test('local direct RPC role/override parity, atomic denial and accounting regres
   assert.equal(exactOldInvocation.sqlstate, '42501');
   for (const r of results) assert.equal(r.zeroPersistentMutation, true);
   const byName = name => results.find(r => r.name === name).result;
+  const decimal = byName('service/exact-decimal-credit');
+  assert.equal(decimal.invoice.grand_total, 550.3); assert.equal(decimal.customerBalance, 650.3);
+  assert.deepEqual(decimal.ledger, [{ direction: 'debit', amount: 550.3, balance: 650.3 }]);
+  for (const name of ['service/float-artifact-debt','service/subpaisa-debt']) {
+    assert.equal(results.find(r => r.name === name).error, 'Amount must have no more than 2 decimal places.');
+  }
   const cash = byName('physical/cash-change-replay');
   assert.equal(cash.invoice.grand_total, 100); assert.equal(cash.invoice.amount_paid, 100);
   assert.equal(cash.invoice.amount_tendered, 150); assert.equal(cash.invoice.change_due, 50);

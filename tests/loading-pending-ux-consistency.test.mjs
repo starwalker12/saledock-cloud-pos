@@ -226,7 +226,7 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
     "src/app/pos/actions.ts":
       "fb02ef6726f2af3dd38792aacc4c98643ce1ae3b5f9f0665c837bb379d5e03fe",
     "src/app/pos/pos-client.tsx":
-      "a71a26f7abd646caf50ea0ac71238acc11ac18d50bb288873526452cf6398537",
+      "3f6528d3a0a0f29e1a1bc1107bd5474558f86e802b5c08285ac187ce47c40937",
     "src/app/customers/[id]/settlement-form.tsx":
       "67aa6a41e22a7e79ad02873c18c64012296a3bcaf0ff4a299f287e60be3657ad",
     "src/app/customers/[id]/write-off-form.tsx":
@@ -234,9 +234,9 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
     "src/app/suppliers/purchases/[id]/record-payment-form.tsx":
       "06e7f9d02c88eba383faa03cfe4bfa90d3bf6d35c05a94ae1473defbcf8f189c",
     "src/app/suppliers/purchases/actions.ts":
-      "afef34ca3b70a863179d90e65536f86986a3ebca61e10a4f14af66c5d6b4bbbe",
+      "9b58559b13a1ad72e9e079a4e7679e9dce1535fee6319a582cc72e10862660bf",
     "src/app/suppliers/purchases/new/new-purchase-form.tsx":
-      "1338271bea0fb40c7bc9d2c12756eb56082536d946a29cf9ad954d2a0f6f3b9b",
+      "b21d88f494ffd5d66b91ddd6e30bab952a1ad378fb4fb74cd0b66cf7ab4f830b",
     "src/app/expenses/actions.ts":
       "48490a436d7a46bca149489c204af3366ca76bab747c4301ae86c790d7b82cd1",
     "src/app/expenses/expense-form.tsx":

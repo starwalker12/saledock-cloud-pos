@@ -1,28 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { test } from "node:test";
+import { loadMoneyModule } from './helpers/load-money-module.mjs';
 
-const require = createRequire(import.meta.url);
-const ts = require("typescript");
-const source = readFileSync(
-  new URL("../src/lib/validation/customers.ts", import.meta.url),
-  "utf8",
-);
-const compiled = ts.transpileModule(source, {
-  compilerOptions: {
-    module: ts.ModuleKind.CommonJS,
-    target: ts.ScriptTarget.ES2022,
-  },
-}).outputText;
-const schemaModule = { exports: {} };
-new Function("require", "module", "exports", compiled)(
-  require,
-  schemaModule,
-  schemaModule.exports,
-);
-
-const { creditPaymentSchema } = schemaModule.exports;
+const { creditPaymentSchema } = loadMoneyModule('src/lib/validation/customers.ts');
 
 test("blank optional settlement fields normalize to null", () => {
   const result = creditPaymentSchema.safeParse({

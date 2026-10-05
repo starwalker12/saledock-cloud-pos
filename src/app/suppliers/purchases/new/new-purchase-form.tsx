@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { SUPPLIER_PAYMENT_METHODS, type SupplierPaymentMethod } from "@/lib/validation/supplier-purchases";
 import { createSupplierPurchaseAction } from "../actions";
 import { AppSelect } from "@/components/ui/app-select";
+import { multiplyMoney, subtractMoney, sumMoney, MONEY_PRECISION_MESSAGE } from "@/lib/money";
 
 type Supplier = { id: string; name: string; company: string | null };
 type Product = {
@@ -90,9 +91,9 @@ export function NewPurchaseForm({
     [],
   );
 
-  const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_cost, 0);
-  const grand = Math.max(subtotal - discount, 0);
-  const balance = Math.max(grand - amountPaid, 0);
+  const subtotal = sumMoney(lines.map((l) => multiplyMoney(l.unit_cost, l.quantity)));
+  const grand = Math.max(subtractMoney(subtotal, discount), 0);
+  const balance = Math.max(subtractMoney(grand, amountPaid), 0);
 
   const addLine = () => {
     if (!productPicker) return;
@@ -129,6 +130,10 @@ export function NewPurchaseForm({
     }
     if (lines.length === 0) {
       setError("Add at least one line item.");
+      return;
+    }
+    if (!Number.isFinite(balance)) {
+      setError(MONEY_PRECISION_MESSAGE);
       return;
     }
     for (const l of lines) {
@@ -295,7 +300,7 @@ export function NewPurchaseForm({
                         />
                       </td>
                       <td className="px-2 py-2 text-right font-bold text-slate-900">
-                        {formatCurrency(l.quantity * l.unit_cost, currency)}
+                        {formatCurrency(multiplyMoney(l.unit_cost, l.quantity), currency)}
                       </td>
                       <td className="px-2 py-2 text-right">
                         <button

@@ -12,6 +12,7 @@ import {
 } from "@/lib/validation/supplier-purchases";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
+import { moneyToMinorUnits, MONEY_PRECISION_MESSAGE, multiplyMoney, subtractMoney, sumMoney } from "@/lib/money";
 
 export type CreatePurchaseResult =
   | { ok: true; purchase_id: string; purchase_no: string }
@@ -73,7 +74,7 @@ export async function createSupplierPurchaseAction(
       purchase_no: row.purchase_no,
       supplier_id: data.supplier_id,
       item_count: data.items.length,
-      grand_total_estimate: data.items.reduce((s, i) => s + i.quantity * i.unit_cost, 0) - data.discount_total,
+      grand_total_estimate: subtractMoney(sumMoney(data.items.map((i) => multiplyMoney(i.unit_cost, i.quantity))), data.discount_total),
       amount_paid: data.amount_paid,
     },
   });
@@ -171,7 +172,7 @@ export type WriteOffResult =
 
 export async function recordSupplierWriteOffAction(
   supplierId: string,
-  amount: number,
+  submittedAmount: string | number,
   reason: string,
 ): Promise<WriteOffResult> {
   const ctx = await getCurrentContext();
@@ -186,8 +187,13 @@ export async function recordSupplierWriteOffAction(
     return { ok: false, error: "Only owner or admin can write off supplier dues." };
   }
 
+  const amount = Number(submittedAmount);
   if (!Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: "Amount must be greater than 0." };
+  }
+
+  if (moneyToMinorUnits(submittedAmount) === null) {
+    return { ok: false, error: MONEY_PRECISION_MESSAGE };
   }
 
   if (!reason || reason.trim().length === 0) {

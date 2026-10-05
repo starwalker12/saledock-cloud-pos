@@ -233,6 +233,7 @@ function parseCurrency(text: string): number {
 }
 
 async function dashboardProfit(page: Page): Promise<number> {
+  await page.waitForLoadState("networkidle");
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
@@ -258,6 +259,7 @@ async function reportsProfit(page: Page): Promise<number> {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+  await page.waitForLoadState("networkidle");
   await page.goto(
     `/reports?range=custom&startDate=${today}&endDate=${today}`,
   );
@@ -383,11 +385,12 @@ test.describe("return profit reconciliation", () => {
       result.startingDashboardProfit = startingDashboardProfit;
       result.startingReportsProfit = startingReportsProfit;
 
+      await page.waitForLoadState("networkidle");
       await page.goto("/products?tab=products");
       await page.getByRole("button", { name: "Add product" }).click();
       const productForm = page
         .locator("form")
-        .filter({ has: page.getByRole("button", { name: "Add product" }) })
+        .filter({ has: page.getByRole("button", { name: "Save product", exact: true }) })
         .last();
       await productForm.locator('input[name="name"]').fill(productName);
       await productForm
@@ -400,7 +403,7 @@ test.describe("return profit reconciliation", () => {
       await productForm
         .locator('textarea[name="notes"]')
         .fill(`${marker} return profit fixture`);
-      await productForm.getByRole("button", { name: "Add product" }).click();
+      await productForm.getByRole("button", { name: "Save product", exact: true }).click();
       await expect(
         page.getByText(productName, { exact: true }).first(),
       ).toBeVisible({
@@ -432,6 +435,7 @@ test.describe("return profit reconciliation", () => {
       });
       expect(Number(openingLots?.[0]?.unit_cost)).toBe(100);
 
+      await page.waitForLoadState("networkidle");
       await page.goto("/pos");
       const productButton = page.locator(
         `[data-testid="pos-product-btn"][data-product-id="${productId}"]`,
@@ -494,6 +498,7 @@ test.describe("return profit reconciliation", () => {
       expect(saleDashboardProfit - startingDashboardProfit).toBe(50);
       expect(saleReportsProfit - startingReportsProfit).toBe(50);
 
+      await page.waitForLoadState("networkidle");
       await page.goto(`/invoices/${invoiceId}`);
       const returnForm = page
         .locator("form")

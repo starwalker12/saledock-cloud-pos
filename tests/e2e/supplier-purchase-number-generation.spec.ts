@@ -72,7 +72,7 @@ function browserEvidence(page: Page) {
       );
     const optionalLocalPreference =
       source.startsWith(
-        "http://127.0.0.1:54321/rest/v1/user_ui_preferences?",
+        `${getLocalAuthConfig().url}/rest/v1/user_ui_preferences?`,
       ) && message.text().includes("status of 406");
     if (!expectedLocalInstrumentation && !optionalLocalPreference) {
       evidence.consoleErrors.push(text);
@@ -160,7 +160,7 @@ function browserEvidence(page: Page) {
       });
     }
     if (["GET", "HEAD", "OPTIONS"].includes(request.method())) return;
-    if (url.port === "54321") return;
+    if (url.origin === new URL(getLocalAuthConfig().url).origin) return;
     if (
       request.method() === "POST" &&
       actionPaths.some((pattern) => pattern.test(url.pathname))
