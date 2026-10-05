@@ -124,7 +124,7 @@ test("success and failure remain truthful visible ActionState outcomes", () => {
 test("settlement validation and audit payload keep their financial contract", () => {
   assert.match(
     validationSource,
-    /const positiveNumber = z\.coerce[\s\S]*\.positive\("Must be greater than 0\."\)/,
+    /const positiveNumber = positiveMoneyAmount\("Must be greater than 0\."\)/,
   );
   assert.match(
     validationSource,

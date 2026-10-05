@@ -36,12 +36,14 @@ import {
   heldBillDiscountTotal,
   heldItemsToCart,
   defaultServiceForProduct,
+  serviceTotalCharged,
   type CartLine,
   type ServiceFields,
 } from "./use-pos-tabs";
 import { HoldBillModal } from "./hold-bill-modal";
 import { HeldBillsDrawer } from "./held-bills-drawer";
 import { PosMoneyInput } from "./pos-money-input";
+import { lineMoney, subtractMoney, sumMoney, MONEY_PRECISION_MESSAGE } from "@/lib/money";
 
 type Props = {
   products: PosProduct[];
@@ -280,20 +282,17 @@ export function PosClient({
   );
 
   const subtotal = useMemo(
-    () => cart.reduce((s, l) => s + Math.max(l.unit_price * l.quantity - l.discount, 0), 0),
+    () => sumMoney(cart.map((l) => lineMoney(l.unit_price, l.quantity, l.discount))),
     [cart],
   );
   const totalProductRevenue = useMemo(() => {
-    return cart.reduce((s, l) => {
-      if (l.product.type !== "product") return s;
-      return s + Math.max(l.unit_price * l.quantity - l.discount, 0);
-    }, 0);
+    return sumMoney(cart.filter((l) => l.product.type === "product").map((l) => lineMoney(l.unit_price, l.quantity, l.discount)));
   }, [cart]);
-  const grandTotal = Math.max(subtotal - (discountTotal || 0), 0);
+  const grandTotal = Math.max(subtractMoney(subtotal, discountTotal || 0), 0);
   const tenderedValue = Number(amountPaid || 0);
   const tendered = Number.isFinite(tenderedValue) ? Math.max(tenderedValue, 0) : 0;
-  const balance = Math.max(grandTotal - tendered, 0);
-  const changeDue = Math.max(tendered - grandTotal, 0);
+  const balance = Math.max(subtractMoney(grandTotal, tendered), 0);
+  const changeDue = Math.max(subtractMoney(tendered, grandTotal), 0);
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const isCreditAndMissingCustomer = paymentMethod === "customer_credit" && !customerId;
 
@@ -349,12 +348,7 @@ export function PosClient({
       prev.map((l) => {
         if (l.product.id !== id || !l.service) return l;
         const nextService = { ...l.service, ...patch };
-        const principal = Number(nextService.principal || 0);
-        const commission = Number(nextService.commission || 0);
-        const totalCharged =
-          nextService.total_charged.trim() === ""
-            ? principal + commission
-            : Number(nextService.total_charged);
+        const totalCharged = serviceTotalCharged(nextService);
         return {
           ...l,
           unit_price: totalCharged,
@@ -415,6 +409,10 @@ export function PosClient({
       setError("Add at least one item to the cart.");
       return;
     }
+    if (!Number.isFinite(balance) || !Number.isFinite(changeDue)) {
+      setError(MONEY_PRECISION_MESSAGE);
+      return;
+    }
     for (const line of cart) {
       if (line.product.type !== "service" || !line.service) continue;
       const s = line.service;
@@ -448,7 +446,7 @@ export function PosClient({
         };
         if (l.product.type !== "service" || !l.service) return base;
         const s = l.service;
-        const num = (v: string) => (v.trim() === "" ? undefined : Number(v));
+        const num = (v: string) => (v.trim() === "" ? undefined : sumMoney([v]));
         return {
           ...base,
           service_provider: s.provider || undefined,
@@ -458,7 +456,7 @@ export function PosClient({
           service_reference_no: s.reference_no || undefined,
           service_transaction_amount: num(s.principal),
           service_commission: num(s.commission),
-          service_total_charged: num(s.total_charged),
+          service_total_charged: serviceTotalCharged(s),
           service_note: s.note || undefined,
         };
       }),
@@ -682,7 +680,7 @@ export function PosClient({
     <div className="flex items-center gap-2 overflow-x-auto pb-1">
       {tabs.map((tab) => {
         const isActive = tab.id === activeId;
-        const total = tab.cart.reduce((s, l) => s + Math.max(l.unit_price * l.quantity - l.discount, 0), 0) - tab.discountTotal;
+        const total = subtractMoney(sumMoney(tab.cart.map((l) => lineMoney(l.unit_price, l.quantity, l.discount))), tab.discountTotal);
         return (
           <div
             key={tab.id}
@@ -990,7 +988,7 @@ export function PosClient({
                         <Plus className="size-4" />
                       </button>
                       <span className="ml-auto text-right text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {formatCurrency(Math.max(l.unit_price * l.quantity - l.discount, 0), currency)}
+                        {formatCurrency(lineMoney(l.unit_price, l.quantity, l.discount), currency)}
                       </span>
                     </div>
                     <label className="text-xs min-[380px]:col-span-2">
@@ -1018,7 +1016,7 @@ export function PosClient({
                   </div>
 
                   {l.product.type === "product" && (() => {
-                    const lineRevenue = Math.max(l.unit_price * l.quantity - l.discount, 0);
+                    const lineRevenue = lineMoney(l.unit_price, l.quantity, l.discount);
                     const allocatedBillDiscount = totalProductRevenue > 0 ? (lineRevenue / totalProductRevenue) * (discountTotal || 0) : 0;
                     const effectiveRevenue = Math.max(lineRevenue - allocatedBillDiscount, 0);
                     const totalCost = l.product.purchase_price * l.quantity;
@@ -1342,12 +1340,11 @@ function ServiceLineDetails({
   const requiresAccount = p.requires_account_number;
   const requiresReference = p.requires_reference;
 
-  const principalNum = Number(s.principal || 0);
   const commissionNum = Number(s.commission || 0);
   const totalNum = Number(s.total_charged || 0);
   const totalLessThanCommission =
     s.total_charged !== "" && commissionNum > 0 && totalNum < commissionNum;
-  const computedTotal = principalNum + commissionNum;
+  const computedTotal = sumMoney([s.principal || "0", s.commission || "0"]);
   const directionOptions = [
     { value: "", label: "—" },
     ...SERVICE_DIRECTIONS.map((d) => ({ value: d, label: SERVICE_DIRECTION_LABELS[d] })),

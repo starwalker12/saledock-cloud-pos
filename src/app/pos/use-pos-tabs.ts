@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { lineMoney, subtractMoney, sumMoney } from "@/lib/money";
 import type { PosProduct } from "@/lib/data/pos";
 import type { HeldBillCartItem, HeldBillPayload } from "@/lib/validation/pos";
 
@@ -58,10 +59,10 @@ function defaultServiceForProduct(p: PosProduct): ServiceFields {
   };
 }
 
-function serviceTotalCharged(service: ServiceFields): number {
-  const principal = Number(service.principal || 0);
-  const commission = Number(service.commission || 0);
-  return service.total_charged.trim() === "" ? principal + commission : Number(service.total_charged);
+export function serviceTotalCharged(service: ServiceFields): number {
+  return service.total_charged.trim() === ""
+    ? sumMoney([service.principal || "0", service.commission || "0"])
+    : sumMoney([service.total_charged]);
 }
 
 function emptyTab(id?: string): BillTab {
@@ -328,13 +329,11 @@ export function cartToHeldItems(cart: CartLine[]): HeldBillCartItem[] {
     service_receiver_account: l.service?.receiver_account || undefined,
     service_reference_no: l.service?.reference_no || undefined,
     service_transaction_amount:
-      l.service?.principal && l.service.principal !== "" ? Number(l.service.principal) : undefined,
+      l.service?.principal && l.service.principal !== "" ? sumMoney([l.service.principal]) : undefined,
     service_commission:
-      l.service?.commission && l.service.commission !== "" ? Number(l.service.commission) : undefined,
+      l.service?.commission && l.service.commission !== "" ? sumMoney([l.service.commission]) : undefined,
     service_total_charged:
-      l.service?.total_charged && l.service.total_charged !== ""
-        ? Number(l.service.total_charged)
-        : undefined,
+      l.service ? serviceTotalCharged(l.service) : undefined,
     service_note: l.service?.note || undefined,
   }));
 }
@@ -387,7 +386,7 @@ export function buildHeldBillPayload(
     cart: cartToHeldItems(tab.cart),
     totals_snapshot: {
       item_count: tab.cart.reduce((sum, l) => sum + l.quantity, 0),
-      grand_total: tab.cart.reduce((sum, l) => sum + Math.max(l.unit_price * l.quantity - l.discount, 0), 0) - tab.discountTotal,
+      grand_total: subtractMoney(sumMoney(tab.cart.map((l) => lineMoney(l.unit_price, l.quantity, l.discount))), tab.discountTotal),
       discount_total: tab.discountTotal,
     },
   };

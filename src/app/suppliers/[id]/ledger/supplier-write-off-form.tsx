@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordSupplierWriteOffAction } from "@/app/suppliers/purchases/actions";
+import { moneyToMinorUnits, MONEY_PRECISION_MESSAGE } from "@/lib/money";
 
 export function SupplierWriteOffForm({
   supplierId,
@@ -12,7 +13,7 @@ export function SupplierWriteOffForm({
   maxAmount: number;
 }) {
   const router = useRouter();
-  const [amount, setAmount] = useState<number>(maxAmount);
+  const [amount, setAmount] = useState(String(maxAmount));
   const [reason, setReason] = useState<string>("");
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,16 +23,20 @@ export function SupplierWriteOffForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (moneyToMinorUnits(amount) === null) {
+      setError(MONEY_PRECISION_MESSAGE);
+      return;
+    }
     if (!confirming) {
       setConfirming(true);
       return;
     }
-    if (amount <= 0) {
+    if (Number(amount) <= 0) {
       setError("Amount must be greater than 0.");
       setConfirming(false);
       return;
     }
-    if (amount > maxAmount + 0.0001) {
+    if (Number(amount) > maxAmount + 0.0001) {
       setError(`Amount cannot exceed Rs ${maxAmount}.`);
       setConfirming(false);
       return;
@@ -49,7 +54,7 @@ export function SupplierWriteOffForm({
         return;
       }
       setSuccess("Write-off recorded.");
-      setAmount(0);
+      setAmount("0");
       setReason("");
       setConfirming(false);
       router.refresh();
@@ -70,7 +75,7 @@ export function SupplierWriteOffForm({
           min={0}
           step="0.01"
           value={amount}
-          onChange={(e) => setAmount(Math.max(0, Number(e.target.value || 0)))}
+          onChange={(e) => setAmount(e.target.value)}
           className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
           required
           disabled={confirming}
@@ -94,7 +99,7 @@ export function SupplierWriteOffForm({
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
           <p className="font-bold text-amber-900">Confirm write-off</p>
           <p className="mt-1 text-amber-800">
-            This will reduce the supplier&apos;s outstanding balance by <strong>Rs {amount.toLocaleString()}</strong>.
+            This will reduce the supplier&apos;s outstanding balance by <strong>Rs {Number(amount).toLocaleString()}</strong>.
             This action is traceable but cannot be reversed.
           </p>
         </div>
@@ -133,7 +138,7 @@ export function SupplierWriteOffForm({
         ) : (
           <button
             type="submit"
-            disabled={amount <= 0 || !reason.trim()}
+            disabled={Number(amount) <= 0 || !reason.trim()}
             className="w-full rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50"
           >
             Write off balance

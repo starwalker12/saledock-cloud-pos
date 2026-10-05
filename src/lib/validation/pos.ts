@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { nonNegativeMoneyAmount } from "./money";
 
 export const PAYMENT_METHODS = [
   "cash",
@@ -46,15 +47,15 @@ const optionalNonNegativeNumber = z
   .preprocess((v) => {
     if (v === "" || v === null || v === undefined) return undefined;
     return v;
-  }, z.coerce.number().min(0, "Must be 0 or more."))
+  }, nonNegativeMoneyAmount("Must be 0 or more."))
   .optional();
 
 export const cartItemSchema = z
   .object({
     product_id: z.string().uuid(),
     quantity: z.coerce.number().int().min(1, "Quantity must be at least 1."),
-    unit_price: z.coerce.number().min(0, "Unit price must be 0 or more."),
-    discount: z.coerce.number().min(0, "Line discount must be 0 or more.").default(0),
+    unit_price: nonNegativeMoneyAmount("Unit price must be 0 or more."),
+    discount: nonNegativeMoneyAmount("Line discount must be 0 or more.").default(0),
     // Optional service transaction metadata — only relevant when the product
     // is a service. Validated again server-side inside pos_checkout.
     service_provider: optionalString,
@@ -101,9 +102,9 @@ export const checkoutSchema = z
   .object({
     cart: z.array(cartItemSchema).min(1, "Cart is empty."),
     customer_id: z.string().uuid().optional().nullable(),
-    discount_total: z.coerce.number().min(0).default(0),
+    discount_total: nonNegativeMoneyAmount("Discount cannot be negative.").default(0),
     payment_method: z.enum(PAYMENT_METHODS),
-    amount_paid: z.coerce.number().min(0).default(0),
+    amount_paid: nonNegativeMoneyAmount("Amount paid cannot be negative.").default(0),
     payment_reference: z.string().trim().max(120).optional().nullable(),
     note: z.string().trim().max(500).optional().nullable(),
     // Every request through the current server action must be idempotent.
@@ -143,8 +144,8 @@ export const heldBillCartSchema = z
   .object({
     product_id: z.string().uuid(),
     quantity: z.coerce.number().int().min(1, "Quantity must be at least 1."),
-    unit_price: z.coerce.number().min(0, "Unit price must be 0 or more."),
-    discount: z.coerce.number().min(0, "Line discount must be 0 or more.").default(0),
+    unit_price: nonNegativeMoneyAmount("Unit price must be 0 or more."),
+    discount: nonNegativeMoneyAmount("Line discount must be 0 or more.").default(0),
     service_provider: optionalString,
     service_direction: optionalString,
     service_account_number: optionalString,

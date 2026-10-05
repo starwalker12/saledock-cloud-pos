@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 import test from 'node:test';
 import ts from 'typescript';
-import { z } from 'zod';
+import { loadMoneyModule } from './helpers/load-money-module.mjs';
 
 const component=readFileSync('src/app/pos/pos-money-input.tsx','utf8');
 const output=ts.transpileModule(component,{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
@@ -33,19 +33,19 @@ test('the three numeric cart editors reset per bill; money arithmetic and payloa
   const source=readFileSync('src/app/pos/pos-client.tsx','utf8');
   assert.equal((source.match(/<PosMoneyInput/g)??[]).length,3);
   assert.equal((source.match(/key=\{activeTab.id\}/g)??[]).length,3);
-  assert.match(source,/Math\.max\(l.unit_price \* l.quantity - l.discount, 0\)/);
-  assert.match(source,/Math\.max\(subtotal - \(discountTotal \|\| 0\), 0\)/);
+  assert.match(source,/lineMoney\(l.unit_price, l.quantity, l.discount\)/);
+  assert.match(source,/Math\.max\(subtractMoney\(subtotal, discountTotal \|\| 0\), 0\)/);
   assert.match(source,/discount_total: discountTotal/);
   assert.match(source,/discount: l.discount/);
 });
-test('reviewed checkout, idempotency, quantity, service and customer mutation functions remain exact main',()=>{
+test('decimal-safe checkout/service fingerprints and unchanged idempotency/quantity/customer boundaries',()=>{
   const source=readFileSync('src/app/pos/pos-client.tsx','utf8');
   const file=ts.createSourceFile('pos.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
   const expected={
     checkoutPayloadFingerprint:'81f85847aa4c3f2187b53b9f8e10bafaf4e87004f9db60457a5ba53004b65872',
-    updateLineService:'ae1a91fc3ee127469a70b024c816803089501e1b904dad0ebc1d83a4e3a04ed5',
+    updateLineService:'47c218a3c9333fa02de1fa43b3a8a39167d0c2d84ef58b9db19da924f97ff782',
     updateQty:'0ca2fd12696805776ec965b148a198e9c6be6d9c353bb8f45728db7c65b1abf7',
-    checkout:'f427451c699e4db1c4fa016e06ee5d76a5928d58bc1a9c0d0b580a0d74d8bb6b',
+    checkout:'2ba40b44bbbc783ffd75fe1cdaac876ae492f54d535799c845c908a10428d8c8',
     createCustomer:'2e48967f9c5d5d756be7d488082d89f5d9241cb42486415246ad2038a700e89d',
   };
   const actual={};
@@ -71,18 +71,8 @@ test('A4 white rule is invoice/mode scoped, natural document pagination uses exi
   assert.match(button,/Print 80mm/);
 });
 
-function loadTypeScript(source, dependencies = {}) {
-  const exports = {};
-  vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
-    exports, crypto: { randomUUID: () => 'synthetic-tab-id' }, require: name => {
-      if (name in dependencies) return dependencies[name];
-      throw Error('Unexpected dependency ' + name);
-    },
-  });
-  return exports;
-}
-const tabs = loadTypeScript(readFileSync('src/app/pos/use-pos-tabs.ts', 'utf8') + '\nexport { tabsReducer };', { react: {} });
-const schema = loadTypeScript(readFileSync('src/lib/validation/pos.ts', 'utf8'), { zod: { z } }).heldBillPayloadSchema;
+const tabs = loadMoneyModule('src/app/pos/use-pos-tabs.ts', { react: {} }, '\nexport { tabsReducer };');
+const schema = loadMoneyModule('src/lib/validation/pos.ts').heldBillPayloadSchema;
 test('held bills store and resume the explicit numeric cart discount without changing totals', () => {
   const cart = [{ product: { id: '550e8400-e29b-41d4-a716-446655440000', type: 'product' }, quantity: 1, unit_price: 999, discount: 0.5 }];
   const payload = tabs.buildHeldBillPayload({ cart, discountTotal: 2.5, customerId: '' });

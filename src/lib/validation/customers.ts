@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { positiveMoneyAmount } from "./money";
 
 const optionalString = z.preprocess((value) => {
   if (typeof value !== "string") return value;
@@ -14,9 +15,7 @@ const optionalEmail = z
   .optional()
   .nullable();
 
-const positiveNumber = z.coerce
-  .number({ message: "Enter a valid amount." })
-  .positive("Must be greater than 0.");
+const positiveNumber = positiveMoneyAmount("Must be greater than 0.");
 
 const nonNegativeNumber = z.coerce
   .number({ message: "Enter a valid number." })
