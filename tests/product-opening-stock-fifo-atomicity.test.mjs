@@ -337,6 +337,8 @@ test("local RPC preserves product/FIFO invariants and rejects unsafe callers", a
       }
     }
     await cleanupProducts(admin, createdIds);
+    const {resetFixtureOrganization}=await import('./helpers/local-accounting-maintenance.mjs');
+    await resetFixtureOrganization(admin,foreignOrgId);
     await admin.from("organizations").delete().eq("id", foreignOrgId);
   }
 });
@@ -346,7 +348,7 @@ test("a forced opening-movement failure rolls back the product and lot", () => {
   const admin = adminClient();
   const marker = `QA-ROLLBACK-${crypto.randomUUID().slice(0, 8)}`;
   const productId = crypto.randomUUID();
-  const dbContainer = execFileSync(
+  const dbContainer = process.env.LOCAL_SUPABASE_DB_CONTAINER || execFileSync(
     "sh",
     ["-c", "docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1"],
     { encoding: "utf8" },

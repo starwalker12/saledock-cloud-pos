@@ -107,7 +107,13 @@ function sql(text) {
 
 test('local direct RPC role/override parity, atomic denial and accounting regression matrix', { skip: !local }, async () => {
   const current = sql("select prosrc from pg_proc where oid='public.pos_checkout(uuid,uuid,jsonb,numeric,public.payment_method,numeric,text,text,boolean,text)'::regprocedure;");
-  assert.equal(current.trim(), body(precisionCheckout).trim(), 'Local candidate must be exact precision-guarded implementation');
+  const forwardTrust = sql("select to_regnamespace('ledger_private') is not null;") === 't';
+  if (forwardTrust) {
+    const trustedBody = sql("select prosrc from pg_proc where pronamespace='ledger_private'::regnamespace and proname='pos_checkout';");
+    assert.equal(trustedBody.trim(), body(precisionCheckout).trim().replaceAll('auth.uid()', 'ledger_private.actor_id()'), 'Trusted checkout must retain the exact reviewed permission and money body');
+  } else {
+    assert.equal(current.trim(), body(precisionCheckout).trim(), 'Local candidate must be exact precision-guarded implementation');
+  }
   const cases = [];
   for (const role of ['owner', 'admin', 'manager', 'cashier', 'technician']) {
     for (const permission of ['can_sell', 'can_discount', 'can_sell_at_loss']) {
@@ -168,15 +174,15 @@ test('local direct RPC role/override parity, atomic denial and accounting regres
   const baselineCase = { name: 'baseline/technician-direct', role: 'technician', cart: [{ ...service[0], service_total_charged: 50, service_transaction_amount: 40, service_commission: 10 }], paid: 0, loss: false };
   cases.push({ ...baselineCase, expected: false });
   const regressions = cases.filter(c => ['physical/cash-change-replay', 'physical/credit', 'physical/fifo-two-lots', 'service/zero-price', 'service/fallback'].includes(c.name));
-  const query = `BEGIN;\n${previous}\n${fixture}\nselect 'BASELINE:' || pg_temp.parity_case(${quote(baselineCase)})::text;\n` +
+  const query = `BEGIN;\n${forwardTrust ? '' : previous}\n${fixture}\nselect 'BASELINE:' || pg_temp.parity_case(${quote(baselineCase)})::text;\n` +
     regressions.map(c => `select 'OLDMATH:' || pg_temp.parity_case(${quote(c)})::text;`).join('\n') +
-    `\n${migration}\n${precisionCheckout}\n` +
+    (forwardTrust ? '\n' : `\n${migration}\n${precisionCheckout}\n`) +
     cases.map(c => `select 'CASE:' || pg_temp.parity_case(${quote(c)})::text;`).join('\n') +
     "\nDO $$ BEGIN BEGIN PERFORM 'unsupported_checkout_role'::public.user_role; RAISE EXCEPTION 'Invalid role was accepted'; EXCEPTION WHEN invalid_text_representation THEN NULL; END; END $$;\n" +
     "\nselect 'CATALOG:' || json_build_object('invoker',not prosecdef,'owner',pg_get_userbyid(proowner),'config',proconfig,'anon',has_function_privilege('anon',oid,'EXECUTE'),'authenticated',has_function_privilege('authenticated',oid,'EXECUTE'),'serviceRole',has_function_privilege('service_role',oid,'EXECUTE'),'publicExecute',exists(select from aclexplode(proacl) a where a.grantee=0 and a.privilege_type='EXECUTE'),'overloads',(select count(*) from pg_proc where proname='pos_checkout' and pronamespace='public'::regnamespace)) from pg_proc where oid='public.pos_checkout(uuid,uuid,jsonb,numeric,public.payment_method,numeric,text,text,boolean,text)'::regprocedure;\nROLLBACK;";
   const output = sql(query).split('\n');
   const baseline = JSON.parse(output.find(l => l.startsWith('BASELINE:')).slice(9));
-  assert.equal(baseline.accepted, true, 'Exact old Technician bypass must reproduce');
+  assert.equal(baseline.accepted, !forwardTrust, forwardTrust ? 'Current trusted checkout must deny the historical Technician bypass' : 'Exact old Technician bypass must reproduce');
   const results = output.filter(l => l.startsWith('CASE:')).map(l => JSON.parse(l.slice(5)));
   assert.equal(results.length, cases.length);
   const failures = results.filter((r, i) => r.accepted !== cases[i].expected);
@@ -186,7 +192,7 @@ test('local direct RPC role/override parity, atomic denial and accounting regres
     assert.equal(old.accepted, true);
     assert.deepEqual(results.find(r => r.name === old.name).result, old.result, `Money/FIFO changed for ${old.name}`);
   }
-  if (process.env.QA_EVIDENCE_DIR) fs.writeFileSync(`${process.env.QA_EVIDENCE_DIR}/rpc-matrix-${process.env.QA_RUN_LABEL || 'run'}.json`, JSON.stringify({ baseline, cases, results, failures, beforeMath, accountingBeforeAfterEqual: true, unsupportedRoleRejectedByEnum: true }, null, 2), { flag: 'wx' });
+  if (process.env.QA_EVIDENCE_DIR) fs.writeFileSync(`${process.env.QA_EVIDENCE_DIR}/rpc-matrix-${process.env.QA_RUN_LABEL || 'run'}.json`, JSON.stringify({ forwardTrust, baseline, cases, results, failures, beforeMath, accountingBeforeAfterEqual: true, unsupportedRoleRejectedByEnum: true }, null, 2), { flag: 'wx' });
   assert.deepEqual(failures, []);
   const exactOldInvocation = results.find(r => r.name === baselineCase.name);
   assert.equal(exactOldInvocation.accepted, false);
@@ -217,7 +223,7 @@ test('local direct RPC role/override parity, atomic denial and accounting regres
   assert.equal(byName('loss/product-exemption').lossAudit[0].staffOverride, false);
   assert.equal(byName('cashier/can_sell_at_loss/true').lossAudit[0].staffOverride, true);
   const catalog = JSON.parse(output.find(l => l.startsWith('CATALOG:')).slice(8));
-  assert.deepEqual(catalog, { invoker: true, owner: 'postgres', config: ['search_path=public'], anon: false, authenticated: true, serviceRole: true, publicExecute: false, overloads: 1 });
+  assert.deepEqual(catalog, { invoker: true, owner: 'postgres', config: [forwardTrust ? 'search_path=""' : 'search_path=public'], anon: false, authenticated: true, serviceRole: true, publicExecute: false, overloads: 1 });
   assert.equal(sql("select prosrc from pg_proc where oid='public.pos_checkout(uuid,uuid,jsonb,numeric,public.payment_method,numeric,text,text,boolean,text)'::regprocedure;").trim(), current.trim());
   if (process.env.QA_EVIDENCE_DIR) fs.writeFileSync(`${process.env.QA_EVIDENCE_DIR}/rpc-validation-${process.env.QA_RUN_LABEL || 'run'}.json`, JSON.stringify({ cases: cases.length, passed: results.length, denials: results.filter(r => !r.accepted).length, catalog, migrationSha256: hash(migration), originalFunctionRestoredByRollback: true }, null, 2), { flag: 'wx' });
 });

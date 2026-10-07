@@ -90,6 +90,8 @@ test('authenticated atomic import: all 21 relations, every rollback boundary, an
    ownerRemoved:true,privateJobRemoved:true,privateReceiptRemoved:true,restoredCustomerRetained:true});
  sql('drop function public.qa77126_fail_insert();drop function public.qa77126_fail_completed();');
 });
-assert.deepEqual(result.cleanup,{isolatedDatabaseAbsent:true,rolesAbsent:true});
+assert.deepEqual(result.cleanup,process.env.ATOMIC_IMPORT_EXISTING_SCHEMA==='1'
+ ? {isolatedDatabaseAbsent:true,rolesAbsent:false,rolesPreserved:true}
+ : {isolatedDatabaseAbsent:true,rolesAbsent:true});
 t.diagnostic(JSON.stringify(result));
 });

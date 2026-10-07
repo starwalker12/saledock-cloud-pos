@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '@playwright/test';
 import { isLocalPlaywrightRun, loginLocalOwnerDirectly } from './helpers/local-supabase';
+import { seedLocalAccountingAccount, resetLocalAccountingFixture } from './helpers/local-accounting-fixture';
 
 test.describe.configure({mode:'serial', retries:0});
 test.use({trace:'off',video:'off',screenshot:'off'});
@@ -25,11 +26,11 @@ test.beforeAll(async()=>{
  const user=await admin().auth.admin.createUser({email,password,email_confirm:true});checked(user.error);actor=user.data.user!.id;
  checked((await admin().from('profiles').insert({id:actor,organization_id:org,branch_id:branch,role:'owner',full_name:'Synthetic Owner',is_active:true,onboarding_completed:true})).error);
  checked((await admin().from('products').insert({id:product,organization_id:org,name:'QA decimal service',type:'service',sale_price:0,purchase_price:0,stock_quantity:0,is_active:true,requires_provider:false,requires_account_number:false,requires_reference:false})).error);
- checked((await admin().from('customers').insert({id:customer,organization_id:org,branch_id:branch,name:'QA decimal customer',outstanding_balance:100})).error);
- checked((await admin().from('suppliers').insert({id:supplier,organization_id:org,name:'QA decimal supplier',outstanding_balance:100})).error);
+ await seedLocalAccountingAccount(admin(),'customers',{id:customer,organization_id:org,branch_id:branch,name:'QA decimal customer',outstanding_balance:100});
+ await seedLocalAccountingAccount(admin(),'suppliers',{id:supplier,organization_id:org,name:'QA decimal supplier',outstanding_balance:100});
 });
 test.afterAll(async()=>{
- for(const table of ['invoice_item_stock_allocations','stock_movements','customer_ledger_entries','payments','invoice_items','pos_held_bills','invoices','credit_payments','customer_write_offs','supplier_ledger_entries','supplier_payments','supplier_write_offs','audit_logs','loss_prevention_events','products','customers','suppliers']) checked((await admin().from(table).delete().eq('organization_id',org)).error);
+ if(!await resetLocalAccountingFixture(admin(),org)) for(const table of ['invoice_item_stock_allocations','stock_movements','customer_ledger_entries','payments','invoice_items','pos_held_bills','invoices','credit_payments','customer_write_offs','supplier_ledger_entries','supplier_payments','supplier_write_offs','audit_logs','loss_prevention_events','products','customers','suppliers']) checked((await admin().from(table).delete().eq('organization_id',org)).error);
  if(actor)checked((await admin().auth.admin.deleteUser(actor)).error);
  checked((await admin().from('organizations').delete().eq('id',org)).error);
  observations.cleanup='Exact task organization, auth and all dependent fixture rows removed';
