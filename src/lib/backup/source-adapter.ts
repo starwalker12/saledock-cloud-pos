@@ -141,6 +141,7 @@ export function prepareRestore(
       payload.id = maps.get(table)!.get(sourceId);
       delete payload.posting_sequence;
       delete payload.posting_trust_version;
+      delete payload.posting_effective_at;
       for (const key of Object.keys(payload)) if (key.startsWith("ledger_anchor_")) delete payload[key];
       if (table === "customers" || table === "suppliers") {
         payload.outstanding_balance = explicitOutstanding(row, desktop ? "OutstandingBalance" : "outstanding_balance", table === "suppliers");

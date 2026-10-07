@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { isLocalPlaywrightRun, loginLocalOwnerDirectly } from './helpers/local-supabase';
+import { seedLocalAccountingAccount, resetLocalAccountingFixture } from './helpers/local-accounting-fixture';
 
 test.describe.configure({ mode: 'serial', retries: 0 });
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
@@ -49,7 +50,7 @@ test.beforeAll(async () => {
     checked((await service.from('profiles').insert({ id: data.user.id, organization_id: org, branch_id: branch,
       full_name: `Synthetic ${role}`, role, is_active: true, onboarding_completed: true })).error);
   }
-  checked((await service.from('customers').insert({ id: customer, organization_id: org, name: 'Synthetic buyer', outstanding_balance: 100 })).error);
+  await seedLocalAccountingAccount(service, 'customers', { id: customer, organization_id: org, name: 'Synthetic buyer', outstanding_balance: 100 });
   checked((await service.from('products').insert({ id: product, organization_id: org, name: 'Synthetic POS physical',
     type: 'product', sale_price: 100, purchase_price: 60, stock_quantity: 10, is_active: true })).error);
   checked((await service.from('product_stock_lots').insert({ organization_id: org, branch_id: branch, product_id: product,
@@ -58,7 +59,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   if (!service) return;
-  for (const table of ['invoice_item_stock_allocations', 'stock_movements', 'customer_ledger_entries', 'payments', 'invoice_items', 'pos_held_bills', 'invoices', 'audit_logs', 'loss_prevention_events', 'product_stock_lots', 'products', 'customers']) {
+  if (!await resetLocalAccountingFixture(service, org)) for (const table of ['invoice_item_stock_allocations', 'stock_movements', 'customer_ledger_entries', 'payments', 'invoice_items', 'pos_held_bills', 'invoices', 'audit_logs', 'loss_prevention_events', 'product_stock_lots', 'products', 'customers']) {
     checked((await service.from(table).delete().eq('organization_id', org)).error);
   }
   for (const user of users) checked((await service.auth.admin.deleteUser(user.id)).error);

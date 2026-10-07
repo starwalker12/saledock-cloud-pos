@@ -66,7 +66,7 @@ function supabaseClient(url, key) {
 }
 
 function psql(sql) {
-  const container = execFileSync(
+  const container = process.env.LOCAL_SUPABASE_DB_CONTAINER || execFileSync(
     "sh",
     [
       "-c",

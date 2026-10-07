@@ -150,7 +150,12 @@ test('live identity races, two jobs, MVCC, independent writes, and Reset use one
   assert.equal(raced.filter(r=>r.status===200).length,1,JSON.stringify(raced));
   assert.equal(raced.filter(r=>r.status===409).length,1,JSON.stringify(raced));
   await rpc('cancel_job',{p_job:raced[0].status===200?b.job:a.job},raced[0].status===200?owner2:actor);
-  const existingCustomer=(await request('customers',{organization_id:org,name:'Independent writer'})).data[0].id;
+  const trustedSchema=process.env.ATOMIC_IMPORT_EXISTING_SCHEMA==='1';
+  let existingCustomer;
+  if(trustedSchema) {
+   existingCustomer=fresh();
+   sql(`insert into public.customers(id,organization_id,name,outstanding_balance) values('${existingCustomer}','${org}','Independent writer',10)`);
+  } else existingCustomer=(await request('customers',{organization_id:org,name:'Independent writer'})).data[0].id;
   const s=await stage(rpc,{customers:[{id:fresh(),name:'Finalizer wins customer',outstanding_balance:0}],suppliers:[{id:fresh(),name:'Finalizer wins supplier',outstanding_balance:0}]});
   await rpc('validate_job',{p_job:s.job});
   sql(`create function public.qa77126_hold_import() returns trigger language plpgsql set search_path='' as $$
@@ -179,9 +184,17 @@ test('live identity races, two jobs, MVCC, independent writes, and Reset use one
     const id=table==='customers'?existingCustomer:sql(`select id from public.suppliers limit 1`);
     const patch=await request(table+'?id=eq.'+id,{name:'Blocked rename'},actor,'PATCH');assert.equal(patch.status,409,JSON.stringify(patch));
    }
-   const independent=await request('customer_ledger_entries',{organization_id:org,customer_id:existingCustomer,entry_type:'adjustment',direction:'debit',amount:1,balance_after:999});
-   assert.equal(independent.status,201);
-   assert.equal((await request('customers?id=eq.'+existingCustomer,{outstanding_balance:999},actor,'PATCH')).status,200);
+   if(trustedSchema) {
+    const independent=await request('rpc/record_credit_payment',{p_customer_id:existingCustomer,p_amount:1,p_method:'cash',p_notes:'Independent approved writer',p_reference_number:null});
+    assert.equal(independent.status,204,JSON.stringify(independent));
+    assert.equal(sql(`select outstanding_balance from public.customers where id='${existingCustomer}'`),'9.00');
+    assert.equal(sql(`select count(*) from public.customer_ledger_entries where customer_id='${existingCustomer}' and posting_sequence is not null and balance_after=9`),'1');
+    assert.equal((await request('customers?id=eq.'+existingCustomer,{outstanding_balance:999},actor,'PATCH')).status,403);
+   } else {
+    const independent=await request('customer_ledger_entries',{organization_id:org,customer_id:existingCustomer,entry_type:'adjustment',direction:'debit',amount:1,balance_after:999});
+    assert.equal(independent.status,201);
+    assert.equal((await request('customers?id=eq.'+existingCustomer,{outstanding_balance:999},actor,'PATCH')).status,200);
+   }
    const reset=await request('rpc/reset_organization_to_factory_defaults',{p_organization_id:org,p_actor_id:actor,p_reset_settings:false});assert.equal(reset.status,409,JSON.stringify(reset));
   } finally {await controller.close();if(pending) {const r=await pending;assert.equal(r.status,200,JSON.stringify(r));}}
   sql('drop trigger qa77126_hold_import on public.customers;drop function public.qa77126_hold_import();');
@@ -191,6 +204,6 @@ test('live identity races, two jobs, MVCC, independent writes, and Reset use one
   // Existing business-account references are intentionally rejected before any inserts.
   assert.equal((await rpc('validate_job',{p_job:failed.job})).data.ok,false);
   assert.equal(sql(`select count(*) from public.customer_ledger_entries where customer_id='${existingCustomer}'`),'1');
-  result.coverage={liveWins:4,twoJobsOneWinner:true,finalizerBlocksInsertAndIdentityPatch:true,invisibleBeforeCommit:true,independentLedgerAndBalanceCommitted:true,resetConflictBounded:true};
+  result.coverage={liveWins:4,twoJobsOneWinner:true,finalizerBlocksInsertAndIdentityPatch:true,invisibleBeforeCommit:true,independentLedgerAndBalanceCommitted:true,independentWriter:trustedSchema?'record_credit_payment':'legacy direct write',resetConflictBounded:true};
  });
 });

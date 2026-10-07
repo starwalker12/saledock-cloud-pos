@@ -45,24 +45,33 @@ export class Session {
 export async function isolated(test){
  let created=false,restCreated=false,rolesCreated=false;
  const result={};
+ const existingSchema=process.env.ATOMIC_IMPORT_EXISTING_SCHEMA==='1';
+ let roleSnapshot;
+ if(existingSchema) {
+  assert.match(container,/^supabase_db_qa[0-9]+-[a-z0-9-]+$/,'Existing trust schema must be task-isolated');
+  assert.equal(sql("select to_regnamespace('ledger_private') is not null",'postgres'),'t');
+  roleSnapshot=sql(`select jsonb_agg(to_jsonb(r) order by rolname) from pg_roles r where rolname=any(array[${[...roles,'ledger_posting_executor','ledger_reset_executor'].map(q)}])`,'postgres');
+ }
  try{
   assert.equal(sql(`select count(*) from pg_database where datname='${db}'`,'postgres'),'0');
-  assert.equal(sql(`select count(*) from pg_roles where rolname=any(array[${roles.map(q)}])`,'postgres'),'0');
+  if(!existingSchema) assert.equal(sql(`select count(*) from pg_roles where rolname=any(array[${roles.map(q)}])`,'postgres'),'0');
   sql(`create database ${db}`,'postgres');created=true;
-  const dump=docker(['exec',container,'pg_dump','-U','postgres','-d','postgres','--schema-only','--no-owner','--schema=public','--schema=auth','--schema=extensions','--schema=workspace_private']);
-  sql(dump.replaceAll('CREATE SCHEMA public;','CREATE SCHEMA IF NOT EXISTS public;').replace(/^ALTER DEFAULT PRIVILEGES[^\n]*\n/gm,''));
-  sql(fs.readFileSync(work+'/supabase/migrations/20260907110844_pos_checkout_database_permission_parity.sql','utf8'));
+  const dump=docker(['exec',container,'pg_dump','-U','postgres','-d','postgres','--schema-only',...(existingSchema?['--schema=backup_private','--schema=ledger_private']:['--no-owner']),'--schema=public','--schema=auth','--schema=extensions','--schema=workspace_private']);
+  const schema=dump.replaceAll('CREATE SCHEMA public;','CREATE SCHEMA IF NOT EXISTS public;').replace(/^ALTER DEFAULT PRIVILEGES[^\n]*\n/gm,'');
+  if(existingSchema) docker(['exec','-i',container,'sh','-c',`PGPASSWORD="$POSTGRES_PASSWORD" exec psql -XqAt -U supabase_admin -d ${db} -v ON_ERROR_STOP=1 -f -`],{input:schema});
+  else sql(schema);
+  if(!existingSchema) sql(fs.readFileSync(work+'/supabase/migrations/20260907110844_pos_checkout_database_permission_parity.sql','utf8'));
   const grants=sql(`select string_agg(statement,E'\n') from (
     select format('GRANT USAGE ON SCHEMA %I TO %I;',n,r) statement from unnest(array['public','auth']) n cross join unnest(array['anon','authenticated','service_role']) r where has_schema_privilege(r,n,'USAGE')
     union all select format('GRANT %s ON TABLE public.%I TO %I;',p,c.relname,r) from pg_class c join pg_namespace n on n.oid=c.relnamespace cross join unnest(array['anon','authenticated','service_role']) r cross join unnest(array['SELECT','INSERT','UPDATE','DELETE']) p where n.nspname='public' and c.relkind in ('r','p') and has_table_privilege(r,c.oid,p)) s`,'postgres');
-  sql(grants);
+  if(!existingSchema) sql(grants);
   // Existing-org provisioning and subsequently created organizations are both covered.
   sql(`insert into public.organizations(id,name) values('${org}','QA77126 Atomic Restore');
     insert into public.branches(id,organization_id,name) values('${branch}','${org}','QA77126 Branch');
     insert into auth.users(id) values('${actor}');
     insert into public.profiles(id,organization_id,branch_id,full_name,role,is_active)
     values('${actor}','${org}','${branch}','QA77126 Owner','owner',true);`);
-  sql(fs.readFileSync(work+'/supabase/migrations/20261001093929_atomic_accounting_import.sql','utf8'));rolesCreated=true;
+  if(!existingSchema) {sql(fs.readFileSync(work+'/supabase/migrations/20261001093929_atomic_accounting_import.sql','utf8'));rolesCreated=true;}
   const source=inspect(container.replace('supabase_db_','supabase_rest_'));
   const env=Object.fromEntries(source.Config.Env.map(s=>{const i=s.indexOf('=');return [s.slice(0,i),s.slice(i+1)];}));
   const uri=new URL(env.PGRST_DB_URI);uri.pathname='/'+db;
@@ -115,6 +124,10 @@ export async function isolated(test){
   if(created)sql(`drop database ${db} with (force)`,'postgres');
   if(rolesCreated)for(const role of roles)sql(`drop role ${role}`,'postgres');
   result.cleanup={isolatedDatabaseAbsent:sql(`select count(*) from pg_database where datname='${db}'`,'postgres')==='0',rolesAbsent:sql(`select count(*) from pg_roles where rolname=any(array[${roles.map(q)}])`,'postgres')==='0'};
+  if(existingSchema) {
+   assert.equal(sql(`select jsonb_agg(to_jsonb(r) order by rolname) from pg_roles r where rolname=any(array[${[...roles,'ledger_posting_executor','ledger_reset_executor'].map(q)}])`,'postgres'),roleSnapshot,'Pre-existing restricted roles must be preserved exactly');
+   result.cleanup.rolesPreserved=true;
+  }
  }
  return result;
 }
