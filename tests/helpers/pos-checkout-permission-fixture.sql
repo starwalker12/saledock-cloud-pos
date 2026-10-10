@@ -1,7 +1,10 @@
 -- Local-only, transaction-scoped fixture. The runner always ends with ROLLBACK.
 do $$ declare p record; begin
   select organization_id, branch_id into strict p from public.profiles
-    where role = 'owner' and is_active order by id limit 1;
+    where role = 'owner' and is_active
+      and (select count(distinct seeded.role) from public.profiles seeded
+        where seeded.organization_id = profiles.organization_id) = 5
+    order by id limit 1;
   perform set_config('parity.org', p.organization_id::text, true);
   perform set_config('parity.branch', p.branch_id::text, true);
   if (select count(distinct role) from public.profiles where organization_id = p.organization_id) <> 5 then
@@ -73,7 +76,8 @@ begin
       coalesce((c->>'billDiscount')::numeric, 0), 'cash', coalesce((c->>'paid')::numeric, 100),
       null, 'Local POS permission parity', (c->>'loss')::boolean, 'parity-' || (c->>'name'));
     perform set_config('role', 'postgres', true);
-    select to_jsonb(i) - array['id','organization_id','branch_id','customer_id','created_by','created_at','updated_at','invoice_date','checkout_idempotency_key']
+    select to_jsonb(i) - array['id','organization_id','branch_id','customer_id','created_by','created_at','updated_at','invoice_date','checkout_idempotency_key',
+      'source_trust_version','source_effective_at','source_transaction_id']
       into invoice from public.invoices i where id = sale.invoice_id;
     select jsonb_agg(jsonb_build_object('type', product_type, 'quantity', quantity, 'cost', purchase_price,
       'unitPrice', unit_price, 'discount', item_discount, 'lineTotal', line_total,

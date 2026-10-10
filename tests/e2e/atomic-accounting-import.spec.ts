@@ -7,6 +7,7 @@ import initSqlJs from 'sql.js';
 import {createClient, type SupabaseClient} from '@supabase/supabase-js';
 import {test, expect, type Page} from '@playwright/test';
 import {isLocalPlaywrightRun, loginLocalOwnerDirectly} from './helpers/local-supabase';
+import {resetLocalAccountingFixture} from './helpers/local-accounting-fixture';
 
 test.describe.configure({mode:'serial',retries:0});
 test.use({trace:'off',video:'off',screenshot:'off'});
@@ -20,7 +21,7 @@ const directory=process.env.QA_EVIDENCE_DIR;
 function checked(error:{message:string}|null){if(error)throw new Error(error.message);}
 function sql(query:string){
   const container=process.env.LOCAL_SUPABASE_DB_CONTAINER;
-  if(!container?.startsWith('supabase_db_qa77126-'))throw new Error('Disposable task stack required');
+  if(!container||!/^supabase_db_qa[0-9]+-[a-z0-9-]+$/.test(container))throw new Error('Disposable task stack required');
   return execFileSync('docker',['exec','-i',container,'psql','-XqAt','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-f','-'],{input:query,encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
 }
 async function upload(page:Page,data:Record<string,unknown>){
@@ -38,7 +39,7 @@ async function confirm(page:Page){
   await page.getByRole('button',{name:'Begin Online Restore',exact:true}).click();
 }
 test.beforeAll(async()=>{
-  if(!process.env.LOCAL_SUPABASE_DB_CONTAINER?.startsWith('supabase_db_qa77126-')){
+  if(!/^supabase_db_qa[0-9]+-[a-z0-9-]+$/.test(process.env.LOCAL_SUPABASE_DB_CONTAINER??'')){
     throw new Error('Disposable task stack required before creating any fixtures');
   }
   const raw=execFileSync('supabase',['status','--output','json'],{encoding:'utf8',stdio:['ignore','pipe','pipe']});
@@ -67,7 +68,7 @@ test.afterAll(async()=>{
   if(!admin)return;
   // Test-owned snapshots only, removed in dependency order; never reset another shop.
   sql(`delete from backup_private.jobs where organization_id='${org}';`);
-  for(const table of ['expenses','customer_ledger_entries','supplier_ledger_entries','customers','suppliers','audit_logs'])checked((await admin.from(table).delete().eq('organization_id',org)).error);
+  if(!await resetLocalAccountingFixture(admin,org)) for(const table of ['expenses','customer_ledger_entries','supplier_ledger_entries','customers','suppliers','audit_logs'])checked((await admin.from(table).delete().eq('organization_id',org)).error);
   if(owner)checked((await admin.auth.admin.deleteUser(owner)).error);
   if(adminId)checked((await admin.auth.admin.deleteUser(adminId)).error);
   checked((await admin.from('organizations').delete().eq('id',org)).error);
