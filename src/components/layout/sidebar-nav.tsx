@@ -599,7 +599,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
         </div>
       </div>
 
-      <nav className={`min-h-0 flex-1 overflow-y-auto py-4 ${displayCollapsed ? "px-2" : "px-3"}`} aria-label="Main navigation">
+      <nav className={`sidebar-nav-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto py-4 ${displayCollapsed ? "px-2" : "px-3"}`} aria-label="Main navigation">
         <ul ref={navListRef} className="space-y-1">
           {visibleItems.map((item, index) => {
             const Icon = iconMap[item.icon];
@@ -677,6 +677,7 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
                 <Link
                   href={item.href}
                   aria-label={displayCollapsed ? label : undefined}
+                  title={displayCollapsed ? label : undefined}
                   className={`relative flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-accent)] ${
                     displayCollapsed ? "justify-center" : ""
                   } ${
@@ -688,14 +689,6 @@ export function SidebarNav({ items, appLogoUrl }: { items: NavItem[]; appLogoUrl
                   {Icon && <Icon className="size-[22px] shrink-0" />}
                   {!displayCollapsed && <span className="truncate">{label}</span>}
                 </Link>
-
-                {displayCollapsed && (
-                  <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/navitem:translate-x-0 group-hover/navitem:scale-100 group-hover/navitem:opacity-100 group-focus-within/navitem:translate-x-0 group-focus-within/navitem:scale-100 group-focus-within/navitem:opacity-100">
-                    <div className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-black text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 whitespace-nowrap">
-                      {label}
-                    </div>
-                  </div>
-                )}
 
                 {!displayCollapsed && canArchive && (
                   <div
