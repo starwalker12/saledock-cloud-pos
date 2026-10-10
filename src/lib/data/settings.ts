@@ -27,6 +27,7 @@ type OrganizationSettingsRow = {
   email: string | null;
   address: string | null;
   currency_code: string;
+  currency_locked_at: string | null;
   timezone: string;
   logo_url?: string | null;
   owner_name?: string | null;
@@ -61,6 +62,7 @@ export type BrandingSettings = {
   branchPhone: string;
   branchAddress: string;
   currencyCode: string;
+  currencyLocked: boolean;
   timezone: string;
   logoUrl: string;
   appLogoUrl: string;
@@ -93,6 +95,7 @@ const FALLBACK_BRANDING: BrandingSettings = {
   branchPhone: "",
   branchAddress: "",
   currencyCode: "PKR",
+  currencyLocked: true,
   timezone: "Asia/Karachi",
   logoUrl: "/saledock-logo-full.png",
   appLogoUrl: "",
@@ -143,7 +146,7 @@ export async function getBrandingSettings(
       await Promise.all([
         db
           .from("organizations")
-          .select("id, name, legal_name, phone, email, address, currency_code, timezone, logo_url, owner_name, primary_color, accent_color, default_theme, google_maps_url, latitude, longitude, show_map")
+          .select("id, name, legal_name, phone, email, address, currency_code, currency_locked_at, timezone, logo_url, owner_name, primary_color, accent_color, default_theme, google_maps_url, latitude, longitude, show_map")
           .eq("id", organizationId)
           .maybeSingle<OrganizationSettingsRow>(),
         branchId
@@ -197,6 +200,7 @@ export async function getBrandingSettings(
       branchPhone: branch?.phone || "",
       branchAddress: branch?.address || "",
       currencyCode: org.currency_code || "PKR",
+      currencyLocked: org.currency_locked_at !== null,
       timezone: org.timezone || "Asia/Karachi",
       logoUrl: stringSetting(json, "logo_url") || org.logo_url || "/saledock-logo-full.png",
       appLogoUrl: stringSetting(json, "app_logo_url"),

@@ -101,6 +101,7 @@ export default async function InvoiceDetailPage({
         branchPhone: invoice.branch?.phone ?? "",
         branchAddress: invoice.branch?.address ?? "",
         currencyCode: organization?.currency_code || "PKR",
+        currencyLocked: true,
         timezone: organization?.timezone || "Asia/Karachi",
         logoUrl: DEFAULT_LOGO,
         appLogoUrl: "",

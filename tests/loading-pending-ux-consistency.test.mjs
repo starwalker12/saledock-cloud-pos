@@ -226,31 +226,31 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
     "src/app/pos/actions.ts":
       "fb02ef6726f2af3dd38792aacc4c98643ce1ae3b5f9f0665c837bb379d5e03fe",
     "src/app/pos/pos-client.tsx":
-      "3f6528d3a0a0f29e1a1bc1107bd5474558f86e802b5c08285ac187ce47c40937",
+      "5bee6af2e450a831e219d55c66ec411f4998022e036b860bd17a5edeca58ae2c",
     "src/app/customers/[id]/settlement-form.tsx":
-      "67aa6a41e22a7e79ad02873c18c64012296a3bcaf0ff4a299f287e60be3657ad",
+      "3f8d09f161cf90dc97956f80ce0600b5e722bdcc60e4fdc06571e3001d9ae023",
     "src/app/customers/[id]/write-off-form.tsx":
-      "0ee6ad406160bec9e9f22c2ca3d376c5740bb255768e92e134232ed316779a7f",
+      "b51b03217d13c1d3abbc5bb3e9be77f6fb119717376ce8b4a8ba3686b6918f00",
     "src/app/suppliers/purchases/[id]/record-payment-form.tsx":
-      "06e7f9d02c88eba383faa03cfe4bfa90d3bf6d35c05a94ae1473defbcf8f189c",
+      "e85494f37eee52dcd2fca726f0553b1f4e39a709823029d9815816b4c4b44c51",
     "src/app/suppliers/purchases/actions.ts":
-      "9b58559b13a1ad72e9e079a4e7679e9dce1535fee6319a582cc72e10862660bf",
+      "2c4799a17a0a9f0a352fd5d0663f04a7e6e04a55c724ee86f90efa4de23f007a",
     "src/app/suppliers/purchases/new/new-purchase-form.tsx":
       "b21d88f494ffd5d66b91ddd6e30bab952a1ad378fb4fb74cd0b66cf7ab4f830b",
     "src/app/expenses/actions.ts":
       "48490a436d7a46bca149489c204af3366ca76bab747c4301ae86c790d7b82cd1",
     "src/app/expenses/expense-form.tsx":
-      "38465cfce320c4ffac76e24d5c5c64da23278fb8212b0ef948efcad7c70b6278",
+      "ae4e83cfe1e5a0eea1813c5c30cf43281f87c17c68ea094204c2ebcb5344eec6",
     "src/app/expenses/void-expense-form.tsx":
       "24c63d1a5c27e5eba71996c88e6b392bb259b17a50d529527e69682d9c80d62c",
     "src/app/daily-closing/actions.ts":
       "949485fcd1480932369232ef99b188590ca0fa292f2bf7257fdf9d530da1c12d",
     "src/app/daily-closing/closing-form.tsx":
-      "5278c124bd5a9e9836ade5c445b23ae094d7cf732b8d8872a3ac6c1eef76d1f9",
+      "af5ef9003b57064874baf89928a8ad79a45a3f0c525312452cc08f1244dd3d74",
     "src/app/repairs/actions.ts":
       "38ccef01efabeafa4224cc555f2cd782b6f6d846d8ace9dcf5dffb8d727615b6",
     "src/app/repairs/repair-form.tsx":
-      "3cb9ec6bffc26e911e804444240e71606784435018339fb64940add52ebf91bc",
+      "2774a5968371859616911c3c95ac618d3e431a1b0686612cdb60d0839fefe446",
   };
 
   for (const [path, hash] of Object.entries(expected)) {

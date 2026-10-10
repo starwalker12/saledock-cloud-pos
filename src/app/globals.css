@@ -729,6 +729,7 @@ body {
 .invoice-summary > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 16px; padding: 5px 0; font-size: 12px; }
 .invoice-summary dt { color: var(--invoice-muted); }
 .invoice-summary dd { text-align: right; font-weight: 550; }
+.customer-invoice :is(.invoice-summary dd, .invoice-payments dd, .invoice-balance-due dd, .invoice-service-money) { white-space: nowrap; }
 .invoice-summary .invoice-grand-total { border-top: 1px solid #8d989f; margin-top: 8px; padding: 14px 0 12px; }
 .invoice-grand-total dt { font-size: 14px; font-weight: 650; color: var(--invoice-ink); }
 .invoice-grand-total dd { font-size: 24px; font-weight: 750; line-height: 1.2; }

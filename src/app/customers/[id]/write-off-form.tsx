@@ -43,7 +43,7 @@ export function WriteOffForm({
         </div>
 
         <label className="block">
-          <span className="text-xs font-bold text-slate-700">Amount to write off (PKR)</span>
+          <span className="text-xs font-bold text-slate-700">Amount to write off</span>
           <input
             required
             type="number"

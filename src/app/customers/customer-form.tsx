@@ -89,7 +89,7 @@ export function CustomerForm({
 
       <label className="block">
         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-          Credit Limit (PKR)
+          Credit Limit
         </span>
         <input
           type="number"

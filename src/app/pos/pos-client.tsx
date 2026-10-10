@@ -1035,12 +1035,12 @@ export function PosClient({
                       >
                         {isOverrideAllowed ? (
                           <p>
-                            ⚠️ Selling below cost price (Cost: Rs. {totalCost.toLocaleString()}, Effective: Rs. {Math.round(effectiveRevenue).toLocaleString()}).
+                            ⚠️ Selling below cost price (Cost: {formatCurrency(totalCost, currency)}, Effective: {formatCurrency(Math.round(effectiveRevenue), currency)}).
                             <span className="block text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">Approved under admin override: &quot;{l.product.sell_at_loss_reason}&quot;</span>
                           </p>
                         ) : (
                           <p>
-                            🚨 Blocked: Selling below cost price (Cost: Rs. {totalCost.toLocaleString()}, Effective: Rs. {Math.round(effectiveRevenue).toLocaleString()}).
+                            🚨 Blocked: Selling below cost price (Cost: {formatCurrency(totalCost, currency)}, Effective: {formatCurrency(Math.round(effectiveRevenue), currency)}).
                             <span className="block text-[10px] text-red-700 dark:text-red-300 mt-0.5">Checkout will be blocked. Reduce discount or ask admin to enable override.</span>
                           </p>
                         )}
@@ -1051,6 +1051,7 @@ export function PosClient({
                   {l.product.type === "service" && l.service && (
                     <ServiceLineDetails
                       line={l}
+                      currency={currency}
                       onChange={(patch) => updateLineService(l.product.id, patch)}
                     />
                   )}
@@ -1329,9 +1330,11 @@ export function PosClient({
 
 function ServiceLineDetails({
   line,
+  currency,
   onChange,
 }: {
   line: CartLine;
+  currency: string;
   onChange: (patch: Partial<ServiceFields>) => void;
 }) {
   const s = line.service!;
@@ -1441,7 +1444,7 @@ function ServiceLineDetails({
             Total charged
             {s.total_charged === "" && computedTotal > 0 && (
               <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">
-                (auto: {computedTotal.toLocaleString("en-PK")})
+                (auto: {formatCurrency(computedTotal, currency)})
               </span>
             )}
           </span>

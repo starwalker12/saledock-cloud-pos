@@ -71,7 +71,7 @@ export function ExpenseForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Amount (PKR) <span className="text-red-500">*</span></span>
+        <span className="text-sm font-semibold text-slate-700">Amount <span className="text-red-500">*</span></span>
         <input
           required
           type="number"

@@ -506,7 +506,7 @@ test("durable status audit is caller-local without privacy or protected-boundary
   );
   assert.equal(
     digest(repairFormSource.slice(repairFormSource.indexOf("          {repair && <input"), repairFormSource.indexOf("          {state.error"))),
-    "4f31dbf460a7ba029ffd00bf9bcfe399cff0dc6eef668558e28d494445f86339",
+    "f49f2a6b66424e37cf4aa6c4da472eba31ed1eeb908a657b0c5c05270107582e",
   );
   assert.match(repairFormSource, /useActionState\(saveRepairAction, defaultState\)/);
   assert.match(repairFormSource, /disabled=\{isPending \|\| committed\}/);

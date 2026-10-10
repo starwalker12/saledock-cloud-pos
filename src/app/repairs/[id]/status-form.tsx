@@ -88,7 +88,7 @@ export function StatusForm({ repair }: { repair: RepairRow }) {
         {showFinalCost && (
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Final Repair Cost (PKR)
+              Final Repair Cost
             </label>
             <input
               type="number"

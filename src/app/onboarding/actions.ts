@@ -1,5 +1,7 @@
 "use server";
 
+import { isSupportedCurrency, UNSUPPORTED_CURRENCY_MESSAGE } from "@/lib/currency";
+
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -35,7 +37,7 @@ const onboardingSchema = z.object({
   }),
   orgEmail: z.string().email("Please enter a valid shop email address."),
   orgAddress: z.string().optional().default(""),
-  currencyCode: z.string().optional().default("PKR"),
+  currencyCode: z.string().trim().toUpperCase().default("PKR").refine(isSupportedCurrency, UNSUPPORTED_CURRENCY_MESSAGE),
   timezone: z.string().optional().default("Asia/Karachi"),
   googleMapsUrl: z.string().optional().default(""),
   latitude: z.string().optional().default(""),

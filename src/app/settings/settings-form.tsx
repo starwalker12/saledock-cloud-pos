@@ -7,6 +7,7 @@ import { updateSettingsAction, updateProfilePictureAction, type SettingsActionSt
 import { ImageUpload } from "@/components/shared/image-upload";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { AppSelect } from "@/components/ui/app-select";
+import { currencyOptions, CURRENCY_LOCK_MESSAGE } from "@/lib/currency";
 import { Check, ImageIcon, RotateCcw, Loader2, MapPin, Crosshair, Link2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
@@ -612,6 +613,11 @@ export function SettingsForm({
   const [latitudeInput, setLatitudeInput] = useState(settings.latitude ?? "");
   const [longitudeInput, setLongitudeInput] = useState(settings.longitude ?? "");
   const [showMapInput, setShowMapInput] = useState(settings.showMap);
+  const [currencyCode, setCurrencyCode] = useState(settings.currencyCode || "PKR");
+  useEffect(() => {
+    const id = window.setTimeout(() => setCurrencyCode(settings.currencyCode || "PKR"), 0);
+    return () => window.clearTimeout(id);
+  }, [settings.currencyCode]);
   const [invoiceShowQrInput, setInvoiceShowQrInput] = useState(settings.invoiceShowLocationQr);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
@@ -1419,7 +1425,21 @@ export function SettingsForm({
           <div className="grid gap-4 md:grid-cols-3">
             <label className={labelClass}>
               <span className={labelTextClass}>Currency</span>
-              <input name="currencyCode" defaultValue={settings.currencyCode || "PKR"} disabled={!canEdit || regPending} className={inputClass} />
+              <AppSelect
+                name="currencyCode"
+                value={currencyCode}
+                options={currencyOptions(settings.currencyCode)}
+                onChange={(code) => {
+                  setCurrencyCode(code);
+                  regionalDirty.handleChange();
+                }}
+                disabled={!canEdit || regPending || settings.currencyLocked}
+                ariaLabel="Currency"
+                className="mt-1"
+              />
+              <span className="mt-2 block text-xs leading-5 text-slate-500 dark:text-slate-400">
+                {settings.currencyLocked ? CURRENCY_LOCK_MESSAGE : "Used across prices, invoices, reports and balances."}
+              </span>
             </label>
             <label className="block min-w-0 md:col-span-2">
               <span className={labelTextClass}>Timezone</span>

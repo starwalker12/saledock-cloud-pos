@@ -321,7 +321,7 @@ export function RepairForm({
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Estimated Cost (PKR)
+                Estimated Cost
               </label>
               <input
                 type="number"
@@ -335,7 +335,7 @@ export function RepairForm({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Advance Paid (PKR)
+                Advance Paid
               </label>
               <input
                 type="number"

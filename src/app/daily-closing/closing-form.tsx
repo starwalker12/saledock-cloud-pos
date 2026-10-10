@@ -4,6 +4,7 @@ import { useActionState, useState, useRef, type FormEvent } from "react";
 import { closeDayAction, reopenDayAction, type ActionState } from "./actions";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Loader2 } from "lucide-react";
+import { formatCurrency } from "@/lib/formatters";
 
 const initial: ActionState = { error: null, success: null };
 
@@ -31,15 +32,14 @@ export function CloseDayForm({
 
   const countedNum = Number(counted || 0);
   const liveDiff = countedNum - expectedCash;
-  const fmt = (n: number) =>
-    `${currency} ${n.toLocaleString("en-PK", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  const fmt = (n: number) => formatCurrency(n, currency);
 
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="closing_date" value={closingDate} />
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Counted cash (PKR)</span>
+        <span className="text-sm font-semibold text-slate-700">Counted cash</span>
         <input
           required
           type="number"

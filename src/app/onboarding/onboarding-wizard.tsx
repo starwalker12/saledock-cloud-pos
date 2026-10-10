@@ -12,6 +12,7 @@ import { LocationMapPicker } from "@/components/shared/location-map-picker";
 import { PhoneNumberInput } from "@/components/forms/phone-number-input";
 import { isValidPhoneNumber } from "@/lib/phone-validation";
 import { AppSelect } from "@/components/ui/app-select";
+import { currencyForTimezone, currencyOptions } from "@/lib/currency";
 import { ONBOARDING_STEPS, type OnboardingDraftSnapshot, type OnboardingStepName } from "@/lib/onboarding/draft";
 import {
   buildGoogleMapsSearchUrl,
@@ -41,37 +42,11 @@ const TIMEZONES = [
   "Pacific/Auckland", "UTC",
 ] as const;
 
-const CURRENCIES = [
-  { code: "PKR", label: "PKR (₨) — Pakistan" },
-  { code: "USD", label: "USD ($) — US Dollar" },
-  { code: "EUR", label: "EUR (€) — Euro" },
-  { code: "GBP", label: "GBP (£) — British Pound" },
-  { code: "AED", label: "AED (د.إ) — UAE Dirham" },
-  { code: "SAR", label: "SAR (﷼) — Saudi Riyal" },
-  { code: "INR", label: "INR (₹) — Indian Rupee" },
-  { code: "BDT", label: "BDT (৳) — Bangladeshi Taka" },
-  { code: "AFN", label: "AFN (؋) — Afghan Afghani" },
-  { code: "IRR", label: "IRR (﷼) — Iranian Rial" },
-  { code: "QAR", label: "QAR (﷼) — Qatari Riyal" },
-  { code: "OMR", label: "OMR (﷼) — Omani Rial" },
-  { code: "KWD", label: "KWD (د.ك) — Kuwaiti Dinar" },
-  { code: "MYR", label: "MYR (RM) — Malaysian Ringgit" },
-  { code: "SGD", label: "SGD ($) — Singapore Dollar" },
-  { code: "TRY", label: "TRY (₺) — Turkish Lira" },
-  { code: "CAD", label: "CAD ($) — Canadian Dollar" },
-  { code: "AUD", label: "AUD ($) — Australian Dollar" },
-  { code: "CNY", label: "CNY (¥) — Chinese Yuan" },
-  { code: "JPY", label: "JPY (¥) — Japanese Yen" },
-] as const;
-
 const SOCIAL_PLATFORMS = [
   "Instagram", "Facebook", "TikTok", "X / Twitter", "Snapchat",
   "YouTube", "LinkedIn", "Website", "WhatsApp Channel", "Other",
 ] as const;
-const CURRENCY_OPTIONS = CURRENCIES.map((currency) => ({
-  value: currency.code,
-  label: currency.label,
-}));
+const CURRENCY_OPTIONS = currencyOptions();
 const TIMEZONE_OPTIONS = TIMEZONES.map((timezone) => ({
   value: timezone,
   label: timezone,
@@ -103,16 +78,7 @@ function getDefaultCurrency(): string {
   if (typeof Intl === "undefined") return "PKR";
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz.startsWith("Asia/Karachi")) return "PKR";
-    if (tz.startsWith("Asia/Dubai")) return "AED";
-    if (tz.startsWith("Asia/Kolkata")) return "INR";
-    if (tz.startsWith("Asia/Dhaka")) return "BDT";
-    if (tz.startsWith("Asia/Riyadh")) return "SAR";
-    if (tz.startsWith("Asia/Singapore")) return "SGD";
-    if (tz.startsWith("Europe/London")) return "GBP";
-    if (tz.startsWith("Europe/Berlin") || tz.startsWith("Europe/Paris")) return "EUR";
-    if (tz.startsWith("America/New_York") || tz.startsWith("America/Chicago")) return "USD";
-    return "PKR";
+    return currencyForTimezone(tz);
   } catch {
     return "PKR";
   }
