@@ -103,7 +103,7 @@ test('customer and supplier amount forms reject sub-paisa without a financial wr
  await expect(page.getByRole('region',{name:'Cookie consent',exact:true})).toHaveCount(0);
  await page.goto(`/customers/${customer}`);
  await page.locator('summary:has-text("Receive Settlement Payment")').click();
- const amount=page.getByRole('spinbutton',{name:'Amount (PKR)',exact:true});
+ const amount=page.getByRole('spinbutton',{name:'Amount',exact:true});
  await amount.fill('0.015');
  await amount.evaluate(input=>{(input.closest('form') as HTMLFormElement).noValidate=true;});
  await page.getByRole('button',{name:'Confirm & Save Settlement',exact:true}).click();

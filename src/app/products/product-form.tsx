@@ -350,7 +350,7 @@ export function ProductForm({
           <div className="grid gap-4 md:grid-cols-2">
             <label className={isService ? "block opacity-60" : "block"}>
               <span className={labelClass}>
-                Cost price (PKR){isService ? " - not used for services" : ""}
+                Cost price{isService ? " - not used for services" : ""}
               </span>
               <input
                 type="number"
@@ -366,7 +366,7 @@ export function ProductForm({
             </label>
             <label className="block">
               <span className={labelClass}>
-                {isService ? "Commission (PKR)" : "Sale price (PKR)"}
+                {isService ? "Commission" : "Sale price"}
               </span>
               <input
                 type="number"

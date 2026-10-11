@@ -1,5 +1,7 @@
 "use server";
 
+import { isSupportedCurrency, CURRENCY_LOCK_MESSAGE, UNSUPPORTED_CURRENCY_MESSAGE } from "@/lib/currency";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -320,6 +322,13 @@ export async function updateSettingsAction(
         const v = parsed.data;
 
         const { db } = await getDb();
+        const { data: current, error: readError } = await db.from("organizations")
+          .select("currency_code, currency_locked_at").eq("id", organizationId).single();
+        if (readError || !current) return { error: "We couldn't load your shop currency. Please try again.", success: null };
+        if (v.currencyCode !== current.currency_code) {
+          if (current.currency_locked_at) return { error: CURRENCY_LOCK_MESSAGE, success: null };
+          if (!isSupportedCurrency(v.currencyCode)) return { error: UNSUPPORTED_CURRENCY_MESSAGE, success: null };
+        }
         const { error: orgErr } = await db
           .from("organizations")
           .update({ currency_code: v.currencyCode, timezone: v.timezone })

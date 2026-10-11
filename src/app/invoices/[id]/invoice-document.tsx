@@ -52,7 +52,7 @@ function ServiceDetails({
       {fields.map(([label, value]) => (
         <div key={label}>
           <dt>{label}</dt>
-          <dd>{value}</dd>
+          <dd className={label === "Principal" || label === "Commission" ? "invoice-service-money" : undefined}>{value}</dd>
         </div>
       ))}
     </dl>

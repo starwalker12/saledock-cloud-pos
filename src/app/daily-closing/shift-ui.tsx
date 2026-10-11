@@ -128,7 +128,7 @@ export function OpenShiftForm({
   return (
     <form action={action} className="space-y-4">
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Starting cash (PKR)</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Starting cash</span>
         <input
           required
           type="number"
@@ -239,7 +239,7 @@ export function CloseShiftForm({
         <input type="hidden" name="shift_id" value={shift.id} />
 
         <label className="block">
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Counted cash (PKR)</span>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Counted cash</span>
           <input
             required
             type="number"

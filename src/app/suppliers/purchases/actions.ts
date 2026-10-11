@@ -12,6 +12,7 @@ import {
 } from "@/lib/validation/supplier-purchases";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
+import { formatCurrency } from "@/lib/formatters";
 import { moneyToMinorUnits, MONEY_PRECISION_MESSAGE, multiplyMoney, subtractMoney, sumMoney } from "@/lib/money";
 
 export type CreatePurchaseResult =
@@ -149,7 +150,7 @@ export async function recordSupplierPaymentAction(
   logAudit({
     module: "purchases",
     action: "supplier_payment.recorded",
-    details: `Recorded supplier payment Rs ${data.amount} via ${data.method}`,
+    details: `Recorded supplier payment ${formatCurrency(data.amount, w.ctx.organization?.currency_code)} via ${data.method}`,
     metadata: {
       payment_id: paymentId,
       supplier_id: data.supplier_id,
@@ -213,7 +214,7 @@ export async function recordSupplierWriteOffAction(
   logAudit({
     module: "purchases",
     action: "supplier_write_off.recorded",
-    details: `Wrote off supplier dues Rs ${amount} — ${reason.trim()}`,
+    details: `Wrote off supplier dues ${formatCurrency(amount, ctx.organization?.currency_code)} — ${reason.trim()}`,
     metadata: {
       supplier_id: supplierId,
       amount,

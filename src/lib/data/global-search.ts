@@ -9,6 +9,7 @@ import {
   canManageSupplierPurchases,
 } from "@/lib/permissions";
 import { escapeLike } from "@/lib/security/sanitize";
+import { formatCurrency } from "@/lib/formatters";
 
 export type SearchResult = {
   id: string;
@@ -206,6 +207,9 @@ export async function searchGlobal(
   if (query.length === 0) return [];
 
   const supabase = await createClient();
+  const { data: organization } = await supabase.from("organizations")
+    .select("currency_code").eq("id", organizationId).maybeSingle();
+  const currency = organization?.currency_code ?? "PKR";
   const lowerQuery = query.toLowerCase();
 
   // 1. Pages/Actions (instant matching including keyword synonyms)
@@ -252,7 +256,7 @@ export async function searchGlobal(
         id: r.id,
         type: "product",
         title: r.name,
-        subtitle: `SKU: ${r.sku ?? "N/A"} · Rs. ${r.sale_price.toLocaleString()}`,
+        subtitle: `SKU: ${r.sku ?? "N/A"} · ${formatCurrency(r.sale_price, currency)}`,
         href: `/products?id=${r.id}`,
         badge: r.type === "service" ? "Service" : "Product",
         badgeClass: r.is_active
@@ -309,7 +313,7 @@ export async function searchGlobal(
           id: r.id,
           type: "invoice",
           title: `Invoice ${r.invoice_no}`,
-          subtitle: `Customer: ${custName ?? "Walk-in"} · Rs. ${Number(r.grand_total).toLocaleString()}`,
+          subtitle: `Customer: ${custName ?? "Walk-in"} · ${formatCurrency(Number(r.grand_total), currency)}`,
           href: `/invoices/${r.id}`,
           badge: (r.status as string).toUpperCase(),
           badgeClass:
@@ -373,7 +377,7 @@ export async function searchGlobal(
           id: r.id,
           type: "return",
           title: `Return ${r.return_no}`,
-          subtitle: `Ref: Invoice ${invNo ?? "N/A"} · Refund: Rs. ${Number(r.refund_amount).toLocaleString()}`,
+          subtitle: `Ref: Invoice ${invNo ?? "N/A"} · Refund: ${formatCurrency(Number(r.refund_amount), currency)}`,
           href: `/returns/${r.id}`,
           badge: r.status.toUpperCase(),
           badgeClass:
@@ -402,7 +406,7 @@ export async function searchGlobal(
         id: r.id,
         type: "expense",
         title: r.category,
-        subtitle: `Vendor: ${r.vendor_name ?? "None"} · Rs. ${Number(r.amount).toLocaleString()}`,
+        subtitle: `Vendor: ${r.vendor_name ?? "None"} · ${formatCurrency(Number(r.amount), currency)}`,
         href: `/expenses`,
         badge: r.status.toUpperCase(),
         badgeClass:
@@ -490,7 +494,7 @@ export async function searchGlobal(
             id: r.id,
             type: "supplier_purchase",
             title: `Purchase ${r.purchase_no}`,
-            subtitle: `Supplier: ${supName ?? "—"} · Total Rs. ${Number(r.grand_total).toLocaleString()} · Bal Rs. ${Number(r.balance_due).toLocaleString()}`,
+            subtitle: `Supplier: ${supName ?? "—"} · Total ${formatCurrency(Number(r.grand_total), currency)} · Bal ${formatCurrency(Number(r.balance_due), currency)}`,
             href: `/suppliers/purchases/${r.id}`,
             badge: (r.status as string).toUpperCase(),
             badgeClass:

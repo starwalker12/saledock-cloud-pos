@@ -270,6 +270,7 @@ export default async function SupplierPurchaseDetailPage({
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="mb-3 text-base font-black text-slate-950">Record payment</h3>
               <RecordPaymentForm
+                currency={currency}
                 supplierId={purchase.supplier_id}
                 purchaseId={purchase.id}
                 maxAmount={purchase.balance_due}

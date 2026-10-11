@@ -571,7 +571,7 @@ test("optional, tenant, form, migration, global helper, and durable status bound
   );
   assert.equal(
     digest(formSource.slice(formSource.indexOf("          {repair && <input"), formSource.indexOf("          {state.error"))),
-    "4f31dbf460a7ba029ffd00bf9bcfe399cff0dc6eef668558e28d494445f86339",
+    "f49f2a6b66424e37cf4aa6c4da472eba31ed1eeb908a657b0c5c05270107582e",
   );
   assert.match(formSource, /useActionState\(saveRepairAction, defaultState\)/);
   assert.match(formSource, /disabled=\{isPending \|\| committed\}/);

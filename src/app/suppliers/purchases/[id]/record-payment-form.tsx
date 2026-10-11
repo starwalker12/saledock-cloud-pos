@@ -15,6 +15,7 @@ import {
 } from "../actions";
 import { Loader2 } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
+import { formatCurrency } from "@/lib/formatters";
 
 const PAYMENT_LABELS: Record<SupplierPaymentMethod, string> = {
   cash: "Cash",
@@ -37,10 +38,12 @@ export function RecordPaymentForm({
   supplierId,
   purchaseId,
   maxAmount,
+  currency,
 }: {
   supplierId: string;
   purchaseId?: string;
   maxAmount?: number;
+  currency: string;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState<number>(maxAmount ?? 0);
@@ -89,7 +92,7 @@ export function RecordPaymentForm({
     }
     if (maxAmount !== undefined && amount > maxAmount + 0.0001) {
       e.preventDefault();
-      setClientError(`Amount cannot exceed Rs ${maxAmount}.`);
+      setClientError(`Amount cannot exceed ${formatCurrency(maxAmount, currency)}.`);
       return;
     }
     submissionLocked.current = true;
@@ -112,7 +115,7 @@ export function RecordPaymentForm({
           required
         />
         {maxAmount !== undefined && (
-          <span className="mt-1 block text-[10px] text-slate-500">Max Rs {maxAmount.toLocaleString()}</span>
+          <span className="mt-1 block text-[10px] text-slate-500">Max {formatCurrency(maxAmount, currency)}</span>
         )}
       </label>
       <label className="block">

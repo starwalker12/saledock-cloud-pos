@@ -17,7 +17,7 @@ import {
   getKarachiTodayDateString,
   getKarachiWeekday,
 } from "@/lib/datetime";
-import { formatNumber } from "@/lib/formatters";
+import { formatCurrency } from "@/lib/formatters";
 import { getServerDict } from "@/lib/i18n/server";
 import { DashboardStatLayout, type DashboardLayoutLabels } from "./dashboard-stat-layout";
 
@@ -114,7 +114,7 @@ async function monthlySales(organizationId: string, branchId: string | null) {
   return result;
 }
 
-async function recentActivity(organizationId: string) {
+async function recentActivity(organizationId: string, currency: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("audit_logs")
@@ -133,7 +133,7 @@ async function recentActivity(organizationId: string) {
 
     if (r.module === "pos" || r.module === "invoices") {
       icon = "sale";
-      rightText = meta.amount ? `Rs ${formatNumber(Number(meta.amount))}` : "";
+      rightText = meta.amount ? formatCurrency(Number(meta.amount), currency) : "";
       color = "#3b82f6";
     } else if (r.module === "stock" || r.module === "inventory") {
       icon = "stock";
@@ -145,11 +145,11 @@ async function recentActivity(organizationId: string) {
       color = "#8b5cf6";
     } else if (r.module === "payments" || r.module === "customers") {
       icon = "payment";
-      rightText = meta.amount ? `Rs ${formatNumber(Number(meta.amount))}` : "";
+      rightText = meta.amount ? formatCurrency(Number(meta.amount), currency) : "";
       color = "#10b981";
     } else if (r.module === "expenses") {
       icon = "expense";
-      rightText = meta.amount ? `Rs ${formatNumber(Number(meta.amount))}` : "";
+      rightText = meta.amount ? formatCurrency(Number(meta.amount), currency) : "";
       color = "#ef4444";
     } else if (r.module === "privacy") {
       icon = "privacy";
@@ -202,7 +202,7 @@ export default async function DashboardPage() {
     branchId ? getDayActivity(orgId, branchId, today) : Promise.resolve(null),
     branchId ? getClosing(orgId, branchId, today) : Promise.resolve(null),
     weeklySales(orgId, branchId),
-    recentActivity(orgId),
+    recentActivity(orgId, currency),
     monthlySales(orgId, branchId),
     getDashboardSummary(orgId, branchId),
     getPotentialProfitInStock(orgId),

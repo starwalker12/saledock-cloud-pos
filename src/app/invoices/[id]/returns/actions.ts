@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createReturnSchema, type RefundMethod } from "@/lib/validation/returns";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
+import { formatCurrency } from "@/lib/formatters";
 
 export type ReturnActionState = {
   error: string | null;
@@ -86,7 +87,7 @@ export async function createInvoiceReturnAction(
     await logAudit({
       module: "returns",
       action: "returns.created",
-      details: `Return processed for Invoice ${parsed.data.invoice_id}. Refund Amount: Rs. ${parsed.data.refund_amount} (${parsed.data.refund_method ?? "Cash"})`,
+      details: `Return processed for Invoice ${parsed.data.invoice_id}. Refund Amount: ${formatCurrency(parsed.data.refund_amount, ctx.organization?.currency_code)} (${parsed.data.refund_method ?? "Cash"})`,
       metadata: {
         invoice_id: parsed.data.invoice_id,
         refund_amount: parsed.data.refund_amount,

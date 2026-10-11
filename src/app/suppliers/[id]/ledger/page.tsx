@@ -278,7 +278,7 @@ export default async function SupplierLedgerPage({
                 Payment will reduce the supplier&apos;s overall outstanding balance. To pay against a specific
                 purchase, open that purchase and use its payment form.
               </p>
-              <RecordPaymentForm supplierId={id} maxAmount={outstanding} />
+              <RecordPaymentForm supplierId={id} maxAmount={outstanding} currency={currency} />
             </section>
           )}
 
@@ -289,7 +289,7 @@ export default async function SupplierLedgerPage({
                 Forgive part or all of the supplier&apos;s outstanding balance. This is NOT an expense &mdash;
                 it clears a payable and is fully traceable.
               </p>
-              <SupplierWriteOffForm supplierId={id} maxAmount={outstanding} />
+              <SupplierWriteOffForm supplierId={id} maxAmount={outstanding} currency={currency} />
             </section>
           )}
 

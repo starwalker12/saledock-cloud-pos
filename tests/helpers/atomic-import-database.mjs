@@ -56,7 +56,8 @@ export async function isolated(test){
   assert.equal(sql(`select count(*) from pg_database where datname='${db}'`,'postgres'),'0');
   if(!existingSchema) assert.equal(sql(`select count(*) from pg_roles where rolname=any(array[${roles.map(q)}])`,'postgres'),'0');
   sql(`create database ${db}`,'postgres');created=true;
-  const dump=docker(['exec',container,'pg_dump','-U','postgres','-d','postgres','--schema-only',...(existingSchema?['--schema=backup_private','--schema=ledger_private']:['--no-owner']),'--schema=public','--schema=auth','--schema=extensions','--schema=workspace_private']);
+  const currencySchema=existingSchema && sql("select to_regnamespace('currency_private') is not null",'postgres')==='t';
+  const dump=docker(['exec',container,'pg_dump','-U','postgres','-d','postgres','--schema-only',...(existingSchema?['--schema=backup_private','--schema=ledger_private']:['--no-owner']),...(currencySchema?['--schema=currency_private']:[]),'--schema=public','--schema=auth','--schema=extensions','--schema=workspace_private']);
   const schema=dump.replaceAll('CREATE SCHEMA public;','CREATE SCHEMA IF NOT EXISTS public;').replace(/^ALTER DEFAULT PRIVILEGES[^\n]*\n/gm,'');
   if(existingSchema) docker(['exec','-i',container,'sh','-c',`PGPASSWORD="$POSTGRES_PASSWORD" exec psql -XqAt -U supabase_admin -d ${db} -v ON_ERROR_STOP=1 -f -`],{input:schema});
   else sql(schema);

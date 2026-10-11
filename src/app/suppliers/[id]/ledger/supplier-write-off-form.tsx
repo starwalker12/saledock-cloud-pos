@@ -4,13 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordSupplierWriteOffAction } from "@/app/suppliers/purchases/actions";
 import { moneyToMinorUnits, MONEY_PRECISION_MESSAGE } from "@/lib/money";
+import { formatCurrency } from "@/lib/formatters";
 
 export function SupplierWriteOffForm({
   supplierId,
   maxAmount,
+  currency,
 }: {
   supplierId: string;
   maxAmount: number;
+  currency: string;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(String(maxAmount));
@@ -37,7 +40,7 @@ export function SupplierWriteOffForm({
       return;
     }
     if (Number(amount) > maxAmount + 0.0001) {
-      setError(`Amount cannot exceed Rs ${maxAmount}.`);
+      setError(`Amount cannot exceed ${formatCurrency(maxAmount, currency)}.`);
       setConfirming(false);
       return;
     }
@@ -80,7 +83,7 @@ export function SupplierWriteOffForm({
           required
           disabled={confirming}
         />
-        <span className="mt-1 block text-[10px] text-slate-500">Max Rs {maxAmount.toLocaleString()}</span>
+        <span className="mt-1 block text-[10px] text-slate-500">Max {formatCurrency(maxAmount, currency)}</span>
       </label>
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reason *</span>
@@ -99,7 +102,7 @@ export function SupplierWriteOffForm({
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
           <p className="font-bold text-amber-900">Confirm write-off</p>
           <p className="mt-1 text-amber-800">
-            This will reduce the supplier&apos;s outstanding balance by <strong>Rs {Number(amount).toLocaleString()}</strong>.
+            This will reduce the supplier&apos;s outstanding balance by <strong>{formatCurrency(Number(amount), currency)}</strong>.
             This action is traceable but cannot be reversed.
           </p>
         </div>

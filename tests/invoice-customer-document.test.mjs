@@ -35,7 +35,8 @@ function load(source, dependencies = {}, globals = {}) {
   );
   return exports;
 }
-const formatters = load(readFileSync("src/lib/formatters.ts", "utf8"));
+const currency = load(readFileSync("src/lib/currency.ts", "utf8"));
+const formatters = load(readFileSync("src/lib/formatters.ts", "utf8"), { "./currency": currency });
 const document = load(source, {
   "react/jsx-runtime": runtime,
   "next/link": {
@@ -173,10 +174,10 @@ test("stored totals are rendered directly, zero discounts are quiet, mixed disco
     discount_total: 8,
   });
   for (const value of [
-    "PKR 17",
-    "PKR 12,345,678.5",
-    "PKR 9",
-    "PKR 12,345,669.5",
+    "₨ 17",
+    "₨ 12,345,678.5",
+    "₨ 9",
+    "₨ 12,345,669.5",
   ])
     assert.ok(html.includes(value));
   assert.match(html, /aria-label="No discount"/);
@@ -184,7 +185,7 @@ test("stored totals are rendered directly, zero discounts are quiet, mixed disco
   assert.equal((html.match(/<dt>Balance due<\/dt>/g) ?? []).length, 1);
   assert.match(
     render({ items: [{ ...invoice.items[0], item_discount: 25 }] }),
-    /PKR 25/,
+    /₨ 25/,
   );
   assert.doesNotMatch(render(), />Product</);
 });
@@ -201,8 +202,8 @@ test("service snapshots retain useful provider/principal/commission/reference wi
   const html = render({ items: [item] });
   for (const text of [
     "Example provider",
-    "PKR 500",
-    "PKR 50",
+    "₨ 500",
+    "₨ 50",
     "SERVICE-REF",
     "Customer detail",
   ])
@@ -248,16 +249,16 @@ test("WhatsApp uses stored amounts, customer-facing wording and no unnecessary z
     "Custom closing message",
   );
   for (const text of [
-    "Grand total: PKR 999",
-    "Paid: PKR 999",
-    "Change: PKR 1",
+    "Grand total: ₨ 999",
+    "Paid: ₨ 999",
+    "Change: ₨ 1",
     "BANK-REF",
     "Custom closing message",
   ])
     assert.ok(paid.includes(text));
   assert.doesNotMatch(
     paid,
-    /Discount: PKR 0|Balance due: PKR 0|773\.21|profit|purchase/i,
+    /Discount: ₨ 0|Balance due: ₨ 0|773\.21|profit|purchase/i,
   );
   const unpaid = sharing.buildTextMessage(
     {
@@ -270,8 +271,8 @@ test("WhatsApp uses stored amounts, customer-facing wording and no unnecessary z
     },
     "Northline",
   );
-  assert.ok(unpaid.includes("Balance due: PKR 999"));
-  assert.ok(unpaid.includes("Discount: PKR 25"));
+  assert.ok(unpaid.includes("Balance due: ₨ 999"));
+  assert.ok(unpaid.includes("Discount: ₨ 25"));
   assert.equal(sharing.buildTextMessage(null, "Shop"), "");
 });
 test("image capture is white, current, bounded to the customer article and excludes internal nodes", async () => {

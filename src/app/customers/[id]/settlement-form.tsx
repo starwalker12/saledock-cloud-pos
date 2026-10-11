@@ -74,7 +74,7 @@ export function SettlementForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-xs font-bold text-slate-700">
-              Amount (PKR)
+              Amount
             </span>
             <input
               required
