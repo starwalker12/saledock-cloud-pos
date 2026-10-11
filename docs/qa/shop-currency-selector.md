@@ -16,9 +16,9 @@ The ten new-selection currencies all use the existing two-decimal money boundary
 | EUR | Euro | € |
 | AUD | Australian Dollar | A$ |
 | CAD | Canadian Dollar | C$ |
-| AED | UAE Dirham | د.إ |
-| SAR | Saudi Riyal | ر.س |
-| QAR | Qatari Riyal | ر.ق |
+| AED | UAE Dirham | Preferred U+20C3 UAE DIRHAM SIGN; portable display AED |
+| SAR | Saudi Riyal | Preferred U+20C1 SAUDI RIYAL SIGN; portable display SAR |
+| QAR | Qatari Riyal | QAR |
 
 `src/lib/currency.ts` supplies Settings, onboarding, location defaults and display symbols.
 Unknown existing codes remain unchanged and display as `CODE amount`; they are not offered as
@@ -81,11 +81,20 @@ does not apply anything to production. The migration file is
 Settings uses AppSelect with name/code/symbol, a controlled saved selection, ordinary dirty/save
 handling and the history-lock explanation. Onboarding uses the same options and compatible timezone
 defaults. Supported symbol prefixes replace ISO prefixes without changing the existing finite-value
-fallback, en-PK grouping or 0-to-2 display decimal behavior. Arabic abbreviations and English numbers
-use Unicode LTR boundaries and a nonbreaking symbol/amount separator for screen, print and image
-output. Invoice money cells also stay on one line because shared-image capture freezes their
-measured widths and uses different Arabic fallback glyph metrics. This affects presentation only;
-nonfinancial service details retain wrapping. Isolate controls were rejected during qualification.
+fallback, en-PK grouping or 0-to-2 display decimal behavior. The registry preserves the exact
+official AED/SAR signs using Unicode escapes; it does not substitute letters or the generic Rial
+sign. Existing screen, selector, invoice, print/PDF, thermal and shared-image surfaces use device
+fonts rather than a controlled currency font. They therefore use deterministic AED/SAR ISO
+fallbacks on every device, even when that device happens to render one of the new signs. QAR
+intentionally uses its ISO code. Selector labels omit a redundant parenthesized code.
+
+No runtime canvas/font detection, hydration-dependent marker switch, remote font or font asset
+is introduced. Local Chromium rendered SAR U+20C1 but AED U+20C3 matched the missing-glyph control;
+that diagnostic is evidence, not a detection algorithm shipped to users. Official signs can be
+enabled on a future surface only when its complete screen/print/image font pipeline is guaranteed.
+Arabic-script-specific regexes and direction controls are removed from the formatter. Monetary
+invoice cells still stay on one line across shared-image capture; nonfinancial details retain
+wrapping. This affects presentation only, never stored currency or money.
 
 Dashboard activity, search results, daily closing, POS cost warnings, supplier form limits and new
 audit display text now use the shared formatter. Currency-specific PKR input labels are removed.
@@ -100,10 +109,11 @@ currency identity. No existing audit text is rewritten.
 - Isolated local SQL and authenticated/API empty-shop, active-shop, lock-tamper and race tests.
 - Pre-cutover legacy KWD/history metadata backfill and unchanged function/ACL/RLS/business snapshots.
 - Existing POS permission/FIFO, decimal-money, trusted ledger, posted source and importer suites.
-- Production-mode Chromium desktop and 390px light/dark Settings, all ten money symbols,
-  invoice/A4/thermal and Arabic image/PDF artifacts; automatic retries zero.
+- Production-mode Chromium desktop and 390px light/dark Settings, all ten currency markers,
+  AED/SAR/QAR invoice/A4/thermal/shared-image artifacts; automatic retries zero.
 - Complete Node, lint, typecheck, production build, diff check, local DB lint and error-level advisors.
 
 Independent synthetic local evidence: `shop-currency-selector` under the owner's local evidence root.
+Presentation refinement evidence: `shop-currency-symbol-refinement`; the original seal is unchanged.
 No production access, historical conversion, money formula change, Return Math, Exchange or
 Invoice Correction. Draft review only; no merge or deployment.

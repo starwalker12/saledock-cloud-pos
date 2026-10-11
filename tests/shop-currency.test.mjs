@@ -5,24 +5,26 @@ import { loadMoneyModule } from './helpers/load-money-module.mjs';
 
 const currency = loadMoneyModule('src/lib/currency.ts');
 const { formatCurrency } = loadMoneyModule('src/lib/formatters.ts');
-const expected = { PKR:'₨', INR:'₹', USD:'$', GBP:'£', EUR:'€', AUD:'A$', CAD:'C$', AED:'د.إ', SAR:'ر.س', QAR:'ر.ق' };
-const visible = s => s.replace(/[\u200e\u2066-\u2069]/g,'').replace(/\u00a0/g,' ');
+const expected = { PKR:'₨', INR:'₹', USD:'$', GBP:'£', EUR:'€', AUD:'A$', CAD:'C$', AED:'\u20C3', SAR:'\u20C1', QAR:'QAR' };
 
 test('one bounded ten-currency registry: names, codes and unambiguous symbols', () => {
   assert.deepEqual(Object.fromEntries(currency.SUPPORTED_CURRENCIES.map(c=>[c.code,c.symbol])), expected);
   assert.equal(new Set(currency.SUPPORTED_CURRENCIES.map(c=>c.code)).size,10);
   for (const {code,name,symbol} of currency.SUPPORTED_CURRENCIES) {
     assert.ok(name.length>3);
-    assert.equal(currency.currencyOptions().find(o=>o.value===code).label, `${name} — ${code} (${symbol})`);
+    assert.equal(currency.currencySymbol(code),symbol);
+    const marker=currency.currencyDisplayMarker(code);
+    assert.equal(currency.currencyOptions().find(o=>o.value===code).label, `${name} — ${code}${marker===code?'':` (${marker})`}`);
     assert.equal(currency.isSupportedCurrency(code),true);
   }
   for (const code of ['KWD','JOD','BHD','OMR','JPY','XYZ','']) assert.equal(currency.isSupportedCurrency(code),false);
 });
-for (const [code,symbol] of Object.entries(expected)) {
+for (const code of Object.keys(expected)) {
   test(`${code} presentation changes only the prefix, including negative/decimal/zero`, () => {
     for (const amount of [1250,1250.02,0,-1250.02,NaN,Infinity]) {
       const safe=Number.isFinite(amount)?amount:0;
-      assert.equal(visible(formatCurrency(amount,code)),`${symbol} ${safe.toLocaleString('en-PK',{minimumFractionDigits:0,maximumFractionDigits:2})}`);
+      const marker=['AED','SAR'].includes(code)?code:expected[code];
+      assert.equal(formatCurrency(amount,code),`${marker} ${safe.toLocaleString('en-PK',{minimumFractionDigits:0,maximumFractionDigits:2})}`);
     }
   });
 }
@@ -32,8 +34,25 @@ test('legacy fallback is readable, selectable only as existing, never coerced to
   assert.deepEqual(currency.currencyOptions('KWD')[0],{value:'KWD',label:'KWD (existing currency)',disabled:true});
   assert.equal(currency.currencyOptions('PKR').length,10);
 });
-test('Arabic abbreviations and numbers have capture-compatible LTR boundaries', () => {
-  for(const code of ['AED','SAR','QAR']) assert.equal(formatCurrency(1250.02,code),`\u200e${expected[code]}\u200e\u00a01,250.02`);
+test('official preferred signs use exact codepoints; portable device-font surfaces use deterministic ISO fallback', () => {
+  assert.equal(currency.currencySymbol('AED').codePointAt(0),0x20C3);
+  assert.equal(currency.currencySymbol('SAR').codePointAt(0),0x20C1);
+  assert.equal(currency.currencySymbol('AED').length,1);
+  assert.equal(currency.currencySymbol('SAR').length,1);
+  for(const code of ['AED','SAR','QAR']) {
+    assert.equal(currency.currencyDisplayMarker(code),code);
+    assert.equal(formatCurrency(1250.02,code),`${code} 1,250.02`);
+    assert.equal(currency.currencyOptions().find(o=>o.value===code).label,`${currency.SUPPORTED_CURRENCIES.find(c=>c.code===code).name} — ${code}`);
+  }
+});
+test('runtime markers and labels contain no prohibited abbreviations, generic Rial sign or obsolete directional controls', () => {
+  const prohibited=['\u062f.\u0625','\u0631.\u0633','\u0631.\u0642','\uFDFC'];
+  const strings=[...currency.SUPPORTED_CURRENCIES.map(c=>c.symbol),...currency.currencyOptions().map(o=>o.label),...Object.keys(expected).map(c=>formatCurrency(1250,c))];
+  for(const value of strings) {
+    for(const marker of prohibited) assert.equal(value.includes(marker),false);
+    assert.doesNotMatch(value,/[\u0600-\u06ff\u200e\u2066-\u2069]/);
+  }
+  assert.doesNotMatch(readFileSync('src/lib/formatters.ts','utf8'),/0600|06ff|200e|2066|00a0/);
 });
 test('invoice amounts cannot split in shared images; nonfinancial service details still wrap', () => {
   const css=readFileSync('src/app/globals.css','utf8');

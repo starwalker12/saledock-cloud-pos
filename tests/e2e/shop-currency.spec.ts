@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { test, expect, type Page } from "@playwright/test";
-import { SUPPORTED_CURRENCIES, CURRENCY_LOCK_MESSAGE } from "../../src/lib/currency";
+import { SUPPORTED_CURRENCIES, CURRENCY_LOCK_MESSAGE, currencyOptions, currencyDisplayMarker } from "../../src/lib/currency";
 import { formatCurrency } from "../../src/lib/formatters";
 import { loginLocalOwnerDirectly, isLocalPlaywrightRun } from "./helpers/local-supabase";
 import { resetLocalAccountingFixture } from "./helpers/local-accounting-fixture";
@@ -48,8 +48,8 @@ async function noOverflow(page: Page) {
 async function select(page: Page, code: string) {
   const trigger = page.getByRole("button", { name: "Currency", exact: true });
   await trigger.click();
-  const currency = SUPPORTED_CURRENCIES.find(c => c.code === code)!;
-  await page.getByRole("option", { name: `${currency.name} — ${code} (${currency.symbol})`, exact: true }).click();
+  const label = currencyOptions().find(c => c.value === code)!.label;
+  await page.getByRole("option", { name: label, exact: true }).click();
   await expect(page.getByRole("button", { name: "Save regional settings", exact: true })).toBeEnabled();
   const [response] = await Promise.all([
     page.waitForResponse(r => r.request().method() === "POST" && !!r.request().headers()["next-action"]),
@@ -58,7 +58,7 @@ async function select(page: Page, code: string) {
   expect(response.ok()).toBe(true);
   await expect(page.getByText("Regional settings saved.", { exact: true })).toBeVisible();
   await expect(trigger).toBeEnabled();
-  await expect(trigger).toContainText(`${currency.name} — ${code} (${currency.symbol})`);
+  await expect(trigger).toContainText(label);
   await expect(page.getByRole("button", { name: "Save regional settings", exact: true })).toBeDisabled();
 }
 test.beforeAll(async () => {
@@ -71,7 +71,13 @@ test.beforeAll(async () => {
   empty = await fixture("PKR"); mobile = await fixture("PKR");
   for (const { code } of SUPPORTED_CURRENCIES) await fixture(code, true);
 });
-test.beforeEach(async ({ context }) => {
+test.beforeEach(async ({ context, page }) => {
+  page.on("pageerror", error => console.error("Currency browser page error:", error.message));
+  page.on("console", message => {
+    if (message.type() === "error" && message.text().includes("Unhandled SaleDock route error")) {
+      console.error(message.text());
+    }
+  });
   await context.addInitScript(() => {
     localStorage.setItem("analytics-consent", "rejected");
     localStorage.setItem("saledock-sidebar-preferences-v1", JSON.stringify({ analyticsConsent: "rejected", marketingConsent: "rejected" }));
@@ -130,7 +136,7 @@ test("stale Settings form after a new expense receives a friendly denial; raw au
   observations.activeShop = { expenseUnchanged: true, currency: "QAR", actionPosts: posts, authenticatedAndServiceApi: "denied", readonlyAfterReload: true };
 });
 
-test("all ten currencies reach Dashboard/POS/Products and invoice/A4/thermal; Arabic PDF/share remains readable", async ({ page }) => {
+test("all ten currency markers reach Dashboard/POS/Products and invoice/A4/thermal; portable PDF/share remains readable", async ({ page }) => {
   test.setTimeout(240000);
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   for (const f of fixtures.filter(f => f.invoice)) {
@@ -159,12 +165,12 @@ test("all ten currencies reach Dashboard/POS/Products and invoice/A4/thermal; Ar
       await download.saveAs(path.join(artifacts, `shared-${f.code}.png`));
     }
     expect(await row("invoices", f.invoice!)).toEqual(prior);
-    observations[f.code] = { symbol: SUPPORTED_CURRENCIES.find(c => c.code === f.code)!.symbol, total: 1250, invoiceEconomicsAndSourceProvenanceUnchanged: true, screenA4Thermal: true };
+    observations[f.code] = { preferredSymbol: SUPPORTED_CURRENCIES.find(c => c.code === f.code)!.symbol, displayedMarker: currencyDisplayMarker(f.code), total: 1250, invoiceEconomicsAndSourceProvenanceUnchanged: true, screenA4Thermal: true };
   }
   expect(errors).toEqual([]); observations.pageErrors = errors;
 });
 
-test("Arabic currency across customer/supplier financial and operational screens, no money/trust mutation", async ({ page }) => {
+test("portable currency across customer/supplier financial and operational screens, no money/trust mutation", async ({ page }) => {
   test.setTimeout(180000);
   const f = fixtures.find(f => f.code === "AED" && f.invoice)!;
   const product = randomUUID();
@@ -186,11 +192,44 @@ test("Arabic currency across customer/supplier financial and operational screens
       await expect(page.getByRole("cell", { name: "Synthetic supplier", exact: true })).toBeVisible();
       observations[route] = "Catalog contact table; no monetary field";
     } else {
-      await expect(page.getByText(/د\.إ/).first()).toBeVisible();
-      observations[route] = "Arabic currency renders normally";
+      await expect(page.getByText(/AED [\d,]/).first()).toBeVisible();
+      observations[route] = "ISO fallback renders normally";
     }
   }
   expect(await row("invoices", f.invoice!)).toEqual(before);
+});
+
+test("AED/SAR/QAR fallback is stable across desktop/mobile light/dark screens without missing currency glyphs", async ({ page }) => {
+  test.setTimeout(480000);
+  const matrix: Record<string, unknown>[] = [];
+  for (const code of ["AED", "SAR", "QAR"]) {
+    const f = fixtures.find(f => f.code === code && f.invoice)!;
+    const before = await row("invoices", f.invoice!);
+    await login(page, f);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      for (const theme of ["light", "dark"]) {
+        for (const [name, route] of [["settings", "/settings"], ["dashboard", "/dashboard"], ["pos", "/pos"], ["invoice", `/invoices/${f.invoice}`], ["reports", "/reports"]]) {
+          await page.goto(route);
+          await page.evaluate(t => document.documentElement.classList.toggle("dark", t === "dark"), theme);
+          if (name === "settings") {
+            const selection = page.getByRole("button", { name: "Currency", exact: true });
+            await expect(selection).toContainText(currencyOptions().find(c => c.value === code)!.label);
+            await selection.scrollIntoViewIfNeeded();
+          } else {
+            await expect(page.getByText(new RegExp(`${code} [\\d,]`)).filter({ visible: true }).first()).toBeVisible();
+          }
+          await expect(page.locator("main")).not.toContainText(/[\u20C1\u20C3\uFDFC\uFFFD]/);
+          await expect(page.locator("main")).not.toContainText(/\u062f\.\u0625|\u0631\.\u0633|\u0631\.\u0642/);
+          await noOverflow(page);
+          await page.screenshot({ path: path.join(artifacts, `${name}-${code}-${width}-${theme}.png`), animations: "disabled" });
+          matrix.push({ code, width, theme, screen: name, marker: code, overflow: false, missingCurrencyGlyph: false });
+        }
+      }
+    }
+    expect(await row("invoices", f.invoice!)).toEqual(before);
+  }
+  observations.portableMatrix = matrix;
 });
 
 test("390px light/dark dropdown and locked Settings: keyboard-accessible and no page overflow", async ({ page }) => {

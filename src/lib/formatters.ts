@@ -1,4 +1,4 @@
-import { currencySymbol } from "./currency";
+import { currencyDisplayMarker } from "./currency";
 
 export function formatCurrency(value: number, currencyCode = "PKR"): string {
   const safe = Number.isFinite(value) ? value : 0;
@@ -6,11 +6,7 @@ export function formatCurrency(value: number, currencyCode = "PKR"): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
-  const symbol = currencySymbol(currencyCode);
-  // Keep Arabic symbols and LTR numbers together in screen, print and shared-image output.
-  return /[\u0600-\u06ff]/.test(symbol)
-    ? `\u200e${symbol}\u200e\u00a0${amount}`
-    : `${symbol} ${amount}`;
+  return `${currencyDisplayMarker(currencyCode)} ${amount}`;
 }
 
 export function formatNumber(value: number): string {

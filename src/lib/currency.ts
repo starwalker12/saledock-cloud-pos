@@ -6,9 +6,9 @@ export const SUPPORTED_CURRENCIES = [
   { code: "EUR", name: "Euro", symbol: "€" },
   { code: "AUD", name: "Australian Dollar", symbol: "A$" },
   { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
-  { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
-  { code: "SAR", name: "Saudi Riyal", symbol: "ر.س" },
-  { code: "QAR", name: "Qatari Riyal", symbol: "ر.ق" },
+  { code: "AED", name: "UAE Dirham", symbol: "\u20C3", displayFallback: "AED" },
+  { code: "SAR", name: "Saudi Riyal", symbol: "\u20C1", displayFallback: "SAR" },
+  { code: "QAR", name: "Qatari Riyal", symbol: "QAR" },
 ] as const;
 
 export type SupportedCurrencyCode = (typeof SUPPORTED_CURRENCIES)[number]["code"];
@@ -25,12 +25,19 @@ export function currencySymbol(code: string): string {
   return SUPPORTED_CURRENCIES.find((currency) => currency.code === code)?.symbol ?? code;
 }
 
+export function currencyDisplayMarker(code: string): string {
+  const currency = SUPPORTED_CURRENCIES.find((currency) => currency.code === code);
+  if (!currency) return code;
+  // Device fonts cannot guarantee the new signs in screen, print and image exports.
+  return "displayFallback" in currency ? currency.displayFallback : currency.symbol;
+}
+
 export function currencyOptions(currentCode?: string) {
   const options: { value: string; label: string; disabled?: boolean }[] =
-    SUPPORTED_CURRENCIES.map(({ code, name, symbol }) => ({
-      value: code,
-      label: `${name} — ${code} (${symbol})`,
-    }));
+    SUPPORTED_CURRENCIES.map(({ code, name }) => {
+      const marker = currencyDisplayMarker(code);
+      return { value: code, label: `${name} — ${code}${marker === code ? "" : ` (${marker})`}` };
+    });
   if (currentCode && !isSupportedCurrency(currentCode)) {
     options.unshift({ value: currentCode, label: `${currentCode} (existing currency)`, disabled: true });
   }
