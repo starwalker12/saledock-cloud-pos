@@ -26,6 +26,7 @@ function loadTypeScriptModule(path, mocks = {}) {
   const evaluatedModule = { exports: {} };
   const localRequire = (id) => {
     if (Object.hasOwn(mocks, id)) return mocks[id];
+    if (id === "@/lib/errors/safe-action-error") return { getSafeActionError: () => "Return unavailable" };
     return require(id);
   };
   const wrapper = vm.runInThisContext(
@@ -192,6 +193,7 @@ test("movement, closing, and shift histories count and fetch with identical rang
       "server-only": {},
       "@/lib/supabase/server": { createClient: async () => harness.client },
       "@/lib/operational-history": operationalHistory,
+      "@/lib/errors/safe-action-error": { getSafeActionError: () => "Return unavailable" },
       "@/lib/datetime": datetime,
       "./daily-closing": {
         emptyMethodTotals: () => ({}),
@@ -276,6 +278,7 @@ test("an exact-count failure stops before the history data query", async () => {
     "server-only": {},
     "@/lib/supabase/server": { createClient: async () => harness.client },
     "@/lib/operational-history": operationalHistory,
+    "@/lib/errors/safe-action-error": { getSafeActionError: () => "Return unavailable" },
   });
 
   await assert.rejects(

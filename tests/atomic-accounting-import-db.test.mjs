@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-test('authenticated atomic import: all 21 relations, every rollback boundary, and receipt replay', {
+test('authenticated atomic import: all 23 relations, every rollback boundary, and receipt replay', {
  skip:process.env.RUN_LOCAL_ATOMIC_IMPORT_DB!=='1',timeout:120000,
 }, async t=>{
  const {isolated,org}=await import('./helpers/atomic-import-database.mjs');
@@ -35,7 +35,8 @@ test('authenticated atomic import: all 21 relations, every rollback boundary, an
  revoke all on function public.qa77126_fail_completed() from public,anon,authenticated;`);
  for(const relation of ['public.customers','public.suppliers','public.invoices','public.payments','public.supplier_purchases',
   'public.customer_ledger_entries','public.supplier_ledger_entries','public.product_stock_lots','public.invoice_item_stock_allocations',
-  'public.return_stock_allocations','backup_private.mappings','backup_private.receipts','backup_private.jobs']){
+  'public.return_stock_allocations','public.invoice_payment_allocations','public.return_item_source_allocations',
+  'backup_private.mappings','backup_private.receipts','backup_private.jobs']){
    const completion=relation==='backup_private.jobs';
    sql(`create trigger qa77126_required_failure before ${completion?'update':'insert'} on ${relation}
      for each row execute function public.${completion?'qa77126_fail_completed':'qa77126_fail_insert'}();`);

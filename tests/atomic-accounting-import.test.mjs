@@ -22,8 +22,10 @@ const workflow = load("src/lib/backup/restore-workflow.ts", { "./accounting-impo
 const id = "77126000-0000-4000-8000-000000000101";
 const roots = { actorId: id, branchId: id };
 
-test("fixed 21-table cluster and every legacy alias resolve without prototype fallbacks", () => {
-  assert.equal(core.ACCOUNTING_TABLES.length, 21);
+test("fixed 23-table cluster includes exact return/payment provenance and resolves legacy aliases", () => {
+  assert.equal(core.ACCOUNTING_TABLES.length, 23);
+  assert(core.ACCOUNTING_TABLES.includes("invoice_payment_allocations"));
+  assert(core.ACCOUNTING_TABLES.includes("return_item_source_allocations"));
   for (const [alias, table] of Object.entries(core.BACKUP_TABLE_ALIASES)) assert.equal(core.accountingTable(alias), table);
   assert.equal(core.accountingTable("__proto__"), undefined);
   assert.equal(core.accountingTable("constructor"), undefined);

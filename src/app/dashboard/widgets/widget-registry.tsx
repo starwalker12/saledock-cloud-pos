@@ -493,7 +493,7 @@ export function renderWidgetContent(
           </div>
           {size === "S" && (
             <p className="truncate text-[13px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
-              Returned products
+              Return credit
             </p>
           )}
           {size === "M" && (
@@ -508,12 +508,12 @@ export function renderWidgetContent(
                 <span className="font-bold text-slate-900 dark:text-white">{state.dashSummary.returnsCount} ticket(s)</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Outflow impact:</span>
+                <span className="text-slate-500">Return credit:</span>
                 <span className="font-bold text-rose-600">-{formatCurrency(state.dashSummary.returnsTotal, currency)}</span>
               </div>
               {size === "XL" && (
                 <div className="mt-1 pt-1 border-t border-dashed border-slate-200/50 text-xs text-slate-400">
-                  Requires manager authentication to approve returns and issue drawer cash refunds.
+                  Includes debt relief and actual refunds; only cash refunds affect drawer cash.
                 </div>
               )}
             </div>

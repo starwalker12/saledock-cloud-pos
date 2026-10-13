@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { randomUUID } from "node:crypto";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
@@ -8,6 +9,7 @@ import { getBrandingSettings } from "@/lib/data/settings";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/formatters";
 import { canProcessReturns } from "@/lib/permissions";
+import { canReturnNew } from "@/lib/staff-permissions";
 import { PrintButton } from "./print-button";
 import { ReturnForm } from "./returns/return-form";
 import { InvoiceDocument } from "./invoice-document";
@@ -140,7 +142,7 @@ export default async function InvoiceDetailPage({
   const grossProfit = invoice.grand_total - totalCost;
   const grossMargin =
     invoice.grand_total > 0 ? (grossProfit / invoice.grand_total) * 100 : 0;
-  const canReturn = canProcessReturns(profile.role);
+  const canReturn = canProcessReturns(profile.role) && await canReturnNew(profile);
   const hasChangeDue = invoice.change_due > 0;
   const showLogo = hasShoLogo(branding.logoUrl);
 
@@ -246,6 +248,7 @@ export default async function InvoiceDetailPage({
         {/* ── Returns / refunds section ── */}
         <section className="px-6 pb-2 sm:px-8 print:hidden">
           <ReturnForm
+            initialKey={randomUUID()}
             invoiceId={invoice.id}
             items={returnableItems}
             currency={currency}
@@ -299,6 +302,10 @@ export default async function InvoiceDetailPage({
                           Refunded {formatCurrency(ret.refund_amount, currency)}
                           {ret.refund_method ? ` via ${PAYMENT_LABELS[ret.refund_method] ?? ret.refund_method}` : ""}
                         </p>
+                        {ret.return_math_version === 1 && <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Debt relieved {formatCurrency(ret.debt_relief ?? 0, currency)}
+                        </p>}
+                        {ret.return_math_version === null && <p className="text-xs text-slate-500">Legacy return</p>}
                       </div>
                     </div>
                     <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-400">
@@ -308,7 +315,9 @@ export default async function InvoiceDetailPage({
                             {item.quantity} &times; {item.item_name}
                             {item.item_type === "service"
                               ? " (service)"
-                              : item.restock
+                              : item.restock_quantity !== null
+                                ? ` (${item.restock_quantity} restocked)`
+                                : item.restock
                                 ? " (restocked)"
                                 : " (no restock)"}
                           </span>

@@ -1,7 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { addKarachiDays, getKarachiRangeIso } from "@/lib/datetime";
-import { calculateEstimatedNetProfit } from "@/lib/return-profit";
+import { calculateEstimatedNetProfit, returnRevenueCredit } from "@/lib/return-profit";
+import { sumMoney } from "@/lib/money";
 import { getRestoredProductCostForReturns } from "./return-profit";
 
 export type InvoiceItemReportRow = {
@@ -54,6 +55,8 @@ export type ProfitSummaryReport = {
 export type ReturnsSummaryReport = {
   returnCount: number;
   refundTotal: number;
+  returnCreditTotal: number;
+  debtReliefTotal: number;
   refundsByMethod: { method: string; amount: number }[];
   returnedProductQty: number;
 };
@@ -202,7 +205,7 @@ export async function getReportsData(
   // 4. Returns in range
   let returnsQuery = supabase
     .from("returns")
-    .select("id, refund_amount, refund_method")
+    .select("id, subtotal, return_math_version, debt_relief, refund_amount, refund_method")
     .eq("organization_id", orgId)
     .eq("status", "completed")
     .gte("created_at", start)
@@ -432,18 +435,21 @@ export async function getReportsData(
     .filter((item) => item.product_type === "product")
     .reduce((sum, item) => sum + Number(item.purchase_price ?? 0) * Number(item.quantity ?? 0), 0);
 
-  const grossProfit = Math.max(salesRevenue - productCost, 0);
+  const grossProfit = salesRevenue - productCost;
   const grossMarginPercent = salesRevenue > 0 ? (grossProfit / salesRevenue) * 100 : 0;
 
   // 4. Returns / Refunds calculations
   const returnCount = completedReturns.length;
-  const refundTotal = completedReturns.reduce((sum, ret) => sum + Number(ret.refund_amount ?? 0), 0);
+  const refundTotal = sumMoney(completedReturns.map(ret => ret.refund_amount ?? 0));
+  const returnCreditTotal = sumMoney(completedReturns.map(returnRevenueCredit));
+  const debtReliefTotal = sumMoney(completedReturns.filter(ret => ret.return_math_version === 1).map(ret => ret.debt_relief ?? 0));
 
   const totalExpenses = activeExpenses.reduce((sum, exp) => sum + Number(exp.amount ?? 0), 0);
   const estimatedNetProfit = calculateEstimatedNetProfit({
     grossProfit,
     expenses: totalExpenses,
     refunds: refundTotal,
+    returnCredits: returnCreditTotal,
     restoredProductCost,
     writeOffs: creditWriteOffs,
   });
@@ -451,6 +457,7 @@ export async function getReportsData(
   const refundsByMethodMap = new Map<string, number>();
   for (const ret of completedReturns) {
     const amt = Number(ret.refund_amount ?? 0);
+    if (amt === 0) continue;
     const method = ret.refund_method || "cash";
     refundsByMethodMap.set(method, (refundsByMethodMap.get(method) ?? 0) + amt);
   }
@@ -665,6 +672,8 @@ export async function getReportsData(
     returns: {
       returnCount,
       refundTotal,
+      returnCreditTotal,
+      debtReliefTotal,
       refundsByMethod,
       returnedProductQty,
     },

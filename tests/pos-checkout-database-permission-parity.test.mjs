@@ -110,7 +110,9 @@ test('local direct RPC role/override parity, atomic denial and accounting regres
   const forwardTrust = sql("select to_regnamespace('ledger_private') is not null;") === 't';
   if (forwardTrust) {
     const trustedBody = sql("select prosrc from pg_proc where pronamespace='ledger_private'::regnamespace and proname='pos_checkout';");
-    assert.equal(trustedBody.trim(), body(precisionCheckout).trim().replaceAll('auth.uid()', 'ledger_private.actor_id()'), 'Trusted checkout must retain the exact reviewed permission and money body');
+    const maintenanceLock = '  perform ledger_private.lock_return_maintenance(v_org_id);\n';
+    assert.equal(trustedBody.split(maintenanceLock).length - 1, 1, 'Exactly one shared Return/Reset maintenance lock is added');
+    assert.equal(trustedBody.replace(maintenanceLock, '').trim(), body(precisionCheckout).trim().replaceAll('auth.uid()', 'ledger_private.actor_id()'), 'Apart from the maintenance lock, checkout must retain the exact reviewed permission and money body');
   } else {
     assert.equal(current.trim(), body(precisionCheckout).trim(), 'Local candidate must be exact precision-guarded implementation');
   }

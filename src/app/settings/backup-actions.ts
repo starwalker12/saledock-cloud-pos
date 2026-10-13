@@ -76,6 +76,8 @@ export type ExportData = {
   returns: unknown[];
   returnItems: unknown[];
   returnStockAllocations: unknown[];
+  invoicePaymentAllocations: unknown[];
+  returnItemSourceAllocations: unknown[];
   expenses: unknown[];
   repairs: unknown[];
   closings: unknown[];
@@ -2422,6 +2424,8 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       returns,
       returnItems,
       returnStockAllocations,
+      invoicePaymentAllocations,
+      returnItemSourceAllocations,
       exps,
       reps,
       closings,
@@ -2451,6 +2455,8 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       supabase.from("returns").select("*").eq("organization_id", orgId),
       supabase.from("return_items").select("*").eq("organization_id", orgId),
       supabase.from("return_stock_allocations").select("*").eq("organization_id", orgId),
+      supabase.from("invoice_payment_allocations").select("*").eq("organization_id", orgId),
+      supabase.from("return_item_source_allocations").select("*").eq("organization_id", orgId),
       supabase.from("expenses").select("*").eq("organization_id", orgId),
       supabase.from("repairs").select("*").eq("organization_id", orgId),
       supabase.from("daily_closings").select("*").eq("organization_id", orgId),
@@ -2477,6 +2483,8 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
     if (returnStockAllocations.error) {
       throw new Error("Failed to export return stock allocations: " + returnStockAllocations.error.message);
     }
+    if (invoicePaymentAllocations.error) throw new Error("Failed to export invoice payment allocations: " + invoicePaymentAllocations.error.message);
+    if (returnItemSourceAllocations.error) throw new Error("Failed to export return source allocations: " + returnItemSourceAllocations.error.message);
     if (creditPays.error) throw new Error("Failed to export credit payments: " + creditPays.error.message);
     if (cashShiftsRes.error) throw new Error("Failed to export cash shifts: " + cashShiftsRes.error.message);
     if (staffPermsRes.error) throw new Error("Failed to export staff permissions: " + staffPermsRes.error.message);
@@ -2499,6 +2507,8 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       returns: returns.data ?? [],
       returnItems: returnItems.data ?? [],
       returnStockAllocations: returnStockAllocations.data ?? [],
+      invoicePaymentAllocations: invoicePaymentAllocations.data ?? [],
+      returnItemSourceAllocations: returnItemSourceAllocations.data ?? [],
       expenses: exps.data ?? [],
       repairs: reps.data ?? [],
       closings: closings.data ?? [],

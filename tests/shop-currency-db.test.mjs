@@ -129,7 +129,9 @@ test('first-activity races serialize both orders; stale REPEATABLE READ cannot r
 });
 
 test('all 27 audited relations have insert/update guards; trigger authority is private and existing authorization policies are intact',{skip:!enabled},()=>{
- assert.equal(sql(`select count(*) from pg_trigger where not tgisinternal and tgname in('lock_currency_insert','lock_currency_update');`),'54');
+ assert.equal(sql(`select count(*) from pg_trigger where not tgisinternal and tgname in('lock_currency_insert','lock_currency_update');`),'56');
+ assert.equal(sql(`select count(*) from pg_trigger where not tgisinternal and tgname='lock_currency_insert'
+  and tgrelid in('public.invoice_payment_allocations'::regclass,'public.return_item_source_allocations'::regclass);`),'2');
  assert.equal(sql(`select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='currency_private' and (has_function_privilege('authenticated',p.oid,'EXECUTE') or has_function_privilege('anon',p.oid,'EXECUTE') or has_function_privilege('service_role',p.oid,'EXECUTE'));`),'0');
  assert.equal(sql(`select count(*)from pg_policies where schemaname='public'and tablename='organizations'and policyname='Owners and admins can update their organization';`),'1');
 });

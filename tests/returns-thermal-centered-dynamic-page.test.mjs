@@ -246,30 +246,23 @@ test("AppShell retains the full-document print boundary", () => {
   assert.match(appShell, /print:block print:h-auto print:min-h-0 print:max-h-none print:flex-none print:overflow-visible/);
 });
 
-test("Returns detail data and page and Reports print control remain at HEAD", () => {
+test("print geometry stays unchanged while V1 documents distinguish credit and cash", () => {
   for (const path of [
-    "src/app/returns/[id]/page.tsx",
+    "src/app/returns/[id]/print-button.tsx",
     "src/app/reports/print-button.tsx",
+    "src/app/globals.css",
   ]) {
     assert.equal(readFileSync(path, "utf8"), sourceAtHead(path), `${path}: changed outside scope`);
   }
 
-  const path = "src/lib/data/returns.ts";
-  const current = readFileSync(path, "utf8");
-  const head = sourceAtHead(path);
-  const protectedStart = "export async function listReturnableInvoiceItems";
-  const protectedEnd = "export type ReturnListFilters";
-  assert.equal(
-    current.slice(
-      current.indexOf(protectedStart),
-      current.indexOf(protectedEnd),
-    ),
-    head.slice(head.indexOf(protectedStart), head.indexOf(protectedEnd)),
-    `${path}: return processing and invoice history changed outside scope`,
-  );
-  assert.equal(
-    current.slice(current.indexOf("export type ReturnDetail")).trimEnd(),
-    head.slice(head.indexOf("export type ReturnDetail")).trimEnd(),
-    `${path}: return detail changed outside scope`,
-  );
+  const page = readFileSync("src/app/returns/[id]/page.tsx", "utf8");
+  assert.match(page, /return_math_version === 1/);
+  assert.match(page, /Debt relieved/);
+  assert.match(page, /Return credit/);
+  assert.match(page, /Subtotal \(legacy\)/);
+  assert.match(page, /formatCurrency\(ret\.refund_amount, currency\)/);
+  const data = readFileSync("src/lib/data/returns.ts", "utf8");
+  assert.match(data, /quote_invoice_return/);
+  assert.match(data, /restock_quantity/);
+  assert.match(data, /return_math_version/);
 });

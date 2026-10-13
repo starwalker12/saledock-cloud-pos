@@ -9,7 +9,8 @@ import {
   getKarachiTodayDateString,
   getKarachiWeekday,
 } from "@/lib/datetime";
-import { calculateEstimatedNetProfit } from "@/lib/return-profit";
+import { calculateEstimatedNetProfit, returnRevenueCredit } from "@/lib/return-profit";
+import { multiplyMoney, subtractMoney, sumMoney } from "@/lib/money";
 import { getRestoredProductCostForReturns } from "./return-profit";
 
 export type TopProduct = {
@@ -68,7 +69,7 @@ export async function getDashboardSummary(
   // Today's completed returns
   let returnsQuery = supabase
     .from("returns")
-    .select("id, refund_amount")
+    .select("id, subtotal, return_math_version, refund_amount")
     .eq("organization_id", organizationId)
     .eq("status", "completed")
     .gte("created_at", todayStart)
@@ -148,7 +149,7 @@ export async function getDashboardSummary(
   const grossSales = invoices.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
 
   const returns = returnsRes.data ?? [];
-  const returnsTotal = returns.reduce((s, r) => s + Number(r.refund_amount ?? 0), 0);
+  const returnsTotal = sumMoney(returns.map(returnRevenueCredit));
   const returnsCount = returns.length;
   const restoredProductCost = await getRestoredProductCostForReturns(
     supabase,
@@ -180,18 +181,19 @@ export async function getDashboardSummary(
   if (invoiceIds.length > 0) {
     const itemsRes = await supabase
       .from("invoice_items")
-      .select("product_name, product_type, quantity, purchase_price, line_total")
+      .select("product_name, product_type, quantity, purchase_price, line_total, service_transaction_amount")
       .in("invoice_id", invoiceIds);
 
     if (!itemsRes.error && itemsRes.data) {
+      const productCost = sumMoney(itemsRes.data.filter(item => item.product_type === "product")
+        .map(item => multiplyMoney(item.purchase_price ?? 0, item.quantity ?? 0)));
+      const principal = sumMoney(itemsRes.data.filter(item => item.product_type === "service")
+        .map(item => item.service_transaction_amount ?? 0));
+      profitFromItems = subtractMoney(subtractMoney(sumMoney(invoices.map(invoice => invoice.grand_total ?? 0)), principal), productCost);
       const productMap = new Map<string, { quantity: number; revenue: number }>();
       for (const item of itemsRes.data) {
         const qty = Number(item.quantity ?? 0);
         const rev = Number(item.line_total ?? 0);
-        if (item.product_type === "product") {
-          const cost = Number(item.purchase_price ?? 0) * qty;
-          profitFromItems += rev - cost;
-        }
         const name = item.product_name as string;
         const existing = productMap.get(name);
         if (existing) {

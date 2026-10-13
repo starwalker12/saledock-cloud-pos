@@ -10,6 +10,7 @@ export const ACCOUNTING_TABLES = [
   "product_stock_lots", "invoice_items", "payments", "returns", "supplier_payments",
   "customer_ledger_entries", "supplier_ledger_entries", "invoice_item_stock_allocations",
   "stock_movements", "supplier_purchase_items", "return_items", "return_stock_allocations",
+  "invoice_payment_allocations", "return_item_source_allocations",
 ] as const;
 
 export type AccountingTable = (typeof ACCOUNTING_TABLES)[number];
@@ -50,6 +51,8 @@ export const BACKUP_TABLE_ALIASES: Record<string, AccountingTable> = {
   ReturnRefunds: "returns", returns: "returns",
   ReturnItems: "return_items", returnItems: "return_items",
   ReturnStockAllocations: "return_stock_allocations", returnStockAllocations: "return_stock_allocations",
+  invoicePaymentAllocations: "invoice_payment_allocations",
+  returnItemSourceAllocations: "return_item_source_allocations",
   SupplierPurchases: "supplier_purchases", supplierPurchases: "supplier_purchases",
   SupplierPurchaseItems: "supplier_purchase_items", supplierPurchaseItems: "supplier_purchase_items",
   SupplierPayments: "supplier_payments", supplierPayments: "supplier_payments",

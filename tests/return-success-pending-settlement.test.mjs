@@ -2,178 +2,89 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-const actionSource = readFileSync(
-  new URL("../src/app/invoices/[id]/returns/actions.ts", import.meta.url),
-  "utf8",
-);
-const formSource = readFileSync(
-  new URL("../src/app/invoices/[id]/returns/return-form.tsx", import.meta.url),
-  "utf8",
-);
-const rpcSource = readFileSync(
-  new URL(
-    "../supabase/migrations/20260621000000_soften_rpc_error_wording.sql",
-    import.meta.url,
-  ),
-  "utf8",
-);
+const source = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const action = source("src/app/invoices/[id]/returns/actions.ts");
+const form = source("src/app/invoices/[id]/returns/return-form.tsx");
+const migration = source("supabase/migrations/20261011081701_exact_return_math_v1.sql");
 
-function functionBody(source, name, nextName) {
-  const start = source.indexOf(`export async function ${name}`);
-  const end = nextName
-    ? source.indexOf(`export async function ${nextName}`, start + 1)
-    : source.length;
-  assert.ok(start >= 0 && end > start, `${name} source boundary must exist`);
-  return source.slice(start, end);
-}
-
-const returnAction = functionBody(actionSource, "createInvoiceReturnAction");
-
-test("the Return mutation remains one authenticated RPC with unchanged inputs", () => {
-  assert.equal(
-    returnAction.match(/\.rpc\("create_invoice_return"/g)?.length,
-    1,
-  );
-  assert.match(
-    actionSource,
-    /authRedirect\?: "\/login" \| "\/setup" \| null/,
-  );
-  assert.match(
-    returnAction,
-    /if \(!ctx\.user\) return \{ error: null, success: null, authRedirect: "\/login" \}/,
-  );
-  assert.match(
-    returnAction,
-    /if \(!ctx\.profile\?\.organization_id\) \{[\s\S]*authRedirect: "\/setup"/,
-  );
-  assert.match(returnAction, /canReturnNew\(ctx\.profile\)/);
-  assert.match(
-    returnAction,
-    /p_invoice_id: parsed\.data\.invoice_id,[\s\S]*p_items: selectedItems,[\s\S]*p_refund_amount: parsed\.data\.refund_amount,[\s\S]*p_refund_method: parsed\.data\.refund_method \?\? null/,
-  );
-  assert.doesNotMatch(returnAction, /retry|setTimeout|setInterval|sleep\s*\(/i);
+test("Return uses one authenticated RPC with server-calculated settlement and a durable key", () => {
+  assert.equal(action.match(/\.rpc\("create_invoice_return"/g)?.length, 1);
+  assert.match(action, /canProcessReturns\(ctx\.profile\.role\)/);
+  assert.match(action, /canReturnNew\(ctx\.profile\)/);
+  assert.match(action, /p_refund_amount: null/);
+  assert.match(action, /p_idempotency_key: parsed\.data\.idempotency_key/);
+  assert.match(action, /p_items: selectedItems/);
+  assert.match(action, /p_refund_method: parsed\.data\.refund_method \?\? null/);
+  assert.doesNotMatch(action, /retry\s*\(|setTimeout|setInterval/);
 });
 
-test("Return auth routing is typed, pre-mutation, and free of private Next internals", () => {
-  const rpcAt = returnAction.indexOf('.rpc("create_invoice_return"');
-  const loginAt = returnAction.indexOf('authRedirect: "/login"');
-  const setupAt = returnAction.indexOf('authRedirect: "/setup"');
-  assert.ok(loginAt >= 0 && setupAt > loginAt && rpcAt > setupAt);
-  assert.match(
-    formSource,
-    /if \(result\.authRedirect\) \{[\s\S]*router\.replace\(result\.authRedirect\);[\s\S]*return result;/,
-  );
-  assert.match(
-    formSource,
-    /catch \{[\s\S]*supabase\.auth\.getSession\(\)[\s\S]*if \(!session\) \{[\s\S]*const loginPath = "\/login" as const;[\s\S]*authRedirect: loginPath[\s\S]*router\.replace\(loginPath\);[\s\S]*return authResult;[\s\S]*outcomeUncertainRef\.current = true/,
-  );
-  assert.doesNotMatch(actionSource + formSource, /next\/dist\//);
-  assert.doesNotMatch(actionSource + formSource, /NEXT_REDIRECT/);
-  assert.doesNotMatch(actionSource + formSource, /redirect[^\n]*digest|digest[^\n]*redirect/i);
-  assert.doesNotMatch(actionSource, /from "next\/navigation"/);
+test("auth routing remains typed and before mutation without private Next internals", () => {
+  const rpcAt = action.indexOf('.rpc("create_invoice_return"');
+  for (const path of ["/login", "/setup"]) {
+    const at = action.indexOf(`authRedirect: "${path}"`);
+    assert.ok(at > 0 && at < rpcAt);
+  }
+  assert.match(form, /if \(result\.authRedirect\) \{ router\.replace\(result\.authRedirect\); return result; \}/);
+  assert.match(form, /supabase\.auth\.getSession\(\)/);
+  assert.match(form, /authRedirect: "\/login" as const/);
+  assert.doesNotMatch(action + form, /next\/dist\/|NEXT_REDIRECT|digest/);
 });
 
-test("cache reconciliation and action audit run after the Action response", () => {
-  assert.match(actionSource, /import \{ after \} from "next\/server"/);
-  const afterAt = returnAction.indexOf("after(async () => {");
-  const resultAt = returnAction.indexOf("return {", afterAt);
-  assert.ok(afterAt >= 0 && resultAt > afterAt);
-
-  const postResponse = returnAction.slice(afterAt, resultAt);
-  const expectedPaths = [
-    "`/invoices/${parsed.data.invoice_id}`",
-    '"/invoices"',
-    '"/returns"',
-    '"/products"',
-    '"/customers"',
-    '"/dashboard"',
-  ];
-  for (const path of expectedPaths) {
-    assert.ok(postResponse.includes(`revalidatePath(${path})`), path);
+test("post-response cache reconciliation never duplicates the database business audit", () => {
+  const afterAt = action.indexOf("after(async () => {");
+  const resultAt = action.indexOf("return {", afterAt);
+  const postResponse = action.slice(afterAt, resultAt);
+  for (const path of ['`/invoices/${parsed.data.invoice_id}`', '"/invoices"', '"/returns"', '"/products"', '"/customers"', '"/dashboard"']) {
+    assert.ok(postResponse.includes(`revalidatePath(${path})`));
   }
   assert.equal(postResponse.match(/revalidatePath\(/g)?.length, 6);
-  assert.match(postResponse, /await logAudit\(/);
-  assert.doesNotMatch(returnAction.slice(0, afterAt), /revalidatePath\(/);
+  assert.doesNotMatch(postResponse, /logAudit\(/);
+  assert.doesNotMatch(action.slice(0, afterAt), /revalidatePath\(/);
+  assert.match(migration, /return\.completed/);
 });
 
-test("success settles before a unique same-route reconciliation", () => {
-  assert.match(
-    formSource,
-    /useActionState\(returnAction, initial\)/,
-  );
-  assert.match(
-    formSource,
-    /const result = await createInvoiceReturnAction\(previous, formData\);[\s\S]*if \(result\.success\) setLocalSuccess\(result\);/,
-  );
-  assert.match(
-    formSource,
-    /useEffect\(\(\) => \{[\s\S]*if \(!state\.success\) return;[\s\S]*url\.searchParams\.set\("returnstate", crypto\.randomUUID\(\)\);[\s\S]*router\.replace\(`[\s\S]*scroll: false/,
-  );
-  assert.doesNotMatch(
-    formSource,
-    /if \(state\.success !== prevSuccess\)[\s\S]*setLocalSuccess/,
-  );
-  assert.doesNotMatch(
-    formSource,
-    /useEffect\(\(\) => \{[\s\S]*setLocalSuccess/,
-  );
-  assert.doesNotMatch(formSource, /setTimeout|setInterval|sleep\s*\(/);
+test("success settles once before same-route reconciliation", () => {
+  assert.match(form, /useActionState\(returnAction, initial\)/);
+  assert.match(form, /if \(result\.success\) setLocalSuccess\(result\)/);
+  assert.match(form, /if \(reconciledReturn\.current === resultKey\) return/);
+  assert.match(form, /reconciledReturn\.current = resultKey/);
+  assert.match(form, /url\.searchParams\.set\("returnstate", crypto\.randomUUID\(\)\)/);
+  assert.match(form, /scroll: false/);
+  assert.doesNotMatch(form, /setTimeout|setInterval|sleep\s*\(/);
 });
 
-test("same-tick repeats and uncertain outcomes cannot resubmit", () => {
-  assert.match(formSource, /const submissionLocked = useRef\(false\)/);
-  assert.match(
-    formSource,
-    /if \(submissionLocked\.current \|\| outcomeUncertainRef\.current\) \{[\s\S]*event\.preventDefault\(\);[\s\S]*return;/,
-  );
-  assert.match(formSource, /submissionLocked\.current = true/);
-  assert.match(
-    formSource,
-    /if \(result\.authRedirect\)[\s\S]*router\.replace\(result\.authRedirect\)[\s\S]*catch \{[\s\S]*outcomeUncertainRef\.current = true;[\s\S]*setOutcomeUncertain\(true\);[\s\S]*UNCERTAIN_RESULT_MESSAGE/,
-  );
-  assert.match(
-    formSource,
-    /disabled=\{pending \|\| refundTotal <= 0 \|\| outcomeUncertain\}/,
-  );
-  assert.equal(
-    formSource.match(/await createInvoiceReturnAction\(/g)?.length,
-    1,
-  );
+test("uncertain outcome keeps identical request/key and only offers explicit safe replay", () => {
+  assert.match(form, /sessionStorage\.setItem\(storageKey, JSON\.stringify\(saved\)\)/);
+  assert.ok(form.indexOf("sessionStorage.setItem") < form.indexOf("await createInvoiceReturnAction"));
+  assert.match(form, /if \(submissionLocked\.current \|\| outcomeUncertainRef\.current \|\| recovery\)/);
+  assert.match(form, /for \(const \[key, value\] of recovery\.entries\) formData\.append\(key, value\)/);
+  assert.match(form, /startTransition\(\(\) => action\(formData\)\)/);
+  assert.match(form, /Retry saved return/);
+  assert.match(form, /outcomeUncertainRef\.current = true/);
+  assert.equal(form.match(/await createInvoiceReturnAction\(/g)?.length, 1);
+  assert.match(action, /if \(!row\?\.return_id\) return \{[\s\S]*outcomeUncertain: true/);
 });
 
-test("exhausted item rows retain quantity alignment in FormData", () => {
-  assert.match(
-    formSource,
-    /item\.quantity_returnable === 0 && \([\s\S]*type="hidden" name="quantity" value="0"/,
-  );
-  assert.match(
-    formSource,
-    /disabled=\{pending \|\| item\.quantity_returnable === 0\}/,
-  );
-  assert.match(
-    returnAction,
-    /const itemIds = formData\.getAll\("invoice_item_id"\)[\s\S]*const quantities = formData\.getAll\("quantity"\)/,
-  );
+test("all rows preserve hidden quantity/restock alignment while exhausted rows are disabled", () => {
+  for (const field of ["invoice_item_id", "quantity", "restock_quantity"]) {
+    assert.match(form, new RegExp(`type="hidden" name="${field}"`));
+    assert.match(action, new RegExp(`formData\\.getAll\\("${field}"\\)`));
+  }
+  assert.match(form, /item\.quantity_returnable === 0/);
+  assert.match(form, /disabled=\{pending \|\| !!recovery \|\| outcomeUncertain \|\| blocked\}/);
 });
 
-test("pending, success, and error feedback retain accessible semantics", () => {
-  assert.match(formSource, /aria-busy=\{pending\}/);
-  assert.match(formSource, /role="status"[\s\S]*aria-live="polite"/);
-  assert.match(formSource, /role="alert"/);
-  assert.match(formSource, /Return Processed/);
-  assert.match(formSource, /View return/);
-  assert.match(formSource, /Refresh invoice/);
+test("accessible feedback exposes distinct credit, debt and refund with no editable refund", () => {
+  for (const marker of ['aria-busy={pending}', 'role="status"', 'aria-live="polite"', 'role="alert"', "Return processed", "View return", "Refresh invoice", "Debt relieved", "Refund to customer"]) assert.ok(form.includes(marker), marker);
+  assert.doesNotMatch(form, /name="refund_amount"/);
+  assert.match(form, /Number\(settlement\.refund\) > 0/);
 });
 
-test("the authoritative Return RPC retains refund, FIFO, stock, and ledger rules", () => {
-  const start = rpcSource.indexOf("create or replace function public.create_invoice_return(");
-  const end = rpcSource.indexOf("create or replace function public.adjust_stock(", start);
-  const rpc = rpcSource.slice(start, end);
-  assert.ok(start >= 0 && end > start);
-  assert.match(rpc, /v_balance_credit := least\(coalesce\(v_curr_balance, 0\), v_subtotal\)/);
-  assert.match(rpc, /'refund', 'credit'/);
-  assert.match(rpc, /quantity_remaining = quantity_remaining \+ v_restore_qty/);
-  assert.match(rpc, /stock_quantity = stock_quantity \+ v_requested_qty/);
-  assert.match(rpc, /'return_in'/);
-  assert.match(rpc, /case when v_invoice_item\.product_type = 'product' then v_restock else false end/);
+test("new RPC keeps source consumption, original cost and debt-only trusted posting", () => {
+  assert.match(migration, /return_item_source_allocations/);
+  assert.match(migration, /invoice_payment_allocations/);
+  assert.match(migration, /'refund', 'credit'/);
+  assert.match(migration, /return_math_version/);
+  assert.match(migration, /idempotent_replay/);
+  assert.match(migration, /quantity_remaining = quantity_remaining \+/);
 });

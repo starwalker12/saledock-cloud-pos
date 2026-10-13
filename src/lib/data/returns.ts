@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import {
   OPERATIONAL_HISTORY_MAX_ROWS,
   operationalHistoryResult,
@@ -16,7 +17,10 @@ export type ReturnableInvoiceItem = {
   quantity_returnable: number;
   unit_price: number;
   line_total: number;
-  return_unit_total: number;
+  original_net_minor: string;
+  remaining_due: string;
+  eligibility_error: string | null;
+  service_principal: number;
 };
 
 export type InvoiceReturnItem = {
@@ -26,6 +30,7 @@ export type InvoiceReturnItem = {
   quantity: number;
   line_total: number;
   restock: boolean;
+  restock_quantity: number | null;
 };
 
 export type InvoiceReturnRow = {
@@ -34,6 +39,9 @@ export type InvoiceReturnRow = {
   status: string;
   subtotal: number;
   refund_amount: number;
+  return_math_version: number | null;
+  debt_relief: number | null;
+  restored_cost: number | null;
   refund_method: string | null;
   reference_number: string | null;
   notes: string | null;
@@ -49,6 +57,8 @@ export type ReturnListRow = {
   status: string;
   subtotal: number;
   refund_amount: number;
+  return_math_version: number | null;
+  debt_relief: number | null;
   refund_method: string | null;
   invoice_id: string;
   invoice_no: string | null;
@@ -65,7 +75,7 @@ export async function listReturnableInvoiceItems(
     await Promise.all([
       supabase
         .from("invoice_items")
-        .select("id, product_id, product_name, product_type, quantity, unit_price, line_total")
+        .select("id, product_id, product_name, product_type, quantity, unit_price, line_total, service_transaction_amount")
         .eq("organization_id", organizationId)
         .eq("invoice_id", invoiceId)
         .order("created_at", { ascending: true }),
@@ -79,6 +89,18 @@ export async function listReturnableInvoiceItems(
 
   if (itemsError) throw new Error(itemsError.message);
   if (returnedError) throw new Error(returnedError.message);
+
+  const { data: plan, error: planError } = await supabase.rpc("quote_invoice_return", {
+    p_invoice_id: invoiceId,
+    p_items: (items ?? []).map(item => ({ invoice_item_id: item.id, quantity: 0, restock_quantity: 0 })),
+  });
+  const eligibilityError = planError
+    ? getSafeActionError(planError, "SaleDock cannot fully verify this invoice's return history. No return was made.")
+    : null;
+  const basis = new Map<string, { net_minor: string; returned_quantity: number }>(
+    ((plan?.items ?? []) as Array<{ invoice_item_id: string; net_minor: string; returned_quantity: number }>)
+      .map(item => [item.invoice_item_id, item]),
+  );
 
   const returnedByItem = new Map<string, number>();
   for (const row of returned ?? []) {
@@ -102,7 +124,10 @@ export async function listReturnableInvoiceItems(
       quantity_returnable: Math.max(quantitySold - quantityReturned, 0),
       unit_price: Number(item.unit_price ?? 0),
       line_total: lineTotal,
-      return_unit_total: quantitySold > 0 ? lineTotal / quantitySold : 0,
+      original_net_minor: basis.get(item.id)?.net_minor ?? "0",
+      remaining_due: plan?.remaining_due ?? "0",
+      eligibility_error: eligibilityError,
+      service_principal: Number(item.service_transaction_amount ?? 0),
     } satisfies ReturnableInvoiceItem;
   });
 }
@@ -115,9 +140,9 @@ export async function listReturnsForInvoice(
   const { data, error } = await supabase
     .from("returns")
     .select(
-      `id, return_no, status, subtotal, refund_amount, refund_method, reference_number, notes, created_at,
+      `id, return_no, status, subtotal, refund_amount, return_math_version, debt_relief, restored_cost, refund_method, reference_number, notes, created_at,
        profiles(full_name),
-       return_items(id, item_name, item_type, quantity, line_total, restock)`,
+       return_items(id, item_name, item_type, quantity, line_total, restock, restock_quantity)`,
     )
     .eq("organization_id", organizationId)
     .eq("invoice_id", invoiceId)
@@ -137,6 +162,7 @@ export async function listReturnsForInvoice(
       quantity: number;
       line_total: number;
       restock: boolean;
+      restock_quantity: number | null;
     }>;
 
     return {
@@ -145,6 +171,9 @@ export async function listReturnsForInvoice(
       status: row.status,
       subtotal: Number(row.subtotal ?? 0),
       refund_amount: Number(row.refund_amount ?? 0),
+      return_math_version: row.return_math_version,
+      debt_relief: row.debt_relief === null ? null : Number(row.debt_relief),
+      restored_cost: row.restored_cost === null ? null : Number(row.restored_cost),
       refund_method: row.refund_method,
       reference_number: row.reference_number,
       notes: row.notes,
@@ -157,6 +186,7 @@ export async function listReturnsForInvoice(
         quantity: Number(item.quantity ?? 0),
         line_total: Number(item.line_total ?? 0),
         restock: Boolean(item.restock),
+        restock_quantity: item.restock_quantity,
       })),
     } satisfies InvoiceReturnRow;
   });
@@ -198,7 +228,7 @@ export async function listReturns(
   let query = supabase
     .from("returns")
     .select(
-      `id, return_no, created_at, status, subtotal, refund_amount, refund_method, invoice_id,
+      `id, return_no, created_at, status, subtotal, refund_amount, return_math_version, debt_relief, refund_method, invoice_id,
        invoices(invoice_no),
        customers(name)`,
     )
@@ -228,6 +258,8 @@ export async function listReturns(
       status: row.status,
       subtotal: Number(row.subtotal ?? 0),
       refund_amount: Number(row.refund_amount ?? 0),
+      return_math_version: row.return_math_version,
+      debt_relief: row.debt_relief === null ? null : Number(row.debt_relief),
       refund_method: row.refund_method,
       invoice_id: row.invoice_id,
       invoice_no: Array.isArray(invoices) ? invoices[0]?.invoice_no ?? null : invoices?.invoice_no ?? null,
@@ -244,6 +276,9 @@ export type ReturnDetail = {
   status: string;
   subtotal: number;
   refund_amount: number;
+  return_math_version: number | null;
+  debt_relief: number | null;
+  restored_cost: number | null;
   refund_method: string | null;
   reference_number: string | null;
   notes: string | null;
@@ -264,6 +299,7 @@ export type ReturnDetail = {
     unit_price: number;
     line_total: number;
     restock: boolean;
+    restock_quantity: number | null;
   }>;
 };
 
@@ -275,11 +311,11 @@ export async function getReturnDetail(
   const { data, error } = await supabase
     .from("returns")
     .select(
-      `id, return_no, status, subtotal, refund_amount, refund_method, reference_number, notes, created_at, invoice_id, branch_id,
+      `id, return_no, status, subtotal, refund_amount, return_math_version, debt_relief, restored_cost, refund_method, reference_number, notes, created_at, invoice_id, branch_id,
        profiles(full_name),
        invoices(invoice_no, invoice_date),
        customers(name, phone, email, address),
-       return_items(id, item_name, item_type, quantity, unit_price, line_total, restock)`,
+       return_items(id, item_name, item_type, quantity, unit_price, line_total, restock, restock_quantity)`,
     )
     .eq("organization_id", organizationId)
     .eq("id", returnId)
@@ -315,6 +351,7 @@ export async function getReturnDetail(
     unit_price: number;
     line_total: number;
     restock: boolean;
+    restock_quantity: number | null;
   }>;
 
   return {
@@ -324,6 +361,9 @@ export async function getReturnDetail(
     status: data.status,
     subtotal: Number(data.subtotal ?? 0),
     refund_amount: Number(data.refund_amount ?? 0),
+    return_math_version: data.return_math_version,
+    debt_relief: data.debt_relief === null ? null : Number(data.debt_relief),
+    restored_cost: data.restored_cost === null ? null : Number(data.restored_cost),
     refund_method: data.refund_method,
     reference_number: data.reference_number,
     notes: data.notes,
@@ -344,6 +384,7 @@ export async function getReturnDetail(
       unit_price: Number(item.unit_price ?? 0),
       line_total: Number(item.line_total ?? 0),
       restock: Boolean(item.restock),
+      restock_quantity: item.restock_quantity,
     })),
   };
 }

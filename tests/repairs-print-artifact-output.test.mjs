@@ -299,32 +299,19 @@ test("Repair amounts and labels remain unchanged", () => {
   assert.match(page, /Math\.max\(\(repair\.final_cost \|\| repair\.estimated_cost\) - repair\.advance_paid, 0\)/);
 });
 
-test("Returns detail, mutation, and print sources remain unchanged", () => {
-  for (const path of [
-    "src/app/returns/[id]/page.tsx",
-    "src/app/returns/[id]/print-button.tsx",
-  ]) {
-    assert.equal(readFileSync(path, "utf8"), sourceAtHead(path));
-  }
-
-  const path = "src/lib/data/returns.ts";
-  const current = readFileSync(path, "utf8");
-  const head = sourceAtHead(path);
-  const protectedStart = "export async function listReturnableInvoiceItems";
-  const protectedEnd = "export type ReturnListFilters";
-  assert.equal(
-    current.slice(
-      current.indexOf(protectedStart),
-      current.indexOf(protectedEnd),
-    ),
-    head.slice(head.indexOf(protectedStart), head.indexOf(protectedEnd)),
-    "return processing and invoice-history reads changed outside scope",
-  );
-  assert.equal(
-    current.slice(current.indexOf("export type ReturnDetail")).trimEnd(),
-    head.slice(head.indexOf("export type ReturnDetail")).trimEnd(),
-    "return detail read changed outside scope",
-  );
+test("Return V1 retains the shared print infrastructure and read-only detail boundary", () => {
+  const path = "src/app/returns/[id]/print-button.tsx";
+  assert.equal(readFileSync(path, "utf8"), sourceAtHead(path));
+  const detail = readFileSync("src/app/returns/[id]/page.tsx", "utf8");
+  const reads = readFileSync("src/lib/data/returns.ts", "utf8");
+  assert.match(detail, /className="a4-print/);
+  assert.match(detail, /className="thermal-print/);
+  assert.match(detail, /return_math_version === 1/);
+  assert.match(detail, /Return credit/);
+  assert.match(detail, /Debt relieved/);
+  assert.match(detail, /Subtotal \(legacy\)/);
+  assert.match(reads, /quote_invoice_return/);
+  assert.doesNotMatch(reads, /\.(insert|update|upsert|delete)\(/);
 });
 
 test("Reports print control remains unchanged", () => {

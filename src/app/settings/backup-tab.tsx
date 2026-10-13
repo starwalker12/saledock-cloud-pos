@@ -445,6 +445,8 @@ export function BackupTab({
         csvFolder.file("returns.csv", convertToCSV(db.returns));
         csvFolder.file("return_items.csv", convertToCSV(db.returnItems));
         csvFolder.file("return_stock_allocations.csv", convertToCSV(db.returnStockAllocations));
+        csvFolder.file("invoice_payment_allocations.csv", convertToCSV(db.invoicePaymentAllocations));
+        csvFolder.file("return_item_source_allocations.csv", convertToCSV(db.returnItemSourceAllocations));
         csvFolder.file("expenses.csv", convertToCSV(db.expenses));
         csvFolder.file("repairs.csv", convertToCSV(db.repairs));
         csvFolder.file("daily_closings.csv", convertToCSV(db.closings));

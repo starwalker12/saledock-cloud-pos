@@ -4,13 +4,13 @@ let catalog;
 export function loadFixtureCatalog(sql) {
  catalog={columns:JSON.parse(sql("select jsonb_agg(to_jsonb(c)) from information_schema.columns c where table_schema='public'"))};
 }
-export const tables=['product_categories','suppliers','customers','products','product_stock_lots','invoices','invoice_items','payments','credit_payments','customer_ledger_entries','customer_write_offs','returns','return_items','return_stock_allocations','supplier_purchases','supplier_purchase_items','supplier_payments','supplier_ledger_entries','supplier_write_offs','stock_movements','invoice_item_stock_allocations'];
+export const tables=['product_categories','suppliers','customers','products','product_stock_lots','invoices','invoice_items','payments','credit_payments','customer_ledger_entries','customer_write_offs','returns','return_items','return_stock_allocations','supplier_purchases','supplier_purchase_items','supplier_payments','supplier_ledger_entries','supplier_write_offs','stock_movements','invoice_item_stock_allocations','invoice_payment_allocations','return_item_source_allocations'];
 export function countsFor(total,shape='mixed') {
  const weights={
-  ledger:[1,5,20,10,15,20,40,20,5,450,1,3,6,6,10,20,10,350,1,25,40],
-  sales:[1,5,20,20,40,100,200,100,10,80,1,10,20,20,10,20,10,20,1,210,200],
-  supplier:[1,10,10,20,120,10,20,10,5,20,1,2,4,4,150,240,100,240,1,170,20],
-  mixed:[1,5,20,20,40,80,160,80,10,100,1,8,16,16,40,80,30,70,1,190,160],
+  ledger:[1,5,20,10,15,20,40,20,5,450,1,3,6,6,10,20,10,350,1,25,40,1,1],
+  sales:[1,5,20,20,40,100,200,100,10,80,1,10,20,20,10,20,10,20,1,210,200,1,1],
+  supplier:[1,10,10,20,120,10,20,10,5,20,1,2,4,4,150,240,100,240,1,170,20,1,1],
+  mixed:[1,5,20,20,40,80,160,80,10,100,1,8,16,16,40,80,30,70,1,190,160,1,1],
  }[shape];
  const sum=weights.reduce((a,b)=>a+b,0);
  const counts=Object.fromEntries(tables.map((t,i)=>[t,Math.max(1,Math.floor(total*weights[i]/sum))]));
@@ -36,7 +36,9 @@ export function payload(t,c,noteBytes){
   customer_id:ref('customers'),supplier_id:ref('suppliers'),product_id:ref('products'),category_id:ref('product_categories'),
   stock_lot_id:ref('product_stock_lots'),invoice_id:ref('invoices'),invoice_item_id:ref('invoice_items'),
   purchase_id:ref('supplier_purchases'),payment_id:ref(t==='supplier_ledger_entries'?'supplier_payments':'payments'),
-  credit_payment_id:ref('credit_payments'),return_id:ref('returns'),return_item_id:ref('return_items')};
+  credit_payment_id:ref('credit_payments'),return_id:ref('returns'),return_item_id:ref('return_items'),
+  sale_allocation_id:ref('invoice_item_stock_allocations'),allocation_kind:q('actual_payment')};
+ if(t==='return_item_source_allocations')special.restock_quantity='0';
  if(['invoice_item_stock_allocations','stock_movements'].includes(t))special.invoice_id=ref('invoices',itemN);
  if(t==='return_items'){special.invoice_id=ref('invoices',retN);special.invoice_item_id=ref('invoice_items',retN);}
  if(t==='return_stock_allocations')special.return_id=ref('returns',retItemN);

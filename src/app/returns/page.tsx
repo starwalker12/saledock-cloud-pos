@@ -251,7 +251,7 @@ export default async function ReturnsPage({
                   <SortableHeader label="Return" columnKey="created_at" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
                   <SortableHeader label="Invoice" columnKey="invoice_no" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
                   <SortableHeader label="Customer" columnKey="customer_name" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <SortableHeader label="Subtotal" columnKey="subtotal" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
+                  <SortableHeader label="Return value" columnKey="subtotal" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
                   <SortableHeader label="Payout" columnKey="refund_amount" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
                   <SortableHeader label="Method" columnKey="refund_method" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
                 </tr>
@@ -273,6 +273,8 @@ export default async function ReturnsPage({
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{ret.customer_name ?? "Walk-in"}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-slate-100">
                       {formatCurrency(ret.subtotal, currency)}
+                      <p className="mt-1 text-xs font-normal text-slate-500">{ret.return_math_version === 1
+                        ? `Debt relieved ${formatCurrency(ret.debt_relief ?? 0, currency)}` : "Legacy return"}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-slate-100">
                       {formatCurrency(ret.refund_amount, currency)}
@@ -305,6 +307,9 @@ export default async function ReturnsPage({
                     {ret.invoice_no ?? "Open invoice"}
                   </Link>
                   <p>{ret.customer_name ?? "Walk-in customer"}</p>
+                  <p>{ret.return_math_version === 1
+                    ? `Return credit ${formatCurrency(ret.subtotal, currency)} · Debt relieved ${formatCurrency(ret.debt_relief ?? 0, currency)}`
+                    : "Legacy return"}</p>
                   <p>
                     Payout {formatCurrency(ret.refund_amount, currency)} ·{" "}
                     {ret.refund_method ? METHOD_LABELS[ret.refund_method] ?? ret.refund_method : "No payout"}
