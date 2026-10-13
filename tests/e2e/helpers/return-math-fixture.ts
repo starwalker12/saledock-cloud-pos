@@ -9,7 +9,8 @@ export function returnSql(query: string): string {
     { input: query, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
 }
 
-export async function returnFixture({ paid = 400, quantity = 5, price = 200, cost = 120, lines = 1 } = {}) {
+export async function returnFixture({ paid = 400, quantity = 5, price = 200, cost = 120, lines = 1,
+  lots = null as Array<{ quantity: number; cost: number }> | null } = {}) {
   const raw = execFileSync("supabase", ["status", "--output", "json"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   const config = JSON.parse(raw.slice(raw.indexOf("{")));
   if (config.API_URL !== process.env.NEXT_PUBLIC_SUPABASE_URL || !/^http:\/\/127\.0\.0\.1:\d+$/.test(config.API_URL)) throw new Error("Only explicit local API allowed");
@@ -20,7 +21,7 @@ export async function returnFixture({ paid = 400, quantity = 5, price = 200, cos
   const user = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (user.error || !user.data.user) throw new Error("Local synthetic user creation failed");
   const actor = user.data.user.id;
-  const stock = Math.max(10, lines);
+  const stock = lots ? lots.reduce((sum, lot) => sum + lot.quantity, 0) : Math.max(10, lines);
   const cart = Array.from({ length: lines }, () => ({ product_id: product, quantity: lines > 1 ? 1 : quantity, unit_price: price, discount: 0 }));
   const auth = `set local request.jwt.claim.sub='${actor}';set local request.jwt.claim.role='authenticated';set local role authenticated;`;
   returnSql(`begin;
@@ -29,7 +30,7 @@ export async function returnFixture({ paid = 400, quantity = 5, price = 200, cos
     insert into public.profiles(id,organization_id,branch_id,full_name,role,is_active,onboarding_completed)values('${actor}','${org}','${branch}','Synthetic Owner','owner',true,true);
     insert into public.customers(id,organization_id,branch_id,name,outstanding_balance)values('${customer}','${org}','${branch}','Synthetic customer',0);
     insert into public.products(id,organization_id,branch_id,name,type,sale_price,purchase_price,stock_quantity,is_active)values('${product}','${org}','${branch}','Synthetic product','product',${price},${cost},${stock},true);
-    insert into public.product_stock_lots(organization_id,branch_id,product_id,quantity_received,quantity_remaining,unit_cost,purchase_date)values('${org}','${branch}','${product}',${stock},${stock},${cost},current_date);
+    ${(lots ?? [{ quantity: stock, cost }]).map((lot, index) => `insert into public.product_stock_lots(organization_id,branch_id,product_id,quantity_received,quantity_remaining,unit_cost,purchase_date)values('${org}','${branch}','${product}',${lot.quantity},${lot.quantity},${lot.cost},current_date-${lots ? lots.length - index : 0});`).join("\n")}
     ${auth}select public.pos_checkout('${branch}','${customer}','${JSON.stringify(cart)}',0,'${paid === 0 ? "customer_credit" : "cash"}',${paid},null,null,false,'${randomUUID()}');commit;`);
   const invoice = returnSql(`select id from public.invoices where organization_id='${org}'`);
   const login = await owner.auth.signInWithPassword({ email, password });

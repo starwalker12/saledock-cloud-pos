@@ -515,7 +515,7 @@ export default async function ReportsPage({
               <span className="text-sm font-bold text-slate-900">{formatCurrency(data.profit.salesRevenue, currency)}</span>
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">
-              <span className="text-sm font-semibold text-slate-600">Product Cost of Sales (FIFO/Lots)</span>
+              <span className="text-sm font-semibold text-slate-600">Product Cost of Sales</span>
               <span className="text-sm font-bold text-red-700">-{formatCurrency(data.profit.productCost, currency)}</span>
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">

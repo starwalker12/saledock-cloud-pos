@@ -2,8 +2,9 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { addKarachiDays, getKarachiRangeIso } from "@/lib/datetime";
 import { calculateEstimatedNetProfit, returnRevenueCredit } from "@/lib/return-profit";
-import { sumMoney } from "@/lib/money";
+import { subtractMoney, sumMoney } from "@/lib/money";
 import { getRestoredProductCostForReturns } from "./return-profit";
+import { getProductSaleCostForInvoices } from "./product-sale-cost";
 
 export type InvoiceItemReportRow = {
   invoice_id: string;
@@ -308,7 +309,7 @@ export async function getReportsData(
 
   const { data: writeOffsData, error: writeOffsError } = await writeOffsQuery;
   if (writeOffsError) throw new Error(`Write-offs query error: ${writeOffsError.message}`);
-  const creditWriteOffs = (writeOffsData ?? []).reduce((sum, wo) => sum + Number(wo.amount ?? 0), 0);
+  const creditWriteOffs = sumMoney((writeOffsData ?? []).map(wo => wo.amount ?? 0));
 
   // 8. Inventory products & stock lots
   let productsQuery = supabase
@@ -373,27 +374,24 @@ export async function getReportsData(
     .filter((item) => item.product_type === "service")
     .reduce((sum, item) => sum + Number(item.service_transaction_amount ?? 0), 0);
 
-  const serviceProfit = invoiceItems
+  const serviceProfit = sumMoney(invoiceItems
     .filter((item) => item.product_type === "service")
-    .reduce((sum, item) => {
-      const commission = Number(item.service_commission ?? 0);
-      return sum + (commission > 0 ? commission : Number(item.line_total ?? 0));
-    }, 0);
+    .map(item => Number(item.service_commission ?? 0) > 0
+      ? item.service_commission : item.line_total ?? 0));
 
-  const productSalesRevenue = invoiceItems
-    .filter((item) => item.product_type === "product")
-    .reduce((sum, item) => sum + Number(item.line_total ?? 0), 0);
+  const productSalesRevenue = sumMoney(invoiceItems
+    .filter((item) => item.product_type === "product").map(item => item.line_total ?? 0));
 
-  const cartDiscounts = activeInvoices.reduce((sum, inv) => sum + Number(inv.discount_total ?? 0), 0);
+  const cartDiscounts = sumMoney(activeInvoices.map(inv => inv.discount_total ?? 0));
 
   // Gross Sales (Shop income before cart discounts, excluding service principal!)
-  const grossSales = productSalesRevenue + serviceProfit;
+  const grossSales = sumMoney([productSalesRevenue, serviceProfit]);
 
   const lineDiscounts = invoiceItems.reduce((sum, item) => sum + Number(item.item_discount ?? 0), 0);
   const totalDiscounts = cartDiscounts + lineDiscounts;
 
   // Net Sales (Revenue) counts service commission only, completely excluding service principal!
-  const salesRevenue = Math.max(grossSales - cartDiscounts, 0);
+  const salesRevenue = Math.max(subtractMoney(grossSales, cartDiscounts), 0);
 
   const openBalance = activeInvoices.reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
   const invoiceCount = activeInvoices.length;
@@ -431,11 +429,9 @@ export async function getReportsData(
   const payTotal = payCash + payCard + payEasyPaisa + payJazzCash + payBankTransfer + payCredit;
 
   // 3. Profit Summary calculations
-  const productCost = invoiceItems
-    .filter((item) => item.product_type === "product")
-    .reduce((sum, item) => sum + Number(item.purchase_price ?? 0) * Number(item.quantity ?? 0), 0);
+  const productCost = await getProductSaleCostForInvoices(supabase, orgId, invoiceIds);
 
-  const grossProfit = salesRevenue - productCost;
+  const grossProfit = subtractMoney(salesRevenue, productCost);
   const grossMarginPercent = salesRevenue > 0 ? (grossProfit / salesRevenue) * 100 : 0;
 
   // 4. Returns / Refunds calculations
@@ -444,7 +440,7 @@ export async function getReportsData(
   const returnCreditTotal = sumMoney(completedReturns.map(returnRevenueCredit));
   const debtReliefTotal = sumMoney(completedReturns.filter(ret => ret.return_math_version === 1).map(ret => ret.debt_relief ?? 0));
 
-  const totalExpenses = activeExpenses.reduce((sum, exp) => sum + Number(exp.amount ?? 0), 0);
+  const totalExpenses = sumMoney(activeExpenses.map(exp => exp.amount ?? 0));
   const estimatedNetProfit = calculateEstimatedNetProfit({
     grossProfit,
     expenses: totalExpenses,

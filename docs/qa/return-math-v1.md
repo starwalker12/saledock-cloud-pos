@@ -172,3 +172,24 @@ largest-remainder invoice basis per plan. Recalculating the entire invoice basis
 for each item caused a 500-line preview to hit the existing database statement
 timeout; the lookup now uses the immutable invoice_item.id. Source and settlement
 checks remain under the same Return locks, and the importer lock order is unchanged.
+
+### Exact sale COGS correction (RM-78326-01)
+
+Reports, Dashboard and the invoice profit summary share one server-side product
+sale-cost helper. For #376 protected future items, cost is the exact sum of the
+original FIFO allocation quantity times unit cost. Organization, invoice, item,
+product, source version, original effective timestamp and creating transaction
+must match, and allocated quantity must equal sold quantity. Inconsistent trusted
+evidence raises “Original sale cost cannot be verified.” It never falls back to
+the rounded purchase_price cache. Source-untrusted legacy/imported items retain
+their existing cache-based reporting interpretation without trust promotion.
+
+The focused matrix includes 2 units at 600.00 plus 1 at 600.01: sale COGS 1800.01,
+sale profit 1199.99, full-restock Return adjustment -1199.99 and combined profit
+exactly zero. No-restock combined profit is -1800.01; partial restock uses the
+unchanged source-consumption order. Additional cases cover averages rounded up
+and down, product/service separation, expenses, current-period Return adjustments,
+legacy/imported fallback, corrupt trusted input, and paginated source reads.
+Profit addition/subtraction uses the existing exact money helpers. Checkout,
+stored purchase_price, Return settlement/restoration and all migrations stay
+unchanged by this correction.

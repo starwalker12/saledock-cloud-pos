@@ -24,7 +24,7 @@ export function calculateEstimatedNetProfit(input: {
   restoredProductCost: number;
   writeOffs?: number;
 }): number {
-  return input.grossProfit - input.expenses - (input.returnCredits ?? input.refunds)
-    + input.restoredProductCost - (input.writeOffs ?? 0);
+  return sumMoney([input.grossProfit, -input.expenses, -(input.returnCredits ?? input.refunds),
+    input.restoredProductCost, -(input.writeOffs ?? 0)]);
 }
 import { multiplyMoney, sumMoney } from "@/lib/money";

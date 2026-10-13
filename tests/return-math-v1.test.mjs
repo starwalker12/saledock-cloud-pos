@@ -78,12 +78,12 @@ test('Daily Closing and Cash Drawer count actual cash refunds, never V1 credit o
 test('Dashboard and Reports reconcile V1 credit with original net sale and restored cost, including services and cart discounts', async () => {
   for(const [type,total,cost,restored] of [['product',1000,600,600],['product',900,600,600],['product',1000,600,0],['product',50,600,600],['service',1000,0,0]]){
     const rows={invoices:[{id:'invoice',grand_total:total,subtotal:1000,discount_total:1000-total,balance_due:0,status:'paid',invoice_date:'2026-10-11T00:00:00Z'}],
-      invoice_items:[{invoice_id:'invoice',product_name:'Synthetic item',product_type:type,quantity:1,purchase_price:cost,unit_price:1000,item_discount:0,line_total:1000,service_transaction_amount:0,service_commission:type==='service'?1000:0}],
+      invoice_items:[{id:'item',organization_id:'org',source_trust_version:null,source_effective_at:null,source_transaction_id:null,invoice_id:'invoice',product_name:'Synthetic item',product_type:type,quantity:1,purchase_price:cost,unit_price:1000,item_discount:0,line_total:1000,service_transaction_amount:0,service_commission:type==='service'?1000:0}],
       returns:[{id:'return',return_math_version:1,subtotal:total,debt_relief:total,refund_amount:0,refund_method:null}],
       return_items:[{quantity:1}],return_stock_allocations:restored?[{quantity:1,unit_cost:restored}]:[]};
     const client={rpc:async()=>({data:[],error:null}),from(table){
       const query={then:resolve=>Promise.resolve({data:rows[table]??[],error:null,count:0}).then(resolve)};
-      for(const method of ['select','eq','in','gte','lte','order','limit','neq','gt'])query[method]=()=>query;
+      for(const method of ['select','eq','in','gte','lte','order','limit','range','neq','gt'])query[method]=()=>query;
       return query;
     }};
     const mocks={'server-only':{},'@/lib/supabase/server':{createClient:async()=>client}};

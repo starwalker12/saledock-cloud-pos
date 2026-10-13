@@ -4,6 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentContext } from "@/lib/auth/session";
 import { getInvoiceDetail } from "@/lib/data/invoices";
+import { getProductSaleCostForInvoices } from "@/lib/data/product-sale-cost";
+import { createClient } from "@/lib/supabase/server";
+import { subtractMoney } from "@/lib/money";
 import { listReturnableInvoiceItems, listReturnsForInvoice } from "@/lib/data/returns";
 import { getBrandingSettings } from "@/lib/data/settings";
 import { env } from "@/lib/env";
@@ -135,11 +138,12 @@ export default async function InvoiceDetailPage({
     profile?.role === "admin" ||
     profile?.role === "manager";
 
-  const totalCost = invoice.items.reduce(
-    (sum, item) => sum + (item.purchase_price ?? 0) * item.quantity,
-    0,
-  );
-  const grossProfit = invoice.grand_total - totalCost;
+  const productCost = await getProductSaleCostForInvoices(await createClient(), organizationId, [invoice.id]);
+  // Preserve this summary's existing service-cost treatment.
+  const serviceCost = invoice.items.filter(item => item.product_type === "service")
+    .reduce((sum, item) => sum + (item.purchase_price ?? 0) * item.quantity, 0);
+  const totalCost = productCost + serviceCost;
+  const grossProfit = subtractMoney(invoice.grand_total, totalCost);
   const grossMargin =
     invoice.grand_total > 0 ? (grossProfit / invoice.grand_total) * 100 : 0;
   const canReturn = canProcessReturns(profile.role) && await canReturnNew(profile);

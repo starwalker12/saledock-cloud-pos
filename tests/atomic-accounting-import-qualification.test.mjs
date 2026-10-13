@@ -14,7 +14,7 @@ test('real authenticated 50k finalizer: ledger x3, sales x10, supplier x3, mixed
  const expected=hash(),accepted=[];
  const campaignId=crypto.randomUUID();
  const candidateHash=()=>{
-  const names=[...new Set([...execFileSync('git',['diff','--name-only','HEAD'],{cwd:work,encoding:'utf8'}).trim().split('\n'),
+  const names=[...new Set([...execFileSync('git',['diff','--name-only','435a7728edadbb31f55cb7eae9b331297accc03b'],{cwd:work,encoding:'utf8'}).trim().split('\n'),
    ...execFileSync('git',['ls-files','--others','--exclude-standard'],{cwd:work,encoding:'utf8'}).trim().split('\n')].filter(Boolean))].sort();
   return crypto.createHash('sha256').update(names.map(n=>n+'\n'+fs.readFileSync(work+'/'+n,'utf8')).join('\n')).digest('hex');
  };
@@ -22,7 +22,7 @@ test('real authenticated 50k finalizer: ledger x3, sales x10, supplier x3, mixed
  const diagnostic=process.env.ATOMIC_IMPORT_DIAGNOSTIC==='1';
  const {instrumentFinalizer,collectTiming}=await import('./helpers/atomic-import-timing.mjs');
  const evidence=process.env.ATOMIC_IMPORT_TIMING_EVIDENCE;
- if(evidence) assert.match(evidence,/\/return-math-v1-continuation(?:-\d+)?$/);
+ if(evidence) assert.match(evidence,/\/return-math-v1-(?:continuation|cogs-correction)(?:-\d+)?$/);
  let runNumber=0;
  async function run(shape) {
   assert.equal(hash(),expected,'Migration must remain unchanged during qualification');
