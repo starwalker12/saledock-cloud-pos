@@ -9,8 +9,10 @@ import {
   getKarachiTodayDateString,
   getKarachiWeekday,
 } from "@/lib/datetime";
-import { calculateEstimatedNetProfit } from "@/lib/return-profit";
+import { calculateEstimatedNetProfit, returnRevenueCredit } from "@/lib/return-profit";
+import { subtractMoney, sumMoney } from "@/lib/money";
 import { getRestoredProductCostForReturns } from "./return-profit";
+import { getProductSaleCostForInvoices } from "./product-sale-cost";
 
 export type TopProduct = {
   productName: string;
@@ -21,6 +23,8 @@ export type TopProduct = {
 export type DashboardSummary = {
   todayProfit: number;
   grossSales: number;
+  salesRevenue: number;
+  productCost: number;
   returnsTotal: number;
   returnsCount: number;
   restoredProductCost: number;
@@ -68,7 +72,7 @@ export async function getDashboardSummary(
   // Today's completed returns
   let returnsQuery = supabase
     .from("returns")
-    .select("id, refund_amount")
+    .select("id, subtotal, return_math_version, refund_amount")
     .eq("organization_id", organizationId)
     .eq("status", "completed")
     .gte("created_at", todayStart)
@@ -148,7 +152,7 @@ export async function getDashboardSummary(
   const grossSales = invoices.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
 
   const returns = returnsRes.data ?? [];
-  const returnsTotal = returns.reduce((s, r) => s + Number(r.refund_amount ?? 0), 0);
+  const returnsTotal = sumMoney(returns.map(returnRevenueCredit));
   const returnsCount = returns.length;
   const restoredProductCost = await getRestoredProductCostForReturns(
     supabase,
@@ -157,7 +161,7 @@ export async function getDashboardSummary(
   );
 
   const expenses = expensesRes.data ?? [];
-  const expensesTotal = expenses.reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const expensesTotal = sumMoney(expenses.map(expense => expense.amount ?? 0));
 
   const lowStockCount =
     lowStockRes.data?.filter(
@@ -175,23 +179,25 @@ export async function getDashboardSummary(
   // Profit and top-selling from today's invoice items
   const invoiceIds = invoices.map((r) => r.id);
   let profitFromItems = 0;
+  let salesRevenue = 0;
+  const productCost = await getProductSaleCostForInvoices(supabase, organizationId, invoiceIds);
   let topSellingProducts: TopProduct[] = [];
 
   if (invoiceIds.length > 0) {
     const itemsRes = await supabase
       .from("invoice_items")
-      .select("product_name, product_type, quantity, purchase_price, line_total")
+      .select("product_name, product_type, quantity, purchase_price, line_total, service_transaction_amount")
       .in("invoice_id", invoiceIds);
 
     if (!itemsRes.error && itemsRes.data) {
+      const principal = sumMoney(itemsRes.data.filter(item => item.product_type === "service")
+        .map(item => item.service_transaction_amount ?? 0));
+      salesRevenue = subtractMoney(sumMoney(invoices.map(invoice => invoice.grand_total ?? 0)), principal);
+      profitFromItems = subtractMoney(salesRevenue, productCost);
       const productMap = new Map<string, { quantity: number; revenue: number }>();
       for (const item of itemsRes.data) {
         const qty = Number(item.quantity ?? 0);
         const rev = Number(item.line_total ?? 0);
-        if (item.product_type === "product") {
-          const cost = Number(item.purchase_price ?? 0) * qty;
-          profitFromItems += rev - cost;
-        }
         const name = item.product_name as string;
         const existing = productMap.get(name);
         if (existing) {
@@ -260,6 +266,8 @@ export async function getDashboardSummary(
   return {
     todayProfit,
     grossSales,
+    salesRevenue,
+    productCost,
     returnsTotal,
     returnsCount,
     restoredProductCost,

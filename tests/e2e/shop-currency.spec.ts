@@ -178,8 +178,14 @@ test("portable currency across customer/supplier financial and operational scree
   const purchase = await f.client.rpc("create_supplier_purchase", { p_supplier_id: f.supplier, p_branch_id: f.branch, p_purchase_date: new Date().toISOString().slice(0, 10), p_items: [{ product_id: product, quantity: 1, unit_cost: 1250 }], p_discount_total: 0, p_amount_paid: 0, p_reference_no: null, p_notes: null, p_payment_method: null, p_payment_ref: null }); checked(purchase.error); f.purchase = purchase.data[0].purchase_id;
   checked((await admin.from("expenses").insert({ organization_id: f.org, branch_id: f.branch, amount: 1250, notes: "Synthetic currency expense" })).error);
   checked((await admin.from("repairs").insert({ organization_id: f.org, branch_id: f.branch, job_no: "REP-CURRENCY", customer_name: "Synthetic repair customer", problem_description: "Synthetic local repair", estimated_cost: 1250 })).error);
-  const item = await admin.from("invoice_items").select("id").eq("invoice_id", f.invoice!).single(); checked(item.error);
-  const returned = await f.client.rpc("create_invoice_return", { p_invoice_id: f.invoice, p_items: [{ invoice_item_id: item.data!.id, quantity: 1, restock: false }], p_refund_amount: 1250, p_refund_method: "cash", p_reference_number: null, p_notes: "Synthetic currency return display" }); checked(returned.error);
+  const sale = await f.client.rpc("pos_checkout", { p_branch_id: f.branch, p_customer_id: f.customer,
+    p_cart: [{ product_id: product, quantity: 1, unit_price: 1500, discount: 0 }],
+    p_discount_total: 0, p_amount_paid: 1500, p_payment_method: "cash", p_payment_ref: null,
+    p_note: "Synthetic physical sale for return currency display", p_idempotency_key: randomUUID() }); checked(sale.error);
+  const saleInvoice = sale.data[0].invoice_id;
+  const item = await admin.from("invoice_items").select("id").eq("invoice_id", saleInvoice).single(); checked(item.error);
+  const returned = await f.client.rpc("create_invoice_return", { p_invoice_id: saleInvoice, p_items: [{ invoice_item_id: item.data!.id, quantity: 1, restock_quantity: 0 }], p_refund_amount: null, p_refund_method: "cash", p_reference_number: null, p_notes: "Synthetic currency return display", p_idempotency_key: randomUUID() }); checked(returned.error);
+  expect(returned.data[0]).toMatchObject({ subtotal: 1500, refund_amount: 1500, debt_relief: 0, restored_cost: 0 });
   const before = await row("invoices", f.invoice!);
   await login(page, f);
   const routes = ["/customers", `/customers/${f.customer}`, "/products?tab=suppliers", "/suppliers/dues", "/suppliers/purchases", `/suppliers/${f.supplier}/ledger`, `/suppliers/purchases/${f.purchase}`, "/expenses", "/repairs", "/reports", "/returns", `/returns/${returned.data[0].return_id}`, "/daily-closing"];
@@ -234,6 +240,8 @@ test("AED/SAR/QAR fallback is stable across desktop/mobile light/dark screens wi
 
 test("390px light/dark dropdown and locked Settings: keyboard-accessible and no page overflow", async ({ page }) => {
   test.setTimeout(90000);
+  checked((await admin.from("expenses").insert({ organization_id: empty.org, branch_id: empty.branch,
+    amount: 1250, notes: "Synthetic locked-settings control" })).error);
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, mobile); await page.goto("/settings");
   for (const theme of ["light", "dark"]) {

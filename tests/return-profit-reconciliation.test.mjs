@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import {
+import { loadMoneyModule } from "./helpers/load-money-module.mjs";
+const {
   calculateEstimatedNetProfit,
   sumRestoredProductCost,
-} from "../src/lib/return-profit.ts";
+} = loadMoneyModule("src/lib/return-profit.ts");
 
 const dashboardSource = readFileSync(
   new URL("../src/lib/data/dashboard.ts", import.meta.url),

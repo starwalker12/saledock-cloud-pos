@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseReturnQuantity } from "@/lib/return-math";
 
 export const REFUND_METHODS = [
   "cash",
@@ -12,35 +13,43 @@ export type RefundMethod = (typeof REFUND_METHODS)[number];
 
 const optionalString = z
   .preprocess(
-    (v) => (v === "" || v === null ? undefined : typeof v === "string" ? v.trim() : v),
-    z.string().min(1).optional(),
+    (v) => (typeof v === "string" ? v.trim() || undefined : v === null ? undefined : v),
+    z.string().max(2000, "Keep return notes brief.").optional(),
   )
   .optional()
   .nullable();
 
-const boolish = z.preprocess((v) => {
-  if (v === "true" || v === "on" || v === true) return true;
-  if (v === "false" || v === "off" || v === false || v === undefined || v === null || v === "")
-    return false;
-  return Boolean(v);
-}, z.boolean());
+const quantityInput = z.string().transform((value, ctx) => {
+  const quantity = parseReturnQuantity(value);
+  if (quantity === null) {
+    ctx.addIssue({ code: "custom", message: "Quantity must be a whole number from 0 to 2147483647." });
+    return z.NEVER;
+  }
+  return quantity;
+});
 
 export const returnItemInputSchema = z.object({
   invoice_item_id: z.string().uuid("Invalid invoice item."),
-  quantity: z.coerce.number().int().min(0, "Return quantity cannot be negative."),
-  restock: boolish.default(true),
+  quantity: quantityInput,
+  restock_quantity: quantityInput,
+}).superRefine((item, ctx) => {
+  if (item.restock_quantity > item.quantity) ctx.addIssue({code: "custom",
+    message: "Qty to return to sellable stock cannot exceed the returned quantity.", path: ["restock_quantity"]});
 });
 
 export const createReturnSchema = z
   .object({
     invoice_id: z.string().uuid("Invalid invoice."),
-    refund_amount: z.coerce.number().min(0, "Refund amount cannot be negative.").default(0),
+    idempotency_key: z.string().uuid("Reopen the return form and try again."),
     refund_method: z.enum(REFUND_METHODS).optional().nullable(),
     reference_number: optionalString,
     notes: optionalString,
     items: z.array(returnItemInputSchema).min(1, "Select at least one item."),
   })
   .superRefine((data, ctx) => {
+    if (new Set(data.items.map(item => item.invoice_item_id)).size !== data.items.length) {
+      ctx.addIssue({ code: "custom", message: "Choose return quantities once per invoice item.", path: ["items"] });
+    }
     const selected = data.items.filter((item) => item.quantity > 0);
     if (selected.length === 0) {
       ctx.addIssue({
@@ -49,13 +58,9 @@ export const createReturnSchema = z
         path: ["items"],
       });
     }
-    if (data.refund_amount > 0 && !data.refund_method) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Choose a refund method when refund amount is greater than zero.",
-        path: ["refund_method"],
-      });
-    }
+    if (data.reference_number && data.reference_number.length > 200) ctx.addIssue({
+      code: "custom", message: "Keep the refund reference under 200 characters.", path: ["reference_number"],
+    });
   });
 
 export type ReturnItemInput = z.infer<typeof returnItemInputSchema>;

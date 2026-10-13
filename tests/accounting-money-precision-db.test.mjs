@@ -159,7 +159,7 @@ test('physical credit sale and prorated return preserve stored 2dp debt and FIFO
  set local role authenticated;
  select public.pos_checkout('${branch}','${customer}','[{"product_id":"${product}","quantity":3,"unit_price":0.10,"discount":0}]',0,'customer_credit',0,null,'QA return',false,'QA35806 return');
  select public.create_invoice_return((select id from public.invoices where organization_id='${org}'),
-  (select jsonb_build_array(jsonb_build_object('invoice_item_id',id,'quantity',1,'restock',true)) from public.invoice_items where organization_id='${org}'),0,null,null,'QA decimal return');
+  (select jsonb_build_array(jsonb_build_object('invoice_item_id',id,'quantity',1,'restock_quantity',1)) from public.invoice_items where organization_id='${org}'),null,null,null,'QA decimal return','35806000-0000-4000-8000-000000000601');
  reset role;
  select jsonb_build_object('invoice',(select grand_total from public.invoices where organization_id='${org}'),
  'return',(select subtotal from public.returns where organization_id='${org}'),

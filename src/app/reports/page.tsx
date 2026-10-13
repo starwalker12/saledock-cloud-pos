@@ -390,7 +390,7 @@ export default async function ReportsPage({
               <div className="relative group/profittooltip inline-block shrink-0">
                 <HelpCircle className="size-3.5 text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-help transition-colors" />
                 <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-48 -translate-x-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/profittooltip:translate-y-0 group-hover/profittooltip:scale-100 group-hover/profittooltip:opacity-100 bg-slate-900 px-2.5 py-1.5 text-[10px] md:text-xs font-bold text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 rounded-lg text-center leading-relaxed normal-case tracking-normal">
-                  Remaining shop profit after subtracting product costs, operating expenses, customer refunds, and write-offs, with the exact FIFO cost of restocked returns restored.
+                  Remaining shop profit after product costs, operating expenses, return credits and write-offs, with original FIFO cost restored only for sellable stock returned.
                 </div>
               </div>
             </div>
@@ -398,7 +398,7 @@ export default async function ReportsPage({
               {formatCurrency(data.profit.estimatedNetProfit, currency)}
             </p>
             <p className="mt-2 md:mt-3 text-[10px] md:text-xs font-semibold text-emerald-700 dark:text-emerald-400 leading-4 md:leading-5">
-              Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) − Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) − Refunds ({formatCurrency(data.returns.refundTotal, currency)}) + Restocked FIFO Cost ({formatCurrency(data.profit.restoredProductCost, currency)}){data.profit.creditWriteOffs > 0 ? ` − Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
+              Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) − Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) − Return Credits ({formatCurrency(data.returns.returnCreditTotal, currency)}) + Restocked FIFO Cost ({formatCurrency(data.profit.restoredProductCost, currency)}){data.profit.creditWriteOffs > 0 ? ` − Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
             </p>
           </div>
           <div className="rounded-xl bg-emerald-500 p-2 md:p-3 text-white shrink-0">
@@ -476,20 +476,20 @@ export default async function ReportsPage({
               </div>
               <div className="rounded-xl border border-slate-100 bg-white/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
                 <span className="font-bold text-slate-900 dark:text-slate-200 block mb-0.5">Gross Profit</span>
-                Direct sales profit before expenses and refunds:
+                Direct sales profit before expenses and return credits:
                 <div className="mt-1 font-mono text-[11px] text-blue-800 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 px-1.5 py-0.5 rounded inline-block">
                   Net Sales ({formatCurrency(data.profit.salesRevenue, currency)}) - Product Costs ({formatCurrency(data.profit.productCost, currency)})
                 </div>
               </div>
               <div className="rounded-xl border border-slate-100 bg-white/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
-                <span className="font-bold text-slate-900 dark:text-slate-200 block mb-0.5">Refunds / Expenses</span>
-                Money returned to customers ({formatCurrency(data.returns.refundTotal, currency)}) plus operating costs ({formatCurrency(data.expenses.totalExpenses, currency)}).
+                <span className="font-bold text-slate-900 dark:text-slate-200 block mb-0.5">Returns / Expenses</span>
+                Return credits ({formatCurrency(data.returns.returnCreditTotal, currency)}) reverse sales. Actual refunds ({formatCurrency(data.returns.refundTotal, currency)}) are separate from debt relief. Operating costs: {formatCurrency(data.expenses.totalExpenses, currency)}.
               </div>
               <div className="rounded-xl border border-slate-100 bg-white/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
                 <span className="font-bold text-slate-900 dark:text-slate-200 block mb-0.5">Estimated Net Profit</span>
                 Final remaining shop profit for the period:
                 <div className="mt-1 font-mono text-[11px] text-emerald-800 dark:text-emerald-300 font-bold bg-emerald-50/50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded inline-block">
-                  Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) - Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) - Refunds ({formatCurrency(data.returns.refundTotal, currency)}) + Restocked FIFO Cost ({formatCurrency(data.profit.restoredProductCost, currency)}){data.profit.creditWriteOffs > 0 ? ` - Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
+                  Gross Profit ({formatCurrency(data.profit.grossProfit, currency)}) - Expenses ({formatCurrency(data.expenses.totalExpenses, currency)}) - Return Credits ({formatCurrency(data.returns.returnCreditTotal, currency)}) + Restocked FIFO Cost ({formatCurrency(data.profit.restoredProductCost, currency)}){data.profit.creditWriteOffs > 0 ? ` - Write-offs (${formatCurrency(data.profit.creditWriteOffs, currency)})` : ""}
                 </div>
               </div>
             </div>
@@ -515,7 +515,7 @@ export default async function ReportsPage({
               <span className="text-sm font-bold text-slate-900">{formatCurrency(data.profit.salesRevenue, currency)}</span>
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">
-              <span className="text-sm font-semibold text-slate-600">Product Cost of Sales (FIFO/Lots)</span>
+              <span className="text-sm font-semibold text-slate-600">Product Cost of Sales</span>
               <span className="text-sm font-bold text-red-700">-{formatCurrency(data.profit.productCost, currency)}</span>
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">
@@ -535,8 +535,8 @@ export default async function ReportsPage({
               <span className="text-sm font-bold text-red-700">-{formatCurrency(data.expenses.totalExpenses, currency)}</span>
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">
-              <span className="text-sm font-semibold text-slate-600">Refund/Return Outflow Impact</span>
-              <span className="text-sm font-bold text-red-700">-{formatCurrency(data.returns.refundTotal, currency)}</span>
+              <span className="text-sm font-semibold text-slate-600">Return Revenue Reversal</span>
+              <span className="text-sm font-bold text-red-700">-{formatCurrency(data.returns.returnCreditTotal, currency)}</span>
             </div>
             {data.profit.restoredProductCost > 0 && (
               <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2">
@@ -647,12 +647,17 @@ export default async function ReportsPage({
             <div className="relative group/returnstooltip inline-block shrink-0">
               <HelpCircle className="size-3.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400 cursor-help transition-colors" />
               <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-48 -translate-x-1/2 scale-95 opacity-0 transition-all duration-150 group-hover/returnstooltip:translate-y-0 group-hover/returnstooltip:scale-100 group-hover/returnstooltip:opacity-100 bg-slate-900 px-2.5 py-1.5 text-[10px] md:text-xs font-bold text-white shadow-xl dark:bg-slate-800 dark:text-slate-100 border border-slate-700/50 rounded-lg text-center leading-relaxed font-normal normal-case tracking-normal">
-                Money returned/refunded to customers for returned goods.
+                Return credits reverse sales; actual refunds and debt relief show how each return was settled.
               </div>
             </div>
           </h3>
-          <p className="text-xs text-slate-500 mt-1">Returned merchandise statistics and cash refunds.</p>
+          <p className="text-xs text-slate-500 mt-1">Return credits, actual refunds and debt relief. Legacy returns retain their original reporting treatment.</p>
           <div className="mt-4 space-y-4">
+            <dl className="grid gap-3 sm:grid-cols-3">
+              {[["Return credits", data.returns.returnCreditTotal], ["Debt relieved (V1)", data.returns.debtReliefTotal], ["Actual refunds", data.returns.refundTotal]].map(([label, amount]) => <div key={String(label)}>
+                <dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 font-bold">{formatCurrency(Number(amount), currency)}</dd>
+              </div>)}
+            </dl>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Return Tickets</p>
@@ -678,7 +683,7 @@ export default async function ReportsPage({
                     </div>
                   ))}
                   <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-2 text-sm font-black">
-                    <span>Total Cash/Credit Refunded</span>
+                    <span>Total Refunded</span>
                     <span className="text-red-700">{formatCurrency(data.returns.refundTotal, currency)}</span>
                   </div>
                 </div>

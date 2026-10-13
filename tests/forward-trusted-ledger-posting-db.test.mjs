@@ -35,9 +35,9 @@ test('all seven writers preserve signed chains, return/FIFO math and local prove
   const result = json(sql(`begin; ${f.seed} set local role authenticated;
     ${f.sale}
     select public.record_credit_payment('${f.customer}',20,'cash',null,null);
-    select public.record_customer_write_off('${f.customer}',10,'QA write off');
     select public.create_invoice_return((select id from public.invoices where organization_id='${f.org}'),
-      (select jsonb_build_array(jsonb_build_object('invoice_item_id',id,'quantity',1,'restock',true)) from public.invoice_items where organization_id='${f.org}'),0,null,null,'QA return');
+      (select jsonb_build_array(jsonb_build_object('invoice_item_id',id,'quantity',1,'restock_quantity',1)) from public.invoice_items where organization_id='${f.org}'),null,'cash',null,'QA return','${randomUUID()}');
+    select public.record_customer_write_off('${f.customer}',10,'QA write off');
     ${f.purchase}
     select public.record_supplier_payment('${f.supplier}',null,'${f.branch}','cash',20,null,null);
     select public.record_supplier_write_off('${f.supplier}','${f.branch}',10,'QA write off');
@@ -51,7 +51,7 @@ test('all seven writers preserve signed chains, return/FIFO math and local prove
       'anchors',(select anchor_balance from ledger_private.customer_anchors where customer_id='${f.customer}')+(select anchor_balance from ledger_private.supplier_anchors where supplier_id='${f.supplier}'),
       'orderedTimes',(select bool_and(posting_effective_at >= a.trusted_from) from public.customer_ledger_entries l join ledger_private.customer_anchors a using(customer_id) where l.customer_id='${f.customer}'));
     rollback;`));
-  assert.deepEqual(result, { customer: 70, supplier: 120, customerChain: [['debit', 50, 150, 1], ['credit', 20, 130, 1], ['credit', 10, 120, 1], ['credit', 50, 70, 1]], supplierChain: [['credit', 50, 150, 1], ['debit', 20, 130, 1], ['debit', 10, 120, 1]], stock: 11, restoredCost: 30, anchors: 200, orderedTimes: true });
+  assert.deepEqual(result, { customer: 90, supplier: 120, customerChain: [['debit', 50, 150, 1], ['credit', 20, 130, 1], ['credit', 30, 100, 1], ['credit', 10, 90, 1]], supplierChain: [['credit', 50, 150, 1], ['debit', 20, 130, 1], ['debit', 10, 120, 1]], stock: 11, restoredCost: 30, anchors: 200, orderedTimes: true });
 });
 test('ordinary five-role ledger/balance/provenance writes fail without business residue', { skip: !enabled }, () => {
   const f = fixture();

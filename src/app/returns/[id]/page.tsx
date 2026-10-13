@@ -61,6 +61,10 @@ export default async function ReturnDetailPage({
   const whatsappMessage = [
     `*${orgName} Return Receipt*`,
     `Return No: ${ret.return_no}`,
+    ...(ret.return_math_version === 1 ? [
+      `Return credit: ${formatCurrency(ret.subtotal, currency)}`,
+      `Debt relieved: ${formatCurrency(ret.debt_relief ?? 0, currency)}`,
+    ] : []),
     `Original Invoice: ${ret.invoice_no || "—"}`,
     `Refund Amount: ${formatCurrency(ret.refund_amount, currency)}`,
     `Refund Method: ${PAYMENT_LABELS[ret.refund_method || ""] || ret.refund_method || "—"}`,
@@ -150,7 +154,7 @@ export default async function ReturnDetailPage({
                 <th className="py-2 px-3 text-right">Qty</th>
                 <th className="py-2 px-3 text-right">Unit Price</th>
                 <th className="py-2 px-3 text-center">Restocked</th>
-                <th className="py-2 pl-3 text-right">Refund Total</th>
+                <th className="py-2 pl-3 text-right">{ret.return_math_version === 1 ? "Return Credit" : "Refund Total"}</th>
               </tr>
             </thead>
             <tbody>
@@ -172,7 +176,7 @@ export default async function ReturnDetailPage({
                           : "bg-slate-50 text-slate-600 border border-slate-200"
                       }`}
                     >
-                      {it.restock ? "Yes" : "No"}
+                      {it.restock_quantity !== null ? `${it.restock_quantity} of ${it.quantity}` : it.restock ? "Yes" : "No"}
                     </span>
                   </td>
                   <td className="py-2 pl-3 text-right font-mono font-semibold text-slate-950">
@@ -213,7 +217,7 @@ export default async function ReturnDetailPage({
                           : "bg-slate-50 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                       }`}
                     >
-                      {it.restock ? "Yes" : "No"}
+                      {it.restock_quantity !== null ? `${it.restock_quantity} of ${it.quantity}` : it.restock ? "Yes" : "No"}
                     </span>
                   </div>
                 </div>
@@ -238,9 +242,12 @@ export default async function ReturnDetailPage({
           </div>
           <div className="w-full sm:w-64 space-y-2">
             <div className="flex justify-between text-sm text-slate-600">
-              <span>Subtotal</span>
+              <span>{ret.return_math_version === 1 ? "Return credit" : "Subtotal (legacy)"}</span>
               <span className="font-mono">{formatCurrency(ret.subtotal, currency)}</span>
             </div>
+            {ret.return_math_version === 1 && <div className="flex justify-between text-sm text-slate-600">
+              <span>Debt relieved</span><span className="font-mono">{formatCurrency(ret.debt_relief ?? 0, currency)}</span>
+            </div>}
             <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-black text-slate-950">
               <span>Total Refund</span>
               <span className="font-mono">{formatCurrency(ret.refund_amount, currency)}</span>
@@ -294,10 +301,10 @@ export default async function ReturnDetailPage({
           {ret.items.map((it) => (
             <div key={it.id} className="border-b border-dashed border-slate-400 py-1">
               <p className="font-bold leading-tight">
-                {it.item_name} {it.restock ? "(Restocked)" : ""}
+                {it.item_name} {it.restock_quantity !== null ? `(${it.restock_quantity} restocked)` : it.restock ? "(Restocked)" : ""}
               </p>
               <div className="flex justify-between gap-2">
-                <span>{it.quantity} x {formatCurrency(it.unit_price, currency)}</span>
+                <span>{ret.return_math_version === 1 ? `Qty ${it.quantity} · Return credit` : `${it.quantity} x ${formatCurrency(it.unit_price, currency)}`}</span>
                 <span className="font-bold">{formatCurrency(it.line_total, currency)}</span>
               </div>
             </div>
@@ -305,7 +312,8 @@ export default async function ReturnDetailPage({
         </section>
 
         <section className="mt-2 space-y-1 border-b border-dashed border-black pb-2 text-[10px]">
-          <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(ret.subtotal, currency)}</span></div>
+          <div className="flex justify-between"><span>{ret.return_math_version === 1 ? "Return credit" : "Subtotal (legacy)"}</span><span>{formatCurrency(ret.subtotal, currency)}</span></div>
+          {ret.return_math_version === 1 && <div className="flex justify-between"><span>Debt relieved</span><span>{formatCurrency(ret.debt_relief ?? 0, currency)}</span></div>}
           <div className="flex justify-between text-[11px] font-black">
             <span>Total Refund</span>
             <span>{formatCurrency(ret.refund_amount, currency)}</span>
