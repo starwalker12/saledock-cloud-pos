@@ -41,7 +41,11 @@ const operationalHistory = loadTypeScriptModule(
   "src/lib/operational-history.ts",
 );
 
-function queryHarness({ countResults = [], dataResults = [], countErrors = [] } = {}) {
+function queryHarness({
+  countResults = [],
+  dataResults = [],
+  countErrors = [],
+} = {}) {
   const traces = [];
   let countIndex = 0;
   let dataIndex = 0;
@@ -54,7 +58,8 @@ function queryHarness({ countResults = [], dataResults = [], countErrors = [] } 
         const query = {
           select(...args) {
             trace.operations.push(["select", ...args]);
-            trace.isCount = args[1]?.count === "exact" && args[1]?.head === true;
+            trace.isCount =
+              args[1]?.count === "exact" && args[1]?.head === true;
             return query;
           },
           eq(...args) {
@@ -82,11 +87,15 @@ function queryHarness({ countResults = [], dataResults = [], countErrors = [] } 
               const error = countErrors[countIndex] ?? null;
               const count = countResults[countIndex] ?? 0;
               countIndex += 1;
-              return Promise.resolve({ data: null, error, count }).then(resolve);
+              return Promise.resolve({ data: null, error, count }).then(
+                resolve,
+              );
             }
             const data = dataResults[dataIndex] ?? [];
             dataIndex += 1;
-            return Promise.resolve({ data, error: null, count: null }).then(resolve);
+            return Promise.resolve({ data, error: null, count: null }).then(
+              resolve,
+            );
           },
         };
         return query;
@@ -127,12 +136,16 @@ test("Returns preserves recent 50 and count-gates an explicit range", async () =
   const defaultHarness = queryHarness();
   const defaultReturns = loadTypeScriptModule("src/lib/data/returns.ts", {
     "server-only": {},
-    "@/lib/supabase/server": { createClient: async () => defaultHarness.client },
+    "@/lib/supabase/server": {
+      createClient: async () => defaultHarness.client,
+    },
     "@/lib/operational-history": operationalHistory,
   });
 
   const defaultResult = await defaultReturns.listReturns("org-a");
-  assert.deepEqual(operations(defaultHarness.traces[0], "limit"), [["limit", 50]]);
+  assert.deepEqual(operations(defaultHarness.traces[0], "limit"), [
+    ["limit", 50],
+  ]);
   assert.equal(defaultResult.totalCount, null);
 
   const rangeHarness = queryHarness({ countResults: [55] });
@@ -158,7 +171,9 @@ test("Returns preserves recent 50 and count-gates an explicit range", async () =
     ]);
   }
   assert.deepEqual(operations(rangeHarness.traces[0], "limit"), []);
-  assert.deepEqual(operations(rangeHarness.traces[1], "limit"), [["limit", 1000]]);
+  assert.deepEqual(operations(rangeHarness.traces[1], "limit"), [
+    ["limit", 1000],
+  ]);
 });
 
 test("movement, closing, and shift histories count and fetch with identical range scope", async () => {
@@ -291,7 +306,10 @@ test("application history limit is locked to the current PostgREST max_rows", ()
   const configured = Number(config.match(/^max_rows\s*=\s*(\d+)$/m)?.[1]);
   assert.equal(configured, 1000);
   assert.equal(operationalHistory.OPERATIONAL_HISTORY_MAX_ROWS, configured);
-  assert.match(source("src/lib/operational-history.ts"), /OPERATIONAL_HISTORY_MAX_ROWS = 1000/);
+  assert.match(
+    source("src/lib/operational-history.ts"),
+    /OPERATIONAL_HISTORY_MAX_ROWS = 1000/,
+  );
 });
 
 test("movement read action rejects invalid ranges before querying and preserves reader permission", async () => {
@@ -371,6 +389,7 @@ test("route validation is strict and Daily Closing keeps operational reads outsi
   });
   const dailyPage = loadTypeScriptModule("src/app/daily-closing/page.tsx", {
     ...common,
+    "./cash-drawer-print.css": {},
     "@/lib/permissions": {
       canCloseDay: () => true,
       canReopenDay: () => true,
@@ -456,9 +475,9 @@ test("new controls retain accessible errors, range-only reset, and isolated hist
   assert.match(dailyPage, /name="history_to"/);
   assert.match(
     dailyPage,
-    /Selected Closing Date and Active Shift stay unchanged/,
+    /Selected Closing Date and Active\s+Shift stay\s+unchanged/,
   );
   assert.match(dailyPage, /new URLSearchParams\(\{ date \}\)/);
-  assert.match(dailyPage, /shifts opened in this history range/);
+  assert.match(dailyPage, /shifts opened\s+in this history range/);
   assert.match(dailyPage, /closings match this history range/);
 });

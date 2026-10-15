@@ -1,6 +1,12 @@
 "use client";
 
+import {
+  useOperationRequestKey,
+  confirmingOperationAction,
+} from "@/lib/hooks/use-operation-request-key";
+
 import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { recordWriteOffAction, type ActionState } from "../actions";
 
 const initial: ActionState = { error: null, success: null };
@@ -13,14 +19,28 @@ export function WriteOffForm({
   customerId: string;
   outstandingBalance: number;
 }) {
-  const [state, action, pending] = useActionState(recordWriteOffAction, initial);
+  const router = useRouter();
+  const [state, action, pending] = useActionState(
+    confirmingOperationAction(
+      "customer-writeoff:" + customerId,
+      recordWriteOffAction,
+    ),
+    initial,
+  );
+  const requestKey = useOperationRequestKey(
+    "customer-writeoff:" + customerId,
+    state.success ? state : null,
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (state.success) {
       formRef.current?.reset();
+      const url = new URL(window.location.href);
+      url.searchParams.set("writestate", crypto.randomUUID());
+      router.replace(`${url.pathname}${url.search}`, { scroll: false });
     }
-  }, [state.success]);
+  }, [router, state]);
 
   const input =
     "mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-red-600 disabled:bg-slate-50";
@@ -34,16 +54,24 @@ export function WriteOffForm({
         </span>
       </summary>
 
-      <form ref={formRef} action={action} className="mt-4 space-y-3 pt-3 border-t border-red-100">
+      <form
+        ref={formRef}
+        action={action}
+        className="mt-4 space-y-3 pt-3 border-t border-red-100"
+      >
+        <input type="hidden" name="request_key" value={requestKey} />
         <input type="hidden" name="customer_id" value={customerId} />
 
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-          Write-offs reduce the customer&#39;s outstanding balance but are recorded as bad debt in Reports/P&amp;L.
-          They do not increase cash or digital collection amounts.
+          Write-offs reduce the customer&#39;s outstanding balance but are
+          recorded as bad debt in Reports/P&amp;L. They do not increase cash or
+          digital collection amounts.
         </div>
 
         <label className="block">
-          <span className="text-xs font-bold text-slate-700">Amount to write off</span>
+          <span className="text-xs font-bold text-slate-700">
+            Amount to write off
+          </span>
           <input
             required
             type="number"
@@ -51,19 +79,21 @@ export function WriteOffForm({
             max={outstandingBalance}
             step="0.01"
             name="amount"
-            disabled={pending}
+            disabled={pending || !requestKey}
             className={input}
             placeholder={`Max: ${outstandingBalance}`}
           />
         </label>
 
         <label className="block">
-          <span className="text-xs font-bold text-slate-700">Reason for write-off *</span>
+          <span className="text-xs font-bold text-slate-700">
+            Reason for write-off *
+          </span>
           <textarea
             required
             name="reason"
             rows={2}
-            disabled={pending}
+            disabled={pending || !requestKey}
             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-red-600 disabled:bg-slate-50"
             placeholder="e.g. Customer unreachable, deceased, disputed charge, etc."
           />
@@ -82,7 +112,7 @@ export function WriteOffForm({
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !requestKey}
           className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-red-700 text-xs font-black text-white hover:bg-red-800 transition disabled:opacity-60 cursor-pointer"
         >
           {pending ? (

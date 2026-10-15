@@ -185,7 +185,14 @@ async function signedInClient(email) {
 async function readSignatures(admin) {
   const signatures = {};
   for (const table of signatureTables) {
-    const { data, error } = await admin.from(table).select("*").limit(10000);
+    const { data, error } = await admin
+      .from(table)
+      .select(
+        table === "cash_shifts"
+          ? "id,organization_id,branch_id,opened_at,closed_at,starting_cash,expected_cash,counted_cash,cash_difference,status,accounting_version"
+          : "*",
+      )
+      .limit(10000);
     assert.ifError(error);
     const rows = [...(data ?? [])].map((row) => JSON.stringify(row)).sort();
     signatures[table] = createHash("sha256")
@@ -390,14 +397,25 @@ async function assertSingleProductPurchase(admin, result, expected) {
 }
 
 async function cleanup(admin, state, marker) {
-  const {isolatedLedgerTrust,resetFixtureOrganization}=await import('./helpers/local-accounting-maintenance.mjs');
-  if(isolatedLedgerTrust()) {
-    const {data,error}=await admin.from('suppliers').select('organization_id').in('id',state.supplierIds);
+  const { isolatedLedgerTrust, resetFixtureOrganization } =
+    await import("./helpers/local-accounting-maintenance.mjs");
+  if (isolatedLedgerTrust()) {
+    const { data, error } = await admin
+      .from("suppliers")
+      .select("organization_id")
+      .in("id", state.supplierIds);
     assert.ifError(error);
-    for(const organizationId of new Set([...(data??[]).map(r=>r.organization_id),...state.foreignOrganizationIds])) {
-      await resetFixtureOrganization(admin,organizationId);
+    for (const organizationId of new Set([
+      ...(data ?? []).map((r) => r.organization_id),
+      ...state.foreignOrganizationIds,
+    ])) {
+      await resetFixtureOrganization(admin, organizationId);
     }
-    for(const organizationId of state.foreignOrganizationIds) assert.ifError((await admin.from('organizations').delete().eq('id',organizationId)).error);
+    for (const organizationId of state.foreignOrganizationIds)
+      assert.ifError(
+        (await admin.from("organizations").delete().eq("id", organizationId))
+          .error,
+      );
     return;
   }
   const del = async (table, apply) => {
@@ -442,11 +460,16 @@ async function cleanup(admin, state, marker) {
 }
 
 function dbContainer() {
-  const name = process.env.LOCAL_SUPABASE_DB_CONTAINER || execFileSync(
-    "sh",
-    ["-c", "docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1"],
-    { encoding: "utf8" },
-  ).trim();
+  const name =
+    process.env.LOCAL_SUPABASE_DB_CONTAINER ||
+    execFileSync(
+      "sh",
+      [
+        "-c",
+        "docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1",
+      ],
+      { encoding: "utf8" },
+    ).trim();
   assert.ok(name, "running local Supabase database container is required");
   return name;
 }
@@ -488,13 +511,28 @@ test(
       { role: "owner", active: true },
     );
     assert.ok(ownerProfile.organization_id && ownerProfile.branch_id);
-    if(process.env.LOCAL_SUPABASE_DB_CONTAINER) {
-      const {isolatedLedgerTrust}=await import('./helpers/local-accounting-maintenance.mjs');
-      if(isolatedLedgerTrust()) {
+    if (process.env.LOCAL_SUPABASE_DB_CONTAINER) {
+      const { isolatedLedgerTrust } =
+        await import("./helpers/local-accounting-maintenance.mjs");
+      if (isolatedLedgerTrust()) {
         // This suite's shared synthetic role shop must be empty before Factory Reset cleanup.
-        for(const table of ['customers','suppliers','products','invoices','audit_logs']) {
-          const result=await admin.from(table).select('id',{count:'exact',head:true}).eq('organization_id',ownerProfile.organization_id);
-          assert.ifError(result.error);assert.equal(result.count,0,`Non-fixture ${table} would make reset cleanup unsafe`);
+        for (const table of [
+          "customers",
+          "suppliers",
+          "products",
+          "invoices",
+          "audit_logs",
+        ]) {
+          const result = await admin
+            .from(table)
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", ownerProfile.organization_id);
+          assert.ifError(result.error);
+          assert.equal(
+            result.count,
+            0,
+            `Non-fixture ${table} would make reset cleanup unsafe`,
+          );
         }
       }
     }
@@ -839,34 +877,28 @@ test(
       state.foreignOrganizationIds.push(foreignOrganizationId);
       assert.ifError(
         (
-          await admin
-            .from("organizations")
-            .insert({
-              id: foreignOrganizationId,
-              name: `${marker} foreign org`,
-            })
+          await admin.from("organizations").insert({
+            id: foreignOrganizationId,
+            name: `${marker} foreign org`,
+          })
         ).error,
       );
       assert.ifError(
         (
-          await admin
-            .from("branches")
-            .insert({
-              id: foreignBranchId,
-              organization_id: foreignOrganizationId,
-              name: `${marker} foreign branch`,
-            })
+          await admin.from("branches").insert({
+            id: foreignBranchId,
+            organization_id: foreignOrganizationId,
+            name: `${marker} foreign branch`,
+          })
         ).error,
       );
       assert.ifError(
         (
-          await admin
-            .from("suppliers")
-            .insert({
-              id: foreignSupplierId,
-              organization_id: foreignOrganizationId,
-              name: `${marker} foreign supplier`,
-            })
+          await admin.from("suppliers").insert({
+            id: foreignSupplierId,
+            organization_id: foreignOrganizationId,
+            name: `${marker} foreign supplier`,
+          })
         ).error,
       );
       assert.ifError(
@@ -1085,8 +1117,9 @@ test(
       );
       assert.equal(rollback.status, 0, rollback.stderr);
     } finally {
-      const {isolatedLedgerTrust}=await import('./helpers/local-accounting-maintenance.mjs');
-      if(isolatedLedgerTrust()) await cleanup(admin,state,marker);
+      const { isolatedLedgerTrust } =
+        await import("./helpers/local-accounting-maintenance.mjs");
+      if (isolatedLedgerTrust()) await cleanup(admin, state, marker);
       if (state.branchIds?.length) {
         for (const branchId of state.branchIds) {
           assert.ifError(
@@ -1094,7 +1127,7 @@ test(
           );
         }
       }
-      if(!isolatedLedgerTrust()) await cleanup(admin, state, marker);
+      if (!isolatedLedgerTrust()) await cleanup(admin, state, marker);
     }
 
     assert.deepEqual(await readSignatures(admin), before);

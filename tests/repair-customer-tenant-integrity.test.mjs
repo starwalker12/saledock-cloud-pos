@@ -31,7 +31,9 @@ const e2eSource = readFileSync(
   "utf8",
 );
 
-const saveStart = actionSource.indexOf("export async function saveRepairAction");
+const saveStart = actionSource.indexOf(
+  "export async function saveRepairAction",
+);
 const saveEnd = actionSource.indexOf(
   "export async function updateRepairStatusAction",
   saveStart,
@@ -60,7 +62,10 @@ test("repair create and edit share one organization-scoped customer ownership ch
   assert.ok(lookupIndex < saveSource.indexOf('.from("repair_status_history")'));
   assert.notEqual(auditIndex, -1);
   assert.ok(lookupIndex < auditIndex);
-  assert.equal((saveSource.match(/The selected customer is unavailable\./g) ?? []).length, 1);
+  assert.equal(
+    (saveSource.match(/The selected customer is unavailable\./g) ?? []).length,
+    1,
+  );
 });
 
 test("quick-created customers remain organization-owned and use the returned ID", () => {
@@ -104,8 +109,14 @@ test("migration fails on historical mismatches and adds a composite tenant forei
 
 test("migration contract preserves nullable links and rejects insert and update bypasses", () => {
   assert.match(e2eSource, /DIRECT-NULL/);
-  assert.match(e2eSource, /directForeignInsert\.error\?\.code\)\.toBe\("23503"\)/);
-  assert.match(e2eSource, /directForeignUpdate\.error\?\.code\)\.toBe\("23503"\)/);
+  assert.match(
+    e2eSource,
+    /directForeignInsert\.error\?\.code\)\.toBe\("23503"\)/,
+  );
+  assert.match(
+    e2eSource,
+    /directForeignUpdate\.error\?\.code\)\.toBe\("23503"\)/,
+  );
   assert.match(e2eSource, /nullToForeignEdit/);
   assert.match(e2eSource, /customerIdSetNull: true/);
   assert.match(e2eSource, /openingMismatchCount/);
@@ -115,7 +126,7 @@ test("migration contract preserves nullable links and rejects insert and update 
 test("backup retains same-organization customer provenance; retired demo cannot write repairs", () => {
   assert.match(
     backupSource,
-    /resolveTargetIdsBatch\(supabase, orgId, jobId, "Customers", customerIds\)/,
+    /resolveTargetIdsBatch\(\s*supabase,\s*orgId,\s*jobId,\s*"Customers",\s*customerIds,?\s*\)/,
   );
   assert.match(
     backupSource,
@@ -155,14 +166,18 @@ test("optional normalization stays validation-local without relaxing tenant inte
     saveSource,
     /if \(customerLookupError \|\| !selectedCustomer\) \{\s*return err\("The selected customer is unavailable\."\);\s*\}/,
   );
-  assert.ok(saveSource.indexOf('.from("customers")') < saveSource.indexOf('.from("repairs")'));
+  assert.ok(
+    saveSource.indexOf('.from("customers")') <
+      saveSource.indexOf('.from("repairs")'),
+  );
   assert.ok(
     saveSource.indexOf('.from("customers")') <
       saveSource.indexOf('.from("repair_status_history")'),
   );
   assert.notEqual(saveSource.indexOf('.from("audit_logs")'), -1);
   assert.ok(
-    saveSource.indexOf('.from("customers")') < saveSource.indexOf('.from("audit_logs")'),
+    saveSource.indexOf('.from("customers")') <
+      saveSource.indexOf('.from("audit_logs")'),
   );
   assert.equal(
     createHash("sha256").update(migrationSource).digest("hex"),

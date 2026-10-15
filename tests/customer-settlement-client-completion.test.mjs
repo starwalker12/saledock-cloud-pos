@@ -86,7 +86,7 @@ test("validation and RPC failures return errors before any success refresh", () 
 test("ActionState settles before a unique same-route reconciliation begins", () => {
   assert.match(
     formSource,
-    /useActionState\(\s*recordCreditPaymentAction,\s*initial,?\s*\)/,
+    /useActionState\(\s*confirmingOperationAction\([\s\S]*recordCreditPaymentAction,?\s*\),\s*initial,?\s*\)/,
   );
   assert.match(
     formSource,
@@ -115,7 +115,7 @@ test("success and failure remain truthful visible ActionState outcomes", () => {
   assert.match(formSource, /role="alert"/);
   assert.match(formSource, /\{state\.success && \(/);
   assert.match(formSource, /role="status"/);
-  assert.match(formSource, /disabled=\{pending\}/);
+  assert.match(formSource, /disabled=\{pending \|\| !requestKey\}/);
   assert.match(formSource, /Processing\.\.\./);
   assert.match(settlementAction, /Credit payment recorded successfully\./);
   assert.doesNotMatch(formSource, /submit again|try again|assume.*recorded/i);

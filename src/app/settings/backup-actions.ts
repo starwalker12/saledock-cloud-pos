@@ -8,40 +8,98 @@ import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { getLinkedProviders } from "@/lib/auth/identities";
-import { accountingTable, IMPORT_REQUEST_BYTE_LIMIT, serializedBytes } from "@/lib/backup/accounting-import";
+import {
+  accountingTable,
+  IMPORT_REQUEST_BYTE_LIMIT,
+  serializedBytes,
+} from "@/lib/backup/accounting-import";
 
 const LEGACY_ANCILLARY_TABLES = new Set([
-  "Expenses", "RepairJobs", "DailyClosings", "ActivityLog", "CashShifts", "StaffPermissions", "LossPreventionEvents",
+  "Expenses",
+  "RepairJobs",
+  "DailyClosings",
+  "ActivityLog",
+  "CashShifts",
+  "StaffPermissions",
+  "LossPreventionEvents",
 ]);
 
 const ACCOUNTING_IMPORT_OPERATIONS = new Set([
-  "start_job", "stage_chunk", "seal_job", "validate_job", "finalize_job", "get_job", "cancel_job",
-  "restore_ancillary", "finish_job",
+  "start_job",
+  "stage_chunk",
+  "seal_job",
+  "validate_job",
+  "finalize_job",
+  "get_job",
+  "cancel_job",
+  "restore_ancillary",
+  "finish_job",
 ]);
 
 export async function accountingImportAction(
   operation: string,
   args: Record<string, unknown>,
-): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
-  if (!ACCOUNTING_IMPORT_OPERATIONS.has(operation) || !args || Array.isArray(args) ||
-      serializedBytes({ operation, args }) > IMPORT_REQUEST_BYTE_LIMIT) {
+): Promise<{
+  success: boolean;
+  data?: Record<string, unknown>;
+  error?: string;
+}> {
+  if (
+    !ACCOUNTING_IMPORT_OPERATIONS.has(operation) ||
+    !args ||
+    Array.isArray(args) ||
+    serializedBytes({ operation, args }) > IMPORT_REQUEST_BYTE_LIMIT
+  ) {
     return { success: false, error: "Invalid or oversized restore request." };
   }
   const { user, profile } = await getCurrentContext();
-  if (!user || !profile?.is_active || profile.role !== "owner" || !profile.organization_id) {
-    return { success: false, error: "Only an active Owner can restore accounting data." };
+  if (
+    !user ||
+    !profile?.is_active ||
+    profile.role !== "owner" ||
+    !profile.organization_id
+  ) {
+    return {
+      success: false,
+      error: "Only an active Owner can restore accounting data.",
+    };
   }
-  if (operation === "start_job" && !await isPlatformSettingEnabled("backup_import_enabled")) {
-    return { success: false, error: "Backup import has been disabled by the platform administrator." };
+  if (
+    operation === "start_job" &&
+    !(await isPlatformSettingEnabled("backup_import_enabled"))
+  ) {
+    return {
+      success: false,
+      error: "Backup import has been disabled by the platform administrator.",
+    };
   }
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc(`accounting_import_${operation}`, args);
+  const { data, error } = await supabase.rpc(
+    `accounting_import_${operation}`,
+    args,
+  );
   if (error) {
-    return { success: false, error: getSafeActionError(error, "Restore could not be confirmed. Check its status before trying again.") };
+    return {
+      success: false,
+      error: getSafeActionError(
+        error,
+        "Restore could not be confirmed. Check its status before trying again.",
+      ),
+    };
   }
   if (operation === "finish_job" && data?.ok === true) {
     after(() => {
-      for (const path of ["/settings", "/products", "/customers", "/invoices", "/returns", "/repairs", "/expenses", "/audit-log"]) revalidatePath(path);
+      for (const path of [
+        "/settings",
+        "/products",
+        "/customers",
+        "/invoices",
+        "/returns",
+        "/repairs",
+        "/expenses",
+        "/audit-log",
+      ])
+        revalidatePath(path);
     });
   }
   return { success: true, data: data as Record<string, unknown> };
@@ -123,12 +181,17 @@ export async function startImportJobAction(
   backupVersion: string,
   schemaVersion: string,
   manifestObj: unknown,
-  countsObj: Record<string, number>
+  countsObj: Record<string, number>,
 ): Promise<ImportJobState> {
   try {
-    const backupImportEnabled = await isPlatformSettingEnabled("backup_import_enabled");
+    const backupImportEnabled = await isPlatformSettingEnabled(
+      "backup_import_enabled",
+    );
     if (!backupImportEnabled) {
-      return { success: false, error: "Backup import has been disabled by the platform administrator." };
+      return {
+        success: false,
+        error: "Backup import has been disabled by the platform administrator.",
+      };
     }
 
     const { user, profile } = await getCurrentContext();
@@ -137,8 +200,15 @@ export async function startImportJobAction(
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
-      logAudit({ module: "settings", action: "permission.denied", details: `Backup import start denied for role ${profile.role}` });
-      return { success: false, error: "Only Owners and Admins can import data." };
+      logAudit({
+        module: "settings",
+        action: "permission.denied",
+        details: `Backup import start denied for role ${profile.role}`,
+      });
+      return {
+        success: false,
+        error: "Only Owners and Admins can import data.",
+      };
     }
 
     const orgId = profile.organization_id;
@@ -161,7 +231,7 @@ export async function startImportJobAction(
         manifest: manifestObj,
         status: "importing",
         started_at: new Date().toISOString(),
-        counts: countsObj
+        counts: countsObj,
       })
       .select("id")
       .single();
@@ -174,13 +244,19 @@ export async function startImportJobAction(
     await logAudit({
       module: "settings",
       action: "backup.import_started",
-      details: `Owner initiated desktop backup import from ${sourceApp} (Version: ${backupVersion}).`
+      details: `Owner initiated desktop backup import from ${sourceApp} (Version: ${backupVersion}).`,
     });
 
     return { success: true, jobId: data.id, counts: countsObj };
   } catch (err: unknown) {
     console.error("Failed to start import job:", err);
-    return { success: false, error: getSafeActionError(err, "We couldn't start the import. Please try again.") };
+    return {
+      success: false,
+      error: getSafeActionError(
+        err,
+        "We couldn't start the import. Please try again.",
+      ),
+    };
   }
 }
 
@@ -188,7 +264,7 @@ export async function startImportJobAction(
 export async function updateImportJobStatusAction(
   jobId: string,
   status: "completed" | "failed" | "cancelled",
-  errorMessage?: string
+  errorMessage?: string,
 ): Promise<{ success: boolean }> {
   try {
     const { user, profile } = await getCurrentContext();
@@ -207,7 +283,7 @@ export async function updateImportJobStatusAction(
     const supabase = await createClient();
     const updatePayload: Record<string, unknown> = {
       status,
-      completed_at: new Date().toISOString()
+      completed_at: new Date().toISOString(),
     };
     if (errorMessage) {
       updatePayload.error_message = errorMessage;
@@ -227,10 +303,14 @@ export async function updateImportJobStatusAction(
     // Log the completion/failure audit
     await logAudit({
       module: "settings",
-      action: status === "completed" ? "backup.import_completed" : "backup.import_failed",
-      details: status === "completed"
-        ? "Owner completed desktop backup import successfully."
-        : `Owner's desktop backup import failed or was cancelled. Error: ${errorMessage || "None"}`
+      action:
+        status === "completed"
+          ? "backup.import_completed"
+          : "backup.import_failed",
+      details:
+        status === "completed"
+          ? "Owner completed desktop backup import successfully."
+          : `Owner's desktop backup import failed or was cancelled. Error: ${errorMessage || "None"}`,
     });
 
     revalidatePath("/settings");
@@ -255,7 +335,7 @@ async function resolveTargetIdsBatch(
   orgId: string,
   jobId: string,
   sourceTable: string,
-  sourceIds: string[]
+  sourceIds: string[],
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>();
   const uniqueIds = Array.from(new Set(sourceIds.filter(Boolean)));
@@ -290,7 +370,7 @@ async function resolveTargetIdsAcrossAllJobsBatch(
   supabase: unknown,
   orgId: string,
   sourceTable: string,
-  sourceIds: string[]
+  sourceIds: string[],
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>();
   const uniqueIds = Array.from(new Set(sourceIds.map(String).filter(Boolean)));
@@ -326,16 +406,16 @@ async function saveRowMappingsBatch(
   jobId: string,
   sourceTable: string,
   targetTable: string,
-  mappings: Array<{ sourceId: string; targetId: string }>
+  mappings: Array<{ sourceId: string; targetId: string }>,
 ) {
   if (mappings.length === 0) return;
-  const insertPayload = mappings.map(m => ({
+  const insertPayload = mappings.map((m) => ({
     organization_id: orgId,
     import_job_id: jobId,
     source_table: sourceTable,
     source_id: m.sourceId.toString(),
     target_table: targetTable,
-    target_id: m.targetId
+    target_id: m.targetId,
   }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -347,7 +427,7 @@ async function saveRowMappingsBatch(
       .from("import_row_mappings")
       .upsert(insertPayload.slice(i, i + size), {
         onConflict: "organization_id,import_job_id,source_table,source_id",
-        ignoreDuplicates: true
+        ignoreDuplicates: true,
       });
   }
 }
@@ -420,7 +500,9 @@ function normalizeInvoiceStatus(
   grandTotal: number,
   balanceDue: number,
 ): "paid" | "partial" | "unpaid" | "draft" | "void" {
-  const v = String(raw ?? "").trim().toLowerCase();
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase();
   if (v === "paid") return "paid";
   if (v === "partial") return "partial";
   if (v === "unpaid" || v === "credit" || v === "due") return "unpaid";
@@ -469,15 +551,21 @@ function normalizePaymentMethod(
 }
 
 function normalizeProductType(raw: unknown): "product" | "service" {
-  const v = String(raw ?? "").trim().toLowerCase();
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase();
   return v === "service" ? "service" : "product";
 }
 
 function normalizeReturnStatus(raw: unknown): "completed" | "cancelled" {
   // Online enum only has 'completed' | 'cancelled'. The desktop "Needs
   // Approval" / "Approved" / "Rejected" semantics collapse as follows.
-  const v = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  if (v === "rejected" || v === "cancelled" || v === "void" || v === "voided") return "cancelled";
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (v === "rejected" || v === "cancelled" || v === "void" || v === "voided")
+    return "cancelled";
   // Everything else (approved, needs_approval, completed, pending, blank) is
   // treated as a completed return — it has line items and a refund.
   return "completed";
@@ -492,12 +580,17 @@ function normalizeRepairStatus(
   | "completed"
   | "delivered"
   | "cancelled" {
-  const v = String(raw ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   if (v === "received" || v === "intake") return "received";
-  if (v === "waiting_for_parts" || v === "waitingforparts") return "waiting_for_parts";
+  if (v === "waiting_for_parts" || v === "waitingforparts")
+    return "waiting_for_parts";
   if (v === "in_progress" || v === "inprogress") return "in_progress";
   if (v === "completed" || v === "done") return "completed";
-  if (v === "delivered" || v === "handedover" || v === "handed_over") return "delivered";
+  if (v === "delivered" || v === "handedover" || v === "handed_over")
+    return "delivered";
   if (v === "cancelled" || v === "canceled" || v === "void") return "cancelled";
   return "received";
 }
@@ -510,8 +603,15 @@ export async function importTableChunkAction(
   orphanPolicy?: OrphanPolicy,
 ): Promise<ChunkImportState> {
   if (accountingTable(tableName) || !LEGACY_ANCILLARY_TABLES.has(tableName)) {
-    return { success: false, inserted: 0, skipped: 0, failed: 0, warnings: [],
-      error: "Accounting and inventory tables require the atomic restore workflow." };
+    return {
+      success: false,
+      inserted: 0,
+      skipped: 0,
+      failed: 0,
+      warnings: [],
+      error:
+        "Accounting and inventory tables require the atomic restore workflow.",
+    };
   }
   // Note: return_stock_allocations, cash_shifts, and staff_permissions are intentionally
   // excluded from the import actions sequence (handled as NOOP/skipped) because the desktop
@@ -525,13 +625,33 @@ export async function importTableChunkAction(
   try {
     const { user, profile } = await getCurrentContext();
     if (!user || !profile || !profile.organization_id) {
-      return { success: false, inserted: 0, skipped: 0, skippedOrphan: 0, failed: 0, warnings, error: "Not authenticated." };
+      return {
+        success: false,
+        inserted: 0,
+        skipped: 0,
+        skippedOrphan: 0,
+        failed: 0,
+        warnings,
+        error: "Not authenticated.",
+      };
     }
 
     // Only owner and admin can import data chunks (same gate as startImportJobAction)
     if (profile.role !== "owner" && profile.role !== "admin") {
-      logAudit({ module: "settings", action: "permission.denied", details: `Import chunk denied for role ${profile.role}` });
-      return { success: false, inserted: 0, skipped: 0, skippedOrphan: 0, failed: 0, warnings, error: "Only owners and admins can import data." };
+      logAudit({
+        module: "settings",
+        action: "permission.denied",
+        details: `Import chunk denied for role ${profile.role}`,
+      });
+      return {
+        success: false,
+        inserted: 0,
+        skipped: 0,
+        skippedOrphan: 0,
+        failed: 0,
+        warnings,
+        error: "Only owners and admins can import data.",
+      };
     }
 
     const orgId = profile.organization_id;
@@ -576,16 +696,67 @@ export async function importTableChunkAction(
         return new Set<string>((data ?? []).map((r) => String(r.source_id)));
       };
 
-      const checks: { rule: string; parent: string; getFk: (row: { [k: string]: unknown }) => unknown; allowZero?: boolean }[] = [];
-      if (tableName === "CustomerLedgerEntries") checks.push({ rule: "CustomerLedgerEntries.CustomerId not in Customers", parent: "Customers", getFk: (r) => r.CustomerId });
-      if (tableName === "CreditPayments") checks.push({ rule: "CreditPayments.CustomerId not in Customers", parent: "Customers", getFk: (r) => r.CustomerId });
-      if (tableName === "ReturnRefunds") checks.push({ rule: "ReturnRefunds.BillId not in Bills", parent: "Bills", getFk: (r) => r.BillId });
-      if (tableName === "ReturnItems") checks.push({ rule: "ReturnItems.ReturnId not in ReturnRefunds", parent: "ReturnRefunds", getFk: (r) => r.ReturnId });
-      if (tableName === "BillItems") checks.push({ rule: "BillItems.BillId not in Bills", parent: "Bills", getFk: (r) => r.BillId });
-      if (tableName === "BillItemBatchAllocations") checks.push({ rule: "BillItemBatchAllocations.BillItemId not in BillItems", parent: "BillItems", getFk: (r) => r.BillItemId });
-      if (tableName === "StockMovements") checks.push({ rule: "StockMovements.ProductId not in Products", parent: "Products", getFk: (r) => r.ProductId });
-      if (tableName === "ProductStockLots") checks.push({ rule: "ProductStockLots.ProductId not in Products", parent: "Products", getFk: (r) => r.ProductId });
-      if (tableName === "RepairJobs") checks.push({ rule: "RepairJobs.CustomerId not in Customers (CustomerId=0/null walk-in is OK)", parent: "Customers", getFk: (r) => r.CustomerId, allowZero: true });
+      const checks: {
+        rule: string;
+        parent: string;
+        getFk: (row: { [k: string]: unknown }) => unknown;
+        allowZero?: boolean;
+      }[] = [];
+      if (tableName === "CustomerLedgerEntries")
+        checks.push({
+          rule: "CustomerLedgerEntries.CustomerId not in Customers",
+          parent: "Customers",
+          getFk: (r) => r.CustomerId,
+        });
+      if (tableName === "CreditPayments")
+        checks.push({
+          rule: "CreditPayments.CustomerId not in Customers",
+          parent: "Customers",
+          getFk: (r) => r.CustomerId,
+        });
+      if (tableName === "ReturnRefunds")
+        checks.push({
+          rule: "ReturnRefunds.BillId not in Bills",
+          parent: "Bills",
+          getFk: (r) => r.BillId,
+        });
+      if (tableName === "ReturnItems")
+        checks.push({
+          rule: "ReturnItems.ReturnId not in ReturnRefunds",
+          parent: "ReturnRefunds",
+          getFk: (r) => r.ReturnId,
+        });
+      if (tableName === "BillItems")
+        checks.push({
+          rule: "BillItems.BillId not in Bills",
+          parent: "Bills",
+          getFk: (r) => r.BillId,
+        });
+      if (tableName === "BillItemBatchAllocations")
+        checks.push({
+          rule: "BillItemBatchAllocations.BillItemId not in BillItems",
+          parent: "BillItems",
+          getFk: (r) => r.BillItemId,
+        });
+      if (tableName === "StockMovements")
+        checks.push({
+          rule: "StockMovements.ProductId not in Products",
+          parent: "Products",
+          getFk: (r) => r.ProductId,
+        });
+      if (tableName === "ProductStockLots")
+        checks.push({
+          rule: "ProductStockLots.ProductId not in Products",
+          parent: "Products",
+          getFk: (r) => r.ProductId,
+        });
+      if (tableName === "RepairJobs")
+        checks.push({
+          rule: "RepairJobs.CustomerId not in Customers (CustomerId=0/null walk-in is OK)",
+          parent: "Customers",
+          getFk: (r) => r.CustomerId,
+          allowZero: true,
+        });
 
       const parentSets = new Map<string, Set<string>>();
       for (const c of checks) {
@@ -632,7 +803,14 @@ export async function importTableChunkAction(
       }
     }
     if (typedRows.length === 0) {
-      return { success: true, inserted: 0, skipped: 0, skippedOrphan, failed: 0, warnings };
+      return {
+        success: true,
+        inserted: 0,
+        skipped: 0,
+        skippedOrphan,
+        failed: 0,
+        warnings,
+      };
     }
 
     if (tableName === "Categories") {
@@ -640,7 +818,9 @@ export async function importTableChunkAction(
         .from("product_categories")
         .select("id, name")
         .eq("organization_id", orgId);
-      const catMap = new Map(existing?.map(c => [c.name.trim().toLowerCase(), c.id]) ?? []);
+      const catMap = new Map(
+        existing?.map((c) => [c.name.trim().toLowerCase(), c.id]) ?? [],
+      );
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newCategories = new Map<string, any>();
@@ -664,7 +844,8 @@ export async function importTableChunkAction(
               organization_id: orgId,
               name,
               description: row.Description?.toString() || "",
-              is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
+              is_active:
+                row.IsActive === undefined ? true : Boolean(row.IsActive),
             });
             newCategorySourceIds.set(lowerName, [row.Id.toString()]);
           } else {
@@ -701,14 +882,22 @@ export async function importTableChunkAction(
           }
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Categories", "product_categories", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Categories",
+        "product_categories",
+        mappingsToSave,
+      );
     } else if (tableName === "Suppliers") {
       const { data: existing } = await supabase
         .from("suppliers")
         .select("id, name")
         .eq("organization_id", orgId);
-      const supMap = new Map(existing?.map(s => [s.name.trim().toLowerCase(), s.id]) ?? []);
+      const supMap = new Map(
+        existing?.map((s) => [s.name.trim().toLowerCase(), s.id]) ?? [],
+      );
 
       // Avoid "any" by mapping standard typed schema for suppliers insert
       type SupplierInsertType = {
@@ -722,7 +911,11 @@ export async function importTableChunkAction(
         is_active: boolean;
       };
       const toInsert: SupplierInsertType[] = [];
-      const rowMappingQueue: { sourceId: string; lowerName: string; name: string }[] = [];
+      const rowMappingQueue: {
+        sourceId: string;
+        lowerName: string;
+        name: string;
+      }[] = [];
 
       for (const row of typedRows) {
         const name = row.Name?.toString().trim();
@@ -739,7 +932,9 @@ export async function importTableChunkAction(
           skipped++;
         } else {
           // Deduplicate within the current chunk
-          const alreadyInQueue = toInsert.find((i) => i.name.toLowerCase() === lowerName);
+          const alreadyInQueue = toInsert.find(
+            (i) => i.name.toLowerCase() === lowerName,
+          );
           if (!alreadyInQueue) {
             toInsert.push({
               organization_id: orgId,
@@ -749,10 +944,15 @@ export async function importTableChunkAction(
               email: row.Email?.toString() || "",
               address: row.Address?.toString() || "",
               notes: row.Notes?.toString() || "",
-              is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
+              is_active:
+                row.IsActive === undefined ? true : Boolean(row.IsActive),
             });
           }
-          rowMappingQueue.push({ sourceId: row.Id.toString(), lowerName, name });
+          rowMappingQueue.push({
+            sourceId: row.Id.toString(),
+            lowerName,
+            name,
+          });
         }
       }
 
@@ -772,7 +972,9 @@ export async function importTableChunkAction(
       }
 
       // Process mappings for newly inserted (or failed) suppliers
-      const newlyInsertedNames = new Set(toInsert.map(i => i.name.toLowerCase()));
+      const newlyInsertedNames = new Set(
+        toInsert.map((i) => i.name.toLowerCase()),
+      );
       const seenInQueue = new Set<string>();
 
       for (const q of rowMappingQueue) {
@@ -781,34 +983,56 @@ export async function importTableChunkAction(
           mappingsToSave.push({ sourceId: q.sourceId, targetId });
 
           if (newlyInsertedNames.has(q.lowerName)) {
-             if (!seenInQueue.has(q.lowerName)) {
-                inserted++;
-                seenInQueue.add(q.lowerName);
-             } else {
-                skipped++;
-             }
+            if (!seenInQueue.has(q.lowerName)) {
+              inserted++;
+              seenInQueue.add(q.lowerName);
+            } else {
+              skipped++;
+            }
           }
         } else {
           failed++;
-          warnings.push(`Supplier mapping missing after insert (Supplier: ${q.name}).`);
+          warnings.push(
+            `Supplier mapping missing after insert (Supplier: ${q.name}).`,
+          );
         }
       }
 
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Suppliers", "suppliers", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Suppliers",
+        "suppliers",
+        mappingsToSave,
+      );
     } else if (tableName === "Customers") {
       const { data: existing } = await supabase
         .from("customers")
         .select("id, name, phone, email")
         .eq("organization_id", orgId);
-      
-      const phoneMap = new Map(existing?.filter(c => c.phone).map(c => [c.phone!.trim(), c.id]) ?? []);
-      const emailMap = new Map(existing?.filter(c => c.email).map(c => [c.email!.trim().toLowerCase(), c.id]) ?? []);
-      const nameMap = new Map(existing?.map(c => [c.name.trim().toLowerCase(), c.id]) ?? []);
+
+      const phoneMap = new Map(
+        existing?.filter((c) => c.phone).map((c) => [c.phone!.trim(), c.id]) ??
+          [],
+      );
+      const emailMap = new Map(
+        existing
+          ?.filter((c) => c.email)
+          .map((c) => [c.email!.trim().toLowerCase(), c.id]) ?? [],
+      );
+      const nameMap = new Map(
+        existing?.map((c) => [c.name.trim().toLowerCase(), c.id]) ?? [],
+      );
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payloadToInsert: any[] = [];
-      const rowMappingQueue: { rowId: string, phone: string | undefined, email: string | undefined, name: string }[] = [];
+      const rowMappingQueue: {
+        rowId: string;
+        phone: string | undefined;
+        email: string | undefined;
+        name: string;
+      }[] = [];
 
       for (const row of typedRows) {
         const name = row.Name?.toString().trim();
@@ -823,18 +1047,30 @@ export async function importTableChunkAction(
         let matchedId: string | null = null;
         if (phone && phoneMap.has(phone)) matchedId = phoneMap.get(phone)!;
         else if (email && emailMap.has(email)) matchedId = emailMap.get(email)!;
-        else if (nameMap.has(name.toLowerCase())) matchedId = nameMap.get(name.toLowerCase())!;
+        else if (nameMap.has(name.toLowerCase()))
+          matchedId = nameMap.get(name.toLowerCase())!;
 
         if (matchedId) {
           // If the matched ID is a pending placeholder, it means this is a duplicate
           // within the same file. We will link it to the same pending placeholder for now,
           // but we must resolve this placeholder after the batch insert completes.
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: matchedId });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: matchedId,
+          });
           skipped++;
         } else {
           const outstandingBalance = Number(row.OutstandingBalance || 0);
-          const err = assertNonNeg(outstandingBalance, "outstanding_balance", row.Id);
-          if (err) { failed++; warnings.push(err); continue; }
+          const err = assertNonNeg(
+            outstandingBalance,
+            "outstanding_balance",
+            row.Id,
+          );
+          if (err) {
+            failed++;
+            warnings.push(err);
+            continue;
+          }
 
           payloadToInsert.push({
             organization_id: orgId,
@@ -843,9 +1079,14 @@ export async function importTableChunkAction(
             email: email || "",
             address: row.Address?.toString() || "",
             notes: row.Notes?.toString() || "",
-            outstanding_balance: outstandingBalance
+            outstanding_balance: outstandingBalance,
           });
-          rowMappingQueue.push({ rowId: row.Id.toString(), phone, email, name });
+          rowMappingQueue.push({
+            rowId: row.Id.toString(),
+            phone,
+            email,
+            name,
+          });
 
           // Optimistically map to a placeholder to prevent intra-batch duplicates
           const placeholder = `pending-${row.Id.toString()}`;
@@ -894,19 +1135,40 @@ export async function importTableChunkAction(
       }
 
       // Filter out any placeholders that might have failed to resolve (due to batch failure)
-      const validMappingsToSave = mappingsToSave.filter(m => !m.targetId.startsWith("pending-"));
+      const validMappingsToSave = mappingsToSave.filter(
+        (m) => !m.targetId.startsWith("pending-"),
+      );
 
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Customers", "customers", validMappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Customers",
+        "customers",
+        validMappingsToSave,
+      );
     } else if (tableName === "Products") {
       const { data: existing } = await supabase
         .from("products")
         .select("id, name, sku, barcode, type")
         .eq("organization_id", orgId);
 
-      const skuMap = new Map(existing?.filter(p => p.sku).map(p => [p.sku!.trim().toLowerCase(), p.id]) ?? []);
-      const barcodeMap = new Map(existing?.filter(p => p.barcode).map(p => [p.barcode!.trim().toLowerCase(), p.id]) ?? []);
-      const nameTypeMap = new Map(existing?.map(p => [`${p.name.trim().toLowerCase()}-${p.type}`, p.id]) ?? []);
+      const skuMap = new Map(
+        existing
+          ?.filter((p) => p.sku)
+          .map((p) => [p.sku!.trim().toLowerCase(), p.id]) ?? [],
+      );
+      const barcodeMap = new Map(
+        existing
+          ?.filter((p) => p.barcode)
+          .map((p) => [p.barcode!.trim().toLowerCase(), p.id]) ?? [],
+      );
+      const nameTypeMap = new Map(
+        existing?.map((p) => [
+          `${p.name.trim().toLowerCase()}-${p.type}`,
+          p.id,
+        ]) ?? [],
+      );
 
       // Desktop Products.Category is a TEXT field that references Categories.Name (not Id).
       // We resolve the online product_category id by category-name lookup against
@@ -923,13 +1185,26 @@ export async function importTableChunkAction(
       const supplierIds = typedRows
         .map((r) => r.SupplierId?.toString())
         .filter((v) => v && v !== "0");
-      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
+      const supMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Suppliers",
+        supplierIds,
+      );
 
       for (const row of typedRows) {
-        const name = pickString(row, ["ItemName", "ProductName", "Name", "name"]);
+        const name = pickString(row, [
+          "ItemName",
+          "ProductName",
+          "Name",
+          "name",
+        ]);
         if (!name) {
           failed++;
-          warnings.push(`Skipped product with empty name (ID: ${row.Id}). Checked ItemName, ProductName, Name.`);
+          warnings.push(
+            `Skipped product with empty name (ID: ${row.Id}). Checked ItemName, ProductName, Name.`,
+          );
           continue;
         }
         const sku = pickString(row, ["Sku", "SKU", "sku"]).toLowerCase();
@@ -938,25 +1213,55 @@ export async function importTableChunkAction(
 
         let matchedId: string | null = null;
         if (sku && skuMap.has(sku)) matchedId = skuMap.get(sku)!;
-        else if (barcode && barcodeMap.has(barcode)) matchedId = barcodeMap.get(barcode)!;
-        else if (nameTypeMap.has(`${name.toLowerCase()}-${type}`)) matchedId = nameTypeMap.get(`${name.toLowerCase()}-${type}`)!;
+        else if (barcode && barcodeMap.has(barcode))
+          matchedId = barcodeMap.get(barcode)!;
+        else if (nameTypeMap.has(`${name.toLowerCase()}-${type}`))
+          matchedId = nameTypeMap.get(`${name.toLowerCase()}-${type}`)!;
 
         if (matchedId) {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: matchedId });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: matchedId,
+          });
           skipped++;
         } else {
-          const categoryName = pickString(row, ["Category", "CategoryName", "category"]).toLowerCase();
-          const catId = categoryName ? (catByName.get(categoryName) ?? null) : null;
+          const categoryName = pickString(row, [
+            "Category",
+            "CategoryName",
+            "category",
+          ]).toLowerCase();
+          const catId = categoryName
+            ? (catByName.get(categoryName) ?? null)
+            : null;
           const supplierRaw = row.SupplierId?.toString();
           const supId =
-            supplierRaw && supplierRaw !== "0" ? (supMappings.get(supplierRaw) ?? null) : null;
+            supplierRaw && supplierRaw !== "0"
+              ? (supMappings.get(supplierRaw) ?? null)
+              : null;
 
-          const purchasePrice = pickNumber(row, ["PurchasePrice", "purchase_price"]);
+          const purchasePrice = pickNumber(row, [
+            "PurchasePrice",
+            "purchase_price",
+          ]);
           const salePrice = pickNumber(row, ["SalePrice", "sale_price"]);
-          const stockQty = pickNumber(row, ["Stock", "StockQuantity", "stock_quantity"]);
-          const minStock = pickNumber(row, ["MinimumStock", "MinStock", "minimum_stock"]);
-          const commAmount = pickNumber(row, ["DefaultCommissionAmount", "default_commission_amount"]);
-          const commPct = pickNumber(row, ["DefaultCommissionPercent", "default_commission_percent"]);
+          const stockQty = pickNumber(row, [
+            "Stock",
+            "StockQuantity",
+            "stock_quantity",
+          ]);
+          const minStock = pickNumber(row, [
+            "MinimumStock",
+            "MinStock",
+            "minimum_stock",
+          ]);
+          const commAmount = pickNumber(row, [
+            "DefaultCommissionAmount",
+            "default_commission_amount",
+          ]);
+          const commPct = pickNumber(row, [
+            "DefaultCommissionPercent",
+            "default_commission_percent",
+          ]);
 
           const vErr =
             assertNonNeg(purchasePrice, "purchase_price", row.Id) ??
@@ -965,7 +1270,11 @@ export async function importTableChunkAction(
             assertNonNeg(minStock, "minimum_stock", row.Id) ??
             assertNonNeg(commAmount, "default_commission_amount", row.Id) ??
             assertNonNeg(commPct, "default_commission_percent", row.Id);
-          if (vErr) { failed++; warnings.push(vErr); continue; }
+          if (vErr) {
+            failed++;
+            warnings.push(vErr);
+            continue;
+          }
 
           const { data, error } = await supabase
             .from("products")
@@ -981,17 +1290,37 @@ export async function importTableChunkAction(
               sale_price: salePrice,
               stock_quantity: stockQty,
               minimum_stock: minStock,
-              allow_sell_at_loss: pickBool(row, ["AllowSellAtLoss", "allow_sell_at_loss"]),
-              sell_at_loss_reason: pickString(row, ["SellAtLossReason", "sell_at_loss_reason"]),
+              allow_sell_at_loss: pickBool(row, [
+                "AllowSellAtLoss",
+                "allow_sell_at_loss",
+              ]),
+              sell_at_loss_reason: pickString(row, [
+                "SellAtLossReason",
+                "sell_at_loss_reason",
+              ]),
               notes: pickString(row, ["Notes", "notes"]),
               is_active: pickBool(row, ["IsActive", "is_active"], true),
-              service_type: pickString(row, ["ServiceType", "service_type"]) || null,
-              service_pricing_mode: pickString(row, ["ServicePricingMode", "service_pricing_mode"]) || null,
+              service_type:
+                pickString(row, ["ServiceType", "service_type"]) || null,
+              service_pricing_mode:
+                pickString(row, [
+                  "ServicePricingMode",
+                  "service_pricing_mode",
+                ]) || null,
               default_commission_amount: commAmount,
               default_commission_percent: commPct,
-              requires_account_number: pickBool(row, ["RequiresAccountNumber", "requires_account_number"]),
-              requires_provider: pickBool(row, ["RequiresProvider", "requires_provider"]),
-              requires_reference: pickBool(row, ["RequiresReference", "requires_reference"]),
+              requires_account_number: pickBool(row, [
+                "RequiresAccountNumber",
+                "requires_account_number",
+              ]),
+              requires_provider: pickBool(row, [
+                "RequiresProvider",
+                "requires_provider",
+              ]),
+              requires_reference: pickBool(row, [
+                "RequiresReference",
+                "requires_reference",
+              ]),
             })
             .select("id")
             .single();
@@ -1003,37 +1332,71 @@ export async function importTableChunkAction(
             if (sku) skuMap.set(sku, data.id);
             if (barcode) barcodeMap.set(barcode, data.id);
             nameTypeMap.set(`${name.toLowerCase()}-${type}`, data.id);
-            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+            mappingsToSave.push({
+              sourceId: row.Id.toString(),
+              targetId: data.id,
+            });
             inserted++;
           }
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Products", "products", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Products",
+        "products",
+        mappingsToSave,
+      );
     } else if (tableName === "ProductStockLots") {
-      const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
-      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
-      const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
-      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
+      const productIds = typedRows
+        .map((r) => r.ProductId?.toString())
+        .filter(Boolean);
+      const supplierIds = typedRows
+        .map((r) => r.SupplierId?.toString())
+        .filter(Boolean);
+      const prodMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Products",
+        productIds,
+      );
+      const supMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Suppliers",
+        supplierIds,
+      );
 
       // Fetch existing lots to avoid duplicate insert and register mapping safely
       const { data: existingLots } = await supabase
         .from("product_stock_lots")
         .select("id, product_id, lot_number")
         .eq("organization_id", orgId);
-      
+
       const lotMap = new Map(
-        existingLots?.map(l => [`${l.product_id}-${l.lot_number || ""}`, l.id]) ?? []
+        existingLots?.map((l) => [
+          `${l.product_id}-${l.lot_number || ""}`,
+          l.id,
+        ]) ?? [],
       );
 
       for (const row of typedRows) {
-        const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
+        const prodId = row.ProductId
+          ? prodMappings.get(row.ProductId.toString())
+          : null;
         if (!prodId) {
           failed++;
-          warnings.push(`Skipped lot with unmapped product (Lot ID: ${row.Id}, Prod ID: ${row.ProductId}).`);
+          warnings.push(
+            `Skipped lot with unmapped product (Lot ID: ${row.Id}, Prod ID: ${row.ProductId}).`,
+          );
           continue;
         }
-        const supId = row.SupplierId ? supMappings.get(row.SupplierId.toString()) : null;
+        const supId = row.SupplierId
+          ? supMappings.get(row.SupplierId.toString())
+          : null;
         const lotNo = row.BatchNumber?.toString() || null;
         const key = `${prodId}-${lotNo || ""}`;
 
@@ -1049,7 +1412,11 @@ export async function importTableChunkAction(
             assertNonNeg(qtyReceived, "quantity_received", row.Id) ??
             assertNonNeg(qtyRemaining, "quantity_remaining", row.Id) ??
             assertNonNeg(unitCost, "unit_cost", row.Id);
-          if (lErr) { failed++; warnings.push(lErr); continue; }
+          if (lErr) {
+            failed++;
+            warnings.push(lErr);
+            continue;
+          }
 
           const { data, error } = await supabase
             .from("product_stock_lots")
@@ -1063,7 +1430,8 @@ export async function importTableChunkAction(
               unit_cost: unitCost,
               supplier_id: supId || null,
               purchase_date: row.AddedAt || new Date().toISOString(),
-              is_active: row.IsActive === undefined ? true : Boolean(row.IsActive)
+              is_active:
+                row.IsActive === undefined ? true : Boolean(row.IsActive),
             })
             .select("id")
             .single();
@@ -1073,30 +1441,75 @@ export async function importTableChunkAction(
             warnings.push(importRowWarning("Stock lot", `Lot ID: ${row.Id}`));
           } else {
             lotMap.set(key, data.id);
-            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+            mappingsToSave.push({
+              sourceId: row.Id.toString(),
+              targetId: data.id,
+            });
             inserted++;
           }
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "ProductStockLots", "product_stock_lots", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ProductStockLots",
+        "product_stock_lots",
+        mappingsToSave,
+      );
     } else if (tableName === "StockMovements") {
-      const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
-      const lotIds = typedRows.map(r => r.StockLotId?.toString() || r.BatchNumber?.toString()).filter(Boolean);
-      const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
-      const lotMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ProductStockLots", lotIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "StockMovements", sourceIds);
+      const productIds = typedRows
+        .map((r) => r.ProductId?.toString())
+        .filter(Boolean);
+      const lotIds = typedRows
+        .map((r) => r.StockLotId?.toString() || r.BatchNumber?.toString())
+        .filter(Boolean);
+      const prodMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Products",
+        productIds,
+      );
+      const lotMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ProductStockLots",
+        lotIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "StockMovements",
+        sourceIds,
+      );
 
       const normalizeStockMovementType = (mType: string, cType?: string) => {
         const mt = (mType || cType || "").toLowerCase().trim();
-        if (mt.includes("opening") || mt.includes("initial")) return "opening_stock";
-        if (mt.includes("purchase") || mt.includes("stock_in") || mt.includes("in")) return "purchase";
-        if (mt.includes("sale") || mt.includes("stock_out") || mt.includes("out")) return "sale";
-        if (mt.includes("return_in") || mt.includes("return in")) return "return_in";
-        if (mt.includes("return_out") || mt.includes("return out")) return "return_out";
-        if (mt.includes("adjustment_in") || mt.includes("adjustment in")) return "adjustment_in";
-        if (mt.includes("adjustment_out") || mt.includes("adjustment out")) return "adjustment_out";
+        if (mt.includes("opening") || mt.includes("initial"))
+          return "opening_stock";
+        if (
+          mt.includes("purchase") ||
+          mt.includes("stock_in") ||
+          mt.includes("in")
+        )
+          return "purchase";
+        if (
+          mt.includes("sale") ||
+          mt.includes("stock_out") ||
+          mt.includes("out")
+        )
+          return "sale";
+        if (mt.includes("return_in") || mt.includes("return in"))
+          return "return_in";
+        if (mt.includes("return_out") || mt.includes("return out"))
+          return "return_out";
+        if (mt.includes("adjustment_in") || mt.includes("adjustment in"))
+          return "adjustment_in";
+        if (mt.includes("adjustment_out") || mt.includes("adjustment out"))
+          return "adjustment_out";
         if (mt.includes("void")) return "void";
         if (mt.includes("add")) return "purchase";
         if (mt.includes("deduct")) return "sale";
@@ -1112,22 +1525,42 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
+        const prodId = row.ProductId
+          ? prodMappings.get(row.ProductId.toString())
+          : null;
         if (!prodId) {
           failed++;
-          warnings.push(`Skipped movement with unmapped product (ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped movement with unmapped product (ID: ${row.Id}).`,
+          );
           continue;
         }
-        const lotId = row.StockLotId 
-          ? lotMappings.get(row.StockLotId.toString()) 
-          : (row.BatchNumber ? lotMappings.get(row.BatchNumber.toString()) : null);
+        const lotId = row.StockLotId
+          ? lotMappings.get(row.StockLotId.toString())
+          : row.BatchNumber
+            ? lotMappings.get(row.BatchNumber.toString())
+            : null;
 
-        const normalizedType = normalizeStockMovementType(row.MovementType, row.ChangeType);
-        const qty = Math.max(1, Math.abs(Number(row.Difference || row.QuantityChange || row.Quantity || 0)));
-        const cost = Number(row.unit_cost || row.NewPurchasePrice || row.OldPurchasePrice || 0);
+        const normalizedType = normalizeStockMovementType(
+          row.MovementType,
+          row.ChangeType,
+        );
+        const qty = Math.max(
+          1,
+          Math.abs(
+            Number(row.Difference || row.QuantityChange || row.Quantity || 0),
+          ),
+        );
+        const cost = Number(
+          row.unit_cost || row.NewPurchasePrice || row.OldPurchasePrice || 0,
+        );
 
         const smErr = assertNonNeg(cost, "unit_cost", row.Id);
-        if (smErr) { failed++; warnings.push(smErr); continue; }
+        if (smErr) {
+          failed++;
+          warnings.push(smErr);
+          continue;
+        }
 
         const { data, error } = await supabase
           .from("stock_movements")
@@ -1141,9 +1574,14 @@ export async function importTableChunkAction(
             unit_cost: cost,
             reference_type: row.reference_type || "manual",
             reference_id: row.reference_id || null,
-            notes: row.Reason?.toString() || "Imported from desktop stock movements",
+            notes:
+              row.Reason?.toString() || "Imported from desktop stock movements",
             created_by: profile.id,
-            created_at: row.CreatedAt || row.DateTime || row.Date || new Date().toISOString()
+            created_at:
+              row.CreatedAt ||
+              row.DateTime ||
+              row.Date ||
+              new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -1152,17 +1590,39 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Stock movement", `ID: ${row.Id}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "StockMovements", "stock_movements", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "StockMovements",
+        "stock_movements",
+        mappingsToSave,
+      );
     } else if (tableName === "Bills") {
-      const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
-      const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "Bills", sourceIds);
+      const customerIds = typedRows
+        .map((r) => r.CustomerId?.toString())
+        .filter(Boolean);
+      const custMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Customers",
+        customerIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "Bills",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1173,7 +1633,9 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
+        const custId = row.CustomerId
+          ? custMappings.get(row.CustomerId.toString())
+          : null;
         const invoiceNo = row.BillNo?.toString().trim();
         if (!invoiceNo) {
           failed++;
@@ -1185,13 +1647,21 @@ export async function importTableChunkAction(
         const amountPaid = pickNumber(row, ["AmountPaid", "amount_paid"]);
         const balanceDue = pickNumber(row, ["BalanceDue", "balance_due"]);
         const subtotal = pickNumber(row, ["Subtotal", "subtotal"]);
-        const discountTotal = pickNumber(row, ["Discount", "DiscountTotal", "discount_total"]);
+        const discountTotal = pickNumber(row, [
+          "Discount",
+          "DiscountTotal",
+          "discount_total",
+        ]);
         const bErr =
           assertNonNeg(grandTotal, "grand_total", row.Id) ??
           assertNonNeg(amountPaid, "amount_paid", row.Id) ??
           assertNonNeg(subtotal, "subtotal", row.Id) ??
           assertNonNeg(discountTotal, "discount_total", row.Id);
-        if (bErr) { failed++; warnings.push(bErr); continue; }
+        if (bErr) {
+          failed++;
+          warnings.push(bErr);
+          continue;
+        }
 
         const status = normalizeInvoiceStatus(
           row.PaymentStatus ?? row.Status ?? row.status,
@@ -1228,19 +1698,49 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Invoice", `Invoice: ${invoiceNo}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Bills", "invoices", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Bills",
+        "invoices",
+        mappingsToSave,
+      );
     } else if (tableName === "BillItems") {
-      const billIds = typedRows.map(r => r.BillId?.toString()).filter(Boolean);
-      const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
-      const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
-      const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "BillItems", sourceIds);
+      const billIds = typedRows
+        .map((r) => r.BillId?.toString())
+        .filter(Boolean);
+      const productIds = typedRows
+        .map((r) => r.ProductId?.toString())
+        .filter(Boolean);
+      const billMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Bills",
+        billIds,
+      );
+      const prodMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Products",
+        productIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "BillItems",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1251,24 +1751,40 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
+        const billId = row.BillId
+          ? billMappings.get(row.BillId.toString())
+          : null;
         if (!billId) {
           failed++;
-          warnings.push(`Skipped bill item with unmapped bill (Bill ID: ${row.BillId}, Item ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped bill item with unmapped bill (Bill ID: ${row.BillId}, Item ID: ${row.Id}).`,
+          );
           continue;
         }
-        const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
+        const prodId = row.ProductId
+          ? prodMappings.get(row.ProductId.toString())
+          : null;
 
         // Desktop BillItems uses Qty (not Quantity), Price (not UnitPrice),
         // and IsServiceTransaction (not ProductType).
-        const productName = pickString(row, ["ProductName", "ItemName", "Name"]) || "Unknown Product";
+        const productName =
+          pickString(row, ["ProductName", "ItemName", "Name"]) ||
+          "Unknown Product";
         const isService =
           pickBool(row, ["IsServiceTransaction", "is_service_transaction"]) ||
           String(row.ProductType ?? "").toLowerCase() === "service";
-        const unitPrice = pickNumber(row, ["Price", "UnitPrice", "SalePrice", "unit_price"]);
+        const unitPrice = pickNumber(row, [
+          "Price",
+          "UnitPrice",
+          "SalePrice",
+          "unit_price",
+        ]);
 
         const qty = pickNumber(row, ["Qty", "Quantity", "quantity"], 1);
-        const purchasePrice = pickNumber(row, ["PurchasePrice", "purchase_price"]);
+        const purchasePrice = pickNumber(row, [
+          "PurchasePrice",
+          "purchase_price",
+        ]);
         const itemDiscount = pickNumber(row, ["ItemDiscount", "item_discount"]);
         const lineTotal = pickNumber(row, ["LineTotal", "line_total"]);
         const svcTransAmt = pickNumber(row, ["ServiceTransactionAmount"]);
@@ -1283,7 +1799,11 @@ export async function importTableChunkAction(
           assertNonNeg(svcTransAmt, "service_transaction_amount", row.Id) ??
           assertNonNeg(svcComm, "service_commission", row.Id) ??
           assertNonNeg(svcTotalCharged, "service_total_charged", row.Id);
-        if (biErr) { failed++; warnings.push(biErr); continue; }
+        if (biErr) {
+          failed++;
+          warnings.push(biErr);
+          continue;
+        }
 
         const { data, error } = await supabase
           .from("invoice_items")
@@ -1300,9 +1820,12 @@ export async function importTableChunkAction(
             line_total: lineTotal,
             service_provider: pickString(row, ["ServiceProvider"]) || null,
             service_direction: pickString(row, ["ServiceDirection"]) || null,
-            service_account_number: pickString(row, ["ServiceAccountNumber"]) || null,
-            service_receiver_account: pickString(row, ["ServiceReceiverAccount"]) || null,
-            service_reference_no: pickString(row, ["ServiceReferenceNo"]) || null,
+            service_account_number:
+              pickString(row, ["ServiceAccountNumber"]) || null,
+            service_receiver_account:
+              pickString(row, ["ServiceReceiverAccount"]) || null,
+            service_reference_no:
+              pickString(row, ["ServiceReferenceNo"]) || null,
             service_transaction_amount: svcTransAmt,
             service_commission: svcComm,
             service_total_charged: svcTotalCharged,
@@ -1317,28 +1840,64 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Invoice item", `Item ID: ${row.Id}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "BillItems", "invoice_items", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "BillItems",
+        "invoice_items",
+        mappingsToSave,
+      );
     } else if (tableName === "BillItemBatchAllocations") {
-      const billItemIds = typedRows.map(r => r.BillItemId?.toString()).filter(Boolean);
-      const lotIds = typedRows.map(r => r.StockLotId?.toString()).filter(Boolean);
-      const itemMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "BillItems", billItemIds);
-      const lotMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ProductStockLots", lotIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "BillItemBatchAllocations", sourceIds);
+      const billItemIds = typedRows
+        .map((r) => r.BillItemId?.toString())
+        .filter(Boolean);
+      const lotIds = typedRows
+        .map((r) => r.StockLotId?.toString())
+        .filter(Boolean);
+      const itemMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "BillItems",
+        billItemIds,
+      );
+      const lotMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ProductStockLots",
+        lotIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "BillItemBatchAllocations",
+        sourceIds,
+      );
 
       // We also need the invoice_id and product_id which we can resolve by querying invoice_items
-      const mappedItemIds = Array.from(new Set(Array.from(itemMappings.values())));
+      const mappedItemIds = Array.from(
+        new Set(Array.from(itemMappings.values())),
+      );
       const { data: itemsData } = await supabase
         .from("invoice_items")
         .select("id, invoice_id, product_id")
         .in("id", mappedItemIds);
-      const itemInvoiceMap = new Map(itemsData?.map(it => [it.id, it.invoice_id]) ?? []);
-      const itemProductMap = new Map(itemsData?.map(it => [it.id, it.product_id]) ?? []);
+      const itemInvoiceMap = new Map(
+        itemsData?.map((it) => [it.id, it.invoice_id]) ?? [],
+      );
+      const itemProductMap = new Map(
+        itemsData?.map((it) => [it.id, it.product_id]) ?? [],
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1349,12 +1908,18 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const itemId = row.BillItemId ? itemMappings.get(row.BillItemId.toString()) : null;
-        const lotId = row.StockLotId ? lotMappings.get(row.StockLotId.toString()) : null;
+        const itemId = row.BillItemId
+          ? itemMappings.get(row.BillItemId.toString())
+          : null;
+        const lotId = row.StockLotId
+          ? lotMappings.get(row.StockLotId.toString())
+          : null;
 
         if (!itemId || !lotId) {
           failed++;
-          warnings.push(`Skipped lot allocation with missing item/lot mapping (Allocation ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped lot allocation with missing item/lot mapping (Allocation ID: ${row.Id}).`,
+          );
           continue;
         }
 
@@ -1363,7 +1928,9 @@ export async function importTableChunkAction(
 
         if (!invoiceId || !productId) {
           failed++;
-          warnings.push(`Skipped lot allocation with missing item context (Allocation ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped lot allocation with missing item context (Allocation ID: ${row.Id}).`,
+          );
           continue;
         }
 
@@ -1372,7 +1939,11 @@ export async function importTableChunkAction(
         const allocErr =
           assertNonNeg(allocQty, "quantity", row.Id) ??
           assertNonNeg(allocUnitCost, "unit_cost", row.Id);
-        if (allocErr) { failed++; warnings.push(allocErr); continue; }
+        if (allocErr) {
+          failed++;
+          warnings.push(allocErr);
+          continue;
+        }
 
         const { data, error } = await supabase
           .from("invoice_item_stock_allocations")
@@ -1392,19 +1963,49 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Stock allocation", `ID: ${row.Id}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "BillItemBatchAllocations", "invoice_item_stock_allocations", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "BillItemBatchAllocations",
+        "invoice_item_stock_allocations",
+        mappingsToSave,
+      );
     } else if (tableName === "Payments") {
-      const billIds = typedRows.map(r => r.BillId?.toString()).filter(Boolean);
-      const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
-      const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
-      const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "Payments", sourceIds);
+      const billIds = typedRows
+        .map((r) => r.BillId?.toString())
+        .filter(Boolean);
+      const customerIds = typedRows
+        .map((r) => r.CustomerId?.toString())
+        .filter(Boolean);
+      const billMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Bills",
+        billIds,
+      );
+      const custMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Customers",
+        customerIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "Payments",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1415,12 +2016,20 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
-        const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
+        const billId = row.BillId
+          ? billMappings.get(row.BillId.toString())
+          : null;
+        const custId = row.CustomerId
+          ? custMappings.get(row.CustomerId.toString())
+          : null;
 
         const paymentAmount = Number(row.Amount || 0);
         const payErr = assertNonNeg(paymentAmount, "amount", row.Id);
-        if (payErr) { failed++; warnings.push(payErr); continue; }
+        if (payErr) {
+          failed++;
+          warnings.push(payErr);
+          continue;
+        }
 
         const paymentDate = row.CreatedAt ? String(row.CreatedAt).trim() : null;
 
@@ -1436,7 +2045,7 @@ export async function importTableChunkAction(
             reference_no: row.ReferenceNo?.toString() || "",
             received_by: profile.id,
             ...(paymentDate ? { paid_at: paymentDate } : {}),
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: row.CreatedAt || new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -1445,19 +2054,49 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Payment", `ID: ${row.Id}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Payments", "payments", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Payments",
+        "payments",
+        mappingsToSave,
+      );
     } else if (tableName === "CustomerLedgerEntries") {
-      const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
-      const billIds = typedRows.map(r => r.BillId?.toString()).filter(Boolean);
-      const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
-      const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "CustomerLedgerEntries", sourceIds);
+      const customerIds = typedRows
+        .map((r) => r.CustomerId?.toString())
+        .filter(Boolean);
+      const billIds = typedRows
+        .map((r) => r.BillId?.toString())
+        .filter(Boolean);
+      const custMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Customers",
+        customerIds,
+      );
+      const billMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Bills",
+        billIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "CustomerLedgerEntries",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1468,18 +2107,28 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
+        const custId = row.CustomerId
+          ? custMappings.get(row.CustomerId.toString())
+          : null;
         if (!custId) {
           failed++;
-          warnings.push(`Skipped ledger entry with unmapped customer (ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped ledger entry with unmapped customer (ID: ${row.Id}).`,
+          );
           continue;
         }
-        const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
+        const billId = row.BillId
+          ? billMappings.get(row.BillId.toString())
+          : null;
 
         const ledAmount = Number(row.Amount || 0);
         const ledBalance = Number(row.BalanceAfter || 0);
         const ledErr = assertNonNeg(ledAmount, "amount", row.Id);
-        if (ledErr) { failed++; warnings.push(ledErr); continue; }
+        if (ledErr) {
+          failed++;
+          warnings.push(ledErr);
+          continue;
+        }
 
         const { data, error } = await supabase
           .from("customer_ledger_entries")
@@ -1494,53 +2143,95 @@ export async function importTableChunkAction(
             balance_after: ledBalance,
             description: row.Description?.toString() || "",
             created_by: profile.id,
-            created_at: row.Date || new Date().toISOString()
+            created_at: row.Date || new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Customer ledger entry", `ID: ${row.Id}`));
+          warnings.push(
+            importRowWarning("Customer ledger entry", `ID: ${row.Id}`),
+          );
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "CustomerLedgerEntries", "customer_ledger_entries", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "CustomerLedgerEntries",
+        "customer_ledger_entries",
+        mappingsToSave,
+      );
     } else if (tableName === "ReturnRefunds") {
-      const billIds = typedRows.map(r => r.BillId?.toString()).filter(Boolean);
-      const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
-      const billMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Bills", billIds);
-      const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
+      const billIds = typedRows
+        .map((r) => r.BillId?.toString())
+        .filter(Boolean);
+      const customerIds = typedRows
+        .map((r) => r.CustomerId?.toString())
+        .filter(Boolean);
+      const billMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Bills",
+        billIds,
+      );
+      const custMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Customers",
+        customerIds,
+      );
 
       // Fetch existing returns to avoid duplicate insert and register mapping safely
       const { data: existingReturns } = await supabase
         .from("returns")
         .select("id, return_no")
         .eq("organization_id", orgId);
-      
+
       const returnMap = new Map(
-        existingReturns?.map(r => [r.return_no, r.id]) ?? []
+        existingReturns?.map((r) => [r.return_no, r.id]) ?? [],
       );
 
       for (const row of typedRows) {
-        const billId = row.BillId ? billMappings.get(row.BillId.toString()) : null;
+        const billId = row.BillId
+          ? billMappings.get(row.BillId.toString())
+          : null;
         if (!billId) {
           failed++;
-          warnings.push(`Skipped return refund with unmapped bill (ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped return refund with unmapped bill (ID: ${row.Id}).`,
+          );
           continue;
         }
-        const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
+        const custId = row.CustomerId
+          ? custMappings.get(row.CustomerId.toString())
+          : null;
 
         const refundMethod = normalizePaymentMethod(row.RefundMethod);
         // Online returns.refund_method enum is a subset (no customer_credit) —
         // fall back to "cash" if the normalised method isn't allowed there.
-        const allowedRefundMethods = new Set(["cash", "card", "easypaisa", "jazzcash", "bank_transfer"]);
-        const finalRefundMethod = allowedRefundMethods.has(refundMethod) ? refundMethod : "cash";
+        const allowedRefundMethods = new Set([
+          "cash",
+          "card",
+          "easypaisa",
+          "jazzcash",
+          "bank_transfer",
+        ]);
+        const finalRefundMethod = allowedRefundMethods.has(refundMethod)
+          ? refundMethod
+          : "cash";
 
-        const retNo = pickString(row, ["ReturnNo"]) || `RET-${row.Id.toString()}`;
+        const retNo =
+          pickString(row, ["ReturnNo"]) || `RET-${row.Id.toString()}`;
 
         if (returnMap.has(retNo)) {
           const targetId = returnMap.get(retNo)!;
@@ -1549,7 +2240,11 @@ export async function importTableChunkAction(
         } else {
           const refundAmt = pickNumber(row, ["RefundAmount"]);
           const retErr = assertNonNeg(refundAmt, "refund_amount", row.Id);
-          if (retErr) { failed++; warnings.push(retErr); continue; }
+          if (retErr) {
+            failed++;
+            warnings.push(retErr);
+            continue;
+          }
 
           const { data, error } = await supabase
             .from("returns")
@@ -1565,7 +2260,8 @@ export async function importTableChunkAction(
               refund_method: finalRefundMethod,
               notes: pickString(row, ["Reason", "Notes"]),
               created_by: profile.id,
-              created_at: pickString(row, ["CreatedAt"]) || new Date().toISOString(),
+              created_at:
+                pickString(row, ["CreatedAt"]) || new Date().toISOString(),
             })
             .select("id")
             .single();
@@ -1575,33 +2271,81 @@ export async function importTableChunkAction(
             warnings.push(importRowWarning("Return", `Return ID: ${row.Id}`));
           } else {
             returnMap.set(retNo, data.id);
-            mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+            mappingsToSave.push({
+              sourceId: row.Id.toString(),
+              targetId: data.id,
+            });
             inserted++;
           }
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "ReturnRefunds", "returns", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ReturnRefunds",
+        "returns",
+        mappingsToSave,
+      );
     } else if (tableName === "ReturnItems") {
-      const returnIds = typedRows.map(r => r.ReturnId?.toString()).filter(Boolean);
-      const billItemIds = typedRows.map(r => r.BillItemId?.toString()).filter(Boolean);
-      const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
-      const retMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ReturnRefunds", returnIds);
-      const itemMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "BillItems", billItemIds);
-      const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "ReturnItems", sourceIds);
+      const returnIds = typedRows
+        .map((r) => r.ReturnId?.toString())
+        .filter(Boolean);
+      const billItemIds = typedRows
+        .map((r) => r.BillItemId?.toString())
+        .filter(Boolean);
+      const productIds = typedRows
+        .map((r) => r.ProductId?.toString())
+        .filter(Boolean);
+      const retMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ReturnRefunds",
+        returnIds,
+      );
+      const itemMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "BillItems",
+        billItemIds,
+      );
+      const prodMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Products",
+        productIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "ReturnItems",
+        sourceIds,
+      );
 
       // Fetch invoice contexts to find invoice_id and product metadata
-      const mappedItemIds = Array.from(new Set(Array.from(itemMappings.values())));
+      const mappedItemIds = Array.from(
+        new Set(Array.from(itemMappings.values())),
+      );
       const { data: itemsData } = await supabase
         .from("invoice_items")
         .select("id, invoice_id, product_name, product_type, unit_price")
         .in("id", mappedItemIds);
-      const itemInvoiceMap = new Map(itemsData?.map(it => [it.id, it.invoice_id]) ?? []);
-      const itemNameMap = new Map(itemsData?.map(it => [it.id, it.product_name]) ?? []);
-      const itemTypeMap = new Map(itemsData?.map(it => [it.id, it.product_type]) ?? []);
-      const itemPriceMap = new Map(itemsData?.map(it => [it.id, Number(it.unit_price)]) ?? []);
+      const itemInvoiceMap = new Map(
+        itemsData?.map((it) => [it.id, it.invoice_id]) ?? [],
+      );
+      const itemNameMap = new Map(
+        itemsData?.map((it) => [it.id, it.product_name]) ?? [],
+      );
+      const itemTypeMap = new Map(
+        itemsData?.map((it) => [it.id, it.product_type]) ?? [],
+      );
+      const itemPriceMap = new Map(
+        itemsData?.map((it) => [it.id, Number(it.unit_price)]) ?? [],
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1612,32 +2356,50 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const retId = row.ReturnId ? retMappings.get(row.ReturnId.toString()) : null;
-        const itemId = row.BillItemId ? itemMappings.get(row.BillItemId.toString()) : null;
+        const retId = row.ReturnId
+          ? retMappings.get(row.ReturnId.toString())
+          : null;
+        const itemId = row.BillItemId
+          ? itemMappings.get(row.BillItemId.toString())
+          : null;
 
         if (!retId || !itemId) {
           failed++;
-          warnings.push(`Skipped return item with missing parent mapping (ReturnItem ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped return item with missing parent mapping (ReturnItem ID: ${row.Id}).`,
+          );
           continue;
         }
 
         const invoiceId = itemInvoiceMap.get(itemId);
-        const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
+        const prodId = row.ProductId
+          ? prodMappings.get(row.ProductId.toString())
+          : null;
 
         if (!invoiceId) {
           failed++;
-          warnings.push(`Skipped return item due to missing invoice context (ReturnItem ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped return item due to missing invoice context (ReturnItem ID: ${row.Id}).`,
+          );
           continue;
         }
 
         const riQty = pickNumber(row, ["QtyReturned", "Qty", "Quantity"]);
-        const riUnitPrice = pickNumber(row, ["UnitPrice"], itemPriceMap.get(itemId) || 0);
+        const riUnitPrice = pickNumber(
+          row,
+          ["UnitPrice"],
+          itemPriceMap.get(itemId) || 0,
+        );
         const riLineTotal = pickNumber(row, ["LineTotal", "RefundAmount"]);
         const riErr =
           assertNonNeg(riQty, "quantity", row.Id) ??
           assertNonNeg(riUnitPrice, "unit_price", row.Id) ??
           assertNonNeg(riLineTotal, "line_total", row.Id);
-        if (riErr) { failed++; warnings.push(riErr); continue; }
+        if (riErr) {
+          failed++;
+          warnings.push(riErr);
+          continue;
+        }
 
         const { data, error } = await supabase
           .from("return_items")
@@ -1659,19 +2421,43 @@ export async function importTableChunkAction(
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Return item", `Return item ID: ${row.Id}`));
+          warnings.push(
+            importRowWarning("Return item", `Return item ID: ${row.Id}`),
+          );
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "ReturnItems", "return_items", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ReturnItems",
+        "return_items",
+        mappingsToSave,
+      );
     } else if (tableName === "SupplierPurchases") {
-      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
-      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierPurchases", sourceIds);
+      const supplierIds = typedRows
+        .map((r) => r.SupplierId?.toString())
+        .filter(Boolean);
+      const supMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Suppliers",
+        supplierIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "SupplierPurchases",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1683,17 +2469,23 @@ export async function importTableChunkAction(
         }
 
         const supplierRaw = row.SupplierId?.toString();
-        const supId = supplierRaw ? (supMappings.get(supplierRaw) ?? null) : null;
+        const supId = supplierRaw
+          ? (supMappings.get(supplierRaw) ?? null)
+          : null;
         if (!supId) {
           failed++;
-          warnings.push(`Skipped supplier purchase with unmapped supplier (Purchase ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`);
+          warnings.push(
+            `Skipped supplier purchase with unmapped supplier (Purchase ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`,
+          );
           continue;
         }
 
         const purchaseNo = row.PurchaseNo?.toString().trim();
         if (!purchaseNo) {
           failed++;
-          warnings.push(`Skipped supplier purchase with empty PurchaseNo (ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped supplier purchase with empty PurchaseNo (ID: ${row.Id}).`,
+          );
           continue;
         }
 
@@ -1709,10 +2501,16 @@ export async function importTableChunkAction(
           assertNonNeg(grandTotal, "grand_total", row.Id) ??
           assertNonNeg(amountPaid, "amount_paid", row.Id) ??
           assertNonNeg(balanceDue, "balance_due", row.Id);
-        if (spErr) { failed++; warnings.push(spErr); continue; }
+        if (spErr) {
+          failed++;
+          warnings.push(spErr);
+          continue;
+        }
 
         const status = (row.Status || "paid").toLowerCase();
-        const finalStatus = ["unpaid", "partial", "paid"].includes(status) ? status : "paid";
+        const finalStatus = ["unpaid", "partial", "paid"].includes(status)
+          ? status
+          : "paid";
 
         const { data, error } = await supabase
           .from("supplier_purchases")
@@ -1722,7 +2520,8 @@ export async function importTableChunkAction(
             supplier_id: supId,
             purchase_no: purchaseNo,
             status: finalStatus,
-            purchase_date: row.PurchaseDate || new Date().toISOString().split("T")[0],
+            purchase_date:
+              row.PurchaseDate || new Date().toISOString().split("T")[0],
             subtotal,
             discount_total: discountTotal,
             grand_total: grandTotal,
@@ -1731,33 +2530,75 @@ export async function importTableChunkAction(
             reference_no: row.ReferenceNo?.toString() || null,
             notes: row.Notes?.toString() || null,
             created_by: profile.id,
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: row.CreatedAt || new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Supplier purchase", `Purchase: ${purchaseNo}`));
+          warnings.push(
+            importRowWarning("Supplier purchase", `Purchase: ${purchaseNo}`),
+          );
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierPurchases", "supplier_purchases", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierPurchases",
+        "supplier_purchases",
+        mappingsToSave,
+      );
     } else if (tableName === "SupplierPurchaseItems") {
-      const purchaseIds = typedRows.map(r => r.PurchaseId?.toString()).filter(Boolean);
-      const productIds = typedRows.map(r => r.ProductId?.toString()).filter(Boolean);
-      const purchaseMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPurchases", purchaseIds);
-      const prodMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Products", productIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierPurchaseItems", sourceIds);
+      const purchaseIds = typedRows
+        .map((r) => r.PurchaseId?.toString())
+        .filter(Boolean);
+      const productIds = typedRows
+        .map((r) => r.ProductId?.toString())
+        .filter(Boolean);
+      const purchaseMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierPurchases",
+        purchaseIds,
+      );
+      const prodMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Products",
+        productIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "SupplierPurchaseItems",
+        sourceIds,
+      );
 
-      const lotIds = typedRows.map(r => r.StockLotId?.toString()).filter(Boolean);
-      const lotMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "ProductStockLots", lotIds);
+      const lotIds = typedRows
+        .map((r) => r.StockLotId?.toString())
+        .filter(Boolean);
+      const lotMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ProductStockLots",
+        lotIds,
+      );
 
-      const targetProductIds = Array.from(new Set(Array.from(prodMappings.values())));
+      const targetProductIds = Array.from(
+        new Set(Array.from(prodMappings.values())),
+      );
       const { data: lotsData } = await supabase
         .from("product_stock_lots")
         .select("id, product_id, lot_number")
@@ -1765,7 +2606,7 @@ export async function importTableChunkAction(
         .in("product_id", targetProductIds);
 
       const lotLookupMap = new Map<string, string>();
-      lotsData?.forEach(l => {
+      lotsData?.forEach((l) => {
         lotLookupMap.set(`${l.product_id}-${l.lot_number}`, l.id);
       });
 
@@ -1778,17 +2619,25 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const purchaseId = row.PurchaseId ? purchaseMappings.get(row.PurchaseId.toString()) : null;
+        const purchaseId = row.PurchaseId
+          ? purchaseMappings.get(row.PurchaseId.toString())
+          : null;
         if (!purchaseId) {
           failed++;
-          warnings.push(`Skipped supplier purchase item with unmapped purchase (Item ID: ${row.Id}, Purchase ID: ${row.PurchaseId}).`);
+          warnings.push(
+            `Skipped supplier purchase item with unmapped purchase (Item ID: ${row.Id}, Purchase ID: ${row.PurchaseId}).`,
+          );
           continue;
         }
 
-        const prodId = row.ProductId ? prodMappings.get(row.ProductId.toString()) : null;
+        const prodId = row.ProductId
+          ? prodMappings.get(row.ProductId.toString())
+          : null;
         if (!prodId) {
           failed++;
-          warnings.push(`Skipped supplier purchase item with unmapped product (Item ID: ${row.Id}, Product ID: ${row.ProductId}).`);
+          warnings.push(
+            `Skipped supplier purchase item with unmapped product (Item ID: ${row.Id}, Product ID: ${row.ProductId}).`,
+          );
           continue;
         }
 
@@ -1802,14 +2651,20 @@ export async function importTableChunkAction(
           assertNonNeg(lineTotal, "line_total", row.Id);
         if (spiErr || quantity <= 0) {
           failed++;
-          warnings.push(spiErr || `Quantity must be greater than 0 for item ID ${row.Id}.`);
+          warnings.push(
+            spiErr || `Quantity must be greater than 0 for item ID ${row.Id}.`,
+          );
           continue;
         }
 
         let lotId: string | null = null;
         if (row.StockLotId) {
           lotId = lotMappings.get(row.StockLotId.toString()) || null;
-        } else if (row.BatchNumber !== undefined && row.BatchNumber !== null && row.BatchNumber !== "") {
+        } else if (
+          row.BatchNumber !== undefined &&
+          row.BatchNumber !== null &&
+          row.BatchNumber !== ""
+        ) {
           lotId = lotLookupMap.get(`${prodId}-${row.BatchNumber}`) || null;
         }
 
@@ -1825,28 +2680,60 @@ export async function importTableChunkAction(
             line_total: lineTotal,
             stock_lot_id: lotId,
             notes: row.Notes?.toString() || null,
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: row.CreatedAt || new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Supplier purchase item", `Item ID: ${row.Id}`));
+          warnings.push(
+            importRowWarning("Supplier purchase item", `Item ID: ${row.Id}`),
+          );
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierPurchaseItems", "supplier_purchase_items", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierPurchaseItems",
+        "supplier_purchase_items",
+        mappingsToSave,
+      );
     } else if (tableName === "SupplierPayments") {
-      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
-      const purchaseIds = typedRows.map(r => r.PurchaseId?.toString()).filter(Boolean);
-      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
-      const purchaseMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPurchases", purchaseIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierPayments", sourceIds);
+      const supplierIds = typedRows
+        .map((r) => r.SupplierId?.toString())
+        .filter(Boolean);
+      const purchaseIds = typedRows
+        .map((r) => r.PurchaseId?.toString())
+        .filter(Boolean);
+      const supMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Suppliers",
+        supplierIds,
+      );
+      const purchaseMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierPurchases",
+        purchaseIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "SupplierPayments",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1857,25 +2744,39 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const supId = row.SupplierId ? supMappings.get(row.SupplierId.toString()) : null;
+        const supId = row.SupplierId
+          ? supMappings.get(row.SupplierId.toString())
+          : null;
         if (!supId) {
           failed++;
-          warnings.push(`Skipped supplier payment with unmapped supplier (Payment ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`);
+          warnings.push(
+            `Skipped supplier payment with unmapped supplier (Payment ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`,
+          );
           continue;
         }
 
-        const purchaseId = row.PurchaseId ? purchaseMappings.get(row.PurchaseId.toString()) : null;
+        const purchaseId = row.PurchaseId
+          ? purchaseMappings.get(row.PurchaseId.toString())
+          : null;
 
         const amount = Number(row.Amount || 0);
         const payErr = assertNonNeg(amount, "amount", row.Id);
         if (payErr || amount <= 0) {
           failed++;
-          warnings.push(payErr || `Payment amount must be greater than 0 (ID: ${row.Id}).`);
+          warnings.push(
+            payErr || `Payment amount must be greater than 0 (ID: ${row.Id}).`,
+          );
           continue;
         }
 
         const rawMethod = normalizePaymentMethod(row.Method);
-        const allowedMethods = new Set(["cash", "card", "easypaisa", "jazzcash", "bank_transfer"]);
+        const allowedMethods = new Set([
+          "cash",
+          "card",
+          "easypaisa",
+          "jazzcash",
+          "bank_transfer",
+        ]);
         const finalMethod = allowedMethods.has(rawMethod) ? rawMethod : "cash";
 
         const { data, error } = await supabase
@@ -1891,30 +2792,70 @@ export async function importTableChunkAction(
             note: row.Note?.toString() || null,
             paid_at: row.PaidAt || row.CreatedAt || new Date().toISOString(),
             created_by: profile.id,
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: row.CreatedAt || new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Supplier payment", `Payment ID: ${row.Id}`));
+          warnings.push(
+            importRowWarning("Supplier payment", `Payment ID: ${row.Id}`),
+          );
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierPayments", "supplier_payments", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierPayments",
+        "supplier_payments",
+        mappingsToSave,
+      );
     } else if (tableName === "SupplierLedgerEntries") {
-      const supplierIds = typedRows.map(r => r.SupplierId?.toString()).filter(Boolean);
-      const purchaseIds = typedRows.map(r => r.PurchaseId?.toString()).filter(Boolean);
-      const paymentIds = typedRows.map(r => r.PaymentId?.toString()).filter(Boolean);
-      const supMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Suppliers", supplierIds);
-      const purchaseMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPurchases", purchaseIds);
-      const paymentMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "SupplierPayments", paymentIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "SupplierLedgerEntries", sourceIds);
+      const supplierIds = typedRows
+        .map((r) => r.SupplierId?.toString())
+        .filter(Boolean);
+      const purchaseIds = typedRows
+        .map((r) => r.PurchaseId?.toString())
+        .filter(Boolean);
+      const paymentIds = typedRows
+        .map((r) => r.PaymentId?.toString())
+        .filter(Boolean);
+      const supMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Suppliers",
+        supplierIds,
+      );
+      const purchaseMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierPurchases",
+        purchaseIds,
+      );
+      const paymentMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierPayments",
+        paymentIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "SupplierLedgerEntries",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1925,27 +2866,47 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const supId = row.SupplierId ? supMappings.get(row.SupplierId.toString()) : null;
+        const supId = row.SupplierId
+          ? supMappings.get(row.SupplierId.toString())
+          : null;
         if (!supId) {
           failed++;
-          warnings.push(`Skipped supplier ledger entry with unmapped supplier (Ledger ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`);
+          warnings.push(
+            `Skipped supplier ledger entry with unmapped supplier (Ledger ID: ${row.Id}, Supplier ID: ${row.SupplierId}).`,
+          );
           continue;
         }
 
-        const purchaseId = row.PurchaseId ? purchaseMappings.get(row.PurchaseId.toString()) : null;
-        const paymentId = row.PaymentId ? paymentMappings.get(row.PaymentId.toString()) : null;
+        const purchaseId = row.PurchaseId
+          ? purchaseMappings.get(row.PurchaseId.toString())
+          : null;
+        const paymentId = row.PaymentId
+          ? paymentMappings.get(row.PaymentId.toString())
+          : null;
 
         const amount = Number(row.Amount || 0);
         const balanceAfter = Number(row.BalanceAfter || 0);
 
         const slErr = assertNonNeg(amount, "amount", row.Id);
-        if (slErr) { failed++; warnings.push(slErr); continue; }
+        if (slErr) {
+          failed++;
+          warnings.push(slErr);
+          continue;
+        }
 
         const entryType = (row.EntryType || "adjustment").toLowerCase();
-        const finalEntryType = ["purchase_credit", "payment_debit", "adjustment"].includes(entryType) ? entryType : "adjustment";
+        const finalEntryType = [
+          "purchase_credit",
+          "payment_debit",
+          "adjustment",
+        ].includes(entryType)
+          ? entryType
+          : "adjustment";
 
         const direction = (row.Direction || "credit").toLowerCase();
-        const finalDirection = ["credit", "debit"].includes(direction) ? direction : "credit";
+        const finalDirection = ["credit", "debit"].includes(direction)
+          ? direction
+          : "credit";
 
         const { data, error } = await supabase
           .from("supplier_ledger_entries")
@@ -1962,26 +2923,50 @@ export async function importTableChunkAction(
             description: row.Description?.toString() || "",
             reference_number: row.ReferenceNumber?.toString() || null,
             created_by: profile.id,
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: row.CreatedAt || new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Supplier ledger entry", `Ledger ID: ${row.Id}`));
+          warnings.push(
+            importRowWarning("Supplier ledger entry", `Ledger ID: ${row.Id}`),
+          );
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "SupplierLedgerEntries", "supplier_ledger_entries", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "SupplierLedgerEntries",
+        "supplier_ledger_entries",
+        mappingsToSave,
+      );
     } else if (tableName === "CreditPayments") {
-      const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
-      const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "CreditPayments", sourceIds);
+      const customerIds = typedRows
+        .map((r) => r.CustomerId?.toString())
+        .filter(Boolean);
+      const custMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Customers",
+        customerIds,
+      );
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "CreditPayments",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -1992,10 +2977,14 @@ export async function importTableChunkAction(
           continue;
         }
 
-        const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
+        const custId = row.CustomerId
+          ? custMappings.get(row.CustomerId.toString())
+          : null;
         if (!custId) {
           failed++;
-          warnings.push(`Skipped credit payment with unmapped customer (Payment ID: ${row.Id}, Customer ID: ${row.CustomerId}).`);
+          warnings.push(
+            `Skipped credit payment with unmapped customer (Payment ID: ${row.Id}, Customer ID: ${row.CustomerId}).`,
+          );
           continue;
         }
 
@@ -2003,12 +2992,21 @@ export async function importTableChunkAction(
         const cpErr = assertNonNeg(amount, "amount", row.Id);
         if (cpErr || amount <= 0) {
           failed++;
-          warnings.push(cpErr || `Credit payment amount must be greater than 0 (ID: ${row.Id}).`);
+          warnings.push(
+            cpErr ||
+              `Credit payment amount must be greater than 0 (ID: ${row.Id}).`,
+          );
           continue;
         }
 
         const rawMethod = normalizePaymentMethod(row.PaymentMethod);
-        const allowedMethods = new Set(["cash", "card", "easypaisa", "jazzcash", "bank_transfer"]);
+        const allowedMethods = new Set([
+          "cash",
+          "card",
+          "easypaisa",
+          "jazzcash",
+          "bank_transfer",
+        ]);
         const finalMethod = allowedMethods.has(rawMethod) ? rawMethod : "cash";
 
         const { data, error } = await supabase
@@ -2022,24 +3020,43 @@ export async function importTableChunkAction(
             reference_number: row.ReferenceNumber?.toString() || null,
             notes: row.Notes?.toString() || null,
             received_by: profile.id,
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: row.CreatedAt || new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Customer credit payment", `Payment ID: ${row.Id}`));
+          warnings.push(
+            importRowWarning(
+              "Customer credit payment",
+              `Payment ID: ${row.Id}`,
+            ),
+          );
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "CreditPayments", "credit_payments", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "CreditPayments",
+        "credit_payments",
+        mappingsToSave,
+      );
     } else if (tableName === "Expenses") {
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "Expenses", sourceIds);
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "Expenses",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -2059,7 +3076,11 @@ export async function importTableChunkAction(
 
         const expenseAmount = Number(row.Amount || 0);
         const expErr = assertNonNeg(expenseAmount, "amount", row.Id);
-        if (expErr) { failed++; warnings.push(expErr); continue; }
+        if (expErr) {
+          failed++;
+          warnings.push(expErr);
+          continue;
+        }
 
         const { data, error } = await supabase
           .from("expenses")
@@ -2074,7 +3095,7 @@ export async function importTableChunkAction(
             spent_at: row.Date || new Date().toISOString(),
             status: row.Status || "active",
             created_by: profile.id,
-            created_at: row.Date || new Date().toISOString()
+            created_at: row.Date || new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -2083,18 +3104,37 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Expense", `ID: ${row.Id}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "Expenses", "expenses", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Expenses",
+        "expenses",
+        mappingsToSave,
+      );
     } else if (tableName === "RepairJobs") {
-      const customerIds = typedRows.map(r => r.CustomerId?.toString()).filter(Boolean);
-      const custMappings = await resolveTargetIdsBatch(supabase, orgId, jobId, "Customers", customerIds);
+      const customerIds = typedRows
+        .map((r) => r.CustomerId?.toString())
+        .filter(Boolean);
+      const custMappings = await resolveTargetIdsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "Customers",
+        customerIds,
+      );
 
       for (const row of typedRows) {
-        const custId = row.CustomerId ? custMappings.get(row.CustomerId.toString()) : null;
+        const custId = row.CustomerId
+          ? custMappings.get(row.CustomerId.toString())
+          : null;
         const jobNo = row.JobNo?.toString().trim();
         if (!jobNo) {
           failed++;
@@ -2107,7 +3147,11 @@ export async function importTableChunkAction(
         const rjErr =
           assertNonNeg(estCost, "estimated_cost", row.Id) ??
           assertNonNeg(advPaid, "advance_paid", row.Id);
-        if (rjErr) { failed++; warnings.push(rjErr); continue; }
+        if (rjErr) {
+          failed++;
+          warnings.push(rjErr);
+          continue;
+        }
 
         const { data, error } = await supabase
           .from("repairs")
@@ -2130,7 +3174,7 @@ export async function importTableChunkAction(
             notes: row.Notes?.toString() || "",
             expected_delivery_at: row.ExpectedDelivery || null,
             delivered_at: row.DeliveredAt || null,
-            created_at: row.CreatedAt || new Date().toISOString()
+            created_at: row.CreatedAt || new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -2139,18 +3183,29 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Repair job", `Job: ${jobNo}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "RepairJobs", "repairs", mappingsToSave);
-
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "RepairJobs",
+        "repairs",
+        mappingsToSave,
+      );
     } else if (tableName === "DailyClosings") {
       for (const row of typedRows) {
         const closingDate = row.ClosingDate?.toString().split("T")[0];
         if (!closingDate) {
           failed++;
-          warnings.push(`Skipped daily closing with empty date (ID: ${row.Id}).`);
+          warnings.push(
+            `Skipped daily closing with empty date (ID: ${row.Id}).`,
+          );
           continue;
         }
 
@@ -2159,35 +3214,43 @@ export async function importTableChunkAction(
         const dcErr =
           assertNonNeg(cashExpected, "CashExpected", row.Id) ??
           assertNonNeg(cashCounted, "CashCounted", row.Id);
-        if (dcErr) { failed++; warnings.push(dcErr); continue; }
+        if (dcErr) {
+          failed++;
+          warnings.push(dcErr);
+          continue;
+        }
 
-        const { error } = await supabase
-          .from("daily_closings")
-          .insert({
-            organization_id: orgId,
-            branch_id: branchId,
-            closing_date: closingDate,
-            notes: row.Notes?.toString() || "Imported daily closing",
-            expected_closing_cash: cashExpected,
-            actual_closing_cash: cashCounted,
-            cash_difference: Number(row.CashDifference || 0),
-            status: "closed",
-            finalized_by: profile.id,
-            finalized_at: row.FinalizedAt || new Date().toISOString(),
-            created_at: row.FinalizedAt || new Date().toISOString()
-          });
+        const { error } = await supabase.from("daily_closings").insert({
+          organization_id: orgId,
+          branch_id: branchId,
+          closing_date: closingDate,
+          notes: row.Notes?.toString() || "Imported daily closing",
+          expected_closing_cash: cashExpected,
+          actual_closing_cash: cashCounted,
+          cash_difference: Number(row.CashDifference || 0),
+          status: "closed",
+          finalized_by: profile.id,
+          finalized_at: row.FinalizedAt || new Date().toISOString(),
+          created_at: row.FinalizedAt || new Date().toISOString(),
+        });
 
         if (error) {
           failed++;
-          warnings.push(importRowWarning("Daily closing", `Date: ${closingDate}`));
+          warnings.push(
+            importRowWarning("Daily closing", `Date: ${closingDate}`),
+          );
         } else {
           inserted++;
         }
       }
-
     } else if (tableName === "ActivityLog") {
-      const sourceIds = typedRows.map(r => r.Id?.toString()).filter(Boolean);
-      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(supabase, orgId, "ActivityLog", sourceIds);
+      const sourceIds = typedRows.map((r) => r.Id?.toString()).filter(Boolean);
+      const existingMappings = await resolveTargetIdsAcrossAllJobsBatch(
+        supabase,
+        orgId,
+        "ActivityLog",
+        sourceIds,
+      );
 
       for (const row of typedRows) {
         const sourceId = row.Id?.toString();
@@ -2223,9 +3286,9 @@ export async function importTableChunkAction(
               original_actor: row.Actor || "staff",
               import_job_id: jobId,
               source_table: "ActivityLog",
-              source_id: row.Id?.toString() || null
+              source_id: row.Id?.toString() || null,
             },
-            created_at: row.Date || new Date().toISOString()
+            created_at: row.Date || new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -2234,19 +3297,55 @@ export async function importTableChunkAction(
           failed++;
           warnings.push(importRowWarning("Audit log entry", `ID: ${row.Id}`));
         } else {
-          mappingsToSave.push({ sourceId: row.Id.toString(), targetId: data.id });
+          mappingsToSave.push({
+            sourceId: row.Id.toString(),
+            targetId: data.id,
+          });
           inserted++;
         }
       }
-      await saveRowMappingsBatch(supabase, orgId, jobId, "ActivityLog", "audit_logs", mappingsToSave);
+      await saveRowMappingsBatch(
+        supabase,
+        orgId,
+        jobId,
+        "ActivityLog",
+        "audit_logs",
+        mappingsToSave,
+      );
     } else {
-      return { success: false, inserted: 0, skipped: 0, skippedOrphan, failed: 0, warnings, error: `Unsupported table: ${tableName}` };
+      return {
+        success: false,
+        inserted: 0,
+        skipped: 0,
+        skippedOrphan,
+        failed: 0,
+        warnings,
+        error: `Unsupported table: ${tableName}`,
+      };
     }
 
-    return { success: true, inserted, skipped, skippedOrphan, failed, warnings };
+    return {
+      success: true,
+      inserted,
+      skipped,
+      skippedOrphan,
+      failed,
+      warnings,
+    };
   } catch (err: unknown) {
     console.error(`Error importing chunk for ${tableName}:`, err);
-    return { success: false, inserted, skipped, skippedOrphan, failed: failed + rows.length, warnings, error: getSafeActionError(err, "Some records couldn't be imported. Please try again.") };
+    return {
+      success: false,
+      inserted,
+      skipped,
+      skippedOrphan,
+      failed: failed + rows.length,
+      warnings,
+      error: getSafeActionError(
+        err,
+        "Some records couldn't be imported. Please try again.",
+      ),
+    };
   }
 }
 
@@ -2255,11 +3354,18 @@ export async function importOnlineTableChunkAction(
   jobId: string,
   tableName: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rows: any[]
+  rows: any[],
 ): Promise<ChunkImportState> {
   if (accountingTable(tableName) || !LEGACY_ANCILLARY_TABLES.has(tableName)) {
-    return { success: false, inserted: 0, skipped: 0, failed: 0, warnings: [],
-      error: "Accounting and inventory tables require the atomic restore workflow." };
+    return {
+      success: false,
+      inserted: 0,
+      skipped: 0,
+      failed: 0,
+      warnings: [],
+      error:
+        "Accounting and inventory tables require the atomic restore workflow.",
+    };
   }
   let inserted = 0;
   let skipped = 0;
@@ -2269,12 +3375,30 @@ export async function importOnlineTableChunkAction(
   try {
     const { user, profile } = await getCurrentContext();
     if (!user || !profile || !profile.organization_id) {
-      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: "Not authenticated." };
+      return {
+        success: false,
+        inserted: 0,
+        skipped: 0,
+        failed: 0,
+        warnings,
+        error: "Not authenticated.",
+      };
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
-      logAudit({ module: "settings", action: "permission.denied", details: `Online import chunk denied for role ${profile.role}` });
-      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: "Only owners and admins can import data." };
+      logAudit({
+        module: "settings",
+        action: "permission.denied",
+        details: `Online import chunk denied for role ${profile.role}`,
+      });
+      return {
+        success: false,
+        inserted: 0,
+        skipped: 0,
+        failed: 0,
+        warnings,
+        error: "Only owners and admins can import data.",
+      };
     }
 
     const orgId = profile.organization_id;
@@ -2307,12 +3431,19 @@ export async function importOnlineTableChunkAction(
       SupplierWriteOffs: "supplier_write_offs",
       CashShifts: "cash_shifts",
       StaffPermissions: "staff_permissions",
-      LossPreventionEvents: "loss_prevention_events"
+      LossPreventionEvents: "loss_prevention_events",
     };
 
     const targetTable = tableMap[tableName];
     if (!targetTable) {
-      return { success: false, inserted: 0, skipped: 0, failed: 0, warnings, error: `Unsupported table: ${tableName}` };
+      return {
+        success: false,
+        inserted: 0,
+        skipped: 0,
+        failed: 0,
+        warnings,
+        error: `Unsupported table: ${tableName}`,
+      };
     }
 
     // Process each row to ensure idempotency and tenant safety
@@ -2342,7 +3473,7 @@ export async function importOnlineTableChunkAction(
         // 2. Tenant Safety: clone and force organization_id
         const row = {
           ...rawRow,
-          organization_id: orgId
+          organization_id: orgId,
         };
 
         // 3. Cash Shifts Edge Case: Check for active open shifts for this branch
@@ -2357,7 +3488,9 @@ export async function importOnlineTableChunkAction(
 
           if (existingOpen) {
             skipped++;
-            warnings.push(`Skipped open cash shift (ID: ${rowId}) because an open shift already exists for this branch.`);
+            warnings.push(
+              `Skipped open cash shift (ID: ${rowId}) because an open shift already exists for this branch.`,
+            );
             continue;
           }
         }
@@ -2382,12 +3515,26 @@ export async function importOnlineTableChunkAction(
     return { success: true, inserted, skipped, failed, warnings };
   } catch (err: unknown) {
     console.error(`Error importing online chunk for ${tableName}:`, err);
-    return { success: false, inserted: 0, skipped: 0, failed: failed + rows.length, warnings, error: getSafeActionError(err, "Some records couldn't be imported. Please try again.") };
+    return {
+      success: false,
+      inserted: 0,
+      skipped: 0,
+      failed: failed + rows.length,
+      warnings,
+      error: getSafeActionError(
+        err,
+        "Some records couldn't be imported. Please try again.",
+      ),
+    };
   }
 }
 
 // Enhance Export Database Action
-export async function fetchExportDataAction(): Promise<{ success: boolean; data?: ExportData; error?: string }> {
+export async function fetchExportDataAction(): Promise<{
+  success: boolean;
+  data?: ExportData;
+  error?: string;
+}> {
   try {
     const { user, profile } = await getCurrentContext();
     if (!user || !profile) {
@@ -2395,8 +3542,15 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
     }
 
     if (profile.role !== "owner" && profile.role !== "admin") {
-      logAudit({ module: "settings", action: "permission.denied", details: `Export data denied for role ${profile.role}` });
-      return { success: false, error: "Only Owners and Admins can export data." };
+      logAudit({
+        module: "settings",
+        action: "permission.denied",
+        details: `Export data denied for role ${profile.role}`,
+      });
+      return {
+        success: false,
+        error: "Only Owners and Admins can export data.",
+      };
     }
 
     const orgId = profile.organization_id;
@@ -2435,54 +3589,127 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       staffPermsRes,
       lossPrevRes,
       custWriteOffsRes,
-      supWriteOffsRes
+      supWriteOffsRes,
     ] = await Promise.all([
-      supabase.from("product_categories").select("*").eq("organization_id", orgId),
+      supabase
+        .from("product_categories")
+        .select("*")
+        .eq("organization_id", orgId),
       supabase.from("suppliers").select("*").eq("organization_id", orgId),
       supabase.from("products").select("*").eq("organization_id", orgId),
-      supabase.from("product_stock_lots").select("*").eq("organization_id", orgId),
+      supabase
+        .from("product_stock_lots")
+        .select("*")
+        .eq("organization_id", orgId),
       supabase.from("stock_movements").select("*").eq("organization_id", orgId),
       supabase.from("customers").select("*").eq("organization_id", orgId),
       supabase.from("invoices").select("*").eq("organization_id", orgId),
       supabase.from("invoice_items").select("*").eq("organization_id", orgId),
-      supabase.from("invoice_item_stock_allocations").select("*").eq("organization_id", orgId),
+      supabase
+        .from("invoice_item_stock_allocations")
+        .select("*")
+        .eq("organization_id", orgId),
       supabase.from("payments").select("*").eq("organization_id", orgId),
-      supabase.from("customer_ledger_entries").select("*").eq("organization_id", orgId),
+      supabase
+        .from("customer_ledger_entries")
+        .select("*")
+        .eq("organization_id", orgId),
       supabase.from("returns").select("*").eq("organization_id", orgId),
       supabase.from("return_items").select("*").eq("organization_id", orgId),
-      supabase.from("return_stock_allocations").select("*").eq("organization_id", orgId),
+      supabase
+        .from("return_stock_allocations")
+        .select("*")
+        .eq("organization_id", orgId),
       supabase.from("expenses").select("*").eq("organization_id", orgId),
       supabase.from("repairs").select("*").eq("organization_id", orgId),
       supabase.from("daily_closings").select("*").eq("organization_id", orgId),
       supabase.from("audit_logs").select("*").eq("organization_id", orgId),
-      supabase.from("supplier_purchases").select("*").eq("organization_id", orgId),
-      supabase.from("supplier_purchase_items").select("*").eq("organization_id", orgId),
-      supabase.from("supplier_payments").select("*").eq("organization_id", orgId),
-      supabase.from("supplier_ledger_entries").select("*").eq("organization_id", orgId),
+      supabase
+        .from("supplier_purchases")
+        .select("*")
+        .eq("organization_id", orgId),
+      supabase
+        .from("supplier_purchase_items")
+        .select("*")
+        .eq("organization_id", orgId),
+      supabase
+        .from("supplier_payments")
+        .select("*")
+        .eq("organization_id", orgId),
+      supabase
+        .from("supplier_ledger_entries")
+        .select("*")
+        .eq("organization_id", orgId),
       supabase.from("credit_payments").select("*").eq("organization_id", orgId),
-      supabase.from("cash_shifts").select("*").eq("organization_id", orgId),
-      supabase.from("staff_permissions").select("*").eq("organization_id", orgId),
-      supabase.from("loss_prevention_events").select("*").eq("organization_id", orgId),
-      supabase.from("customer_write_offs").select("*").eq("organization_id", orgId),
-      supabase.from("supplier_write_offs").select("*").eq("organization_id", orgId)
+      supabase.rpc("export_cash_shift_history"),
+      supabase
+        .from("staff_permissions")
+        .select("*")
+        .eq("organization_id", orgId),
+      supabase
+        .from("loss_prevention_events")
+        .select("*")
+        .eq("organization_id", orgId),
+      supabase
+        .from("customer_write_offs")
+        .select("*")
+        .eq("organization_id", orgId),
+      supabase
+        .from("supplier_write_offs")
+        .select("*")
+        .eq("organization_id", orgId),
     ]);
 
     // Handle any critical query errors
-    if (cats.error) throw new Error("Failed to export categories: " + cats.error.message);
-    if (sups.error) throw new Error("Failed to export suppliers: " + sups.error.message);
-    if (prods.error) throw new Error("Failed to export products: " + prods.error.message);
-    if (invAllocations.error) throw new Error("Failed to export invoice stock allocations: " + invAllocations.error.message);
-    if (returns.error) throw new Error("Failed to export returns: " + returns.error.message);
-    if (returnItems.error) throw new Error("Failed to export return items: " + returnItems.error.message);
+    if (cats.error)
+      throw new Error("Failed to export categories: " + cats.error.message);
+    if (sups.error)
+      throw new Error("Failed to export suppliers: " + sups.error.message);
+    if (prods.error)
+      throw new Error("Failed to export products: " + prods.error.message);
+    if (invAllocations.error)
+      throw new Error(
+        "Failed to export invoice stock allocations: " +
+          invAllocations.error.message,
+      );
+    if (returns.error)
+      throw new Error("Failed to export returns: " + returns.error.message);
+    if (returnItems.error)
+      throw new Error(
+        "Failed to export return items: " + returnItems.error.message,
+      );
     if (returnStockAllocations.error) {
-      throw new Error("Failed to export return stock allocations: " + returnStockAllocations.error.message);
+      throw new Error(
+        "Failed to export return stock allocations: " +
+          returnStockAllocations.error.message,
+      );
     }
-    if (creditPays.error) throw new Error("Failed to export credit payments: " + creditPays.error.message);
-    if (cashShiftsRes.error) throw new Error("Failed to export cash shifts: " + cashShiftsRes.error.message);
-    if (staffPermsRes.error) throw new Error("Failed to export staff permissions: " + staffPermsRes.error.message);
-    if (lossPrevRes.error) throw new Error("Failed to export loss prevention events: " + lossPrevRes.error.message);
-    if (custWriteOffsRes.error) throw new Error("Failed to export customer write-offs: " + custWriteOffsRes.error.message);
-    if (supWriteOffsRes.error) throw new Error("Failed to export supplier write-offs: " + supWriteOffsRes.error.message);
+    if (creditPays.error)
+      throw new Error(
+        "Failed to export credit payments: " + creditPays.error.message,
+      );
+    if (cashShiftsRes.error)
+      throw new Error(
+        "Failed to export cash shifts: " + cashShiftsRes.error.message,
+      );
+    if (staffPermsRes.error)
+      throw new Error(
+        "Failed to export staff permissions: " + staffPermsRes.error.message,
+      );
+    if (lossPrevRes.error)
+      throw new Error(
+        "Failed to export loss prevention events: " + lossPrevRes.error.message,
+      );
+    if (custWriteOffsRes.error)
+      throw new Error(
+        "Failed to export customer write-offs: " +
+          custWriteOffsRes.error.message,
+      );
+    if (supWriteOffsRes.error)
+      throw new Error(
+        "Failed to export supplier write-offs: " +
+          supWriteOffsRes.error.message,
+      );
 
     const data: ExportData = {
       categories: cats.data ?? [],
@@ -2512,30 +3739,45 @@ export async function fetchExportDataAction(): Promise<{ success: boolean; data?
       staffPermissions: staffPermsRes.data ?? [],
       lossPreventionEvents: lossPrevRes.data ?? [],
       customerWriteOffs: custWriteOffsRes.data ?? [],
-      supplierWriteOffs: supWriteOffsRes.data ?? []
+      supplierWriteOffs: supWriteOffsRes.data ?? [],
     };
 
     // Log the backup action
     await logAudit({
       module: "settings",
       action: "backup.export_created",
-      details: `Owner exported online database backup ZIP containing ${data.products.length} products, ${data.invoices.length} invoices, and other POS data.`
+      details: `Owner exported online database backup ZIP containing ${data.products.length} products, ${data.invoices.length} invoices, and other POS data.`,
     });
 
     return { success: true, data };
   } catch (error) {
     const err = error as Error;
     console.error("Backup export failed:", err);
-    return { success: false, error: getSafeActionError(error, "We couldn't prepare your backup export. Please try again.") };
+    return {
+      success: false,
+      error: getSafeActionError(
+        error,
+        "We couldn't prepare your backup export. Please try again.",
+      ),
+    };
   }
 }
 
 // Preview Factory Reset Counts
-export async function previewFactoryResetAction(): Promise<{ success: boolean; counts?: Record<string, number>; error?: string }> {
+export async function previewFactoryResetAction(): Promise<{
+  success: boolean;
+  counts?: Record<string, number>;
+  error?: string;
+}> {
   try {
-    const factoryResetEnabled = await isPlatformSettingEnabled("factory_reset_enabled");
+    const factoryResetEnabled = await isPlatformSettingEnabled(
+      "factory_reset_enabled",
+    );
     if (!factoryResetEnabled) {
-      return { success: false, error: "Factory reset has been disabled by the platform administrator." };
+      return {
+        success: false,
+        error: "Factory reset has been disabled by the platform administrator.",
+      };
     }
 
     const { user, profile } = await getCurrentContext();
@@ -2547,8 +3789,15 @@ export async function previewFactoryResetAction(): Promise<{ success: boolean; c
     // enforces role = 'owner', so admins must be blocked here too — otherwise an
     // admin completes the whole confirmation flow and only fails at the RPC.
     if (profile.role !== "owner") {
-      logAudit({ module: "settings", action: "permission.denied", details: `Factory reset preview denied for role ${profile.role}` });
-      return { success: false, error: "Only the shop Owner can access factory reset." };
+      logAudit({
+        module: "settings",
+        action: "permission.denied",
+        details: `Factory reset preview denied for role ${profile.role}`,
+      });
+      return {
+        success: false,
+        error: "Only the shop Owner can access factory reset.",
+      };
     }
 
     const orgId = profile.organization_id;
@@ -2574,28 +3823,88 @@ export async function previewFactoryResetAction(): Promise<{ success: boolean; c
       suppliers,
       customers,
       importRowMappings,
-      importJobs
+      importJobs,
     ] = await Promise.all([
-      supabase.from("return_stock_allocations").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("return_items").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("returns").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("invoice_item_stock_allocations").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("stock_movements").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("product_stock_lots").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("payments").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("invoice_items").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("invoices").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("customer_ledger_entries").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("repair_status_history").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("repairs").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("expenses").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("daily_closings").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("products").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("product_categories").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("suppliers").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("customers").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("import_row_mappings").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-      supabase.from("import_jobs").select("id", { count: "exact", head: true }).eq("organization_id", orgId)
+      supabase
+        .from("return_stock_allocations")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("return_items")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("returns")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("invoice_item_stock_allocations")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("stock_movements")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("product_stock_lots")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("payments")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("invoice_items")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("invoices")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("customer_ledger_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("repair_status_history")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("repairs")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("expenses")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("daily_closings")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("product_categories")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("suppliers")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("import_row_mappings")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("import_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
     ]);
 
     const counts: Record<string, number> = {
@@ -2618,13 +3927,19 @@ export async function previewFactoryResetAction(): Promise<{ success: boolean; c
       suppliers: suppliers.count || 0,
       customers: customers.count || 0,
       import_row_mappings: importRowMappings.count || 0,
-      import_jobs: importJobs.count || 0
+      import_jobs: importJobs.count || 0,
     };
 
     return { success: true, counts };
   } catch (err: unknown) {
     console.error("Preview factory reset failed:", err);
-    return { success: false, error: getSafeActionError(err, "We couldn't preview the reset. Please try again.") };
+    return {
+      success: false,
+      error: getSafeActionError(
+        err,
+        "We couldn't preview the reset. Please try again.",
+      ),
+    };
   }
 }
 
@@ -2632,12 +3947,21 @@ export async function previewFactoryResetAction(): Promise<{ success: boolean; c
 export async function restoreFactoryDefaultsAction(
   password: string,
   shopName: string,
-  resetSettings: boolean
-): Promise<{ success: boolean; counts?: Record<string, number>; error?: string }> {
+  resetSettings: boolean,
+): Promise<{
+  success: boolean;
+  counts?: Record<string, number>;
+  error?: string;
+}> {
   try {
-    const factoryResetEnabled = await isPlatformSettingEnabled("factory_reset_enabled");
+    const factoryResetEnabled = await isPlatformSettingEnabled(
+      "factory_reset_enabled",
+    );
     if (!factoryResetEnabled) {
-      return { success: false, error: "Factory reset has been disabled by the platform administrator." };
+      return {
+        success: false,
+        error: "Factory reset has been disabled by the platform administrator.",
+      };
     }
 
     const { user, profile, organization } = await getCurrentContext();
@@ -2649,14 +3973,23 @@ export async function restoreFactoryDefaultsAction(
     // (role = 'owner'). Admins are intentionally blocked from this irreversible,
     // organization-wide reset.
     if (profile.role !== "owner") {
-      logAudit({ module: "settings", action: "permission.denied", details: `Factory reset execution denied for role ${profile.role}` });
-      return { success: false, error: "Only the shop Owner can reset shop data." };
+      logAudit({
+        module: "settings",
+        action: "permission.denied",
+        details: `Factory reset execution denied for role ${profile.role}`,
+      });
+      return {
+        success: false,
+        error: "Only the shop Owner can reset shop data.",
+      };
     }
 
     const orgId = profile.organization_id;
 
     const supabase = await createClient();
-    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    const {
+      data: { user: freshUser },
+    } = await supabase.auth.getUser();
     if (!freshUser) {
       return { success: false, error: "Not authenticated." };
     }
@@ -2666,26 +3999,41 @@ export async function restoreFactoryDefaultsAction(
       // 1. Re-authenticate user password against Supabase Auth
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: freshUser.email!,
-        password: password
+        password: password,
       });
 
       if (authError) {
-        return { success: false, error: "Re-authentication failed. Incorrect password." };
+        return {
+          success: false,
+          error: "Re-authentication failed. Incorrect password.",
+        };
       }
 
       // 2. Validate typed organization / shop name matches
       const orgName = organization?.name || "Gadget Zone";
       if (shopName.trim().toLowerCase() !== orgName.trim().toLowerCase()) {
-        return { success: false, error: `Confirmed organization name does not match '${orgName}'.` };
+        return {
+          success: false,
+          error: `Confirmed organization name does not match '${orgName}'.`,
+        };
       }
     } else {
       // 1. Bypass password check, but validate typed shop name confirmation
       const orgName = organization?.name;
       if (!orgName) {
-        return { success: false, error: "Organization configuration is missing." };
+        return {
+          success: false,
+          error: "Organization configuration is missing.",
+        };
       }
-      if (!shopName || shopName.trim().toLowerCase() !== orgName.trim().toLowerCase()) {
-        return { success: false, error: `Confirmed organization name does not match '${orgName}'.` };
+      if (
+        !shopName ||
+        shopName.trim().toLowerCase() !== orgName.trim().toLowerCase()
+      ) {
+        return {
+          success: false,
+          error: `Confirmed organization name does not match '${orgName}'.`,
+        };
       }
     }
 
@@ -2693,7 +4041,7 @@ export async function restoreFactoryDefaultsAction(
     await logAudit({
       module: "settings",
       action: "backup.pre_reset_export_created",
-      details: `Owner initiated factory reset. Pre-reset backup trace created.`
+      details: `Owner initiated factory reset. Pre-reset backup trace created.`,
     });
 
     // 4. Trigger database RPC to wipe business data
@@ -2702,8 +4050,8 @@ export async function restoreFactoryDefaultsAction(
       {
         p_organization_id: orgId,
         p_actor_id: profile.id,
-        p_reset_settings: resetSettings
-      }
+        p_reset_settings: resetSettings,
+      },
     );
 
     if (resetError) {
@@ -2724,6 +4072,12 @@ export async function restoreFactoryDefaultsAction(
     return { success: true, counts: resetResult as Record<string, number> };
   } catch (err: unknown) {
     console.error("Factory reset failed:", err);
-    return { success: false, error: getSafeActionError(err, "We couldn't complete the reset. Please try again.") };
+    return {
+      success: false,
+      error: getSafeActionError(
+        err,
+        "We couldn't complete the reset. Please try again.",
+      ),
+    };
   }
 }

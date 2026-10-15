@@ -1,0 +1,94 @@
+/* Opt-in Cash Drawer print context; other financial documents keep their rules. */
+@media print {
+  @page cashDrawerThermalReceipt {
+    size: 80mm 297mm;
+    margin: 4mm;
+  }
+
+  html:has(body[data-cash-drawer-print="true"][data-print-mode]),
+  body[data-cash-drawer-print="true"][data-print-mode] {
+    color-scheme: light !important;
+    height: auto !important;
+    min-height: 0 !important;
+    transition: none !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body[data-cash-drawer-print="true"][data-print-mode]
+    :is(
+      [data-persistent-authenticated-frame],
+      [data-app-shell-root],
+      [data-app-shell-column],
+      [data-app-shell-main],
+      [data-app-shell-content]
+    ) {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    transition: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    animation: none !important;
+    transform: none !important;
+  }
+
+  body[data-cash-drawer-print="true"][data-print-mode] * {
+    transition: none !important;
+    animation: none !important;
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  html:has(
+    body[data-cash-drawer-print="true"][data-print-mode][data-print-mode="thermal"]
+  ),
+  html:has(
+    body[data-cash-drawer-print="true"][data-print-mode][data-print-mode="shift-thermal"]
+  ) {
+    page: cashDrawerThermalReceipt;
+  }
+
+  body[data-cash-drawer-print="true"][data-print-mode]:is(
+      [data-print-mode="thermal"],
+      [data-print-mode="shift-thermal"]
+    ),
+  body[data-cash-drawer-print="true"][data-print-mode]:is(
+      [data-print-mode="thermal"],
+      [data-print-mode="shift-thermal"]
+    )
+    :is(
+      [data-app-shell-root],
+      [data-app-shell-column],
+      [data-app-shell-main],
+      [data-app-shell-content]
+    ) {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: none !important;
+  }
+
+  body[data-cash-drawer-print="true"][data-print-mode][data-print-mode="shift-thermal"]
+    [data-app-shell-content]
+    > :not(.shift-thermal-print),
+  body[data-cash-drawer-print="true"][data-print-mode][data-print-mode="thermal"]
+    [data-app-shell-content]
+    > :not(.thermal-print) {
+    display: none !important;
+  }
+
+  body[data-cash-drawer-print="true"][data-print-mode]:is(
+      [data-print-mode="thermal"],
+      [data-print-mode="shift-thermal"]
+    )
+    :is(.shift-thermal-print, .thermal-print) {
+    margin: 0 !important;
+    page: cashDrawerThermalReceipt;
+  }
+}

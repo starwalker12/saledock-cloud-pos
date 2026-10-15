@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  useOperationRequestKey,
+  confirmingOperationAction,
+} from "@/lib/hooks/use-operation-request-key";
+
 import { useActionState, useEffect, useRef } from "react";
 import { saveExpenseAction, type ActionState } from "./actions";
 import {
@@ -7,6 +12,7 @@ import {
   SUGGESTED_CATEGORIES,
 } from "@/lib/validation/expenses";
 import type { ExpenseRow } from "@/lib/data/expenses";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AppSelect } from "@/components/ui/app-select";
 import { formatKarachiDateTimeLocal } from "@/lib/datetime";
@@ -30,12 +36,27 @@ export function ExpenseForm({
   knownCategories: string[];
   canWrite: boolean;
 }) {
-  const [state, action, pending] = useActionState(saveExpenseAction, initial);
+  const router = useRouter();
+  const [state, action, pending] = useActionState(
+    confirmingOperationAction(
+      "expense:" + (initialValues?.id ?? "create"),
+      saveExpenseAction,
+    ),
+    initial,
+  );
+  const requestKey = useOperationRequestKey(
+    "expense:" + (initialValues?.id ?? "create"),
+    state.success ? state : null,
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (state.success && !initialValues?.id) formRef.current?.reset();
-  }, [state.success, initialValues?.id]);
+    if (!state.success) return;
+    if (!initialValues?.id) formRef.current?.reset();
+    const url = new URL(window.location.href);
+    url.searchParams.set("expensestate", crypto.randomUUID());
+    router.replace(`${url.pathname}${url.search}`, { scroll: false });
+  }, [router, state, initialValues?.id]);
 
   const input =
     "mt-1 h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-600";
@@ -50,10 +71,20 @@ export function ExpenseForm({
 
   return (
     <form ref={formRef} action={action} className="grid gap-3 sm:grid-cols-2">
-      {initialValues?.id && <input type="hidden" name="id" value={initialValues.id} />}
+      <input type="hidden" name="request_key" value={requestKey} />
+      <input
+        type="hidden"
+        name="revision"
+        value={state.revision ?? initialValues?.revision ?? 0}
+      />
+      {initialValues?.id && (
+        <input type="hidden" name="id" value={initialValues.id} />
+      )}
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Category <span className="text-red-500">*</span></span>
+        <span className="text-sm font-semibold text-slate-700">
+          Category <span className="text-red-500">*</span>
+        </span>
         <input
           required
           name="category"
@@ -71,7 +102,9 @@ export function ExpenseForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Amount <span className="text-red-500">*</span></span>
+        <span className="text-sm font-semibold text-slate-700">
+          Amount <span className="text-red-500">*</span>
+        </span>
         <input
           required
           type="number"
@@ -85,7 +118,9 @@ export function ExpenseForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Payment method</span>
+        <span className="text-sm font-semibold text-slate-700">
+          Payment method
+        </span>
         <AppSelect
           name="payment_method"
           defaultValue={initialValues?.payment_method ?? "cash"}
@@ -98,7 +133,9 @@ export function ExpenseForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Date &amp; time</span>
+        <span className="text-sm font-semibold text-slate-700">
+          Date &amp; time
+        </span>
         <input
           type="datetime-local"
           name="spent_at"
@@ -109,7 +146,9 @@ export function ExpenseForm({
       </label>
 
       <label className="block sm:col-span-2">
-        <span className="text-sm font-semibold text-slate-700">Vendor / paid to (optional)</span>
+        <span className="text-sm font-semibold text-slate-700">
+          Vendor / paid to (optional)
+        </span>
         <input
           name="vendor_name"
           defaultValue={initialValues?.vendor_name ?? ""}
@@ -119,7 +158,9 @@ export function ExpenseForm({
       </label>
 
       <label className="block sm:col-span-2">
-        <span className="text-sm font-semibold text-slate-700">Notes (optional)</span>
+        <span className="text-sm font-semibold text-slate-700">
+          Notes (optional)
+        </span>
         <textarea
           name="notes"
           rows={2}
@@ -130,12 +171,18 @@ export function ExpenseForm({
       </label>
 
       {state.error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 sm:col-span-2">
+        <p
+          role="alert"
+          className="rounded-lg bg-red-50 dark:bg-red-950/30 dark:text-red-300 px-3 py-2 text-sm font-medium text-red-700 sm:col-span-2"
+        >
           {state.error}
         </p>
       )}
       {state.success && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 sm:col-span-2">
+        <p
+          role="status"
+          className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300 px-3 py-2 text-sm font-medium text-emerald-700 sm:col-span-2"
+        >
           {state.success}
         </p>
       )}
@@ -143,7 +190,7 @@ export function ExpenseForm({
       <div className="sm:col-span-2">
         <button
           type="submit"
-          disabled={pending || !canWrite}
+          disabled={pending || !requestKey || !canWrite}
           className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-60 cursor-pointer"
         >
           {pending ? (

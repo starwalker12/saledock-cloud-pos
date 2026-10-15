@@ -1,3 +1,4 @@
+import "./cash-drawer-print.css";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -25,7 +26,12 @@ import {
   todayLocalDate,
   type PaymentMethodKey,
 } from "@/lib/data/daily-closing";
-import { getCurrentShift, getShiftHistory, getShiftActivity, getShiftStaffSummary } from "@/lib/data/shifts";
+import {
+  getCurrentShift,
+  getShiftHistory,
+  getShiftActivity,
+  getShiftStaffSummary,
+} from "@/lib/data/shifts";
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { OPERATIONAL_HISTORY_MAX_ROWS } from "@/lib/operational-history";
@@ -116,9 +122,10 @@ export default async function DailyClosingPage({
   if (!profile?.organization_id) redirect("/setup");
   if (!profile.branch_id) {
     return (
-      <AppShell pageTitle="Cash Drawer">
+      <AppShell pageTitle="Cash Drawer" printFullDocument>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          Your profile is not assigned to a branch yet. Ask the owner to assign you to a branch.
+          Your profile is not assigned to a branch yet. Ask the owner to assign
+          you to a branch.
         </div>
       </AppShell>
     );
@@ -139,29 +146,30 @@ export default async function DailyClosingPage({
     totalCount: null,
     limitExceeded: false,
   };
-  const [activity, closing, recentResult, currentShift, shiftHistoryResult] = await Promise.all([
-    getDayActivity(orgId, branchId, date),
-    getClosing(orgId, branchId, date),
-    historyRange.error
-      ? Promise.resolve(emptyHistoryResult)
-      : listRecentClosings(orgId, branchId, {
-          from: historyRange.from || undefined,
-          to: historyRange.to || undefined,
-          limit: historyRange.hasRange ? undefined : 14,
-        }),
-    getCurrentShift(orgId, branchId),
-    historyRange.error
-      ? Promise.resolve(emptyHistoryResult)
-      : getShiftHistory(orgId, branchId, {
-          from: historyRange.from
-            ? getKarachiDayStartIso(historyRange.from)
-            : undefined,
-          to: historyRange.to
-            ? getKarachiDayEndIso(historyRange.to)
-            : undefined,
-          limit: historyRange.hasRange ? undefined : 10,
-        }),
-  ]);
+  const [activity, closing, recentResult, currentShift, shiftHistoryResult] =
+    await Promise.all([
+      getDayActivity(orgId, branchId, date),
+      getClosing(orgId, branchId, date),
+      historyRange.error
+        ? Promise.resolve(emptyHistoryResult)
+        : listRecentClosings(orgId, branchId, {
+            from: historyRange.from || undefined,
+            to: historyRange.to || undefined,
+            limit: historyRange.hasRange ? undefined : 14,
+          }),
+      getCurrentShift(orgId, branchId),
+      historyRange.error
+        ? Promise.resolve(emptyHistoryResult)
+        : getShiftHistory(orgId, branchId, {
+            from: historyRange.from
+              ? getKarachiDayStartIso(historyRange.from)
+              : undefined,
+            to: historyRange.to
+              ? getKarachiDayEndIso(historyRange.to)
+              : undefined,
+            limit: historyRange.hasRange ? undefined : 10,
+          }),
+    ]);
   const recent = recentResult.rows;
   const shiftHistory = shiftHistoryResult.rows;
 
@@ -196,21 +204,38 @@ export default async function DailyClosingPage({
   if (params.dir) resetHistoryQuery.set("dir", params.dir);
   const resetHistoryHref = `/daily-closing?${resetHistoryQuery.toString()}`;
 
-  const sortedRecent = sortData(recent, sort || "closing_date", sort ? dir : "desc", {
-    closing_date: "date",
-    bills_count: "number",
-    cash_sales: "number",
-    expected_closing_cash: "number",
-    actual_closing_cash: "number",
-    cash_difference: "number",
-  });
+  const sortedRecent = sortData(
+    recent,
+    sort || "closing_date",
+    sort ? dir : "desc",
+    {
+      closing_date: "date",
+      bills_count: "number",
+      cash_sales: "number",
+      expected_closing_cash: "number",
+      actual_closing_cash: "number",
+      cash_difference: "number",
+    },
+  );
 
   let shiftActivity = null;
   let shiftStaff = null;
   if (currentShift) {
     [shiftActivity, shiftStaff] = await Promise.all([
-      getShiftActivity(orgId, branchId, currentShift.opened_at),
-      getShiftStaffSummary(orgId, branchId, currentShift.opened_at),
+      getShiftActivity(
+        orgId,
+        branchId,
+        currentShift.opened_at,
+        undefined,
+        currentShift,
+      ),
+      getShiftStaffSummary(
+        orgId,
+        branchId,
+        currentShift.opened_at,
+        undefined,
+        currentShift,
+      ),
     ]);
   }
 
@@ -218,40 +243,41 @@ export default async function DailyClosingPage({
   const isToday = date === todayLocalDate();
 
   // For closed days, show the snapshotted numbers; for open days, the live activity.
-  const displayed = closing && isClosed
-    ? {
-        bills: closing.bills_count,
-        gross: activity.grossSales,
-        cash: closing.cash_sales,
-        digital: closing.digital_payments,
-        credit: closing.credit_pending,
-        expenses: closing.expenses_total,
-        refunds: closing.refunds_total,
-        expected: closing.expected_closing_cash,
-        creditCollectionCash: closing.credit_collection_cash,
-        creditCollectionDigital: closing.credit_collection_digital,
-        creditWriteOffs: closing.credit_write_offs,
-      }
-    : {
-        bills: activity.invoicesCount,
-        gross: activity.grossSales,
-        cash: activity.paymentsByMethod.cash,
-        digital:
-          activity.paymentsByMethod.card +
-          activity.paymentsByMethod.easypaisa +
-          activity.paymentsByMethod.jazzcash +
-          activity.paymentsByMethod.bank_transfer,
-        credit: activity.creditPending,
-        expenses: activity.expensesTotal,
-        refunds: activity.refundsTotal,
-        expected: activity.expectedCash,
-        creditCollectionCash: activity.creditCollectionCash,
-        creditCollectionDigital: activity.creditCollectionDigital,
-        creditWriteOffs: activity.creditWriteOffs,
-      };
+  const displayed =
+    closing && isClosed
+      ? {
+          bills: closing.bills_count,
+          gross: activity.grossSales,
+          cash: closing.cash_sales,
+          digital: closing.digital_payments,
+          credit: closing.credit_pending,
+          expenses: closing.expenses_total,
+          refunds: closing.refunds_total,
+          expected: closing.expected_closing_cash,
+          creditCollectionCash: closing.credit_collection_cash,
+          creditCollectionDigital: closing.credit_collection_digital,
+          creditWriteOffs: closing.credit_write_offs,
+        }
+      : {
+          bills: activity.invoicesCount,
+          gross: activity.grossSales,
+          cash: activity.paymentsByMethod.cash,
+          digital:
+            activity.paymentsByMethod.card +
+            activity.paymentsByMethod.easypaisa +
+            activity.paymentsByMethod.jazzcash +
+            activity.paymentsByMethod.bank_transfer,
+          credit: activity.creditPending,
+          expenses: activity.expensesTotal,
+          refunds: activity.refundsTotal,
+          expected: activity.expectedCash,
+          creditCollectionCash: activity.creditCollectionCash,
+          creditCollectionDigital: activity.creditCollectionDigital,
+          creditWriteOffs: activity.creditWriteOffs,
+        };
 
   return (
-    <AppShell pageTitle="Cash Drawer">
+    <AppShell pageTitle="Cash Drawer" printFullDocument>
       <form
         action="/daily-closing"
         className="mb-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
@@ -284,7 +310,10 @@ export default async function DailyClosingPage({
             Load
           </button>
           {!isToday && (
-            <Link href={pageHref({ date: todayLocalDate() })} className="pb-2 text-xs font-semibold text-slate-600 underline">
+            <Link
+              href={pageHref({ date: todayLocalDate() })}
+              className="pb-2 text-xs font-semibold text-slate-600 underline"
+            >
               Today
             </Link>
           )}
@@ -300,505 +329,658 @@ export default async function DailyClosingPage({
       </form>
 
       <div className="a4-print">
-      {/* Status banner */}
-      <div className={`mb-5 rounded-2xl border p-4 ${isClosed ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-col gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:gap-3">
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
-                isClosed ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"
-              }`}
-            >
-              {isClosed ? "Closed" : "Open"}
-            </span>
-            <div className="text-sm text-slate-700">
-              {isClosed && closing?.finalized_at ? (
-                <>
-                  Closed by <strong>{closing.finalized_by_name ?? "—"}</strong> at{" "}
-                  <strong>{fmtDate(closing.finalized_at)}</strong>
-                </>
-              ) : (
-                "Day is open. Close it after counting cash to lock the figures."
-              )}
+        {/* Status banner */}
+        <div
+          className={`mb-5 rounded-2xl border p-4 ${isClosed ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-col gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
+                  isClosed
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                {isClosed ? "Closed" : "Open"}
+              </span>
+              <div className="text-sm text-slate-700">
+                {isClosed && closing?.finalized_at ? (
+                  <>
+                    Closed by{" "}
+                    <strong>{closing.finalized_by_name ?? "—"}</strong> at{" "}
+                    <strong>{fmtDate(closing.finalized_at)}</strong>
+                  </>
+                ) : (
+                  "Day is open. Close it after counting cash to lock the figures."
+                )}
+              </div>
             </div>
+            {isClosed && reopener && (
+              <ReopenDayForm closingDate={date} canReopen={reopener} />
+            )}
           </div>
-          {isClosed && reopener && <ReopenDayForm closingDate={date} canReopen={reopener} />}
         </div>
-      </div>
 
-      {/* ── Shift Card ──────────────────────────────────────────────────── */}
-      <section
-        data-testid="active-shift-section"
-        className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-      >
-        <div className="mb-4 flex items-center gap-2">
-          <Clock className="size-5 text-slate-400" />
-          <h2 className="text-base font-black text-slate-950">
-            {currentShift ? "Active Shift" : "Cash Drawer Shift"}
-          </h2>
-          {currentShift && (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-              Open
-            </span>
+        {/* ── Shift Card ──────────────────────────────────────────────────── */}
+        <section
+          data-testid="active-shift-section"
+          className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <div className="mb-4 flex items-center gap-2">
+            <Clock className="size-5 text-slate-400" />
+            <h2 className="text-base font-black text-slate-950">
+              {currentShift ? "Active Shift" : "Cash Drawer Shift"}
+            </h2>
+            {currentShift && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                Open
+              </span>
+            )}
+          </div>
+
+          {currentShift && shiftActivity ? (
+            <CloseShiftForm
+              shift={currentShift}
+              activity={shiftActivity}
+              canClose={writer}
+              currency={currency}
+            />
+          ) : (
+            <OpenShiftForm canOpen={canOpen} startingCashDefault={0} />
           )}
-        </div>
+        </section>
 
-        {currentShift && shiftActivity ? (
-          <CloseShiftForm
-            shift={currentShift}
-            activity={shiftActivity}
-            canClose={writer}
-            currency={currency}
-          />
-        ) : (
-          <OpenShiftForm
-            canOpen={canOpen}
-            startingCashDefault={0}
-          />
-        )}
-      </section>
-
-      {/* Stat cards */}
-      <div
-        data-testid="selected-day-summary"
-        className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-3"
-      >
-        <div className="col-span-1">
-          <StatCard
-            label="Gross sales"
-            value={formatCurrency(displayed.gross, currency)}
-            detail={`${formatNumber(displayed.bills)} invoice${displayed.bills === 1 ? "" : "s"}.`}
-            icon={<ReceiptText className="size-5" />}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            label="Refunds"
-            value={formatCurrency(displayed.refunds, currency)}
-            detail={`${formatNumber(activity.refundsCount)} return${activity.refundsCount === 1 ? "" : "s"} today.`}
-            icon={<RotateCcw className="size-5" />}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            label="Expenses"
-            value={formatCurrency(displayed.expenses, currency)}
-            detail="Active expenses only (voided excluded)."
-            icon={<Wallet className="size-5" />}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            label="Cash payments"
-            value={formatCurrency(displayed.cash, currency)}
-            detail="Cash received on this day."
-            icon={<CircleDollarSign className="size-5" />}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            label="Digital payments"
-            value={formatCurrency(displayed.digital, currency)}
-            detail="Card / EasyPaisa / JazzCash / Bank transfer."
-            icon={<CalendarDays className="size-5" />}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            label="Credit pending"
-            value={formatCurrency(displayed.credit, currency)}
-            detail="Outstanding balance on today's invoices."
-            icon={<Scale className="size-5" />}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            label="Credit collection cash"
-            value={formatCurrency(displayed.creditCollectionCash, currency)}
-            detail="Cash settlements received from customers."
-            icon={<HandCoins className="size-5" />}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            label="Credit collection digital"
-            value={formatCurrency(displayed.creditCollectionDigital, currency)}
-            detail="Digital settlements received from customers."
-            icon={<CalendarDays className="size-5" />}
-          />
-        </div>
-        <div className="col-span-2 lg:col-span-1">
-          <StatCard
-            label="Credit write-offs"
-            value={formatCurrency(displayed.creditWriteOffs, currency)}
-            detail="Bad debt written off (P&L impact)."
-            icon={<BadgeMinus className="size-5" />}
-          />
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-5 xl:grid-cols-[1.4fr_1fr] pb-[calc(4rem+env(safe-area-inset-bottom))]">
-        {/* Breakdown */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-black text-slate-950">Payment method breakdown</h2>
-          <p className="text-xs text-slate-500">Live totals from the payments table for this day.</p>
-          <div className="hidden lg:block">
-            <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="py-2">Method</th>
-                  <th className="py-2 text-right">Received</th>
-                  <th className="py-2 text-right">Refunded</th>
-                  <th className="py-2 text-right">Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PAYMENT_METHOD_ORDER.map((m: PaymentMethodKey) => {
-                  const recv = activity.paymentsByMethod[m];
-                  const ref = activity.refundsByMethod[m];
-                  return (
-                    <tr key={m} className="border-b border-slate-100">
-                      <td className="py-2 font-semibold text-slate-900">{PAYMENT_METHOD_LABELS[m]}</td>
-                      <td className="py-2 text-right">{formatCurrency(recv, currency)}</td>
-                      <td className="py-2 text-right text-red-700">{ref ? `-${formatCurrency(ref, currency)}` : "—"}</td>
-                      <td className="py-2 text-right font-bold">{formatCurrency(recv - ref, currency)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {/* Stat cards */}
+        <div
+          data-testid="selected-day-summary"
+          className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-3"
+        >
+          <div className="col-span-1">
+            <StatCard
+              label="Gross sales"
+              value={formatCurrency(displayed.gross, currency)}
+              detail={`${formatNumber(displayed.bills)} invoice${displayed.bills === 1 ? "" : "s"}.`}
+              icon={<ReceiptText className="size-5" />}
+            />
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
-            {PAYMENT_METHOD_ORDER.map((m: PaymentMethodKey) => {
-              const recv = activity.paymentsByMethod[m];
-              const ref = activity.refundsByMethod[m];
-              return (
-                <div key={m} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                  <span className="text-sm font-semibold text-slate-900">{PAYMENT_METHOD_LABELS[m]}</span>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-900">{formatCurrency(recv - ref, currency)}</span>
-                    {ref > 0 && <span className="ml-1 text-xs text-red-600">(-{formatCurrency(ref, currency)})</span>}
+          <div className="col-span-1">
+            <StatCard
+              label="Refunds"
+              value={formatCurrency(displayed.refunds, currency)}
+              detail={`${formatNumber(activity.refundsCount)} return${activity.refundsCount === 1 ? "" : "s"} today.`}
+              icon={<RotateCcw className="size-5" />}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              label="Expenses"
+              value={formatCurrency(displayed.expenses, currency)}
+              detail="Active expenses only (voided excluded)."
+              icon={<Wallet className="size-5" />}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              label="Cash payments"
+              value={formatCurrency(displayed.cash, currency)}
+              detail="Cash received on this day."
+              icon={<CircleDollarSign className="size-5" />}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              label="Digital payments"
+              value={formatCurrency(displayed.digital, currency)}
+              detail="Card / EasyPaisa / JazzCash / Bank transfer."
+              icon={<CalendarDays className="size-5" />}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              label="Credit pending"
+              value={formatCurrency(displayed.credit, currency)}
+              detail="Outstanding balance on today's invoices."
+              icon={<Scale className="size-5" />}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              label="Credit collection cash"
+              value={formatCurrency(displayed.creditCollectionCash, currency)}
+              detail="Cash settlements received from customers."
+              icon={<HandCoins className="size-5" />}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              label="Credit collection digital"
+              value={formatCurrency(
+                displayed.creditCollectionDigital,
+                currency,
+              )}
+              detail="Digital settlements received from customers."
+              icon={<CalendarDays className="size-5" />}
+            />
+          </div>
+          <div className="col-span-2 lg:col-span-1">
+            <StatCard
+              label="Credit write-offs"
+              value={formatCurrency(displayed.creditWriteOffs, currency)}
+              detail="Bad debt written off (P&L impact)."
+              icon={<BadgeMinus className="size-5" />}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-5 xl:grid-cols-[1.4fr_1fr] pb-[calc(4rem+env(safe-area-inset-bottom))]">
+          {/* Breakdown */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-base font-black text-slate-950">
+              Payment method breakdown
+            </h2>
+            <p className="text-xs text-slate-500">
+              Live totals from the payments table for this day.
+            </p>
+            <div className="hidden lg:block">
+              <table className="mt-3 w-full text-left text-sm">
+                <thead className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="py-2">Method</th>
+                    <th className="py-2 text-right">Received</th>
+                    <th className="py-2 text-right">Refunded</th>
+                    <th className="py-2 text-right">Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PAYMENT_METHOD_ORDER.map((m: PaymentMethodKey) => {
+                    const recv = activity.paymentsByMethod[m];
+                    const ref = activity.refundsByMethod[m];
+                    return (
+                      <tr key={m} className="border-b border-slate-100">
+                        <td className="py-2 font-semibold text-slate-900">
+                          {PAYMENT_METHOD_LABELS[m]}
+                        </td>
+                        <td className="py-2 text-right">
+                          {formatCurrency(recv, currency)}
+                        </td>
+                        <td className="py-2 text-right text-red-700">
+                          {ref ? `-${formatCurrency(ref, currency)}` : "—"}
+                        </td>
+                        <td className="py-2 text-right font-bold">
+                          {formatCurrency(recv - ref, currency)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
+              {PAYMENT_METHOD_ORDER.map((m: PaymentMethodKey) => {
+                const recv = activity.paymentsByMethod[m];
+                const ref = activity.refundsByMethod[m];
+                return (
+                  <div
+                    key={m}
+                    className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"
+                  >
+                    <span className="text-sm font-semibold text-slate-900">
+                      {PAYMENT_METHOD_LABELS[m]}
+                    </span>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-slate-900">
+                        {formatCurrency(recv - ref, currency)}
+                      </span>
+                      {ref > 0 && (
+                        <span className="ml-1 text-xs text-red-600">
+                          (-{formatCurrency(ref, currency)})
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                );
+              })}
+            </div>
+
+            <h3 className="mt-6 text-base font-black text-slate-950">
+              Expense breakdown
+            </h3>
+            {activity.expensesByCategory.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">
+                No expenses recorded for this day.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-1 text-sm">
+                {activity.expensesByCategory.map((e) => (
+                  <li
+                    key={e.category}
+                    className="flex justify-between border-b border-slate-100 py-1"
+                  >
+                    <span className="text-slate-700">{e.category}</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatCurrency(e.amount, currency)}
+                    </span>
+                  </li>
+                ))}
+                <li className="flex justify-between pt-2 text-sm font-bold">
+                  <span>Total</span>
+                  <span>
+                    {formatCurrency(activity.expensesTotal, currency)}
+                  </span>
+                </li>
+              </ul>
+            )}
+          </section>
+
+          {/* Closing card */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-base font-black text-slate-950">
+              Cash reconciliation
+            </h2>
+            <p className="text-xs text-slate-500">
+              Expected = cash received − cash refunds − cash expenses.
+            </p>
+            {!writer && (
+              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                Your role ({profile.role}) can view daily closing but cannot
+                close the day.
+              </p>
+            )}
+            <div className="mt-4">
+              <CloseDayForm
+                closingDate={date}
+                expectedCash={displayed.expected}
+                countedCashDefault={closing?.actual_closing_cash}
+                notesDefault={closing?.notes}
+                canWrite={writer}
+                isClosed={isClosed}
+                currency={currency}
+              />
+            </div>
+          </section>
+        </div>
+
+        {/* Staff-wise summary for active shift */}
+        {currentShift && shiftStaff && shiftStaff.length > 0 && (
+          <div className="mt-6">
+            <ShiftStaffSummary staff={shiftStaff} currency={currency} />
+          </div>
+        )}
+
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div>
+            <h2 className="text-sm font-black text-slate-950 dark:text-slate-100">
+              History range
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Filters Recent closings by closing date and Shift History by shift
+              opened date. Selected Closing Date and Active Shift stay
+              unchanged.
+            </p>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {HISTORY_PRESETS.map((preset) => {
+              const range = getKarachiHistoryPresetRange(preset.value);
+              const active =
+                historyRange.from === range.from &&
+                historyRange.to === range.to;
+              return (
+                <Link
+                  key={preset.value}
+                  href={pageHref({
+                    historyFrom: range.from,
+                    historyTo: range.to,
+                  })}
+                  className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                    active
+                      ? "border-blue-700 bg-blue-700 text-white"
+                      : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {preset.label}
+                </Link>
               );
             })}
           </div>
 
-          <h3 className="mt-6 text-base font-black text-slate-950">Expense breakdown</h3>
-          {activity.expensesByCategory.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">No expenses recorded for this day.</p>
+          <form
+            method="get"
+            action="/daily-closing"
+            className="mt-3 grid gap-3 min-[380px]:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] lg:items-end"
+          >
+            <input type="hidden" name="date" value={date} />
+            {sort && <input type="hidden" name="sort" value={sort} />}
+            {params.dir && (
+              <input type="hidden" name="dir" value={params.dir} />
+            )}
+            <label className="block min-w-0">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                From
+              </span>
+              <input
+                type="date"
+                name="history_from"
+                defaultValue={historyRange.from}
+                aria-invalid={
+                  historyRange.errorCode === "invalid_from" ||
+                  historyRange.errorCode === "reversed"
+                }
+                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <label className="block min-w-0">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                To
+              </span>
+              <input
+                type="date"
+                name="history_to"
+                defaultValue={historyRange.to}
+                aria-invalid={
+                  historyRange.errorCode === "invalid_to" ||
+                  historyRange.errorCode === "reversed"
+                }
+                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <button
+              type="submit"
+              className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+            >
+              Apply
+            </button>
+            <Link
+              href={resetHistoryHref}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Reset
+            </Link>
+          </form>
+
+          {historyRange.error && (
+            <p
+              role="alert"
+              className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            >
+              {historyRange.error} Selected-day and Active Shift information
+              remain available.
+            </p>
+          )}
+        </section>
+
+        {/* Shift history */}
+        <section className="mt-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Clock className="size-5 text-slate-400" />
+            <div>
+              <h2 className="text-base font-black text-slate-950">
+                Shift History
+              </h2>
+              <p className="text-xs text-slate-500">
+                {historyRange.hasRange
+                  ? "Shifts opened in the selected history range."
+                  : "10 most recent shifts."}
+              </p>
+            </div>
+          </div>
+          {shiftHistoryResult.limitExceeded ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              {formatNumber(shiftHistoryResult.totalCount ?? 0)} shifts opened
+              in this history range. Narrow the range to{" "}
+              {formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to
+              view complete Shift History.
+            </div>
           ) : (
-            <ul className="mt-3 space-y-1 text-sm">
-              {activity.expensesByCategory.map((e) => (
-                <li key={e.category} className="flex justify-between border-b border-slate-100 py-1">
-                  <span className="text-slate-700">{e.category}</span>
-                  <span className="font-semibold text-slate-900">{formatCurrency(e.amount, currency)}</span>
-                </li>
-              ))}
-              <li className="flex justify-between pt-2 text-sm font-bold">
-                <span>Total</span>
-                <span>{formatCurrency(activity.expensesTotal, currency)}</span>
-              </li>
-            </ul>
-          )}
-        </section>
-
-        {/* Closing card */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-black text-slate-950">Cash reconciliation</h2>
-          <p className="text-xs text-slate-500">
-            Expected = cash received − cash refunds − cash expenses.
-          </p>
-          {!writer && (
-            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
-              Your role ({profile.role}) can view daily closing but cannot close the day.
-            </p>
-          )}
-          <div className="mt-4">
-            <CloseDayForm
-              closingDate={date}
-              expectedCash={displayed.expected}
-              countedCashDefault={closing?.actual_closing_cash}
-              notesDefault={closing?.notes}
-              canWrite={writer}
-              isClosed={isClosed}
+            <ShiftHistoryTable
+              shifts={shiftHistory}
               currency={currency}
+              emptyMessage={
+                historyRange.error
+                  ? "Fix the History range to load shift history."
+                  : historyRange.hasRange
+                    ? "No shifts match this history range."
+                    : "No shifts recorded yet."
+              }
             />
-          </div>
+          )}
         </section>
-      </div>
 
-      {/* Staff-wise summary for active shift */}
-      {currentShift && shiftStaff && shiftStaff.length > 0 && (
-        <div className="mt-6">
-          <ShiftStaffSummary staff={shiftStaff} currency={currency} />
-        </div>
-      )}
-
-      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div>
-          <h2 className="text-sm font-black text-slate-950 dark:text-slate-100">
-            History range
-          </h2>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Filters Recent closings by closing date and Shift History by shift opened date. Selected Closing Date and Active Shift stay unchanged.
-          </p>
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {HISTORY_PRESETS.map((preset) => {
-            const range = getKarachiHistoryPresetRange(preset.value);
-            const active =
-              historyRange.from === range.from && historyRange.to === range.to;
-            return (
-              <Link
-                key={preset.value}
-                href={pageHref({ historyFrom: range.from, historyTo: range.to })}
-                className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${
-                  active
-                    ? "border-blue-700 bg-blue-700 text-white"
-                    : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                }`}
-              >
-                {preset.label}
-              </Link>
-            );
-          })}
-        </div>
-
-        <form
-          method="get"
-          action="/daily-closing"
-          className="mt-3 grid gap-3 min-[380px]:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] lg:items-end"
-        >
-          <input type="hidden" name="date" value={date} />
-          {sort && <input type="hidden" name="sort" value={sort} />}
-          {params.dir && <input type="hidden" name="dir" value={params.dir} />}
-          <label className="block min-w-0">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              From
-            </span>
-            <input
-              type="date"
-              name="history_from"
-              defaultValue={historyRange.from}
-              aria-invalid={historyRange.errorCode === "invalid_from" || historyRange.errorCode === "reversed"}
-              className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950"
-            />
-          </label>
-          <label className="block min-w-0">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              To
-            </span>
-            <input
-              type="date"
-              name="history_to"
-              defaultValue={historyRange.to}
-              aria-invalid={historyRange.errorCode === "invalid_to" || historyRange.errorCode === "reversed"}
-              className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950"
-            />
-          </label>
-          <button
-            type="submit"
-            className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
-          >
-            Apply
-          </button>
-          <Link
-            href={resetHistoryHref}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Reset
-          </Link>
-        </form>
-
-        {historyRange.error && (
-          <p
-            role="alert"
-            className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
-          >
-            {historyRange.error} Selected-day and Active Shift information remain available.
-          </p>
-        )}
-      </section>
-
-      {/* Shift history */}
-      <section className="mt-6">
-        <div className="mb-3 flex items-center gap-2">
-          <Clock className="size-5 text-slate-400" />
-          <div>
-            <h2 className="text-base font-black text-slate-950">Shift History</h2>
-            <p className="text-xs text-slate-500">
-              {historyRange.hasRange ? "Shifts opened in the selected history range." : "10 most recent shifts."}
-            </p>
+        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+            <div>
+              <h2 className="text-base font-black text-slate-950">
+                Recent closings
+              </h2>
+              <p className="text-xs text-slate-500">
+                {historyRange.hasRange
+                  ? "Selected closing-date range. Click a row to load it."
+                  : "14 most recent closings. Click a row to load it."}
+              </p>
+            </div>
+            <CalendarCheck className="size-5 text-slate-400" />
           </div>
-        </div>
-        {shiftHistoryResult.limitExceeded ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
-          >
-            {formatNumber(shiftHistoryResult.totalCount ?? 0)} shifts opened in this history range. Narrow the range to {formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to view complete Shift History.
-          </div>
-        ) : (
-          <ShiftHistoryTable
-            shifts={shiftHistory}
-            currency={currency}
-            emptyMessage={
-              historyRange.error
-                ? "Fix the History range to load shift history."
+          {recentResult.limitExceeded ? (
+            <div
+              role="alert"
+              className="border-t border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              {formatNumber(recentResult.totalCount ?? 0)} closings match this
+              history range. Narrow the range to{" "}
+              {formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to
+              view complete closing history.
+            </div>
+          ) : recent.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-500">
+              {historyRange.error
+                ? "Fix the History range to load closing history."
                 : historyRange.hasRange
-                  ? "No shifts match this history range."
-                  : "No shifts recorded yet."
-            }
-          />
-        )}
-      </section>
-
-      <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 className="text-base font-black text-slate-950">Recent closings</h2>
-            <p className="text-xs text-slate-500">
-              {historyRange.hasRange ? "Selected closing-date range. Click a row to load it." : "14 most recent closings. Click a row to load it."}
-            </p>
-          </div>
-          <CalendarCheck className="size-5 text-slate-400" />
-        </div>
-        {recentResult.limitExceeded ? (
-          <div
-            role="alert"
-            className="border-t border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
-          >
-            {formatNumber(recentResult.totalCount ?? 0)} closings match this history range. Narrow the range to {formatNumber(OPERATIONAL_HISTORY_MAX_ROWS)} records or fewer to view complete closing history.
-          </div>
-        ) : recent.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-500">
-            {historyRange.error
-              ? "Fix the History range to load closing history."
-              : historyRange.hasRange
-                ? "No closings match this history range."
-                : "No closings recorded yet."}
-          </div>
-        ) : (
-          <>
-          <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <SortableHeader label="Date" columnKey="closing_date" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <SortableHeader label="Status" columnKey="is_closed" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <SortableHeader label="Bills" columnKey="bills_count" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <SortableHeader label="Cash sales" columnKey="cash_sales" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <SortableHeader label="Expected" columnKey="expected_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <SortableHeader label="Counted" columnKey="actual_closing_cash" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <SortableHeader label="Difference" columnKey="cash_difference" align="right" currentSortKey={sort} direction={dir} currentParams={sortableParams} />
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
+                  ? "No closings match this history range."
+                  : "No closings recorded yet."}
+            </div>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <SortableHeader
+                        label="Date"
+                        columnKey="closing_date"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Status"
+                        columnKey="is_closed"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Bills"
+                        columnKey="bills_count"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Cash sales"
+                        columnKey="cash_sales"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Expected"
+                        columnKey="expected_closing_cash"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Counted"
+                        columnKey="actual_closing_cash"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <SortableHeader
+                        label="Difference"
+                        columnKey="cash_difference"
+                        align="right"
+                        currentSortKey={sort}
+                        direction={dir}
+                        currentParams={sortableParams}
+                      />
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRecent.map((r) => (
+                      <tr key={r.id} className="border-b border-slate-100">
+                        <td className="px-4 py-3 text-slate-700">
+                          {fmtDay(r.closing_date)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.is_closed ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                              Closed
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-700">
+                              Draft
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatNumber(r.bills_count)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatCurrency(r.cash_sales, currency)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatCurrency(r.expected_closing_cash, currency)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatCurrency(r.actual_closing_cash, currency)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span
+                            className={
+                              r.cash_difference === 0
+                                ? "text-slate-500"
+                                : r.cash_difference > 0
+                                  ? "font-bold text-emerald-700"
+                                  : "font-bold text-red-700"
+                            }
+                          >
+                            {formatCurrency(r.cash_difference, currency)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Link
+                            href={pageHref({ date: r.closing_date })}
+                            className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Open
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
                 {sortedRecent.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-100">
-                    <td className="px-4 py-3 text-slate-700">{fmtDay(r.closing_date)}</td>
-                    <td className="px-4 py-3">
+                  <div
+                    key={r.id}
+                    className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                          {fmtDay(r.closing_date)}
+                        </p>
+                      </div>
                       {r.is_closed ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
                           Closed
                         </span>
                       ) : (
-                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-700">
+                        <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                           Draft
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-right">{formatNumber(r.bills_count)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(r.cash_sales, currency)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(r.expected_closing_cash, currency)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(r.actual_closing_cash, currency)}</td>
-                    <td className="px-4 py-3 text-right">
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-slate-500 dark:text-slate-400">
+                          Bills
+                        </dt>
+                        <dd className="font-semibold text-slate-900 dark:text-slate-200">
+                          {formatNumber(r.bills_count)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500 dark:text-slate-400">
+                          Cash sales
+                        </dt>
+                        <dd className="font-semibold text-slate-900 dark:text-slate-200">
+                          {formatCurrency(r.cash_sales, currency)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500 dark:text-slate-400">
+                          Expected
+                        </dt>
+                        <dd className="font-semibold text-slate-900 dark:text-slate-200">
+                          {formatCurrency(r.expected_closing_cash, currency)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500 dark:text-slate-400">
+                          Counted
+                        </dt>
+                        <dd className="font-semibold text-slate-900 dark:text-slate-200">
+                          {formatCurrency(r.actual_closing_cash, currency)}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="mt-2 flex items-center justify-between">
                       <span
-                        className={
+                        className={`text-sm font-bold ${
                           r.cash_difference === 0
-                            ? "text-slate-500"
+                            ? "text-slate-500 dark:text-slate-400"
                             : r.cash_difference > 0
-                              ? "font-bold text-emerald-700"
-                              : "font-bold text-red-700"
-                        }
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-red-700 dark:text-red-400"
+                        }`}
                       >
-                        {formatCurrency(r.cash_difference, currency)}
+                        Diff: {formatCurrency(r.cash_difference, currency)}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
                       <Link
                         href={pageHref({ date: r.closing_date })}
-                        className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="rounded-md border border-slate-200 dark:border-slate-700 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-305 hover:bg-slate-50 dark:hover:bg-slate-800"
                       >
                         Open
                       </Link>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
-            {sortedRecent.map((r) => (
-              <div key={r.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{fmtDay(r.closing_date)}</p>
-                  </div>
-                  {r.is_closed ? (
-                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-                      Closed
-                    </span>
-                  ) : (
-                    <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      Draft
-                    </span>
-                  )}
-                </div>
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <dt className="text-xs text-slate-500 dark:text-slate-400">Bills</dt>
-                    <dd className="font-semibold text-slate-900 dark:text-slate-200">{formatNumber(r.bills_count)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-slate-500 dark:text-slate-400">Cash sales</dt>
-                    <dd className="font-semibold text-slate-900 dark:text-slate-200">{formatCurrency(r.cash_sales, currency)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-slate-500 dark:text-slate-400">Expected</dt>
-                    <dd className="font-semibold text-slate-900 dark:text-slate-200">{formatCurrency(r.expected_closing_cash, currency)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-slate-500 dark:text-slate-400">Counted</dt>
-                    <dd className="font-semibold text-slate-900 dark:text-slate-200">{formatCurrency(r.actual_closing_cash, currency)}</dd>
-                  </div>
-                </dl>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className={`text-sm font-bold ${
-                    r.cash_difference === 0
-                      ? "text-slate-500 dark:text-slate-400"
-                      : r.cash_difference > 0
-                        ? "text-emerald-700 dark:text-emerald-400"
-                        : "text-red-700 dark:text-red-400"
-                  }`}>
-                    Diff: {formatCurrency(r.cash_difference, currency)}
-                  </span>
-                  <Link
-                    href={pageHref({ date: r.closing_date })}
-                    className="rounded-md border border-slate-200 dark:border-slate-700 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-305 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    Open
-                  </Link>
-                </div>
               </div>
-            ))}
-          </div>
-          </>
-        )}
-      </section>
+            </>
+          )}
+        </section>
       </div>
 
       {/* 80mm thermal closing receipt — hidden on screen, shown only when
@@ -812,22 +994,61 @@ export default async function DailyClosingPage({
           <p className="mt-1 text-[10px] font-bold uppercase">Cash Drawer</p>
         </header>
         <div className="my-2 border-y border-dashed border-black py-1 text-[10px]">
-          <div className="flex justify-between gap-2"><span>Date</span><span className="text-right">{fmtDay(date)}</span></div>
-          <div className="flex justify-between gap-2"><span>Status</span><strong>{isClosed ? "Closed" : "Open"}</strong></div>
+          <div className="flex justify-between gap-2">
+            <span>Date</span>
+            <span className="text-right">{fmtDay(date)}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span>Status</span>
+            <strong>{isClosed ? "Closed" : "Open"}</strong>
+          </div>
           {isClosed && closing?.finalized_at && (
             <>
-              <div className="flex justify-between gap-2"><span>Closed by</span><span className="text-right">{closing.finalized_by_name ?? "—"}</span></div>
-              <div className="flex justify-between gap-2"><span>Closed at</span><span className="text-right">{fmtDate(closing.finalized_at)}</span></div>
+              <div className="flex justify-between gap-2">
+                <span>Closed by</span>
+                <span className="text-right">
+                  {closing.finalized_by_name ?? "—"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Closed at</span>
+                <span className="text-right">
+                  {fmtDate(closing.finalized_at)}
+                </span>
+              </div>
             </>
           )}
         </div>
         <table className="w-full text-[10px]">
           <tbody>
-            <tr><td>Invoices</td><td className="text-right">{formatNumber(displayed.bills)}</td></tr>
-            <tr><td>Gross sales</td><td className="text-right">{formatCurrency(displayed.gross, currency)}</td></tr>
-            <tr><td>Refunds</td><td className="text-right">{formatCurrency(displayed.refunds, currency)}</td></tr>
-            <tr><td>Expenses</td><td className="text-right">{formatCurrency(displayed.expenses, currency)}</td></tr>
-            <tr><td>Credit pending</td><td className="text-right">{formatCurrency(displayed.credit, currency)}</td></tr>
+            <tr>
+              <td>Invoices</td>
+              <td className="text-right">{formatNumber(displayed.bills)}</td>
+            </tr>
+            <tr>
+              <td>Gross sales</td>
+              <td className="text-right">
+                {formatCurrency(displayed.gross, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td>Refunds</td>
+              <td className="text-right">
+                {formatCurrency(displayed.refunds, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td>Expenses</td>
+              <td className="text-right">
+                {formatCurrency(displayed.expenses, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td>Credit pending</td>
+              <td className="text-right">
+                {formatCurrency(displayed.credit, currency)}
+              </td>
+            </tr>
           </tbody>
         </table>
         <div className="my-2 border-t border-dashed border-black pt-1 text-[10px] font-bold">
@@ -852,11 +1073,24 @@ export default async function DailyClosingPage({
           </tbody>
         </table>
         <div className="my-2 border-y border-dashed border-black py-1 text-[10px]">
-          <div className="flex justify-between gap-2"><span>Expected cash</span><strong>{formatCurrency(displayed.expected, currency)}</strong></div>
+          <div className="flex justify-between gap-2">
+            <span>Expected cash</span>
+            <strong>{formatCurrency(displayed.expected, currency)}</strong>
+          </div>
           {isClosed && (
             <>
-              <div className="flex justify-between gap-2"><span>Counted cash</span><strong>{formatCurrency(closing?.actual_closing_cash ?? 0, currency)}</strong></div>
-              <div className="flex justify-between gap-2"><span>Difference</span><strong>{formatCurrency(closing?.cash_difference ?? 0, currency)}</strong></div>
+              <div className="flex justify-between gap-2">
+                <span>Counted cash</span>
+                <strong>
+                  {formatCurrency(closing?.actual_closing_cash ?? 0, currency)}
+                </strong>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Difference</span>
+                <strong>
+                  {formatCurrency(closing?.cash_difference ?? 0, currency)}
+                </strong>
+              </div>
             </>
           )}
         </div>
@@ -871,6 +1105,7 @@ export default async function DailyClosingPage({
       {/* Shift thermal print receipt — hidden on screen */}
       {currentShift && shiftActivity && (
         <ShiftPrintSection
+          preparedAt={new Date().toISOString()}
           shift={currentShift}
           activity={shiftActivity}
           staff={shiftStaff ?? []}

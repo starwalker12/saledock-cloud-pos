@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  useOperationRequestKey,
+  confirmingOperationAction,
+} from "@/lib/hooks/use-operation-request-key";
+
 import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { recordCreditPaymentAction, type ActionState } from "../actions";
@@ -22,8 +27,15 @@ export function SettlementForm({
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(
-    recordCreditPaymentAction,
+    confirmingOperationAction(
+      "credit-payment:" + customerId,
+      recordCreditPaymentAction,
+    ),
     initial,
+  );
+  const requestKey = useOperationRequestKey(
+    "credit-payment:" + customerId,
+    state.success ? state : null,
   );
   const formRef = useRef<HTMLFormElement>(null);
   const submissionLocked = useRef(false);
@@ -69,13 +81,12 @@ export function SettlementForm({
         onSubmit={handleSubmit}
         className="mt-4 space-y-3 pt-3 border-t border-blue-100"
       >
+        <input type="hidden" name="request_key" value={requestKey} />
         <input type="hidden" name="customer_id" value={customerId} />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="text-xs font-bold text-slate-700">
-              Amount
-            </span>
+            <span className="text-xs font-bold text-slate-700">Amount</span>
             <input
               required
               type="number"
@@ -83,7 +94,7 @@ export function SettlementForm({
               max={outstandingBalance}
               step="0.01"
               name="amount"
-              disabled={pending}
+              disabled={pending || !requestKey}
               className={input}
               placeholder={`Max: ${outstandingBalance}`}
             />
@@ -97,7 +108,7 @@ export function SettlementForm({
               name="method"
               defaultValue={CREDIT_PAYMENT_METHODS[0]}
               required
-              disabled={pending}
+              disabled={pending || !requestKey}
               options={PAYMENT_OPTIONS}
               ariaLabel="Payment method"
               className="mt-1"
@@ -111,7 +122,7 @@ export function SettlementForm({
           </span>
           <input
             name="reference_number"
-            disabled={pending}
+            disabled={pending || !requestKey}
             className={input}
             placeholder="e.g. Bank slip or Transaction ID"
           />
@@ -123,7 +134,7 @@ export function SettlementForm({
           </span>
           <input
             name="notes"
-            disabled={pending}
+            disabled={pending || !requestKey}
             className={input}
             placeholder="e.g. Partial recovery or Monthly clearance"
           />
@@ -149,7 +160,7 @@ export function SettlementForm({
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !requestKey}
           className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-700 text-xs font-black text-white hover:bg-blue-800 transition disabled:opacity-60 cursor-pointer"
         >
           {pending ? (

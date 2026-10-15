@@ -34,10 +34,7 @@ test("the Return mutation remains one authenticated RPC with unchanged inputs", 
     returnAction.match(/\.rpc\("create_invoice_return"/g)?.length,
     1,
   );
-  assert.match(
-    actionSource,
-    /authRedirect\?: "\/login" \| "\/setup" \| null/,
-  );
+  assert.match(actionSource, /authRedirect\?: "\/login" \| "\/setup" \| null/);
   assert.match(
     returnAction,
     /if \(!ctx\.user\) return \{ error: null, success: null, authRedirect: "\/login" \}/,
@@ -69,7 +66,10 @@ test("Return auth routing is typed, pre-mutation, and free of private Next inter
   );
   assert.doesNotMatch(actionSource + formSource, /next\/dist\//);
   assert.doesNotMatch(actionSource + formSource, /NEXT_REDIRECT/);
-  assert.doesNotMatch(actionSource + formSource, /redirect[^\n]*digest|digest[^\n]*redirect/i);
+  assert.doesNotMatch(
+    actionSource + formSource,
+    /redirect[^\n]*digest|digest[^\n]*redirect/i,
+  );
   assert.doesNotMatch(actionSource, /from "next\/navigation"/);
 });
 
@@ -97,10 +97,7 @@ test("cache reconciliation and action audit run after the Action response", () =
 });
 
 test("success settles before a unique same-route reconciliation", () => {
-  assert.match(
-    formSource,
-    /useActionState\(returnAction, initial\)/,
-  );
+  assert.match(formSource, /useActionState\(returnAction, initial\)/);
   assert.match(
     formSource,
     /const result = await createInvoiceReturnAction\(previous, formData\);[\s\S]*if \(result\.success\) setLocalSuccess\(result\);/,
@@ -133,7 +130,7 @@ test("same-tick repeats and uncertain outcomes cannot resubmit", () => {
   );
   assert.match(
     formSource,
-    /disabled=\{pending \|\| refundTotal <= 0 \|\| outcomeUncertain\}/,
+    /disabled=\{\s*pending\s*\|\|\s*!requestKey\s*\|\|\s*refundTotal <= 0\s*\|\|\s*outcomeUncertain\s*\}/,
   );
   assert.equal(
     formSource.match(/await createInvoiceReturnAction\(/g)?.length,
@@ -166,14 +163,25 @@ test("pending, success, and error feedback retain accessible semantics", () => {
 });
 
 test("the authoritative Return RPC retains refund, FIFO, stock, and ledger rules", () => {
-  const start = rpcSource.indexOf("create or replace function public.create_invoice_return(");
-  const end = rpcSource.indexOf("create or replace function public.adjust_stock(", start);
+  const start = rpcSource.indexOf(
+    "create or replace function public.create_invoice_return(",
+  );
+  const end = rpcSource.indexOf(
+    "create or replace function public.adjust_stock(",
+    start,
+  );
   const rpc = rpcSource.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.match(rpc, /v_balance_credit := least\(coalesce\(v_curr_balance, 0\), v_subtotal\)/);
+  assert.match(
+    rpc,
+    /v_balance_credit := least\(coalesce\(v_curr_balance, 0\), v_subtotal\)/,
+  );
   assert.match(rpc, /'refund', 'credit'/);
   assert.match(rpc, /quantity_remaining = quantity_remaining \+ v_restore_qty/);
   assert.match(rpc, /stock_quantity = stock_quantity \+ v_requested_qty/);
   assert.match(rpc, /'return_in'/);
-  assert.match(rpc, /case when v_invoice_item\.product_type = 'product' then v_restock else false end/);
+  assert.match(
+    rpc,
+    /case when v_invoice_item\.product_type = 'product' then v_restock else false end/,
+  );
 });

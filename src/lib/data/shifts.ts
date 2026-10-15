@@ -1,14 +1,22 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
   OPERATIONAL_HISTORY_MAX_ROWS,
   operationalHistoryResult,
   type OperationalHistoryResult,
 } from "@/lib/operational-history";
-import { emptyMethodTotals, FINALIZED_INVOICE_STATUSES, type MethodTotals, type PaymentMethodKey, type ExpenseBreakdown } from "./daily-closing";
+import {
+  emptyMethodTotals,
+  FINALIZED_INVOICE_STATUSES,
+  type MethodTotals,
+  type PaymentMethodKey,
+  type ExpenseBreakdown,
+} from "./daily-closing";
 
 export type CashShiftRow = {
   id: string;
+  accounting_version: 2 | null;
   organization_id: string;
   branch_id: string;
   opened_at: string;
@@ -28,6 +36,7 @@ export type CashShiftRow = {
 };
 
 export type ShiftActivity = {
+  exactDisplay?: Record<string, unknown>;
   invoicesCount: number;
   grossSales: number;
   paymentsByMethod: MethodTotals;
@@ -61,13 +70,14 @@ export async function getCurrentShift(
     .select(
       `id, organization_id, branch_id, opened_at, closed_at, opened_by, closed_by,
        starting_cash, expected_cash, counted_cash, cash_difference, notes, status,
-       created_at, updated_at,
+       created_at, updated_at, accounting_version,
        opener:profiles!cash_shifts_opened_by_fkey(full_name),
        closer:profiles!cash_shifts_closed_by_fkey(full_name)`,
     )
     .eq("organization_id", organizationId)
     .eq("branch_id", branchId)
     .eq("status", "open")
+    .eq("accounting_version", 2)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
@@ -108,7 +118,7 @@ export async function getShiftHistory(
     .select(
       `id, organization_id, branch_id, opened_at, closed_at, opened_by, closed_by,
        starting_cash, expected_cash, counted_cash, cash_difference, notes, status,
-       created_at, updated_at,
+       created_at, updated_at, accounting_version,
        opener:profiles!cash_shifts_opened_by_fkey(full_name),
        closer:profiles!cash_shifts_closed_by_fkey(full_name)`,
     )
@@ -136,6 +146,7 @@ function mapRow(data: Record<string, unknown>): CashShiftRow {
   const closer = data.closer as { full_name?: string } | null;
   return {
     id: data.id as string,
+    accounting_version: data.accounting_version === 2 ? 2 : null,
     organization_id: data.organization_id as string,
     branch_id: data.branch_id as string,
     opened_at: data.opened_at as string,
@@ -147,7 +158,8 @@ function mapRow(data: Record<string, unknown>): CashShiftRow {
     starting_cash: Number(data.starting_cash ?? 0),
     expected_cash: Number(data.expected_cash ?? 0),
     counted_cash: data.counted_cash !== null ? Number(data.counted_cash) : null,
-    cash_difference: data.cash_difference !== null ? Number(data.cash_difference) : null,
+    cash_difference:
+      data.cash_difference !== null ? Number(data.cash_difference) : null,
     notes: data.notes as string | null,
     status: data.status as "open" | "closed",
     created_at: data.created_at as string,
@@ -160,7 +172,11 @@ export async function getShiftActivity(
   branchId: string,
   openedAt: string,
   closedAt?: string,
+  exactShift?: Pick<CashShiftRow, "id" | "accounting_version">,
 ): Promise<ShiftActivity> {
+  if (exactShift?.accounting_version === 2) {
+    return snapshotActivity(await getExactShiftSnapshot(exactShift.id));
+  }
   const supabase = await createClient();
   const end = closedAt ?? new Date().toISOString();
 
@@ -207,15 +223,24 @@ export async function getShiftActivity(
   if (expensesRes.error) throw new Error(expensesRes.error.message);
 
   const invoices = invoicesRes.data ?? [];
-  const grossSales = invoices.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
-  const creditPending = invoices.reduce((s, r) => s + Number(r.balance_due ?? 0), 0);
+  const grossSales = invoices.reduce(
+    (s, r) => s + Number(r.grand_total ?? 0),
+    0,
+  );
+  const creditPending = invoices.reduce(
+    (s, r) => s + Number(r.balance_due ?? 0),
+    0,
+  );
 
   const paymentsByMethod = emptyMethodTotals();
   for (const p of paymentsRes.data ?? []) {
     const m = p.method as PaymentMethodKey;
     if (m in paymentsByMethod) paymentsByMethod[m] += Number(p.amount ?? 0);
   }
-  const paymentsTotal = Object.values(paymentsByMethod).reduce((a, b) => a + b, 0);
+  const paymentsTotal = Object.values(paymentsByMethod).reduce(
+    (a, b) => a + b,
+    0,
+  );
 
   const refundsByMethod = emptyMethodTotals();
   let refundsTotal = 0;
@@ -232,7 +257,10 @@ export async function getShiftActivity(
   for (const e of expensesRes.data ?? []) {
     const amount = Number(e.amount ?? 0);
     expensesTotal += amount;
-    expensesByCategoryMap.set(e.category, (expensesByCategoryMap.get(e.category) ?? 0) + amount);
+    expensesByCategoryMap.set(
+      e.category,
+      (expensesByCategoryMap.get(e.category) ?? 0) + amount,
+    );
     if (e.payment_method === "cash") expensesCash += amount;
   }
   const expensesByCategory: ExpenseBreakdown[] = [...expensesByCategoryMap]
@@ -242,7 +270,11 @@ export async function getShiftActivity(
   const { creditCollectionCash, creditCollectionDigital, creditWriteOffs } =
     await getShiftCreditCollections(organizationId, branchId, openedAt, end);
 
-  const expectedCash = paymentsByMethod.cash - refundsByMethod.cash - expensesCash + creditCollectionCash;
+  const expectedCash =
+    paymentsByMethod.cash -
+    refundsByMethod.cash -
+    expensesCash +
+    creditCollectionCash;
 
   return {
     invoicesCount: invoices.length,
@@ -268,7 +300,11 @@ async function getShiftCreditCollections(
   branchId: string,
   start: string,
   end: string,
-): Promise<{ creditCollectionCash: number; creditCollectionDigital: number; creditWriteOffs: number }> {
+): Promise<{
+  creditCollectionCash: number;
+  creditCollectionDigital: number;
+  creditWriteOffs: number;
+}> {
   const supabase = await createClient();
   const digitalMethods = ["card", "easypaisa", "jazzcash", "bank_transfer"];
 
@@ -299,12 +335,16 @@ async function getShiftCreditCollections(
     .gte("created_at", start)
     .lte("created_at", end);
 
-  const creditWriteOffs = (woRes.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const creditWriteOffs = (woRes.data ?? []).reduce(
+    (s, r) => s + Number(r.amount ?? 0),
+    0,
+  );
 
   return { creditCollectionCash, creditCollectionDigital, creditWriteOffs };
 }
 
 export type StaffActivity = {
+  exactDisplay?: Record<string, unknown>;
   user_id: string;
   user_name: string | null;
   role: string | null;
@@ -318,7 +358,22 @@ export async function getShiftStaffSummary(
   branchId: string,
   openedAt: string,
   closedAt?: string,
+  exactShift?: Pick<CashShiftRow, "id" | "accounting_version">,
 ): Promise<StaffActivity[]> {
+  if (exactShift?.accounting_version === 2) {
+    const snapshot = await getExactShiftSnapshot(exactShift.id);
+    if (!Array.isArray(snapshot.staff))
+      throw new Error("Unable to read shift staff totals.");
+    return snapshot.staff.map((value: Record<string, unknown>) => ({
+      exactDisplay: value,
+      user_id: String(value.user_id),
+      user_name: typeof value.user_name === "string" ? value.user_name : null,
+      role: typeof value.role === "string" ? value.role : null,
+      paymentsTotal: snapshotNumber(value.paymentsTotal),
+      paymentsCash: snapshotNumber(value.paymentsCash),
+      paymentsDigital: snapshotNumber(value.paymentsDigital),
+    }));
+  }
   const supabase = await createClient();
   const end = closedAt ?? new Date().toISOString();
 
@@ -334,7 +389,13 @@ export async function getShiftStaffSummary(
 
   if (paymentsRes.error) throw new Error(paymentsRes.error.message);
 
-  const digitalMethods = ["card", "easypaisa", "jazzcash", "bank_transfer", "customer_credit"];
+  const digitalMethods = [
+    "card",
+    "easypaisa",
+    "jazzcash",
+    "bank_transfer",
+    "customer_credit",
+  ];
 
   const staffMap = new Map<string, { cash: number; digital: number }>();
   const unassigned = { cash: 0, digital: 0 };
@@ -361,15 +422,23 @@ export async function getShiftStaffSummary(
 
   // Fetch profiles for all user IDs found
   const userIds = [...staffMap.keys()];
-  const profilesRes = userIds.length > 0
-    ? await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .in("id", userIds)
-    : { data: [] };
+  const profilesRes =
+    userIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name, role")
+          .in("id", userIds)
+      : { data: [] };
 
-  const profileMap = new Map<string, { full_name: string | null; role: string | null }>();
-  for (const p of (profilesRes.data ?? []) as Array<{ id: string; full_name: string | null; role: string | null }>) {
+  const profileMap = new Map<
+    string,
+    { full_name: string | null; role: string | null }
+  >();
+  for (const p of (profilesRes.data ?? []) as Array<{
+    id: string;
+    full_name: string | null;
+    role: string | null;
+  }>) {
     profileMap.set(p.id, { full_name: p.full_name, role: p.role });
   }
 
@@ -404,4 +473,76 @@ export async function getShiftStaffSummary(
   }
 
   return result;
+}
+
+const getExactShiftSnapshot = cache(
+  async (shiftId: string): Promise<Record<string, unknown>> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_cash_shift_snapshot", {
+      p_shift_id: shiftId,
+    });
+    if (error || !data || data.version !== 2)
+      throw new Error("Unable to read exact shift totals.");
+    return data as Record<string, unknown>;
+  },
+);
+
+// Numbers are used only for the existing display components. DB decimal strings
+// remain the closing authority; this adapter never writes or sums closing money.
+function snapshotNumber(value: unknown): number {
+  if (typeof value !== "string" || !/^-?[0-9]+(?:\.[0-9]+)?$/.test(value)) {
+    throw new Error("Invalid shift snapshot amount.");
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number))
+    throw new Error("Invalid shift snapshot amount.");
+  return number;
+}
+
+function snapshotMethods(value: unknown): MethodTotals {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Invalid shift method totals.");
+  const methods = emptyMethodTotals();
+  for (const method of Object.keys(methods) as PaymentMethodKey[]) {
+    methods[method] = snapshotNumber(
+      (value as Record<string, unknown>)[method] ?? "0",
+    );
+  }
+  return methods;
+}
+
+function snapshotActivity(snapshot: Record<string, unknown>): ShiftActivity {
+  const invoicesCount = snapshotNumber(snapshot.invoicesCount);
+  const refundsCount = snapshotNumber(snapshot.refundsCount);
+  if (
+    !Number.isSafeInteger(invoicesCount) ||
+    !Number.isSafeInteger(refundsCount)
+  ) {
+    throw new Error("Invalid shift snapshot count.");
+  }
+  if (!Array.isArray(snapshot.expensesByCategory))
+    throw new Error("Invalid shift expense totals.");
+  return {
+    invoicesCount,
+    refundsCount,
+    exactDisplay: snapshot,
+    grossSales: snapshotNumber(snapshot.grossSales),
+    paymentsByMethod: snapshotMethods(snapshot.paymentsByMethod),
+    paymentsTotal: snapshotNumber(snapshot.paymentsTotal),
+    refundsTotal: snapshotNumber(snapshot.refundsTotal),
+    refundsByMethod: snapshotMethods(snapshot.refundsByMethod),
+    expensesTotal: snapshotNumber(snapshot.expensesTotal),
+    expensesCash: snapshotNumber(snapshot.expensesCash),
+    expensesByCategory: snapshot.expensesByCategory.map(
+      (value: Record<string, unknown>) => ({
+        category: String(value.category),
+        amount: snapshotNumber(value.amount),
+      }),
+    ),
+    creditPending: snapshotNumber(snapshot.creditPending),
+    expectedCash: snapshotNumber(snapshot.expectedCash),
+    creditCollectionCash: snapshotNumber(snapshot.creditCollectionCash),
+    creditCollectionDigital: snapshotNumber(snapshot.creditCollectionDigital),
+    creditWriteOffs: snapshotNumber(snapshot.creditWriteOffs),
+  };
 }

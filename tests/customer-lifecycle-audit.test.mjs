@@ -140,7 +140,7 @@ test("lifecycle audit payloads identify records without copying private profile 
 test("existing customer financial actions and RPCs retain their established contracts", () => {
   assert.match(creditSource, /\.rpc\("record_credit_payment"/);
   assert.match(creditSource, /action: "customer\.credit_payment"/);
-  assert.match(writeOffSource, /\.rpc\("record_customer_write_off"/);
+  assert.match(writeOffSource, /\.rpc\(\s*"record_customer_write_off"/);
   assert.match(writeOffSource, /action: "customer\.write_off"/);
   assert.equal((actionsSource.match(/\.rpc\(/g) ?? []).length, 2);
 });
