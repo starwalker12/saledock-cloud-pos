@@ -276,7 +276,7 @@ test("Repair list and detail data paths remain unchanged by month-stat hardening
       }),
     ]);
     assert.equal(
-      currentFunction,
+      currentFunction.replace(/\s*repair_revision: Number\([^\n]+\),\n/g, "\n"),
       headFunction,
       `${name} changed outside the approved getRepairsStats scope`,
     );

@@ -7,7 +7,7 @@ lock table public.profiles, public.staff_permissions, public.organizations,
   public.invoice_item_stock_allocations, public.stock_movements, public.payments,
   public.credit_payments, public.customer_write_offs, public.returns,
   public.return_items, public.return_stock_allocations, public.expenses,
-  public.cash_shifts, public.audit_logs, public.supplier_purchases,
+  public.cash_shifts, public.audit_logs, public.repairs, public.repair_status_history, public.supplier_purchases,
   public.supplier_purchase_items, public.supplier_payments,
   public.supplier_write_offs, backup_private.organization_identity_locks,
   backup_private.jobs, backup_private.staged_rows
@@ -30,22 +30,23 @@ end; $$;
 
 create role cash_shift_executor nologin nosuperuser nobypassrls;
 create role expense_posting_executor nologin nosuperuser nobypassrls;
-grant cash_shift_executor, expense_posting_executor to postgres;
+create role repair_posting_executor nologin nosuperuser nobypassrls;
+grant cash_shift_executor, expense_posting_executor, repair_posting_executor to postgres;
 create schema cash_private authorization cash_shift_executor;
 revoke all on schema cash_private from public, anon, authenticated, service_role;
 grant usage on schema cash_private to authenticated, ledger_posting_executor,
-  ledger_reset_executor, backup_import_executor, backup_identity_executor, expense_posting_executor;
+  ledger_reset_executor, backup_import_executor, backup_identity_executor, expense_posting_executor, repair_posting_executor;
 -- Ownership transfer needs CREATE during this transaction only.
-grant create on schema cash_private to backup_identity_executor,expense_posting_executor;
-grant usage on schema public to cash_shift_executor, expense_posting_executor;
-grant execute on function public.current_organization_id() to cash_shift_executor, expense_posting_executor;
+grant create on schema cash_private to backup_identity_executor,expense_posting_executor,repair_posting_executor;
+grant usage on schema public to cash_shift_executor, expense_posting_executor, repair_posting_executor;
+grant execute on function public.current_organization_id() to cash_shift_executor, expense_posting_executor, repair_posting_executor;
 
 create function cash_private.actor_id() returns uuid
 language sql stable security invoker set search_path=''
 begin atomic select auth.uid(); end;
 alter function cash_private.actor_id() owner to cash_shift_executor;
 revoke all on function cash_private.actor_id() from public, anon, authenticated, service_role;
-grant execute on function cash_private.actor_id() to backup_identity_executor, expense_posting_executor;
+grant execute on function cash_private.actor_id() to backup_identity_executor, expense_posting_executor, repair_posting_executor;
 
 create table cash_private.branch_boundaries (
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -396,6 +397,191 @@ begin
 end; $$;
 alter function cash_private.money(text,boolean) owner to cash_shift_executor;
 
+-- The job is long lived; only its single V1 advance receipt has membership.
+alter table public.repairs
+  add column advance_cash_shift_id uuid,
+  add column advance_cash_shift_assignment_xid xid8,
+  add column advance_received_at timestamptz,
+  add column advance_received_by uuid references public.profiles(id) on delete restrict,
+  add column repair_revision bigint not null default 0 check(repair_revision>=0),
+  add column repair_request_key uuid,
+  add column repair_request_payload jsonb,
+  add constraint repair_advance_assignment check(
+    (advance_cash_shift_assignment_xid is null and advance_cash_shift_id is null and advance_received_at is null and advance_received_by is null)
+    or (advance_cash_shift_assignment_xid is not null and advance_received_at is not null and advance_received_by is not null)),
+  add constraint repair_advance_membership foreign key(organization_id,branch_id,advance_cash_shift_id)
+    references public.cash_shifts(organization_id,branch_id,id) on delete restrict;
+create index repair_advance_members on public.repairs(advance_cash_shift_id) where advance_cash_shift_id is not null;
+create unique index repair_create_request on public.repairs(organization_id,repair_request_key) where repair_request_key is not null;
+
+grant select(id),update(id) on public.organizations to repair_posting_executor;
+create policy repair_executor_org on public.organizations for all to repair_posting_executor using(id=public.current_organization_id()) with check(id=public.current_organization_id());
+grant select,insert,update on public.repairs to repair_posting_executor;
+grant select on public.profiles to repair_posting_executor;
+grant select(id,organization_id,is_active) on public.branches to repair_posting_executor;
+grant select(id,organization_id) on public.customers to repair_posting_executor;
+grant insert on public.audit_logs,public.repair_status_history to repair_posting_executor;
+grant select(id,status) on public.cash_shifts to repair_posting_executor;
+create policy repair_executor_write on public.repairs for all to repair_posting_executor
+ using(organization_id=public.current_organization_id()) with check(organization_id=public.current_organization_id());
+create policy repair_executor_profile on public.profiles for select to repair_posting_executor using(organization_id=public.current_organization_id());
+create policy repair_executor_branch on public.branches for select to repair_posting_executor using(organization_id=public.current_organization_id());
+create policy repair_executor_customer on public.customers for select to repair_posting_executor using(organization_id=public.current_organization_id());
+create policy repair_executor_shift on public.cash_shifts for select to repair_posting_executor using(organization_id=public.current_organization_id());
+create policy repair_executor_audit on public.audit_logs for insert to repair_posting_executor with check(organization_id=public.current_organization_id());
+create policy repair_executor_history on public.repair_status_history for insert to repair_posting_executor with check(organization_id=public.current_organization_id());
+
+create function cash_private.guard_repair_advance() returns trigger
+language plpgsql security invoker set search_path='' as $$
+declare financial_change boolean; actor public.profiles;
+begin
+ if tg_op='DELETE' then
+   if current_user<>'ledger_reset_executor' then raise exception 'Repair receipt history cannot be deleted.' using errcode='42501'; end if;
+   return old;
+ end if;
+ if tg_op='INSERT' and current_user='backup_import_executor' then
+   new.advance_cash_shift_id:=null;new.advance_cash_shift_assignment_xid:=null;
+   new.advance_received_at:=null;new.advance_received_by:=null;
+   new.repair_request_key:=null;new.repair_request_payload:=null;new.repair_revision:=0;
+   return new;
+ end if;
+ if tg_op='INSERT' then
+   if new.advance_cash_shift_id is not null or new.advance_cash_shift_assignment_xid is not null
+      or new.advance_received_at is not null or new.advance_received_by is not null then
+     raise exception 'Repair advance assignment is database-owned.' using errcode='42501'; end if;
+   if current_user in ('postgres','supabase_admin') then return new; end if;
+   if current_user<>'repair_posting_executor' then raise exception 'Use the approved repair writer.' using errcode='42501'; end if;
+   financial_change:=new.advance_paid>0;
+ else
+   if new.id is distinct from old.id or new.organization_id is distinct from old.organization_id or new.branch_id is distinct from old.branch_id
+      or new.job_no is distinct from old.job_no or new.created_by is distinct from old.created_by or new.created_at is distinct from old.created_at
+      or new.repair_request_key is distinct from old.repair_request_key or new.repair_request_payload is distinct from old.repair_request_payload
+      or new.advance_cash_shift_id is distinct from old.advance_cash_shift_id
+      or new.advance_cash_shift_assignment_xid is distinct from old.advance_cash_shift_assignment_xid
+      or new.advance_received_at is distinct from old.advance_received_at or new.advance_received_by is distinct from old.advance_received_by
+      or new.repair_revision is distinct from old.repair_revision then
+     raise exception 'Repair advance identity is immutable.' using errcode='42501'; end if;
+   financial_change:=new.advance_paid is distinct from old.advance_paid or new.payment_method is distinct from old.payment_method;
+   if current_user<>'repair_posting_executor' then
+     if financial_change then raise exception 'Use the approved repair writer.' using errcode='42501'; end if;
+     -- A raw workflow update already owns its tuple. Never wait for M from here.
+     if not pg_catalog.pg_try_advisory_xact_lock_shared(pg_catalog.hashtextextended(old.organization_id::text,24637)) then
+       raise exception 'Accounting is busy. Refresh and try again.' using errcode='PT409'; end if;
+     select * into actor from public.profiles where id=auth.uid() and is_active and organization_id=old.organization_id and branch_id=old.branch_id;
+     if not found or actor.role not in ('owner','admin','manager','technician') then
+       raise exception 'You do not have permission to update this repair.' using errcode='42501'; end if;
+     if actor.role='technician' and (to_jsonb(new)-array['diagnosis','status','notes','final_cost','delivered_at','updated_at'])
+       is distinct from (to_jsonb(old)-array['diagnosis','status','notes','final_cost','delivered_at','updated_at']) then
+       raise exception 'You do not have permission to edit repair details.' using errcode='42501'; end if;
+   end if;
+   if financial_change and old.advance_cash_shift_id is not null and exists(
+     select 1 from public.cash_shifts where id=old.advance_cash_shift_id and status='closed') then
+     raise exception 'This repair advance belongs to a closed cash shift and can no longer be changed.' using errcode='PT409'; end if;
+   if financial_change and old.advance_cash_shift_assignment_xid is null and old.advance_paid>0 then
+     raise exception 'Legacy repair advance history cannot be rewritten.' using errcode='PT409'; end if;
+   new.repair_revision:=old.repair_revision+1;
+ end if;
+ if new.advance_paid::text in ('NaN','Infinity','-Infinity') or new.advance_paid<0 or new.payment_method='customer_credit' then
+   raise exception 'Invalid repair advance.' using errcode='22023'; end if;
+ if current_user='repair_posting_executor' and new.advance_paid>0 and new.advance_cash_shift_assignment_xid is null
+    and (tg_op='INSERT' or old.advance_paid=0) then
+   -- RPC has admission before its first business lock. Trigger is reentrant.
+   new.advance_cash_shift_id:=cash_private.admit(new.organization_id,new.branch_id);
+   new.advance_cash_shift_assignment_xid:=pg_catalog.pg_current_xact_id();
+   new.advance_received_at:=clock_timestamp();new.advance_received_by:=cash_private.actor_id();
+ end if;
+ return new;
+end; $$;
+alter function cash_private.guard_repair_advance() owner to repair_posting_executor;
+revoke all on function cash_private.guard_repair_advance() from public,anon,authenticated,service_role;
+create trigger repair_advance_guard before insert or update or delete on public.repairs
+ for each row execute function cash_private.guard_repair_advance();
+revoke insert,update,delete,truncate,references,trigger on public.repairs from public,anon,authenticated,service_role;
+do $$ declare cols text; begin
+ select string_agg(quote_ident(attname),',') into cols from pg_attribute where attrelid='public.repairs'::regclass and attnum>0 and not attisdropped;
+ execute format('revoke insert(%s),update(%s),references(%s) on public.repairs from public,anon,authenticated,service_role',cols,cols,cols);
+end; $$;
+-- Operational workflow remains available under its existing role checks. No raw receipt economics.
+grant update(diagnosis,status,notes,final_cost,delivered_at,updated_at) on public.repairs to authenticated;
+
+create function cash_private.save_repair(p_id uuid,p_key uuid,p_revision bigint,p_data jsonb) returns jsonb
+language plpgsql volatile security definer set search_path='' as $$
+declare actor public.profiles; original public.repairs; saved public.repairs; data public.repairs;
+ payload jsonb; seq numeric; seq_text text;
+begin
+ select * into actor from public.profiles where id=cash_private.actor_id() and is_active;
+ if not found or actor.organization_id is null or actor.branch_id is null
+   or (p_id is null and actor.role not in ('owner','admin','manager','cashier','technician'))
+   or (p_id is not null and actor.role not in ('owner','admin','manager')) then
+   raise exception 'You do not have permission to save this repair.' using errcode='42501'; end if;
+ if p_data is null or jsonb_typeof(p_data)<>'object' or exists(select 1 from jsonb_object_keys(p_data) k
+    where k<>all(array['customer_id','customer_name','customer_phone','device_type','device_model','serial_imei','problem_description',
+      'accessories_received','estimated_cost','advance_paid','payment_method','status','notes','expected_delivery_at'])) then
+   raise exception 'Invalid repair details.' using errcode='22023'; end if;
+ select * into data from jsonb_populate_record(null::public.repairs,p_data);
+ data.advance_paid:=cash_private.money(p_data->>'advance_paid');
+ data.estimated_cost:=cash_private.money(p_data->>'estimated_cost');
+ if data.payment_method is null or data.payment_method='customer_credit' or data.status is null
+    or nullif(btrim(data.customer_name),'') is null or length(btrim(data.customer_name))>160
+    or nullif(btrim(data.device_type),'') is null or length(btrim(data.device_type))>100
+    or nullif(btrim(data.problem_description),'') is null then
+   raise exception 'Invalid repair details.' using errcode='22023'; end if;
+ -- All saves acquire M/B before the organization counter or repair tuple.
+ perform cash_private.boundary(actor.organization_id,actor.branch_id,false);
+ if not exists(select 1 from public.profiles where id=actor.id and organization_id=actor.organization_id and branch_id=actor.branch_id
+    and is_active and role=actor.role) or not exists(select 1 from public.branches where id=actor.branch_id and organization_id=actor.organization_id and is_active) then
+   raise exception 'Repair authorization changed.' using errcode='42501'; end if;
+ if data.customer_id is not null and not exists(select 1 from public.customers where id=data.customer_id and organization_id=actor.organization_id) then
+   raise exception 'The selected customer is unavailable.' using errcode='42501'; end if;
+ payload:=jsonb_build_object('branch',actor.branch_id,'data',p_data||jsonb_build_object('advance_paid',data.advance_paid,'estimated_cost',data.estimated_cost));
+ if p_id is null then
+   if p_key is null then raise exception 'Refresh and try again with a request key.' using errcode='22023'; end if;
+   -- Reuse the existing organization/counter order; SQL max has no API row cap.
+   perform 1 from public.organizations where id=actor.organization_id for update;
+   select * into saved from public.repairs where organization_id=actor.organization_id and repair_request_key=p_key;
+   if found then
+     if saved.repair_request_payload is distinct from payload then raise exception 'Conflicting repair request.' using errcode='PT409'; end if;
+     return jsonb_build_object('id',saved.id,'job_no',saved.job_no,'revision',saved.repair_revision,'replayed',true);
+   end if;
+   select coalesce(max(nullif(regexp_replace(job_no,'\D','','g'),'')::numeric),0)+1 into seq from public.repairs where organization_id=actor.organization_id;
+   seq_text:=seq::text;
+   insert into public.repairs(organization_id,branch_id,customer_id,job_no,customer_name,customer_phone,device_type,device_model,serial_imei,
+     problem_description,accessories_received,estimated_cost,advance_paid,payment_method,final_cost,status,notes,expected_delivery_at,created_by,
+     repair_request_key,repair_request_payload,repair_revision)
+   values(actor.organization_id,actor.branch_id,data.customer_id,'RJ-'||case when length(seq_text)<6 then lpad(seq_text,6,'0') else seq_text end,
+     btrim(data.customer_name),data.customer_phone,btrim(data.device_type),data.device_model,data.serial_imei,data.problem_description,
+     data.accessories_received,data.estimated_cost,data.advance_paid,data.payment_method,data.estimated_cost,data.status,data.notes,data.expected_delivery_at,
+     actor.id,p_key,payload,1) returning * into saved;
+   insert into public.repair_status_history(organization_id,repair_id,old_status,new_status,note,changed_by)
+     values(actor.organization_id,saved.id,null,saved.status,coalesce(data.notes,'Device received for repair intake.'),actor.id);
+ else
+   select * into original from public.repairs where id=p_id and organization_id=actor.organization_id and branch_id=actor.branch_id for update;
+   if not found then raise exception 'Repair not found for this branch.' using errcode='42501'; end if;
+   if row(original.customer_id,original.customer_name,original.customer_phone,original.device_type,original.device_model,original.serial_imei,
+      original.problem_description,original.accessories_received,original.estimated_cost,original.advance_paid,original.payment_method,
+      original.status,original.notes,original.expected_delivery_at)
+     is not distinct from row(data.customer_id,btrim(data.customer_name),data.customer_phone,btrim(data.device_type),data.device_model,data.serial_imei,
+      data.problem_description,data.accessories_received,data.estimated_cost,data.advance_paid,data.payment_method,data.status,data.notes,data.expected_delivery_at) then
+     return jsonb_build_object('id',original.id,'job_no',original.job_no,'revision',original.repair_revision,'replayed',true);
+   end if;
+   if p_revision is null or p_revision<>original.repair_revision then raise exception 'Repair changed; refresh before editing.' using errcode='PT409'; end if;
+   update public.repairs set customer_id=data.customer_id,customer_name=btrim(data.customer_name),customer_phone=data.customer_phone,
+     device_type=btrim(data.device_type),device_model=data.device_model,serial_imei=data.serial_imei,problem_description=data.problem_description,
+     accessories_received=data.accessories_received,estimated_cost=data.estimated_cost,advance_paid=data.advance_paid,payment_method=data.payment_method,
+     status=data.status,notes=data.notes,expected_delivery_at=data.expected_delivery_at where id=original.id returning * into saved;
+ end if;
+ insert into public.audit_logs(organization_id,branch_id,actor_id,module,action,details,metadata)
+   values(actor.organization_id,actor.branch_id,actor.id,'repairs',case when p_id is null then 'repairs.created' else 'repairs.updated' end,
+     'Repair saved',jsonb_build_object('repair_id',saved.id,'revision',saved.repair_revision,'advance_receipt',saved.advance_cash_shift_assignment_xid is not null));
+ return jsonb_build_object('id',saved.id,'job_no',saved.job_no,'revision',saved.repair_revision,'replayed',false);
+end; $$;
+alter function cash_private.save_repair(uuid,uuid,bigint,jsonb) owner to repair_posting_executor;
+create function public.save_cash_shift_repair(p_id uuid,p_request_key uuid,p_revision bigint,p_data jsonb) returns jsonb
+language sql volatile security invoker set search_path='' as $$ select cash_private.save_repair(p_id,p_request_key,p_revision,p_data); $$;
+
+grant select(id,organization_id,branch_id,advance_cash_shift_id,advance_cash_shift_assignment_xid,advance_paid,payment_method,advance_received_by) on public.repairs to cash_shift_executor;
+create policy cash_executor_repair_read on public.repairs for select to cash_shift_executor using(organization_id=public.current_organization_id());
+
 create function cash_private.aggregate_shift(p_shift uuid) returns jsonb
 language sql volatile security invoker set search_path='' as $$
 with target as materialized(select organization_id,branch_id from public.cash_shifts where id=p_shift),
@@ -411,6 +597,10 @@ c as (select method::text method,sum(amount) amount,count(*) n from public.credi
  where cash_shift_id=p_shift and credit_payments.organization_id=t.organization_id and credit_payments.branch_id=t.branch_id group by method),
 w as (select coalesce(sum(amount),0) amount,count(*) n from public.customer_write_offs,target t
  where cash_shift_id=p_shift and customer_write_offs.organization_id=t.organization_id and customer_write_offs.branch_id=t.branch_id),
+a as (select payment_method::text method,sum(advance_paid) amount,count(*) n from public.repairs,target t
+ where advance_cash_shift_id=p_shift and advance_cash_shift_assignment_xid is not null and repairs.organization_id=t.organization_id and repairs.branch_id=t.branch_id group by payment_method),
+asf as (select advance_received_by, sum(advance_paid) amount from public.repairs,target t
+ where advance_cash_shift_id=p_shift and advance_cash_shift_assignment_xid is not null and repairs.organization_id=t.organization_id and repairs.branch_id=t.branch_id group by advance_received_by),
 s as (select received_by,coalesce(sum(amount) filter(where method='cash'),0) cash,
  coalesce(sum(amount) filter(where method in ('card','easypaisa','jazzcash','bank_transfer','customer_credit')),0) digital
  from public.payments,target t where cash_shift_id=p_shift and payments.organization_id=t.organization_id and payments.branch_id=t.branch_id group by received_by)
@@ -429,17 +619,22 @@ select jsonb_build_object(
  'creditCollectionDigital',coalesce((select sum(amount) from c where method in ('card','easypaisa','jazzcash','bank_transfer')),0)::text,
  'creditCollectionsByMethod',coalesce((select jsonb_object_agg(method,amount::text) from c),'{}'),
  'creditWriteOffs',w.amount::text,
+ 'repairAdvancesTotal',coalesce((select sum(amount) from a),0)::text,
+ 'repairAdvancesCash',coalesce((select sum(amount) from a where method='cash'),0)::text,
+ 'repairAdvancesByMethod',coalesce((select jsonb_object_agg(method,amount::text) from a),'{}'),
+ 'repairAdvancesByStaff',coalesce((select jsonb_agg(jsonb_build_object('user_id',asf.advance_received_by,'user_name',profiles.full_name,'amount',asf.amount::text) order by asf.amount desc,asf.advance_received_by) from asf left join public.profiles on profiles.id=asf.advance_received_by),'[]'),
  'expectedCash',(coalesce((select sum(amount) from p where method='cash'),0)
    -coalesce((select sum(amount) from r where method='cash'),0)
    -coalesce((select sum(amount) from e where method='cash'),0)
-   +coalesce((select sum(amount) from c where method='cash'),0))::text,
+   +coalesce((select sum(amount) from c where method='cash'),0)
+   +coalesce((select sum(amount) from a where method='cash'),0))::text,
  'staff',coalesce((select jsonb_agg(jsonb_build_object('user_id',coalesce(s.received_by::text,'unassigned'),
    'user_name',profiles.full_name,'role',profiles.role,'paymentsTotal',(s.cash+s.digital)::text,
    'paymentsCash',s.cash::text,'paymentsDigital',s.digital::text) order by s.cash+s.digital desc,s.received_by)
    from s left join public.profiles on profiles.id=s.received_by),'[]'),
  'sourceCounts',jsonb_build_object('invoices',i.n::text,'payments',coalesce((select sum(n) from p),0)::text,
    'returns',coalesce((select sum(n) from r),0)::text,'expenses',coalesce((select sum(n) from e),0)::text,
-   'credit_payments',coalesce((select sum(n) from c),0)::text,'customer_write_offs',w.n::text),
+   'credit_payments',coalesce((select sum(n) from c),0)::text,'customer_write_offs',w.n::text,'repair_advances',coalesce((select sum(n) from a),0)::text),
  'snapshotObservedAt',clock_timestamp())
 from i,w;
 $$;
@@ -2229,7 +2424,7 @@ begin
   end if;
   -- Imported provenance is never accepted. A later trust cutover defines new restore anchors.
   select coalesce(jsonb_object_agg(key,value),'{}') into v_input from jsonb_each(p_payload)
-    where key <> all(array['cash_shift_id','cash_shift_assignment_xid','accounting_version','open_request_key','open_request_payload','close_request_key','close_request_payload','close_audit_id','boundary_epoch','request_key','request_payload','idempotency_key','create_request_key','create_request_payload','revision','checkout_idempotency_key']) and key not in ('posting_sequence','posting_trust_version','posting_effective_at',
+    where key <> all(array['advance_cash_shift_id','advance_cash_shift_assignment_xid','advance_received_at','advance_received_by','repair_revision','repair_request_key','repair_request_payload','cash_shift_id','cash_shift_assignment_xid','accounting_version','open_request_key','open_request_payload','close_request_key','close_request_payload','close_audit_id','boundary_epoch','request_key','request_payload','idempotency_key','create_request_key','create_request_payload','revision','checkout_idempotency_key']) and key not in ('posting_sequence','posting_trust_version','posting_effective_at',
       'source_trust_version','source_effective_at','source_transaction_id') and key not like 'ledger_anchor_%';
   if p_table in ('customers','suppliers') and
     (not (v_input ? 'outstanding_balance') or v_input->>'outstanding_balance' is null) then
@@ -2448,7 +2643,7 @@ begin
   end loop;
   -- Live row types now contain local-only provenance. Do not enlarge the sealed
   -- canonical business snapshot with even NULL source trust fields.
-  return v_result - array['cash_shift_id','cash_shift_assignment_xid','accounting_version','open_request_key','open_request_payload','close_request_key','close_request_payload','close_audit_id','boundary_epoch','request_key','request_payload','idempotency_key','create_request_key','create_request_payload','revision','checkout_idempotency_key'] - 'posting_sequence' - 'posting_trust_version' - 'posting_effective_at'
+  return v_result - array['advance_cash_shift_id','advance_cash_shift_assignment_xid','advance_received_at','advance_received_by','repair_revision','repair_request_key','repair_request_payload','cash_shift_id','cash_shift_assignment_xid','accounting_version','open_request_key','open_request_payload','close_request_key','close_request_payload','close_audit_id','boundary_epoch','request_key','request_payload','idempotency_key','create_request_key','create_request_payload','revision','checkout_idempotency_key'] - 'posting_sequence' - 'posting_trust_version' - 'posting_effective_at'
     - 'source_trust_version' - 'source_effective_at' - 'source_transaction_id';
 end; $function$;
 
@@ -2905,12 +3100,15 @@ $function$;
 
 
 -- Narrow helper authority; no public callback/admission execution.
-revoke create on schema cash_private from backup_identity_executor,expense_posting_executor;
+revoke create on schema cash_private from backup_identity_executor,expense_posting_executor,repair_posting_executor;
 revoke all on all functions in schema cash_private from public,anon,authenticated,service_role;
-grant execute on function cash_private.maintenance_shared(uuid) to ledger_posting_executor,backup_import_executor,cash_shift_executor,expense_posting_executor;
-grant execute on function cash_private.boundary(uuid,uuid,boolean) to ledger_posting_executor,cash_shift_executor,expense_posting_executor;
-grant execute on function cash_private.admit(uuid,uuid) to ledger_posting_executor,expense_posting_executor;
-grant execute on function cash_private.money(text,boolean) to expense_posting_executor;
+grant execute on function cash_private.maintenance_shared(uuid) to ledger_posting_executor,backup_import_executor,cash_shift_executor,expense_posting_executor,repair_posting_executor;
+grant execute on function cash_private.boundary(uuid,uuid,boolean) to ledger_posting_executor,cash_shift_executor,expense_posting_executor,repair_posting_executor;
+grant execute on function cash_private.admit(uuid,uuid) to ledger_posting_executor,expense_posting_executor,repair_posting_executor;
+grant execute on function cash_private.money(text,boolean) to expense_posting_executor,repair_posting_executor;
+grant execute on function cash_private.save_repair(uuid,uuid,bigint,jsonb) to authenticated;
+revoke all on function public.save_cash_shift_repair(uuid,uuid,bigint,jsonb) from public,anon,service_role;
+grant execute on function public.save_cash_shift_repair(uuid,uuid,bigint,jsonb) to authenticated;
 grant execute on function cash_private.open_shift(uuid,text,text),cash_private.close_shift(uuid,uuid,text,text),cash_private.read_shift(uuid),cash_private.export_shifts() to authenticated;
 grant execute on function cash_private.save_expense(uuid,uuid,bigint,text,text,public.payment_method,text,text,timestamptz,text) to authenticated;
 grant select,update on cash_private.branch_boundaries to ledger_reset_executor;

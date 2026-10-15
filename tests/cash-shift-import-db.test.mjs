@@ -17,6 +17,13 @@ test(
       const counts = countsFor(100, "mixed"),
         donor = randomUUID();
       const forged = {
+        advance_cash_shift_id: donor,
+        advance_cash_shift_assignment_xid: "42",
+        advance_received_at: new Date().toISOString(),
+        advance_received_by: actor,
+        repair_revision: 42,
+        repair_request_key: randomUUID(),
+        repair_request_payload: {},
         cash_shift_id: donor,
         cash_shift_assignment_xid: "42",
         accounting_version: 2,
@@ -37,7 +44,7 @@ test(
       const start = await rpc("start_job", {
         p_format: "native",
         p_version: "3",
-        p_ancillary: { cash_shifts: 1, expenses: 1 },
+        p_ancillary: { cash_shifts: 1, expenses: 1, repairs: 1 },
       });
       assert.equal(start.status, 200);
       const job = start.data.job_id;
@@ -113,6 +120,21 @@ test(
       for (const [table, row] of [
         ["cash_shifts", shift],
         ["expenses", expense],
+        [
+          "repairs",
+          {
+            ...forged,
+            id: randomUUID(),
+            organization_id: org,
+            branch_id: branch,
+            job_no: "IMPORTED-REPAIR",
+            customer_name: "Synthetic repair",
+            device_type: "Other",
+            problem_description: "Synthetic issue",
+            advance_paid: "100",
+            payment_method: "card",
+          },
+        ],
       ]) {
         const r = await rpc("restore_ancillary", {
           p_job: job,
@@ -138,6 +160,12 @@ test(
       assert.equal(
         sql(
           "select cash_shift_id is null and cash_shift_assignment_xid is null and create_request_key is null and revision=0 from public.expenses",
+        ),
+        "t",
+      );
+      assert.equal(
+        sql(
+          "select advance_cash_shift_id is null and advance_cash_shift_assignment_xid is null and advance_received_at is null and advance_received_by is null and repair_revision=0 and repair_request_key is null and repair_request_payload is null and advance_paid=100 and payment_method='card' from public.repairs",
         ),
         "t",
       );

@@ -1,6 +1,10 @@
 import { getSafeActionError } from "./safe-action-error";
 
 const messages = new Set([
+  "This repair advance belongs to a closed cash shift and can no longer be changed.",
+  "Legacy repair advance history cannot be rewritten.",
+  "Repair changed; refresh before editing.",
+  "Conflicting repair request.",
   "A shift is already open for this branch. Close it first.",
   "This shift is already closed or the request conflicts.",
   "Conflicting shift request.",

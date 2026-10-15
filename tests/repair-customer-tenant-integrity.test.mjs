@@ -57,9 +57,9 @@ test("repair create and edit share one organization-scoped customer ownership ch
   );
 
   const lookupIndex = saveSource.indexOf('.from("customers")');
-  const auditIndex = saveSource.indexOf('.from("audit_logs")');
-  assert.ok(lookupIndex < saveSource.indexOf('.from("repairs")'));
-  assert.ok(lookupIndex < saveSource.indexOf('.from("repair_status_history")'));
+  const auditIndex = saveSource.indexOf('"save_cash_shift_repair"');
+  assert.ok(lookupIndex < saveSource.indexOf('"save_cash_shift_repair"'));
+  assert.ok(lookupIndex < saveSource.indexOf('"save_cash_shift_repair"'));
   assert.notEqual(auditIndex, -1);
   assert.ok(lookupIndex < auditIndex);
   assert.equal(
@@ -168,16 +168,16 @@ test("optional normalization stays validation-local without relaxing tenant inte
   );
   assert.ok(
     saveSource.indexOf('.from("customers")') <
-      saveSource.indexOf('.from("repairs")'),
+      saveSource.indexOf('"save_cash_shift_repair"'),
   );
   assert.ok(
     saveSource.indexOf('.from("customers")') <
-      saveSource.indexOf('.from("repair_status_history")'),
+      saveSource.indexOf('"save_cash_shift_repair"'),
   );
-  assert.notEqual(saveSource.indexOf('.from("audit_logs")'), -1);
+  assert.notEqual(saveSource.indexOf('"save_cash_shift_repair"'), -1);
   assert.ok(
     saveSource.indexOf('.from("customers")') <
-      saveSource.indexOf('.from("audit_logs")'),
+      saveSource.indexOf('"save_cash_shift_repair"'),
   );
   assert.equal(
     createHash("sha256").update(migrationSource).digest("hex"),

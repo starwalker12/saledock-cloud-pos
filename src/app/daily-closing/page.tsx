@@ -45,6 +45,7 @@ import {
   ShiftHistoryTable,
   ShiftStaffSummary,
   ShiftPrintSection,
+  RepairAdvanceSummary,
 } from "./shift-ui";
 import {
   formatCalendarDate,
@@ -238,6 +239,19 @@ export default async function DailyClosingPage({
       ),
     ]);
   }
+
+  const lastClosedExactShift = shiftHistory.find(
+    (shift) => shift.status === "closed" && shift.accounting_version === 2,
+  );
+  const lastClosedActivity = lastClosedExactShift
+    ? await getShiftActivity(
+        orgId,
+        branchId,
+        lastClosedExactShift.opened_at,
+        lastClosedExactShift.closed_at ?? undefined,
+        lastClosedExactShift,
+      )
+    : null;
 
   const isClosed = Boolean(closing?.finalized_by);
   const isToday = date === todayLocalDate();
@@ -710,6 +724,21 @@ export default async function DailyClosingPage({
           )}
         </section>
 
+        {lastClosedExactShift && lastClosedActivity?.exactDisplay && (
+          <section
+            data-testid="closed-shift-repair-advances"
+            className="mb-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 p-5 text-slate-950 dark:text-slate-100"
+          >
+            <h2 className="mb-3 font-bold">
+              Last closed shift · {fmtDate(lastClosedExactShift.closed_at!)}
+            </h2>
+            <RepairAdvanceSummary
+              snapshot={lastClosedActivity.exactDisplay}
+              currency={currency}
+            />
+          </section>
+        )}
+
         {/* Shift history */}
         <section className="mt-6">
           <div className="mb-3 flex items-center gap-2">
@@ -1114,7 +1143,7 @@ export default async function DailyClosingPage({
           currency={currency}
         />
       )}
-      <div className="h-20 lg:hidden" />
+      <div data-cash-drawer-screen-spacer className="h-20 lg:hidden" />
     </AppShell>
   );
 }

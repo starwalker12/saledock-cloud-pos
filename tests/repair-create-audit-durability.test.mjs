@@ -1,609 +1,197 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import test from "node:test";
-
-const require = createRequire(import.meta.url);
-const ts = require("typescript");
-const actionSource = readFileSync(
-  new URL("../src/app/repairs/actions.ts", import.meta.url),
-  "utf8",
-);
-const auditSource = readFileSync(
-  new URL("../src/lib/audit.ts", import.meta.url),
-  "utf8",
-);
-const validationSource = readFileSync(
-  new URL("../src/lib/validation/repairs.ts", import.meta.url),
-  "utf8",
-);
-const formSource = readFileSync(
-  new URL("../src/app/repairs/repair-form.tsx", import.meta.url),
-  "utf8",
-);
-const migrationSource = readFileSync(
-  new URL(
-    "../supabase/migrations/20260729133000_enforce_repair_customer_tenant_integrity.sql",
-    import.meta.url,
-  ),
-  "utf8",
-);
-
-const REPAIR_ID = "00000000-0000-4000-8000-000000000901";
-const CUSTOMER_ID = "00000000-0000-4000-8000-000000000902";
-const ACTOR_ID = "00000000-0000-4000-8000-000000000801";
-const ORG_ID = "00000000-0000-4000-8000-000000000802";
-const BRANCH_ID = "00000000-0000-4000-8000-000000000803";
-const AUDIT_FAILURE =
-  "The repair was saved, but its audit record could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.";
-const HISTORY_FAILURE =
-  "The repair was saved, but its initial status history could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.";
-
-const saveStart = actionSource.indexOf("export async function saveRepairAction");
-const statusStart = actionSource.indexOf(
-  "export async function updateRepairStatusAction",
-  saveStart,
-);
-const statusEnd = actionSource.indexOf(
-  "export async function saveDiagnosisAndNotesAction",
-  statusStart,
-);
-assert.notEqual(saveStart, -1);
-assert.notEqual(statusStart, -1);
-assert.notEqual(statusEnd, -1);
-const saveSource = actionSource.slice(saveStart, statusStart);
-const statusSource = actionSource.slice(statusStart, statusEnd);
-
-function digest(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function compileModule(source, dependencies) {
-  const compiled = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText;
-  const compiledModule = { exports: {} };
-  const localRequire = (id) => {
-    if (id in dependencies) return dependencies[id];
-    throw new Error(`Unexpected dependency: ${id}`);
-  };
-  new Function("require", "module", "exports", compiled)(
-    localRequire,
-    compiledModule,
-    compiledModule.exports,
-  );
-  return compiledModule.exports;
-}
-
-function deferred() {
-  let resolve;
-  const promise = new Promise((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-}
-
-async function waitFor(predicate, label) {
-  const deadline = Date.now() + 1_000;
-  while (!predicate()) {
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}`);
-    await new Promise((resolve) => setImmediate(resolve));
+import fs from "node:fs";
+import ts from "typescript";
+const source = fs.readFileSync("src/app/repairs/actions.ts", "utf8");
+const id = "00000000-0000-4000-8000-000000000901",
+  key = "00000000-0000-4000-8000-000000000902";
+function harness(options = {}) {
+  const calls = [];
+  let release;
+  const gate = new Promise((r) => (release = r));
+  const form = new FormData();
+  form.set("request_key", key);
+  form.set("advance_paid", "100.00");
+  form.set("estimated_cost", "200.00");
+  if (options.edit) {
+    form.set("id", id);
+    form.set("revision", "4");
   }
-}
-
-function validRepair(overrides = {}) {
-  return {
-    customer_name: "QA walk-in",
-    device_type: "Mobile",
-    problem_description: "QA durability",
-    estimated_cost: 0,
-    advance_paid: 0,
-    payment_method: "cash",
-    status: "received",
-    ...overrides,
-  };
-}
-
-function repairFormData(overrides = {}) {
-  const values = {
-    customer_name: "QA walk-in",
-    device_type: "Mobile",
-    problem_description: "QA durability",
-    estimated_cost: "0",
-    advance_paid: "0",
-    payment_method: "cash",
-    status: "received",
-    ...overrides,
-  };
-  const formData = new FormData();
-  for (const [key, value] of Object.entries(values)) {
-    if (value !== undefined && value !== null) formData.set(key, String(value));
-  }
-  return formData;
-}
-
-function createHarness(options = {}) {
-  const store = {
-    events: [],
-    repairs: [],
-    histories: [],
-    audits: [],
-    customerLookups: 0,
-    clientCreations: 0,
-    afterCallbacks: [],
-  };
-  const auditGate = options.auditGate ?? null;
-
-  function createSupabase() {
-    store.clientCreations += 1;
-    return {
-      from(table) {
-        let operation = "select";
-        let payload;
-        let executed;
-        const query = {
-          select() {
-            return query;
-          },
-          insert(value) {
-            operation = "insert";
-            payload = value;
-            return query;
-          },
-          update(value) {
-            operation = "update";
-            payload = value;
-            return query;
-          },
-          eq() {
-            return query;
-          },
-          maybeSingle() {
-            return run(true);
-          },
-          single() {
-            return run(true);
-          },
-          then(resolve, reject) {
-            return run(false).then(resolve, reject);
-          },
-        };
-
-        function run(single) {
-          if (!executed) {
-            executed = (async () => {
-              if (table === "customers" && operation === "select") {
-                store.customerLookups += 1;
-                store.events.push("customer-lookup:complete");
-                return options.tenantReject
-                  ? { data: null, error: null }
-                  : { data: { id: CUSTOMER_ID }, error: null };
-              }
-              if (table === "repairs" && operation === "select") {
-                store.events.push("repair-list:complete");
-                return { data: store.repairs.map(({ job_no }) => ({ job_no })), error: null };
-              }
-              if (table === "repairs" && operation === "insert") {
-                store.events.push("repair:started");
-                if (options.repairInsertError) {
-                  store.events.push("repair:error");
-                  return { data: null, error: { code: "QA_REPAIR_INSERT" } };
-                }
-                const repair = { ...payload, id: REPAIR_ID };
-                store.repairs.push(repair);
-                store.events.push("repair:complete");
-                return { data: single ? { id: REPAIR_ID } : [repair], error: null };
-              }
-              if (table === "repairs" && operation === "update") {
-                if (options.repairUpdateError) return { data: null, error: { code: "QA_REPAIR_UPDATE" } };
-                store.repairs.push({ ...payload, id: REPAIR_ID, updated: true });
-                store.events.push("repair-update:complete");
-                return { data: null, error: null };
-              }
-              if (table === "repair_status_history" && operation === "insert") {
-                if (options.historyThrow) {
-                  store.events.push("history:threw");
-                  throw new Error("QA_HISTORY_THROW");
-                }
-                if (options.historyError) {
-                  store.events.push("history:error");
-                  return { data: null, error: { code: "QA_HISTORY_INSERT" } };
-                }
-                store.histories.push(payload);
-                store.events.push("history:complete");
-                return { data: null, error: null };
-              }
-              if (table === "audit_logs" && operation === "insert") {
-                store.events.push("audit:started");
-                if (auditGate) await auditGate.promise;
-                if (options.auditThrow) {
-                  store.events.push("audit:threw");
-                  throw new Error("QA_AUDIT_THROW");
-                }
-                if (options.auditError) {
-                  store.events.push("audit:error");
-                  return { data: null, error: { code: "QA_AUDIT_INSERT" } };
-                }
-                store.audits.push(payload);
-                store.events.push("audit:complete");
-                return { data: null, error: null };
-              }
-              throw new Error(`Unexpected query: ${table} ${operation}`);
-            })();
-          }
-          return executed;
-        }
-
-        return query;
-      },
-    };
-  }
-
-  const parsedRepair = validRepair(
-    options.selectedCustomer ? { customer_id: CUSTOMER_ID } : {},
-  );
-  const saveRepairAction = compileModule(actionSource, {
-    "next/server": { after: (callback) => store.afterCallbacks.push(callback) },
+  const deps = {
     "next/cache": {
-      revalidatePath: (path) => store.events.push(`revalidate:${path}`),
+      revalidatePath: () => assert.fail("No reconciliation before RPC receipt"),
     },
+    "next/server": { after: () => assert.fail("No split financial audit") },
     "next/navigation": {
-      redirect: (path) => {
-        throw new Error(`redirect:${path}`);
+      redirect: (p) => {
+        throw Error("redirect:" + p);
       },
     },
-    "@/lib/supabase/server": { createClient: async () => createSupabase() },
     "@/lib/auth/session": {
       getCurrentContext: async () => ({
-        user: { id: "auth-user" },
+        user: { id: "actor" },
         profile: {
-          id: ACTOR_ID,
-          organization_id: ORG_ID,
-          branch_id: BRANCH_ID,
+          id: "actor",
+          organization_id: "org",
+          branch_id: "branch",
           role: "owner",
         },
       }),
     },
     "@/lib/permissions": {
-      canCreateRepairs: () => !options.permissionDenied,
-      canEditRepairs: () => !options.permissionDenied,
-      canUpdateRepairStatus: () => true,
+      canCreateRepairs: () => !options.noPermission,
+      canEditRepairs: () => !options.noPermission,
     },
     "@/lib/validation/repairs": {
       repairSchema: {
         safeParse: () =>
-          options.validationError
-            ? { success: false, error: { issues: [{ message: "Invalid input" }] } }
-            : { success: true, data: parsedRepair },
+          options.invalid
+            ? {
+                success: false,
+                error: { issues: [{ message: "Invalid input" }] },
+              }
+            : {
+                success: true,
+                data: {
+                  customer_name: "Synthetic",
+                  device_type: "Other",
+                  problem_description: "Issue",
+                  advance_paid: 100,
+                  estimated_cost: 200,
+                  payment_method: "card",
+                  status: "received",
+                },
+              },
       },
     },
-    "@/lib/audit": {
-      logAudit: () => {
-        throw new Error("saveRepairAction must not use the fire-and-forget helper");
-      },
+    "@/lib/validation/operation-request-key": {
+      operationRequestKey: (f) => f.get("request_key") || null,
+    },
+    "@/lib/errors/cash-shift-action-error": {
+      getCashShiftActionError: (_, fallback) => fallback,
     },
     "@/lib/errors/safe-action-error": {
-      getSafeActionError: (_error, fallback) => fallback,
+      getSafeActionError: (_, fallback) => fallback,
     },
-  }).saveRepairAction;
-
-  return { store, saveRepairAction };
-}
-
-test("successful intake awaits one exact create audit after repair and history", async () => {
-  const { store, saveRepairAction } = createHarness();
-  const result = await saveRepairAction(
-    { error: null, success: null },
-    repairFormData(),
-  );
-
-  assert.deepEqual(result, {
-    error: null,
-    success: "Repair job created.",
-    id: REPAIR_ID,
-  });
-  assert.equal(store.repairs.length, 1);
-  assert.equal(store.histories.length, 1);
-  assert.equal(store.audits.length, 1);
-  assert.deepEqual(store.audits[0], {
-    organization_id: ORG_ID,
-    branch_id: BRANCH_ID,
-    actor_id: ACTOR_ID,
-    module: "repairs",
-    action: "repairs.created",
-    details: "Created repair: QA walk-in - Mobile",
-    metadata: {
-      repair_id: REPAIR_ID,
-      customer_name: "QA walk-in",
-      device_type: "Mobile",
+    "@/lib/supabase/server": {
+      createClient: async () => ({
+        from: () => assert.fail("No raw repair/history/audit financial write"),
+        rpc: async (name, args) => {
+          calls.push({ name, args });
+          if (options.delayed) await gate;
+          return options.error
+            ? { data: null, error: { code: "PT409" } }
+            : {
+                data: options.noReceipt
+                  ? null
+                  : { id, revision: 5, replayed: !!options.replay },
+                error: null,
+              };
+        },
+      }),
     },
-  });
-  assert.ok(store.events.indexOf("repair:complete") < store.events.indexOf("history:complete"));
-  assert.ok(store.events.indexOf("history:complete") < store.events.indexOf("audit:started"));
-  assert.equal(store.events.filter((event) => event === "audit:complete").length, 1);
-});
-
-test("delayed audit keeps the action pending until the audit completes", async () => {
-  const gate = deferred();
-  const { store, saveRepairAction } = createHarness({ auditGate: gate });
-  let settled = false;
-  const actionPromise = saveRepairAction(
-    { error: null, success: null },
-    repairFormData(),
-  ).then((result) => {
-    settled = true;
-    return result;
-  });
-
-  await waitFor(() => store.events.includes("audit:started"), "audit start");
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(settled, false);
-  assert.equal(store.repairs.length, 1);
-  assert.equal(store.histories.length, 1);
-  assert.equal(store.audits.length, 0);
-
-  assert.equal(store.afterCallbacks.length, 0);
-  assert.equal(store.events.some((event) => event.startsWith("revalidate:")), false);
-
-  gate.resolve();
-  const result = await actionPromise;
-  assert.equal(result.success, "Repair job created.");
-  assert.equal(store.audits.length, 1);
-});
-
-test("returned or thrown audit failure returns safe partial-success truth without a duplicate", async () => {
-  for (const options of [{ auditError: true }, { auditThrow: true }]) {
-    const { store, saveRepairAction } = createHarness(options);
-    const result = await saveRepairAction(
-      { error: null, success: null },
-      repairFormData(),
-    );
-
-    assert.deepEqual(result, { error: AUDIT_FAILURE, success: null, id: REPAIR_ID });
-    assert.equal(store.repairs.length, 1);
-    assert.equal(store.histories.length, 1);
-    assert.equal(store.audits.length, 0);
-    assert.equal(store.events.filter((event) => event === "repair:complete").length, 1);
-    assert.equal(
-      store.events.filter((event) => event === "audit:error" || event === "audit:threw")
-        .length,
-      1,
-    );
-  }
-});
-
-test("returned or thrown initial history failure is truthful and does not audit", async () => {
-  for (const options of [{ historyError: true }, { historyThrow: true }]) {
-    const { store, saveRepairAction } = createHarness(options);
-    const result = await saveRepairAction(
-      { error: null, success: null },
-      repairFormData(),
-    );
-
-    assert.deepEqual(result, { error: HISTORY_FAILURE, success: null, id: REPAIR_ID });
-    assert.equal(store.repairs.length, 1);
-    assert.equal(store.histories.length, 0);
-    assert.equal(store.audits.length, 0);
-    assert.equal(store.events.filter((event) => event === "repair:complete").length, 1);
-    assert.equal(
-      store.events.filter(
-        (event) => event === "history:error" || event === "history:threw",
-      ).length,
-      1,
-    );
-    assert.equal(store.events.filter((event) => event.startsWith("audit:")).length, 0);
-  }
-});
-
-test("validation, tenant, and repair insert failures do not audit", async () => {
-  const validation = createHarness({ validationError: true });
-  const validationResult = await validation.saveRepairAction(
-    { error: null, success: null },
-    repairFormData(),
-  );
-  assert.equal(validationResult.error, "Invalid input");
-  assert.equal(validation.store.clientCreations, 0);
-  assert.equal(validation.store.repairs.length, 0);
-  assert.equal(validation.store.histories.length, 0);
-  assert.equal(validation.store.audits.length, 0);
-
-  const tenant = createHarness({ selectedCustomer: true, tenantReject: true });
-  const tenantResult = await tenant.saveRepairAction(
-    { error: null, success: null },
-    repairFormData({ customer_id: CUSTOMER_ID }),
-  );
-  assert.equal(tenantResult.error, "The selected customer is unavailable.");
-  assert.equal(tenant.store.customerLookups, 1);
-  assert.equal(tenant.store.repairs.length, 0);
-  assert.equal(tenant.store.histories.length, 0);
-  assert.equal(tenant.store.audits.length, 0);
-
-  const insert = createHarness({ repairInsertError: true });
-  const insertResult = await insert.saveRepairAction(
-    { error: null, success: null },
-    repairFormData(),
-  );
-  assert.equal(insertResult.error, "We couldn't save this repair job. Please try again.");
-  assert.equal(insert.store.repairs.length, 0);
-  assert.equal(insert.store.histories.length, 0);
-  assert.equal(insert.store.audits.length, 0);
-});
-
-test("the shared edit audit is also awaited without changing edit business semantics", async () => {
-  const gate = deferred();
-  const { store, saveRepairAction } = createHarness({ auditGate: gate });
-  let settled = false;
-  const actionPromise = saveRepairAction(
-    { error: null, success: null },
-    repairFormData({ id: REPAIR_ID }),
-  ).then((result) => {
-    settled = true;
-    return result;
-  });
-  await waitFor(() => store.events.includes("audit:started"), "edit audit start");
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(settled, false);
-  assert.equal(store.histories.length, 0);
-  gate.resolve();
-  const result = await actionPromise;
-  assert.equal(result.success, "Repair job updated.");
-  assert.equal(store.audits.length, 1);
-  assert.equal(store.audits[0].action, "repairs.updated");
-  assert.equal(store.audits[0].metadata.repair_id, REPAIR_ID);
-});
-
-test("create and edit defer only the existing invalidation targets after truthful audit outcome", async () => {
-  for (const edit of [false, true]) for (const selectedCustomer of [false, true]) {
-    for (const failure of [{}, { auditError: true }, { auditThrow: true }]) {
-      const gate = deferred();
-      const { store, saveRepairAction } = createHarness({ ...failure, selectedCustomer, auditGate: gate });
-      const pending = saveRepairAction({ error: null, success: null }, repairFormData(edit ? { id: REPAIR_ID } : {}));
-      await waitFor(() => store.events.includes("audit:started"), "required audit");
-      assert.equal(store.afterCallbacks.length, 0);
-      assert.equal(store.events.some(event => event.startsWith("revalidate:")), false);
-      gate.resolve();
-      const result = await pending;
-      assert.equal(result.error, failure.auditError || failure.auditThrow ? AUDIT_FAILURE : null);
-      assert.equal(store.afterCallbacks.length, 1);
-      assert.equal(store.events.some(event => event.startsWith("revalidate:")), false);
-      const truth = JSON.stringify([store.repairs, store.histories, store.audits]);
-      await store.afterCallbacks[0]();
-      assert.deepEqual(store.events.filter(event => event.startsWith("revalidate:")), [
-        "revalidate:/repairs", ...(selectedCustomer ? [`revalidate:/customers/${CUSTOMER_ID}`] : []), "revalidate:/dashboard",
-      ]);
-      assert.equal(JSON.stringify([store.repairs, store.histories, store.audits]), truth);
-      assert.equal(store.repairs.length, 1);
-      assert.equal(store.histories.length, edit ? 0 : 1);
-      assert.equal(store.audits.length, result.success ? 1 : 0);
-    }
-  }
-});
-
-test("initial history failure preserves its early warning without audit or reconciliation", async () => {
-  for (const options of [{ historyError: true }, { historyThrow: true }]) {
-    const { store, saveRepairAction } = createHarness(options);
-    assert.deepEqual(await saveRepairAction({}, repairFormData()), { error: HISTORY_FAILURE, success: null, id: REPAIR_ID });
-    assert.equal(store.afterCallbacks.length, 0);
-    assert.equal(store.repairs.length, 1);
-    assert.equal(store.histories.length, 0);
-    assert.equal(store.audits.length, 0);
-  }
-});
-
-test("pre-mutation permission and update failures return without history, audit, or reconciliation", async () => {
-  for (const edit of [false, true]) {
-    const { store, saveRepairAction } = createHarness({ permissionDenied: true });
-    const result = await saveRepairAction({}, repairFormData(edit ? { id: REPAIR_ID } : {}));
-    assert.match(result.error, /permission/i);
-    assert.equal(store.clientCreations, 0);
-    assert.deepEqual([store.repairs.length, store.histories.length, store.audits.length, store.afterCallbacks.length], [0, 0, 0, 0]);
-  }
-  const { store, saveRepairAction } = createHarness({ repairUpdateError: true });
-  const result = await saveRepairAction({}, repairFormData({ id: REPAIR_ID }));
-  assert.equal(result.success, null);
-  assert.equal(result.error, "We couldn't save this repair. Please try again.");
-  assert.deepEqual([store.repairs.length, store.histories.length, store.audits.length, store.afterCallbacks.length], [0, 0, 0, 0]);
-});
-
-test("the global logger cannot expose a returned Supabase insert error", async () => {
-  let insertCalls = 0;
-  let consoleErrors = 0;
-  const originalConsoleError = console.error;
-  console.error = () => {
-    consoleErrors += 1;
   };
-  try {
-    const { logAudit } = compileModule(auditSource, {
-      "server-only": {},
-      "@/lib/supabase/server": {
-        createClient: async () => ({
-          from: () => ({
-            insert: async () => {
-              insertCalls += 1;
-              return { error: { code: "QA_RETURNED_ERROR" } };
-            },
-          }),
-        }),
+  const mod = { exports: {} };
+  new Function(
+    "require",
+    "module",
+    "exports",
+    ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
       },
-      "@/lib/auth/session": {
-        getCurrentContext: async () => ({
-          profile: { id: ACTOR_ID, organization_id: ORG_ID, branch_id: BRANCH_ID },
-        }),
-      },
-    });
-    assert.equal(
-      await logAudit({ module: "repairs", action: "repairs.created", details: "QA" }),
-      undefined,
-    );
-    assert.equal(insertCalls, 1);
-    assert.equal(consoleErrors, 0);
-  } finally {
-    console.error = originalConsoleError;
-  }
+    }).outputText,
+  )(
+    (n) => {
+      assert(n in deps, n);
+      return deps[n];
+    },
+    mod,
+    mod.exports,
+  );
+  return {
+    calls,
+    form,
+    release,
+    save: () =>
+      mod.exports.saveRepairAction({ error: null, success: null }, form),
+  };
+}
+test("repair create awaits the atomic DB receipt before confirming success", async () => {
+  const h = harness({ delayed: true });
+  let settled = false;
+  const pending = h.save().then((x) => {
+    settled = true;
+    return x;
+  });
+  await new Promise(setImmediate);
+  assert.equal(settled, false);
+  assert.equal(h.calls.length, 1);
+  h.release();
+  assert.equal((await pending).id, id);
 });
-
-test("repair save audit payload stays record-specific without expanding existing intake values", () => {
-  const auditStart = saveSource.indexOf('await supabase.from("audit_logs").insert');
-  const auditEnd = saveSource.indexOf("auditFailed = Boolean(auditError)", auditStart);
-  assert.ok(auditStart > -1);
-  assert.ok(auditEnd > auditStart);
-  const payload = saveSource.slice(auditStart, auditEnd);
-  assert.match(payload, /organization_id: orgId/);
-  assert.match(payload, /branch_id: branchId/);
-  assert.match(payload, /actor_id: profile\.id/);
-  assert.match(payload, /repair_id: savedId/);
-  assert.match(payload, /customer_name: parsed\.data\.customer_name/);
-  assert.match(payload, /device_type: parsed\.data\.device_type/);
-  assert.doesNotMatch(
-    payload,
-    /customer_phone|serial_imei|problem_description|notes|accessories_received/,
-  );
+test("cash classification uses the selected method and unrounded money lexemes", async () => {
+  const h = harness();
+  assert.equal((await h.save()).success, "Repair job created.");
+  assert.equal(h.calls[0].name, "save_cash_shift_repair");
+  const d = h.calls[0].args.p_data;
+  assert.equal(d.payment_method, "card");
+  assert.equal(d.advance_paid, "100.00");
+  assert.equal(d.estimated_cost, "200.00");
+  assert.equal(h.calls[0].args.p_request_key, key);
+  assert(!("branch_id" in d));
+  assert(!("advance_cash_shift_id" in d));
 });
-
-test("optional, tenant, form, migration, global helper, and durable status boundaries remain exact", () => {
-  assert.equal(
-    digest(validationSource),
-    "5a2b044a04f7d20e4ee980b3c3201867dd7473199e09dabc2500d8f68a616940",
+test("financial edit passes target and revision to the same authorized RPC", async () => {
+  const h = harness({ edit: true });
+  assert.equal((await h.save()).success, "Repair job updated.");
+  assert.equal(h.calls[0].args.p_id, id);
+  assert.equal(h.calls[0].args.p_revision, 4);
+});
+for (const option of ["error", "noReceipt"])
+  test(
+    "an unconfirmed DB outcome has no success or committed id: " + option,
+    async () => {
+      const h = harness({ [option]: true });
+      const r = await h.save();
+      assert(r.error);
+      assert.equal(r.success, null);
+      assert.equal(r.id, undefined);
+      assert.equal(h.calls.length, 1);
+    },
   );
-  assert.equal(
-    digest(formSource.slice(formSource.indexOf("          {repair && <input"), formSource.indexOf("          {state.error"))),
-    "f49f2a6b66424e37cf4aa6c4da472eba31ed1eeb908a657b0c5c05270107582e",
+for (const option of ["invalid", "noPermission"])
+  test(
+    "precondition rejection cannot call the repair producer: " + option,
+    async () => {
+      const h = harness({ [option]: true });
+      assert((await h.save()).error);
+      assert.equal(h.calls.length, 0);
+    },
   );
-  assert.match(formSource, /useActionState\(saveRepairAction, defaultState\)/);
-  assert.match(formSource, /disabled=\{isPending \|\| committed\}/);
-  assert.match(formSource, /role="status"/);
-  assert.match(formSource, /role="alert"/);
-  assert.equal(
-    digest(migrationSource),
-    "7ff005a554c2ce966b600959dcd6ea8e8c0417bae659a679c4f7b1b183a2ce97",
+test("missing durable key rejects before the database request", async () => {
+  const h = harness();
+  h.form.delete("request_key");
+  assert((await h.save()).error);
+  assert.equal(h.calls.length, 0);
+});
+test("same-key committed replay confirms the original repair", async () => {
+  const h = harness({ replay: true });
+  assert.equal((await h.save()).id, id);
+  assert.equal(h.calls.length, 1);
+});
+test("financial audit and initial history belong to the DB transaction", () => {
+  const m = fs.readFileSync(
+    "supabase/migrations/20261014100309_atomic_cash_shift_boundary.sql",
+    "utf8",
   );
-  assert.equal(
-    digest(auditSource),
-    "30e4f40b94d3969a97631ead57e17f4d41b367f3f199b5776bb3a0fd19caeb47",
+  const s = m.slice(
+    m.indexOf("create function cash_private.save_repair("),
+    m.indexOf("alter function cash_private.save_repair("),
   );
-  assert.match(
-    saveSource,
-    /\.from\("customers"\)[\s\S]*?\.select\("id"\)[\s\S]*?\.eq\("id", finalCustomerId\)[\s\S]*?\.eq\("organization_id", orgId\)[\s\S]*?\.maybeSingle\(\)/,
-  );
-  assert.doesNotMatch(statusSource, /logAudit\s*\(/);
-  assert.match(
-    statusSource,
-    /await supabase\.from\("audit_logs"\)\.insert\(\{[\s\S]*?action: "repairs\.status_changed"/,
-  );
-  assert.match(statusSource, /auditFailed = Boolean\(auditError\)/);
-  assert.match(statusSource, /catch \{\s*auditFailed = true;/);
-  assert.match(
-    statusSource,
-    /metadata: \{ repair_id: id, old_status: oldStatus, new_status: newStatus \}/,
-  );
-  assert.equal((actionSource.match(/action: "repairs\.status_changed"/g) ?? []).length, 1);
-  assert.equal(
-    (actionSource.match(/The status was updated, but its audit record could not be confirmed\./g) ?? [])
-      .length,
-    1,
-  );
+  assert.match(s, /insert into public\.repairs/);
+  assert.match(s, /insert into public\.repair_status_history/);
+  assert.match(s, /insert into public\.audit_logs/);
+  assert.doesNotMatch(s, /exception when others|\bcommit\s*;/i);
 });

@@ -93,7 +93,7 @@ export const SOURCE_COLUMNS: Record<string, string[]> = {
       " ",
     ),
   repairs:
-    "id organization_id branch_id customer_id job_no customer_name customer_phone device_type device_model serial_imei problem_description diagnosis estimated_cost advance_paid final_cost status expected_delivery_at delivered_at notes created_by created_at updated_at accessories_received payment_method".split(
+    "id organization_id branch_id customer_id job_no customer_name customer_phone device_type device_model serial_imei problem_description diagnosis estimated_cost advance_paid final_cost status expected_delivery_at delivered_at notes created_by created_at updated_at accessories_received payment_method advance_cash_shift_id advance_cash_shift_assignment_xid advance_received_at advance_received_by repair_revision repair_request_key repair_request_payload".split(
       " ",
     ),
   daily_closings:

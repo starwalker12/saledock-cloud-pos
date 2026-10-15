@@ -10,6 +10,28 @@ import {
 const LOCAL_QA_ORG_ID = "00000000-0000-4000-8000-000000000003";
 const root = process.env.CASH_SHIFT_BROWSER_EVIDENCE;
 test.beforeEach(async ({ page }) => {
+  // This financial-flow fixture starts with optional telemetry declined.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "analytics-consent",
+      JSON.stringify({
+        value: "rejected",
+        version: "2026-06-analytics-v1",
+        timestamp: new Date().toISOString(),
+      }),
+    );
+    const preferences = JSON.parse(
+      localStorage.getItem("saledock-sidebar-preferences-v1") ?? "{}",
+    );
+    localStorage.setItem(
+      "saledock-sidebar-preferences-v1",
+      JSON.stringify({
+        ...preferences,
+        analyticsConsent: "rejected",
+        marketingConsent: "rejected",
+      }),
+    );
+  });
   await page.addLocatorHandler(
     page.getByTestId("cookie-consent-banner").filter({
       has: page.getByRole("button", {
@@ -286,6 +308,14 @@ for (const theme of ["light", "dark"])
               })),
           );
         expect(darkPrintSurfaces).toEqual([]);
+        await expect(
+          page.locator("[data-cash-drawer-screen-spacer]"),
+        ).toBeHidden();
+        await expect(page.locator("[data-app-shell-main]")).toHaveCSS(
+          "padding-bottom",
+          "0px",
+        );
+        await expect(page.locator(".a4-print")).toBeVisible();
         await page.pdf({
           path: root + "/" + theme + "-daily-A4.pdf",
           format: "A4",
@@ -595,3 +625,121 @@ test("keyed customer collection, forgiveness and current Return forms retain rea
       }),
     );
 });
+
+for (const theme of ["light", "dark"])
+  test("repair advance boundary " + theme + " at 390px", async ({ page }) => {
+    test.setTimeout(120000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      (value) => localStorage.setItem("theme", value),
+      theme,
+    );
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    const admin = getLocalAdminClient();
+    const { data: owner, error } = await admin
+      .from("profiles")
+      .select("id,branch_id")
+      .eq("organization_id", LOCAL_QA_ORG_ID)
+      .eq("username", "qa61954-cash-" + theme)
+      .single();
+    expect(error).toBeNull();
+    const auth = `set local request.jwt.claim.sub='${owner!.id}';set local request.jwt.claim.role='authenticated';set local role authenticated;`;
+    sql(
+      `begin;${auth}select public.reset_organization_to_factory_defaults('${LOCAL_QA_ORG_ID}','${owner!.id}',false);select public.open_cash_shift('${randomUUID()}','0',null);commit;`,
+    );
+    await loginLocalOwnerDirectly(page, "cash-" + theme + "@saledock.local");
+    await page.goto("/repairs");
+    const consent = page.getByRole("button", {
+      name: "Reject optional cookies",
+      exact: true,
+    });
+    if (await consent.isVisible()) await consent.click();
+    const marker = "QA87263-" + theme + "-" + randomUUID().slice(0, 8);
+    for (const method of ["Cash", "Card"]) {
+      await page.goto("/repairs?add=1");
+      const form = page.getByRole("dialog").locator("form");
+      await expect(form.locator("[name=request_key]")).toHaveValue(
+        /[a-f0-9-]{36}/,
+      );
+      await form.locator("[name=customer_name]").fill(marker + method);
+      await form.locator("[name=device_type]").fill("Synthetic phone");
+      await form
+        .locator("[name=problem_description]")
+        .fill("Synthetic receipt qualification");
+      await form.locator("[name=estimated_cost]").fill("200");
+      await form.locator("[name=advance_paid]").fill("100");
+      await form
+        .getByRole("button", { name: "Payment method", exact: true })
+        .click();
+      await page.getByRole("option", { name: method, exact: true }).click();
+      await form.getByRole("button", { name: /Record Intake/ }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      expect(
+        sql(
+          `select payment_method::text from public.repairs where organization_id='${LOCAL_QA_ORG_ID}' and customer_name='${marker + method}'`,
+        ),
+      ).toBe(method.toLowerCase());
+    }
+    await page.goto("/daily-closing");
+    const summary = page
+      .getByTestId("active-shift-section")
+      .getByTestId("repair-advance-summary");
+    await expect(
+      summary.locator("p").filter({ hasText: "Deposits received:" }),
+    ).toContainText("₨ 200");
+    await expect(
+      summary.locator("p").filter({ hasText: "Cash in drawer:" }),
+    ).toContainText("₨ 100");
+    const active = page.getByTestId("active-shift-section");
+    await expect(active.locator("[name=request_key]")).toHaveValue(
+      /[a-f0-9-]{36}/,
+    );
+    await expect(
+      active.getByRole("button", { name: "Close shift", exact: true }),
+    ).toBeEnabled();
+    await active.locator("[name=counted_cash]").fill("100");
+    await expect(active.locator("[name=counted_cash]")).toHaveValue("100");
+    await active
+      .getByRole("button", { name: "Close shift", exact: true })
+      .click();
+    await expect(
+      page.getByTestId("closed-shift-repair-advances"),
+    ).toContainText("Deposits received: ₨ 200");
+    const repair = sql(
+      `select id from public.repairs where organization_id='${LOCAL_QA_ORG_ID}' and customer_name='${marker}Cash'`,
+    );
+    await page.goto("/repairs?edit=" + repair);
+    const edit = page.getByRole("dialog").locator("form");
+    await edit.locator("[name=advance_paid]").fill("120");
+    await edit.getByRole("button", { name: /Update Details/ }).click();
+    await expect(edit.getByRole("alert")).toHaveText(
+      "This repair advance belongs to a closed cash shift and can no longer be changed.",
+    );
+    if (root)
+      await page.screenshot({
+        path: root + "/repair-closed-advance-" + theme + "-390.png",
+        fullPage: true,
+      });
+    expect(
+      sql(`select advance_paid::text from public.repairs where id='${repair}'`),
+    ).toBe("100.00");
+    expect(errors).toEqual([]);
+    if (root)
+      writeFileSync(
+        root + "/repair-" + theme + "-result.json",
+        JSON.stringify(
+          {
+            cash: 100,
+            card: 100,
+            expected: 100,
+            variance: 0,
+            closedFreeze: true,
+            mobile390: true,
+            errors,
+          },
+          null,
+          2,
+        ),
+      );
+  });

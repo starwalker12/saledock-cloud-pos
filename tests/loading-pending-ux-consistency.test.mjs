@@ -238,10 +238,6 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
       "949485fcd1480932369232ef99b188590ca0fa292f2bf7257fdf9d530da1c12d",
     "src/app/daily-closing/closing-form.tsx":
       "af5ef9003b57064874baf89928a8ad79a45a3f0c525312452cc08f1244dd3d74",
-    "src/app/repairs/actions.ts":
-      "38ccef01efabeafa4224cc555f2cd782b6f6d846d8ace9dcf5dffb8d727615b6",
-    "src/app/repairs/repair-form.tsx":
-      "2774a5968371859616911c3c95ac618d3e431a1b0686612cdb60d0839fefe446",
   };
 
   for (const [path, hash] of Object.entries(expected)) {
@@ -253,9 +249,10 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
     "src/app/customers/[id]/settlement-form.tsx",
     "src/app/customers/[id]/write-off-form.tsx",
     "src/app/expenses/expense-form.tsx",
+    "src/app/repairs/repair-form.tsx",
   ]) {
     assert.match(source(path), /useOperationRequestKey/);
-    assert.match(source(path), /disabled=\{pending/);
+    assert.match(source(path), /disabled=\{(?:pending|isPending)/);
   }
   assert.match(
     source("src/app/expenses/void-expense-form.tsx"),

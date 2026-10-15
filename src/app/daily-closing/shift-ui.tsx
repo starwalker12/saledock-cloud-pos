@@ -92,6 +92,73 @@ function fmtShortId(id: string) {
 
 // ── Open Shift Form ────────────────────────────────────────────────────────────
 
+export function RepairAdvanceSummary({
+  snapshot,
+  currency,
+}: {
+  snapshot?: Record<string, unknown>;
+  currency: string;
+}) {
+  if (!snapshot || snapshot.repairAdvancesTotal === undefined) return null;
+  const staff = Array.isArray(snapshot.repairAdvancesByStaff)
+    ? (snapshot.repairAdvancesByStaff as Record<string, unknown>[])
+    : [];
+  return (
+    <section data-testid="repair-advance-summary" className="space-y-2 text-sm">
+      <h3 className="font-bold">Repair advances</h3>
+      <p>
+        Deposits received:{" "}
+        <strong>
+          {formatShiftDecimal(
+            shiftDecimal(snapshot, "repairAdvancesTotal") ?? "0",
+            currency,
+          )}
+        </strong>
+      </p>
+      <p>
+        Cash in drawer:{" "}
+        <strong>
+          {formatShiftDecimal(
+            shiftDecimal(snapshot, "repairAdvancesCash") ?? "0",
+            currency,
+          )}
+        </strong>
+      </p>
+      <dl>
+        {PAYMENT_METHOD_ORDER.filter((m) => m !== "customer_credit").map(
+          (method) => (
+            <div key={method} className="flex justify-between gap-3">
+              <dt>{PAYMENT_METHOD_LABELS[method]}</dt>
+              <dd>
+                {formatShiftDecimal(
+                  shiftDecimal(snapshot, "repairAdvancesByMethod." + method) ??
+                    "0",
+                  currency,
+                )}
+              </dd>
+            </div>
+          ),
+        )}
+      </dl>
+      {staff.length > 0 && (
+        <div>
+          <p className="font-semibold">Advance received by</p>
+          {staff.map((row) => (
+            <p key={String(row.user_id)} className="flex justify-between gap-3">
+              <span>
+                {typeof row.user_name === "string"
+                  ? row.user_name
+                  : "Unassigned"}
+              </span>
+              <span>{formatShiftDecimal(String(row.amount), currency)}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function OpenShiftForm({
   canOpen,
   startingCashDefault,
@@ -372,6 +439,11 @@ export function CloseShiftForm({
           icon={<BadgeMinus className="size-4" />}
         />
       </div>
+
+      <RepairAdvanceSummary
+        snapshot={activity.exactDisplay}
+        currency={currency}
+      />
 
       {/* Close form */}
       <form action={action} className="space-y-4">
@@ -1054,6 +1126,10 @@ export function ShiftPrintSection({
           </strong>
         </div>
       </div>
+      <RepairAdvanceSummary
+        snapshot={activity.exactDisplay}
+        currency={currency}
+      />
       <table className="w-full text-[10px]">
         <tbody>
           <tr>

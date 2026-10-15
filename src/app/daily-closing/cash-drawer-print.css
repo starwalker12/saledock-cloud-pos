@@ -91,4 +91,14 @@
     margin: 0 !important;
     page: cashDrawerThermalReceipt;
   }
+  /* Mobile navigation clearance has no content on printed A4 pages. */
+  body[data-cash-drawer-print="true"][data-print-mode="a4"]
+    [data-cash-drawer-screen-spacer] {
+    display: none !important;
+  }
+
+  body[data-cash-drawer-print="true"][data-print-mode="a4"]
+    [data-app-shell-main] {
+    padding-bottom: 0 !important;
+  }
 }

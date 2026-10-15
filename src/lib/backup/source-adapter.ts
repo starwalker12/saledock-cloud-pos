@@ -268,6 +268,13 @@ export function prepareRestore(
       delete payload.source_transaction_id;
       // Restored operational history cannot claim local register authority.
       for (const field of [
+        "advance_cash_shift_id",
+        "advance_cash_shift_assignment_xid",
+        "advance_received_at",
+        "advance_received_by",
+        "repair_revision",
+        "repair_request_key",
+        "repair_request_payload",
         "cash_shift_id",
         "cash_shift_assignment_xid",
         "accounting_version",
