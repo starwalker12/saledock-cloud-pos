@@ -32,6 +32,7 @@ test.beforeEach(async ({ page }) => {
       }),
     );
   });
+
   await page.addLocatorHandler(
     page.getByTestId("cookie-consent-banner").filter({
       has: page.getByRole("button", {
@@ -743,3 +744,120 @@ for (const theme of ["light", "dark"])
         ),
       );
   });
+
+for (const theme of ["light", "dark"])
+  test(
+    "quick customer unchanged Server Action transport replay " +
+      theme +
+      " at 390px",
+    async ({ page }) => {
+      test.setTimeout(120000);
+      expect(new URL(process.env.PLAYWRIGHT_BASE_URL!).hostname).toMatch(
+        /^(127\.0\.0\.1|localhost)$/,
+      );
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.addInitScript(
+        (value) => localStorage.setItem("theme", value),
+        theme,
+      );
+      const admin = getLocalAdminClient();
+      const { data: owner, error } = await admin
+        .from("profiles")
+        .select("id,branch_id")
+        .eq("organization_id", LOCAL_QA_ORG_ID)
+        .eq("username", "qa61954-cash-" + theme)
+        .single();
+      expect(error).toBeNull();
+      const auth = `set local request.jwt.claim.sub='${owner!.id}';set local request.jwt.claim.role='authenticated';set local role authenticated;`;
+      sql(
+        `begin;${auth}select public.reset_organization_to_factory_defaults('${LOCAL_QA_ORG_ID}','${owner!.id}',false);select public.open_cash_shift('${randomUUID()}','0',null);commit;`,
+      );
+      await loginLocalOwnerDirectly(page, "cash-" + theme + "@saledock.local");
+      const marker = "QA70439-" + theme + "-" + randomUUID().slice(0, 8);
+      const inspect = () =>
+        JSON.parse(
+          sql(`select jsonb_build_object(
+    'customers',(select count(*) from public.customers where organization_id='${LOCAL_QA_ORG_ID}' and name='${marker}'),
+    'repairs',(select count(*) from public.repairs where organization_id='${LOCAL_QA_ORG_ID}' and customer_name='${marker}'),
+    'receipt',(select jsonb_build_object('id',r.id,'customer_id',r.customer_id,'job_no',r.job_no,'shift',r.advance_cash_shift_id,'xid',r.advance_cash_shift_assignment_xid::text,'received_at',r.advance_received_at,'received_by',r.advance_received_by) from public.repairs r where organization_id='${LOCAL_QA_ORG_ID}' and customer_name='${marker}'),
+    'history',(select count(*) from public.repair_status_history where organization_id='${LOCAL_QA_ORG_ID}' and old_status is null),
+      'audits',(select count(*) from public.audit_logs where organization_id='${LOCAL_QA_ORG_ID}' and action='repairs.created'
+        and metadata->>'repair_id'=(select id::text from public.repairs where organization_id='${LOCAL_QA_ORG_ID}' and customer_name='${marker}')));`),
+        );
+      let intercepted = false,
+        replayProof: ReturnType<typeof inspect> | undefined;
+      await page.route("**/repairs**", async (route) => {
+        if (
+          intercepted ||
+          route.request().method() !== "POST" ||
+          !route.request().headers()["next-action"]
+        ) {
+          await route.continue();
+          return;
+        }
+        intercepted = true;
+        // First upstream action commits. Its outer response is discarded; retry
+        // the identical captured HTTP request before delivering any result to UI.
+        const first = await route.fetch();
+        expect(first.status()).toBe(200);
+        const committed = inspect();
+        expect(committed.customers).toBe(1);
+        expect(committed.repairs).toBe(1);
+        expect(committed.history).toBe(1);
+        expect(committed.audits).toBe(1);
+        const replay = await route.fetch();
+        expect(replay.status()).toBe(200);
+        replayProof = inspect();
+        expect(replayProof).toEqual(committed);
+        await route.fulfill({ response: replay });
+      });
+      await page.goto("/repairs?add=1");
+      const form = page.getByRole("dialog").locator("form");
+      await expect(form.locator("[name=request_key]")).toHaveValue(
+        /[a-f0-9-]{36}/,
+      );
+      const key = await form.locator("[name=request_key]").inputValue();
+      expect(key).toMatch(/[a-f0-9-]{36}/);
+      await form.locator("[name=customer_name]").fill(marker);
+      await form.locator("[name=customer_phone]").fill("07043900003");
+      await form.locator("[name=create_customer_account]").check();
+      await form.locator("[name=device_type]").fill("Synthetic phone");
+      await form
+        .locator("[name=problem_description]")
+        .fill("Lost outer response qualification");
+      await form.locator("[name=estimated_cost]").fill("200");
+      await form.locator("[name=advance_paid]").fill("100");
+      await form.getByRole("button", { name: /Record Intake/ }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      expect(intercepted).toBe(true);
+      expect(replayProof).toBeDefined();
+      expect(inspect()).toEqual(replayProof);
+      await page.goto("/daily-closing");
+      await expect(
+        page
+          .getByTestId("active-shift-section")
+          .getByTestId("repair-advance-summary"),
+      ).toContainText("Cash in drawer: ₨ 100");
+      if (root) {
+        mkdirSync(root, { recursive: true });
+        await page.screenshot({
+          path: root + "/quick-customer-replay-" + theme + "-390.png",
+          fullPage: true,
+        });
+        writeFileSync(
+          root + "/quick-customer-replay-" + theme + ".json",
+          JSON.stringify(
+            {
+              sameHttpRequestRetried: true,
+              originalOuterResponseDiscarded: true,
+              uiRecovered: true,
+              requestKey: key,
+              ...replayProof,
+            },
+            null,
+            2,
+          ),
+        );
+      }
+    },
+  );

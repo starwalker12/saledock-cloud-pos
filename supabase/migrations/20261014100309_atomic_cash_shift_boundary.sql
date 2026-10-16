@@ -420,6 +420,7 @@ grant select,insert,update on public.repairs to repair_posting_executor;
 grant select on public.profiles to repair_posting_executor;
 grant select(id,organization_id,is_active) on public.branches to repair_posting_executor;
 grant select(id,organization_id) on public.customers to repair_posting_executor;
+grant insert(organization_id,name,phone,outstanding_balance,credit_limit,is_archived) on public.customers to repair_posting_executor;
 grant insert on public.audit_logs,public.repair_status_history to repair_posting_executor;
 grant select(id,status) on public.cash_shifts to repair_posting_executor;
 create policy repair_executor_write on public.repairs for all to repair_posting_executor
@@ -427,6 +428,8 @@ create policy repair_executor_write on public.repairs for all to repair_posting_
 create policy repair_executor_profile on public.profiles for select to repair_posting_executor using(organization_id=public.current_organization_id());
 create policy repair_executor_branch on public.branches for select to repair_posting_executor using(organization_id=public.current_organization_id());
 create policy repair_executor_customer on public.customers for select to repair_posting_executor using(organization_id=public.current_organization_id());
+create policy repair_executor_customer_create on public.customers for insert to repair_posting_executor
+ with check(organization_id=public.current_organization_id() and outstanding_balance=0 and credit_limit=0 and not is_archived);
 create policy repair_executor_shift on public.cash_shifts for select to repair_posting_executor using(organization_id=public.current_organization_id());
 create policy repair_executor_audit on public.audit_logs for insert to repair_posting_executor with check(organization_id=public.current_organization_id());
 create policy repair_executor_history on public.repair_status_history for insert to repair_posting_executor with check(organization_id=public.current_organization_id());
@@ -504,7 +507,7 @@ end; $$;
 -- Operational workflow remains available under its existing role checks. No raw receipt economics.
 grant update(diagnosis,status,notes,final_cost,delivered_at,updated_at) on public.repairs to authenticated;
 
-create function cash_private.save_repair(p_id uuid,p_key uuid,p_revision bigint,p_data jsonb) returns jsonb
+create function cash_private.save_repair(p_id uuid,p_key uuid,p_revision bigint,p_create_customer_account boolean,p_data jsonb) returns jsonb
 language plpgsql volatile security definer set search_path='' as $$
 declare actor public.profiles; original public.repairs; saved public.repairs; data public.repairs;
  payload jsonb; seq numeric; seq_text text;
@@ -519,6 +522,8 @@ begin
       'accessories_received','estimated_cost','advance_paid','payment_method','status','notes','expected_delivery_at'])) then
    raise exception 'Invalid repair details.' using errcode='22023'; end if;
  select * into data from jsonb_populate_record(null::public.repairs,p_data);
+ if p_create_customer_account is null or (p_create_customer_account and (p_id is not null or data.customer_id is not null)) then
+   raise exception 'Create a new customer only for a new repair without a selected customer.' using errcode='22023'; end if;
  data.advance_paid:=cash_private.money(p_data->>'advance_paid');
  data.estimated_cost:=cash_private.money(p_data->>'estimated_cost');
  if data.payment_method is null or data.payment_method='customer_credit' or data.status is null
@@ -533,25 +538,34 @@ begin
    raise exception 'Repair authorization changed.' using errcode='42501'; end if;
  if data.customer_id is not null and not exists(select 1 from public.customers where id=data.customer_id and organization_id=actor.organization_id) then
    raise exception 'The selected customer is unavailable.' using errcode='42501'; end if;
- payload:=jsonb_build_object('branch',actor.branch_id,'data',p_data||jsonb_build_object('advance_paid',data.advance_paid,'estimated_cost',data.estimated_cost));
+ -- Canonical identity is submitted intent, before any generated customer id.
+ payload:=jsonb_build_object('branch',actor.branch_id,'create_customer_account',p_create_customer_account,
+   'data',p_data||jsonb_build_object('customer_id',data.customer_id,'advance_paid',data.advance_paid,'estimated_cost',data.estimated_cost));
  if p_id is null then
    if p_key is null then raise exception 'Refresh and try again with a request key.' using errcode='22023'; end if;
    -- Reuse the existing organization/counter order; SQL max has no API row cap.
    perform 1 from public.organizations where id=actor.organization_id for update;
    select * into saved from public.repairs where organization_id=actor.organization_id and repair_request_key=p_key;
    if found then
-     if saved.repair_request_payload is distinct from payload then raise exception 'Conflicting repair request.' using errcode='PT409'; end if;
-     return jsonb_build_object('id',saved.id,'job_no',saved.job_no,'revision',saved.repair_revision,'replayed',true);
+     if saved.repair_request_payload->'intent' is distinct from payload then raise exception 'Conflicting repair request.' using errcode='PT409'; end if;
+     return jsonb_build_object('id',saved.id,'job_no',saved.job_no,'customer_id',saved.repair_request_payload->'customer_id','revision',saved.repair_revision,'replayed',true);
+   end if;
+   if p_create_customer_account then
+     insert into public.customers(organization_id,name,phone,outstanding_balance,credit_limit,is_archived)
+       values(actor.organization_id,btrim(data.customer_name),nullif(data.customer_phone,''),0,0,false)
+       returning id into data.customer_id;
    end if;
    select coalesce(max(nullif(regexp_replace(job_no,'\D','','g'),'')::numeric),0)+1 into seq from public.repairs where organization_id=actor.organization_id;
    seq_text:=seq::text;
+   -- Keep the original resolved customer outside compared intent; a later edit
+   -- may relink the job without changing the create operation's receipt.
    insert into public.repairs(organization_id,branch_id,customer_id,job_no,customer_name,customer_phone,device_type,device_model,serial_imei,
      problem_description,accessories_received,estimated_cost,advance_paid,payment_method,final_cost,status,notes,expected_delivery_at,created_by,
      repair_request_key,repair_request_payload,repair_revision)
    values(actor.organization_id,actor.branch_id,data.customer_id,'RJ-'||case when length(seq_text)<6 then lpad(seq_text,6,'0') else seq_text end,
      btrim(data.customer_name),data.customer_phone,btrim(data.device_type),data.device_model,data.serial_imei,data.problem_description,
      data.accessories_received,data.estimated_cost,data.advance_paid,data.payment_method,data.estimated_cost,data.status,data.notes,data.expected_delivery_at,
-     actor.id,p_key,payload,1) returning * into saved;
+     actor.id,p_key,jsonb_build_object('intent',payload,'customer_id',data.customer_id),1) returning * into saved;
    insert into public.repair_status_history(organization_id,repair_id,old_status,new_status,note,changed_by)
      values(actor.organization_id,saved.id,null,saved.status,coalesce(data.notes,'Device received for repair intake.'),actor.id);
  else
@@ -562,7 +576,7 @@ begin
       original.status,original.notes,original.expected_delivery_at)
      is not distinct from row(data.customer_id,btrim(data.customer_name),data.customer_phone,btrim(data.device_type),data.device_model,data.serial_imei,
       data.problem_description,data.accessories_received,data.estimated_cost,data.advance_paid,data.payment_method,data.status,data.notes,data.expected_delivery_at) then
-     return jsonb_build_object('id',original.id,'job_no',original.job_no,'revision',original.repair_revision,'replayed',true);
+     return jsonb_build_object('id',original.id,'job_no',original.job_no,'customer_id',original.customer_id,'revision',original.repair_revision,'replayed',true);
    end if;
    if p_revision is null or p_revision<>original.repair_revision then raise exception 'Repair changed; refresh before editing.' using errcode='PT409'; end if;
    update public.repairs set customer_id=data.customer_id,customer_name=btrim(data.customer_name),customer_phone=data.customer_phone,
@@ -573,11 +587,11 @@ begin
  insert into public.audit_logs(organization_id,branch_id,actor_id,module,action,details,metadata)
    values(actor.organization_id,actor.branch_id,actor.id,'repairs',case when p_id is null then 'repairs.created' else 'repairs.updated' end,
      'Repair saved',jsonb_build_object('repair_id',saved.id,'revision',saved.repair_revision,'advance_receipt',saved.advance_cash_shift_assignment_xid is not null));
- return jsonb_build_object('id',saved.id,'job_no',saved.job_no,'revision',saved.repair_revision,'replayed',false);
+ return jsonb_build_object('id',saved.id,'job_no',saved.job_no,'customer_id',saved.customer_id,'revision',saved.repair_revision,'replayed',false);
 end; $$;
-alter function cash_private.save_repair(uuid,uuid,bigint,jsonb) owner to repair_posting_executor;
-create function public.save_cash_shift_repair(p_id uuid,p_request_key uuid,p_revision bigint,p_data jsonb) returns jsonb
-language sql volatile security invoker set search_path='' as $$ select cash_private.save_repair(p_id,p_request_key,p_revision,p_data); $$;
+alter function cash_private.save_repair(uuid,uuid,bigint,boolean,jsonb) owner to repair_posting_executor;
+create function public.save_cash_shift_repair(p_id uuid,p_request_key uuid,p_revision bigint,p_create_customer_account boolean,p_data jsonb) returns jsonb
+language sql volatile security invoker set search_path='' as $$ select cash_private.save_repair(p_id,p_request_key,p_revision,p_create_customer_account,p_data); $$;
 
 grant select(id,organization_id,branch_id,advance_cash_shift_id,advance_cash_shift_assignment_xid,advance_paid,payment_method,advance_received_by) on public.repairs to cash_shift_executor;
 create policy cash_executor_repair_read on public.repairs for select to cash_shift_executor using(organization_id=public.current_organization_id());
@@ -3106,9 +3120,9 @@ grant execute on function cash_private.maintenance_shared(uuid) to ledger_postin
 grant execute on function cash_private.boundary(uuid,uuid,boolean) to ledger_posting_executor,cash_shift_executor,expense_posting_executor,repair_posting_executor;
 grant execute on function cash_private.admit(uuid,uuid) to ledger_posting_executor,expense_posting_executor,repair_posting_executor;
 grant execute on function cash_private.money(text,boolean) to expense_posting_executor,repair_posting_executor;
-grant execute on function cash_private.save_repair(uuid,uuid,bigint,jsonb) to authenticated;
-revoke all on function public.save_cash_shift_repair(uuid,uuid,bigint,jsonb) from public,anon,service_role;
-grant execute on function public.save_cash_shift_repair(uuid,uuid,bigint,jsonb) to authenticated;
+grant execute on function cash_private.save_repair(uuid,uuid,bigint,boolean,jsonb) to authenticated;
+revoke all on function public.save_cash_shift_repair(uuid,uuid,bigint,boolean,jsonb) from public,anon,service_role;
+grant execute on function public.save_cash_shift_repair(uuid,uuid,bigint,boolean,jsonb) to authenticated;
 grant execute on function cash_private.open_shift(uuid,text,text),cash_private.close_shift(uuid,uuid,text,text),cash_private.read_shift(uuid),cash_private.export_shifts() to authenticated;
 grant execute on function cash_private.save_expense(uuid,uuid,bigint,text,text,public.payment_method,text,text,timestamptz,text) to authenticated;
 grant select,update on cash_private.branch_boundaries to ledger_reset_executor;

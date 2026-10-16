@@ -36,7 +36,7 @@ const data = (amount = 100, method = "cash", extra = {}) => ({
   ...extra,
 });
 const save = (body = data(), id = null, revision = 0, key = randomUUID()) =>
-  `select public.save_cash_shift_repair(${literal(id)},'${key}',${revision},${literal(JSON.stringify(body))}::jsonb);`;
+  `select public.save_cash_shift_repair(${literal(id)},'${key}',${revision},false,${literal(JSON.stringify(body))}::jsonb);`;
 const execute = (f, query) => sql("begin;" + f.auth + query + ";commit;");
 const row = (id) =>
   lastJSON(sql(`select to_jsonb(r) from public.repairs r where id='${id}';`));

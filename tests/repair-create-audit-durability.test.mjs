@@ -140,6 +140,7 @@ test("cash classification uses the selected method and unrounded money lexemes",
   assert.equal(d.advance_paid, "100.00");
   assert.equal(d.estimated_cost, "200.00");
   assert.equal(h.calls[0].args.p_request_key, key);
+  assert.equal(h.calls[0].args.p_create_customer_account, false);
   assert(!("branch_id" in d));
   assert(!("advance_cash_shift_id" in d));
 });
@@ -180,6 +181,19 @@ test("same-key committed replay confirms the original repair", async () => {
   const h = harness({ replay: true });
   assert.equal((await h.save()).id, id);
   assert.equal(h.calls.length, 1);
+});
+test("quick customer intent reaches replay without an application insert", async () => {
+  const h = harness({ replay: true });
+  h.form.set("create_customer_account", "true");
+  assert.equal((await h.save()).id, id);
+  assert.equal(h.calls[0].args.p_create_customer_account, true);
+  assert.equal(h.calls[0].args.p_data.customer_id, null);
+});
+test("edit mode cannot quick-create a customer", async () => {
+  const h = harness({ edit: true });
+  h.form.set("create_customer_account", "true");
+  assert((await h.save()).error);
+  assert.equal(h.calls.length, 0);
 });
 test("financial audit and initial history belong to the DB transaction", () => {
   const m = fs.readFileSync(

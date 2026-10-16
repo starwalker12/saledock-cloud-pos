@@ -65,10 +65,17 @@ export async function saveRepairAction(
 
   const supabase = await createClient();
 
-  // Quick Customer Creation
+  const requestKey = operationRequestKey(formData);
+  if (!requestKey) return err("Refresh and try again.");
+
+  // The protected transaction resolves quick creation after durable replay.
   const shouldCreateCustomer =
     formData.get("create_customer_account") === "true";
-  let finalCustomerId = parsed.data.customer_id || null;
+  const finalCustomerId = parsed.data.customer_id || null;
+  if (shouldCreateCustomer && (id || finalCustomerId))
+    return err(
+      "Create a new customer only for a new repair without a selected customer.",
+    );
 
   if (finalCustomerId) {
     const { data: selectedCustomer, error: customerLookupError } =
@@ -84,34 +91,6 @@ export async function saveRepairAction(
     }
   }
 
-  if (shouldCreateCustomer && !finalCustomerId) {
-    const customerPayload = {
-      organization_id: orgId,
-      name: parsed.data.customer_name,
-      phone: parsed.data.customer_phone || null,
-      outstanding_balance: 0,
-      credit_limit: 0,
-      is_archived: false,
-    };
-    const { data: newCust, error: custErr } = await supabase
-      .from("customers")
-      .insert(customerPayload)
-      .select("id")
-      .single();
-
-    if (custErr) {
-      return err(
-        getSafeActionError(
-          custErr,
-          "We couldn't create the customer for this repair. Please try again.",
-        ),
-      );
-    }
-    finalCustomerId = newCust.id;
-  }
-
-  const requestKey = operationRequestKey(formData);
-  if (!requestKey) return err("Refresh and try again.");
   const revisionText = String(formData.get("revision") ?? "0");
   if (
     !/^[0-9]+$/.test(revisionText) ||
@@ -124,6 +103,7 @@ export async function saveRepairAction(
       p_id: id,
       p_request_key: requestKey,
       p_revision: Number(revisionText),
+      p_create_customer_account: shouldCreateCustomer,
       p_data: {
         ...parsed.data,
         customer_id: finalCustomerId,
@@ -144,7 +124,7 @@ export async function saveRepairAction(
         "We couldn't save this repair. Please try again.",
       ),
     );
-  // The DB commits repair, advance assignment, initial history and audit together.
+  // The DB commits optional customer, repair, advance, history and audit together.
   return ok(
     id ? "Repair job updated." : "Repair job created.",
     String(receipt.id),

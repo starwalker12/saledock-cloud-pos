@@ -68,16 +68,9 @@ test("repair create and edit share one organization-scoped customer ownership ch
   );
 });
 
-test("quick-created customers remain organization-owned and use the returned ID", () => {
-  assert.match(
-    saveSource,
-    /const customerPayload = \{[\s\S]*?organization_id: orgId,[\s\S]*?\};/,
-  );
-  assert.match(
-    saveSource,
-    /\.from\("customers"\)[\s\S]*?\.insert\(customerPayload\)[\s\S]*?\.select\("id"\)[\s\S]*?\.single\(\)/,
-  );
-  assert.match(saveSource, /finalCustomerId = newCust\.id;/);
+test("quick creation sends user intent to the protected repair transaction", () => {
+  assert.doesNotMatch(saveSource, /\.insert\(/);
+  assert.match(saveSource, /p_create_customer_account: shouldCreateCustomer/);
   assert.match(saveSource, /customer_id: finalCustomerId,/);
 });
 
