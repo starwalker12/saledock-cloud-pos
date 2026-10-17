@@ -26,6 +26,8 @@ function loadTypeScriptModule(path, mocks = {}) {
   const evaluatedModule = { exports: {} };
   const localRequire = (id) => {
     if (Object.hasOwn(mocks, id)) return mocks[id];
+    if (id === "@/lib/cash-shift-opening-scope")
+      return loadTypeScriptModule("src/lib/cash-shift-opening-scope.ts");
     return require(id);
   };
   const wrapper = vm.runInThisContext(
