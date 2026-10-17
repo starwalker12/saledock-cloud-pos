@@ -1,5 +1,8 @@
 "use server";
 
+import { getCashShiftActionError } from "@/lib/errors/cash-shift-action-error";
+import { operationRequestKey } from "@/lib/validation/operation-request-key";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -297,7 +300,10 @@ export async function recordCreditPaymentAction(
     );
   }
 
-  const { error } = await supabase.rpc("record_credit_payment", {
+  const requestKey = operationRequestKey(formData);
+  if (!requestKey) return err("Please refresh the form and try again.");
+  const { data: receipt, error } = await supabase.rpc("record_credit_payment", {
+    p_request_key: requestKey,
     p_customer_id: customerId,
     p_amount: parsed.data.amount,
     p_method: parsed.data.method as CreditPaymentMethod,
@@ -307,23 +313,24 @@ export async function recordCreditPaymentAction(
 
   if (error) {
     return err(
-      getSafeActionError(
+      getCashShiftActionError(
         error,
         "We couldn't record this payment. Please try again.",
       ),
     );
   }
 
-  logAudit({
-    module: "customers",
-    action: "customer.credit_payment",
-    details: `Credit payment of ${parsed.data.amount} recorded for customer ${customerId} via ${parsed.data.method}`,
-    metadata: {
-      customer_id: customerId,
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-    },
-  });
+  if (!receipt?.replayed)
+    logAudit({
+      module: "customers",
+      action: "customer.credit_payment",
+      details: `Credit payment of ${parsed.data.amount} recorded for customer ${customerId} via ${parsed.data.method}`,
+      metadata: {
+        customer_id: customerId,
+        amount: parsed.data.amount,
+        method: parsed.data.method,
+      },
+    });
 
   return ok("Credit payment recorded successfully.");
 }
@@ -366,36 +373,38 @@ export async function recordWriteOffAction(
     );
   }
 
-  const { error } = await supabase.rpc("record_customer_write_off", {
-    p_customer_id: customerId,
-    p_amount: parsed.data.amount,
-    p_reason: parsed.data.reason,
-  });
+  const requestKey = operationRequestKey(formData);
+  if (!requestKey) return err("Please refresh the form and try again.");
+  const { data: receipt, error } = await supabase.rpc(
+    "record_customer_write_off",
+    {
+      p_request_key: requestKey,
+      p_customer_id: customerId,
+      p_amount: parsed.data.amount,
+      p_reason: parsed.data.reason,
+    },
+  );
 
   if (error) {
     return err(
-      getSafeActionError(
+      getCashShiftActionError(
         error,
         "We couldn't record this write-off. Please try again.",
       ),
     );
   }
 
-  logAudit({
-    module: "customers",
-    action: "customer.write_off",
-    details: `Credit write-off of ${parsed.data.amount} for customer ${customerId}: ${parsed.data.reason}`,
-    metadata: {
-      customer_id: customerId,
-      amount: parsed.data.amount,
-      reason: parsed.data.reason,
-    },
-  });
+  if (!receipt?.replayed)
+    logAudit({
+      module: "customers",
+      action: "customer.write_off",
+      details: `Credit write-off of ${parsed.data.amount} for customer ${customerId}: ${parsed.data.reason}`,
+      metadata: {
+        customer_id: customerId,
+        amount: parsed.data.amount,
+        reason: parsed.data.reason,
+      },
+    });
 
-  revalidatePath("/customers");
-  revalidatePath(`/customers/${customerId}`);
-  revalidatePath("/dashboard");
-  revalidatePath("/daily-closing");
-  revalidatePath("/reports");
   return ok("Credit write-off recorded successfully.");
 }

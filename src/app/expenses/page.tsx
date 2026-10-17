@@ -26,8 +26,7 @@ import {
 import { env } from "@/lib/env";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { ExpenseForm } from "./expense-form";
-import { restoreExpenseAction } from "./actions";
-import { VoidExpenseForm } from "./void-expense-form";
+import { VoidExpenseForm, RestoreExpenseForm } from "./void-expense-form";
 import { sortData } from "@/lib/sort";
 import { SortableHeader } from "@/components/ui/sortable-header";
 
@@ -137,9 +136,10 @@ export default async function ExpensesPage({
     search: parsedFilters.search || undefined,
     category: parsedFilters.category || undefined,
     payment_method: parsedFilters.paymentMethod || undefined,
-    from: !parsedFilters.error && parsedFilters.from
-      ? getKarachiDayStartIso(parsedFilters.from)
-      : undefined,
+    from:
+      !parsedFilters.error && parsedFilters.from
+        ? getKarachiDayStartIso(parsedFilters.from)
+        : undefined,
     to:
       !parsedFilters.error && parsedFilters.to
         ? getKarachiDayEndIso(parsedFilters.to)
@@ -166,16 +166,23 @@ export default async function ExpensesPage({
     dir: params.dir,
   };
 
-  const sortedExpenses = sortData(expenses, sort || "spent_at", sort ? dir : "desc", {
-    spent_at: "date",
-    category: "string",
-    vendor_name: "string",
-    payment_method: "string",
-    amount: "number",
-    status: "string",
-  });
+  const sortedExpenses = sortData(
+    expenses,
+    sort || "spent_at",
+    sort ? dir : "desc",
+    {
+      spent_at: "date",
+      category: "string",
+      vendor_name: "string",
+      payment_method: "string",
+      amount: "number",
+      status: "string",
+    },
+  );
 
-  const editing = params.edit ? sortedExpenses.find((e) => e.id === params.edit) : undefined;
+  const editing = params.edit
+    ? sortedExpenses.find((e) => e.id === params.edit)
+    : undefined;
   const isEdit = Boolean(editing);
   const categoryOptions = [
     { value: "", label: "All" },
@@ -183,7 +190,10 @@ export default async function ExpensesPage({
   ];
   const paymentOptions = [
     { value: "", label: "All" },
-    ...EXPENSE_PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_LABELS[m] ?? m })),
+    ...EXPENSE_PAYMENT_METHODS.map((m) => ({
+      value: m,
+      label: PAYMENT_LABELS[m] ?? m,
+    })),
   ];
 
   return (
@@ -225,7 +235,9 @@ export default async function ExpensesPage({
         <StatCard
           label="Latest this month"
           wrapLabel
-          value={counts.latest ? formatCurrency(counts.latest.amount, currency) : "—"}
+          value={
+            counts.latest ? formatCurrency(counts.latest.amount, currency) : "—"
+          }
           detail={
             counts.latest
               ? `${counts.latest.category} · ${fmtDate(counts.latest.spent_at)}`
@@ -239,7 +251,9 @@ export default async function ExpensesPage({
         <div className="border-b border-slate-200 px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-black text-slate-950">All expenses</h2>
+              <h2 className="text-base font-black text-slate-950">
+                All expenses
+              </h2>
               <p className="text-xs text-slate-500">Most recent first.</p>
             </div>
             {!canWrite && (
@@ -253,9 +267,14 @@ export default async function ExpensesPage({
 
         <div className="space-y-5 p-5 sm:p-6">
           {canWrite && (
-            <details open={isEdit} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <details
+              open={isEdit}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+            >
               <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold text-slate-800">
-                {isEdit ? `Edit expense: ${editing!.category}` : "Add a new expense"}
+                {isEdit
+                  ? `Edit expense: ${editing!.category}`
+                  : "Add a new expense"}
               </summary>
               <div className="mt-4">
                 <ExpenseForm
@@ -265,7 +284,10 @@ export default async function ExpensesPage({
                   canWrite={canWrite}
                 />
                 {isEdit && (
-                  <Link href="/expenses" className="mt-3 inline-block text-xs font-semibold text-slate-600 underline">
+                  <Link
+                    href="/expenses"
+                    className="mt-3 inline-block text-xs font-semibold text-slate-600 underline"
+                  >
                     Cancel edit
                   </Link>
                 )}
@@ -274,7 +296,10 @@ export default async function ExpensesPage({
           )}
 
           {/* Mobile Filter form */}
-          <form className="rounded-xl border border-slate-200 bg-[#fff] p-3 md:hidden dark:border-slate-800 dark:bg-slate-950" action="/expenses">
+          <form
+            className="rounded-xl border border-slate-200 bg-[#fff] p-3 md:hidden dark:border-slate-800 dark:bg-slate-950"
+            action="/expenses"
+          >
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <label className="block min-w-0">
                 <span className="sr-only">Search expenses</span>
@@ -323,7 +348,9 @@ export default async function ExpensesPage({
                 </label>
 
                 <label className="block min-w-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Method
+                  </span>
                   <AppSelect
                     name="payment_method"
                     defaultValue={parsedFilters.paymentMethod}
@@ -335,7 +362,9 @@ export default async function ExpensesPage({
 
                 <div className="grid gap-2 min-[380px]:grid-cols-2">
                   <label className="block min-w-0 font-bold">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">From</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      From
+                    </span>
                     <input
                       type="date"
                       name="from"
@@ -345,7 +374,9 @@ export default async function ExpensesPage({
                     />
                   </label>
                   <label className="block min-w-0 font-bold">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">To</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      To
+                    </span>
                     <input
                       type="date"
                       name="to"
@@ -398,7 +429,9 @@ export default async function ExpensesPage({
               />
             </label>
             <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Category
+              </span>
               <AppSelect
                 name="category"
                 defaultValue={parsedFilters.category}
@@ -409,7 +442,9 @@ export default async function ExpensesPage({
               />
             </label>
             <label className="block min-w-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Method</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Method
+              </span>
               <AppSelect
                 name="payment_method"
                 defaultValue={parsedFilters.paymentMethod}
@@ -419,7 +454,9 @@ export default async function ExpensesPage({
               />
             </label>
             <label className="block min-w-0 font-bold">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">From</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                From
+              </span>
               <input
                 type="date"
                 name="from"
@@ -429,7 +466,9 @@ export default async function ExpensesPage({
               />
             </label>
             <label className="block min-w-0 font-bold">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">To</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                To
+              </span>
               <input
                 type="date"
                 name="to"
@@ -446,9 +485,14 @@ export default async function ExpensesPage({
                 defaultChecked={parsedFilters.includeArchived}
                 className="size-4"
               />
-              <span className="text-sm font-semibold text-slate-700">Show voided</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Show voided
+              </span>
             </label>
-            <button type="submit" className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white cursor-pointer">
+            <button
+              type="submit"
+              className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white cursor-pointer"
+            >
               Apply
             </button>
             {parsedFilters.hasFilterInput && (
@@ -568,7 +612,11 @@ export default async function ExpensesPage({
                         </td>
                         <td className="px-3 py-3 text-right">
                           {canWrite ? (
-                            <ExpenseActions id={e.id} status={e.status} />
+                            <ExpenseActions
+                              id={e.id}
+                              status={e.status}
+                              revision={e.revision}
+                            />
                           ) : (
                             <span className="text-xs text-slate-400">
                               View only
@@ -582,22 +630,42 @@ export default async function ExpensesPage({
               </div>
               <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden pb-[calc(4rem+env(safe-area-inset-bottom))]">
                 {sortedExpenses.map((e) => (
-                  <li key={e.id} className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <li
+                    key={e.id}
+                    className="rounded-xl border border-slate-200 bg-[#fff] p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-900 dark:text-slate-100">{e.category}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{fmtDate(e.spent_at)}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{PAYMENT_LABELS[e.payment_method] ?? e.payment_method}{e.vendor_name ? ` · ${e.vendor_name}` : ""}</p>
+                        <p className="font-bold text-slate-900 dark:text-slate-100">
+                          {e.category}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {fmtDate(e.spent_at)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {PAYMENT_LABELS[e.payment_method] ?? e.payment_method}
+                          {e.vendor_name ? ` · ${e.vendor_name}` : ""}
+                        </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="text-lg font-black text-slate-950 dark:text-slate-50">{formatCurrency(e.amount, currency)}</p>
+                        <p className="text-lg font-black text-slate-950 dark:text-slate-50">
+                          {formatCurrency(e.amount, currency)}
+                        </p>
                         <StatusPill status={e.status} />
                       </div>
                     </div>
-                    {e.notes && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{e.notes}</p>}
+                    {e.notes && (
+                      <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                        {e.notes}
+                      </p>
+                    )}
                     {canWrite && (
                       <div className="mt-3 flex justify-end">
-                        <ExpenseActions id={e.id} status={e.status} />
+                        <ExpenseActions
+                          id={e.id}
+                          status={e.status}
+                          revision={e.revision}
+                        />
                       </div>
                     )}
                   </li>
@@ -612,7 +680,15 @@ export default async function ExpensesPage({
   );
 }
 
-function ExpenseActions({ id, status }: { id: string; status: "active" | "archived" }) {
+function ExpenseActions({
+  id,
+  status,
+  revision,
+}: {
+  id: string;
+  status: "active" | "archived";
+  revision: number;
+}) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <Link
@@ -622,17 +698,9 @@ function ExpenseActions({ id, status }: { id: string; status: "active" | "archiv
         Edit
       </Link>
       {status === "active" ? (
-        <VoidExpenseForm id={id} />
+        <VoidExpenseForm id={id} revision={revision} />
       ) : (
-        <form action={restoreExpenseAction}>
-          <input type="hidden" name="id" value={id} />
-          <button
-            type="submit"
-            className="min-h-11 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
-          >
-            Restore
-          </button>
-        </form>
+        <RestoreExpenseForm id={id} revision={revision} />
       )}
     </div>
   );

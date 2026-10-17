@@ -11,10 +11,20 @@ import {
   canUpdateRepairStatus,
 } from "@/lib/permissions";
 import { repairSchema, type RepairStatus } from "@/lib/validation/repairs";
+import { getCashShiftActionError } from "@/lib/errors/cash-shift-action-error";
+import { operationRequestKey } from "@/lib/validation/operation-request-key";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
 
-export type ActionState = { error: string | null; success: string | null; id?: string };
-const ok = (msg: string, id?: string): ActionState => ({ error: null, success: msg, id });
+export type ActionState = {
+  error: string | null;
+  success: string | null;
+  id?: string;
+};
+const ok = (msg: string, id?: string): ActionState => ({
+  error: null,
+  success: msg,
+  id,
+});
 const err = (msg: string): ActionState => ({ error: msg, success: null });
 
 function fd(formData: FormData) {
@@ -23,7 +33,7 @@ function fd(formData: FormData) {
 
 export async function saveRepairAction(
   _prev: ActionState,
-  formData: FormData
+  formData: FormData,
 ): Promise<ActionState> {
   const ctx = await getCurrentContext();
   if (!ctx.user) redirect("/login");
@@ -55,195 +65,70 @@ export async function saveRepairAction(
 
   const supabase = await createClient();
 
-  // Quick Customer Creation
-  const shouldCreateCustomer = formData.get("create_customer_account") === "true";
-  let finalCustomerId = parsed.data.customer_id || null;
+  const requestKey = operationRequestKey(formData);
+  if (!requestKey) return err("Refresh and try again.");
+
+  // The protected transaction resolves quick creation after durable replay.
+  const shouldCreateCustomer =
+    formData.get("create_customer_account") === "true";
+  const finalCustomerId = parsed.data.customer_id || null;
+  if (shouldCreateCustomer && (id || finalCustomerId))
+    return err(
+      "Create a new customer only for a new repair without a selected customer.",
+    );
 
   if (finalCustomerId) {
-    const { data: selectedCustomer, error: customerLookupError } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("id", finalCustomerId)
-      .eq("organization_id", orgId)
-      .maybeSingle();
+    const { data: selectedCustomer, error: customerLookupError } =
+      await supabase
+        .from("customers")
+        .select("id")
+        .eq("id", finalCustomerId)
+        .eq("organization_id", orgId)
+        .maybeSingle();
 
     if (customerLookupError || !selectedCustomer) {
       return err("The selected customer is unavailable.");
     }
   }
 
-  if (shouldCreateCustomer && !finalCustomerId) {
-    const customerPayload = {
-      organization_id: orgId,
-      name: parsed.data.customer_name,
-      phone: parsed.data.customer_phone || null,
-      outstanding_balance: 0,
-      credit_limit: 0,
-      is_archived: false,
-    };
-    const { data: newCust, error: custErr } = await supabase
-      .from("customers")
-      .insert(customerPayload)
-      .select("id")
-      .single();
-
-    if (custErr) {
-      return err(getSafeActionError(custErr, "We couldn't create the customer for this repair. Please try again."));
-    }
-    finalCustomerId = newCust.id;
-  }
-
-  const payload = {
-    organization_id: orgId,
-    branch_id: branchId,
-    customer_id: finalCustomerId,
-    customer_name: parsed.data.customer_name,
-    customer_phone: parsed.data.customer_phone || null,
-    device_type: parsed.data.device_type,
-    device_model: parsed.data.device_model || null,
-    serial_imei: parsed.data.serial_imei || null,
-    problem_description: parsed.data.problem_description,
-    accessories_received: parsed.data.accessories_received || null,
-    estimated_cost: parsed.data.estimated_cost,
-    advance_paid: parsed.data.advance_paid,
-    status: parsed.data.status,
-    notes: parsed.data.notes || null,
-    expected_delivery_at: parsed.data.expected_delivery_at
-      ? new Date(parsed.data.expected_delivery_at).toISOString()
-      : null,
-  };
-
-  let savedId = id;
-
-  if (id) {
-    // Edit Mode
-    const { error: updateErr } = await supabase
-      .from("repairs")
-      .update({
-        ...payload,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .eq("organization_id", orgId);
-
-    if (updateErr) return err(getSafeActionError(updateErr, "We couldn't save this repair. Please try again."));
-  } else {
-    // Intake Mode: Unique sequence generation RJ-XXXXXX with retry on conflict
-    let attempts = 0;
-    let success = false;
-    let jobNo = "";
-
-    while (attempts < 5 && !success) {
-      attempts++;
-      // Fetch all repairs to find max sequence code safely
-      const { data: currentRepairs, error: listErr } = await supabase
-        .from("repairs")
-        .select("job_no")
-        .eq("organization_id", orgId);
-
-      if (listErr) return err(getSafeActionError(listErr, "We couldn't save this repair. Please try again."));
-
-      const maxSeq = (currentRepairs ?? [])
-        .map((r) => {
-          const num = r.job_no.replace(/\D/g, "");
-          return num ? parseInt(num, 10) : 0;
-        })
-        .reduce((max, val) => Math.max(max, val), 0);
-
-      const seq = maxSeq + 1;
-      jobNo = `RJ-${String(seq).padStart(6, "0")}`;
-
-      const { data: newRepair, error: insertErr } = await supabase
-        .from("repairs")
-        .insert({
-          ...payload,
-          job_no: jobNo,
-          created_by: profile.id,
-          final_cost: parsed.data.estimated_cost, // Default final cost to estimated cost at intake
-        })
-        .select("id")
-        .maybeSingle();
-
-      if (!insertErr && newRepair) {
-        savedId = newRepair.id;
-        success = true;
-
-        // Log initial received status history
-        let historyFailed = false;
-        try {
-          const { error: historyError } = await supabase.from("repair_status_history").insert({
-            organization_id: orgId,
-            repair_id: newRepair.id,
-            old_status: null,
-            new_status: parsed.data.status,
-            note: parsed.data.notes || "Device received for repair intake.",
-            changed_by: profile.id,
-          });
-          historyFailed = Boolean(historyError);
-        } catch {
-          historyFailed = true;
-        }
-
-        if (historyFailed) {
-          return {
-            error:
-              "The repair was saved, but its initial status history could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.",
-            success: null,
-            id: savedId || undefined,
-          };
-        }
-      } else if (insertErr && insertErr.code === "23505") {
-        // Unique index violation (race condition on job_no). Loop will retry.
-        continue;
-      } else {
-        return err(getSafeActionError(insertErr, "We couldn't save this repair job. Please try again."));
-      }
-    }
-
-    if (!success) {
-      return err("Failed to generate unique job number. Please try again.");
-    }
-  }
-
-  let auditFailed = false;
-  try {
-    const { error: auditError } = await supabase.from("audit_logs").insert({
-      organization_id: orgId,
-      branch_id: branchId,
-      actor_id: profile.id,
-      module: "repairs",
-      action: id ? "repairs.updated" : "repairs.created",
-      details: `${id ? "Updated" : "Created"} repair: ${parsed.data.customer_name} - ${parsed.data.device_type}`,
-      metadata: {
-        repair_id: savedId,
-        customer_name: parsed.data.customer_name,
-        device_type: parsed.data.device_type,
+  const revisionText = String(formData.get("revision") ?? "0");
+  if (
+    !/^[0-9]+$/.test(revisionText) ||
+    !Number.isSafeInteger(Number(revisionText))
+  )
+    return err("Refresh before editing this repair.");
+  const { data: receipt, error: saveError } = await supabase.rpc(
+    "save_cash_shift_repair",
+    {
+      p_id: id,
+      p_request_key: requestKey,
+      p_revision: Number(revisionText),
+      p_create_customer_account: shouldCreateCustomer,
+      p_data: {
+        ...parsed.data,
+        customer_id: finalCustomerId,
+        // Preserve the exact submitted money lexeme until DB validation.
+        advance_paid: String(formData.get("advance_paid") ?? "0"),
+        estimated_cost: String(formData.get("estimated_cost") ?? "0"),
+        payment_method: parsed.data.payment_method,
+        expected_delivery_at: parsed.data.expected_delivery_at
+          ? new Date(parsed.data.expected_delivery_at).toISOString()
+          : null,
       },
-    });
-    auditFailed = Boolean(auditError);
-  } catch {
-    auditFailed = true;
-  }
-
-  // Settle the required save/history/audit result before route reconciliation.
-  after(() => {
-    revalidatePath("/repairs");
-    if (finalCustomerId) {
-      revalidatePath(`/customers/${finalCustomerId}`);
-    }
-    revalidatePath("/dashboard");
-  });
-
-  if (auditFailed) {
-    return {
-      error:
-        "The repair was saved, but its audit record could not be confirmed. Do not submit it again. Refresh the page and contact an administrator.",
-      success: null,
-      id: savedId || undefined,
-    };
-  }
-
-  return ok(id ? "Repair job updated." : "Repair job created.", savedId || undefined);
+    },
+  );
+  if (saveError || !receipt?.id)
+    return err(
+      getCashShiftActionError(
+        saveError,
+        "We couldn't save this repair. Please try again.",
+      ),
+    );
+  // The DB commits optional customer, repair, advance, history and audit together.
+  return ok(
+    id ? "Repair job updated." : "Repair job created.",
+    String(receipt.id),
+  );
 }
 
 export async function updateRepairStatusAction(

@@ -7,6 +7,10 @@ import { saveRepairAction, type ActionState } from "./actions";
 import type { CustomerRow } from "@/lib/data/customers";
 import type { RepairRow } from "@/lib/data/repairs";
 import { AppSelect } from "@/components/ui/app-select";
+import {
+  confirmingOperationAction,
+  useOperationRequestKey,
+} from "@/lib/hooks/use-operation-request-key";
 import { FormModal } from "@/components/ui/form-modal";
 
 const defaultState: ActionState = { error: null, success: null };
@@ -35,14 +39,26 @@ export function RepairForm({
   repair?: RepairRow;
   onClose: () => void;
 }) {
-  const [state, formAction, isPending] = useActionState(saveRepairAction, defaultState);
+  const [state, formAction, isPending] = useActionState(
+    confirmingOperationAction(
+      "repair:" + (repair?.id ?? "create"),
+      saveRepairAction,
+    ),
+    defaultState,
+  );
+  const requestKey = useOperationRequestKey(
+    "repair:" + (repair?.id ?? "create"),
+    state.success ? state : null,
+  );
   const router = useRouter();
   const submitLocked = useRef(false);
   const reconciled = useRef(false);
   const committed = Boolean(state.id);
   const [customerId, setCustomerId] = useState(repair?.customer_id || "");
   const [customerName, setCustomerName] = useState(repair?.customer_name || "");
-  const [customerPhone, setCustomerPhone] = useState(repair?.customer_phone || "");
+  const [customerPhone, setCustomerPhone] = useState(
+    repair?.customer_phone || "",
+  );
   const [createCustomerAccount, setCreateCustomerAccount] = useState(false);
 
   // Search through customer lists
@@ -52,7 +68,7 @@ export function RepairForm({
   const filteredCustomers = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.phone && c.phone.includes(searchQuery))
+      (c.phone && c.phone.includes(searchQuery)),
   );
 
   // Autofill customer parameters on select
@@ -81,7 +97,9 @@ export function RepairForm({
     url.searchParams.delete("edit");
     // A locally opened modal may otherwise return the already-cached list.
     url.searchParams.set("repairsavestate", crypto.randomUUID());
-    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+    router.replace(`${url.pathname}${url.search}${url.hash}`, {
+      scroll: false,
+    });
   }, [router, state.success]);
 
   useEffect(() => {
@@ -101,24 +119,32 @@ export function RepairForm({
       open
       onClose={onClose}
       closeDisabled={isPending}
-      title={repair ? `Edit Job Details (${repair.job_no})` : "New Repair Intake"}
+      title={
+        repair ? `Edit Job Details (${repair.job_no})` : "New Repair Intake"
+      }
       description="Record customer device issues and advances."
       maxWidthClass="sm:max-w-2xl"
       bodyClassName="flex min-h-0 flex-col"
     >
-        <form
-          action={formAction}
-          aria-busy={isPending}
-          onSubmit={(event) => {
-            if (submitLocked.current || isPending || committed) {
-              event.preventDefault();
-              return;
-            }
-            submitLocked.current = true;
-          }}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+      <form
+        action={formAction}
+        aria-busy={isPending}
+        onSubmit={(event) => {
+          if (submitLocked.current || isPending || committed || !requestKey) {
+            event.preventDefault();
+            return;
+          }
+          submitLocked.current = true;
+        }}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+          <input type="hidden" name="request_key" value={requestKey} />
+          <input
+            type="hidden"
+            name="revision"
+            value={repair?.repair_revision ?? 0}
+          />
           {repair && <input type="hidden" name="id" value={repair.id} />}
 
           {/* Customer Selection Section */}
@@ -161,8 +187,14 @@ export function RepairForm({
                           onClick={() => handleSelectCustomer(c)}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 flex flex-col"
                         >
-                          <span className="font-bold text-slate-800">{c.name}</span>
-                          {c.phone && <span className="text-xs text-slate-500">{c.phone}</span>}
+                          <span className="font-bold text-slate-800">
+                            {c.name}
+                          </span>
+                          {c.phone && (
+                            <span className="text-xs text-slate-500">
+                              {c.phone}
+                            </span>
+                          )}
                         </button>
                       ))
                     )}
@@ -327,7 +359,7 @@ export function RepairForm({
                 type="number"
                 name="estimated_cost"
                 min="0"
-                step="1"
+                step="0.01"
                 defaultValue={repair?.estimated_cost ?? 0}
                 className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-600"
               />
@@ -341,9 +373,8 @@ export function RepairForm({
                 type="number"
                 name="advance_paid"
                 min="0"
-                step="1"
+                step="0.01"
                 defaultValue={repair?.advance_paid ?? 0}
-                readOnly={Boolean(repair)} // Advance shouldn't change after initial receipt intake in edit mode
                 className={`h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-600 ${
                   repair ? "bg-slate-100 text-slate-500" : "bg-white"
                 }`}
@@ -410,44 +441,49 @@ export function RepairForm({
           </div>
 
           {state.error && (
-            <div role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">
+            <div
+              role="alert"
+              className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950 dark:text-red-200"
+            >
               {state.error}
             </div>
           )}
           {state.success && (
-            <div role="status" className="rounded-xl bg-green-50 p-3 text-xs font-semibold text-green-700">
+            <div
+              role="status"
+              className="rounded-xl bg-green-50 p-3 text-xs font-semibold text-green-700 dark:bg-green-950 dark:text-green-200"
+            >
               {state.success}
             </div>
           )}
-
-          </div>
-          <footer className="flex shrink-0 justify-end gap-3 border-t border-slate-200 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isPending}
-              className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending || committed}
-              className="inline-flex h-11 min-w-36 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white hover:bg-blue-800 transition disabled:opacity-60 cursor-pointer"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Saving...
-                </>
-              ) : repair ? (
-                "Update Details"
-              ) : (
-                "Record Intake"
-              )}
-            </button>
-          </footer>
-        </form>
+        </div>
+        <footer className="flex shrink-0 justify-end gap-3 border-t border-slate-200 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isPending || committed || !requestKey}
+            className="inline-flex h-11 min-w-36 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white hover:bg-blue-800 transition disabled:opacity-60 cursor-pointer"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Saving...
+              </>
+            ) : repair ? (
+              "Update Details"
+            ) : (
+              "Record Intake"
+            )}
+          </button>
+        </footer>
+      </form>
     </FormModal>
   );
 }

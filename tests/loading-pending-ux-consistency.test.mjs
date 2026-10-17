@@ -159,10 +159,7 @@ test("confirmed actions stay locked until the actual action settles", () => {
   assert.match(confirmForm, /submissionLockRef\.current = true/);
   assert.match(confirmForm, /submissionLockRef\.current = false/);
   assert.match(confirmForm, /form\.checkValidity\(\)/);
-  assert.match(
-    confirmForm,
-    /<fieldset disabled=\{isSubmitting\}/,
-  );
+  assert.match(confirmForm, /<fieldset disabled=\{isSubmitting\}/);
   assert.doesNotMatch(
     confirmForm,
     /<fieldset disabled=\{isConfirming \|\| isSubmitting\}/,
@@ -210,10 +207,14 @@ test("catalog and customer archive/restore surfaces use action-specific pending 
 
 test("shared ConfirmForm archive surfaces retain their hidden record identifiers", () => {
   const archiveForms = {
-    "src/app/products/products-tab.tsx": /<ConfirmForm action=\{onArchive\}[\s\S]*?<input type="hidden" name="id" value=\{p\.id\} \/>/,
-    "src/app/products/categories-tab.tsx": /<ConfirmForm action=\{handleArchive\}[\s\S]*?<input type="hidden" name="id" value=\{(?:c|category)\.id\} \/>/,
-    "src/app/products/suppliers-tab.tsx": /<ConfirmForm action=\{handleArchive\}[\s\S]*?<input type="hidden" name="id" value=\{(?:s|supplier)\.id\} \/>/,
-    "src/app/customers/page.tsx": /<ConfirmForm action=\{archiveCustomerAction\}[\s\S]*?<input type="hidden" name="id" value=\{c\.id\} \/>/,
+    "src/app/products/products-tab.tsx":
+      /<ConfirmForm action=\{onArchive\}[\s\S]*?<input type="hidden" name="id" value=\{p\.id\} \/>/,
+    "src/app/products/categories-tab.tsx":
+      /<ConfirmForm action=\{handleArchive\}[\s\S]*?<input type="hidden" name="id" value=\{(?:c|category)\.id\} \/>/,
+    "src/app/products/suppliers-tab.tsx":
+      /<ConfirmForm action=\{handleArchive\}[\s\S]*?<input type="hidden" name="id" value=\{(?:s|supplier)\.id\} \/>/,
+    "src/app/customers/page.tsx":
+      /<ConfirmForm action=\{archiveCustomerAction\}[\s\S]*?<input type="hidden" name="id" value=\{c\.id\} \/>/,
   };
 
   for (const [path, pattern] of Object.entries(archiveForms)) {
@@ -227,41 +228,44 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
       "fb02ef6726f2af3dd38792aacc4c98643ce1ae3b5f9f0665c837bb379d5e03fe",
     "src/app/pos/pos-client.tsx":
       "5bee6af2e450a831e219d55c66ec411f4998022e036b860bd17a5edeca58ae2c",
-    "src/app/customers/[id]/settlement-form.tsx":
-      "3f8d09f161cf90dc97956f80ce0600b5e722bdcc60e4fdc06571e3001d9ae023",
-    "src/app/customers/[id]/write-off-form.tsx":
-      "b51b03217d13c1d3abbc5bb3e9be77f6fb119717376ce8b4a8ba3686b6918f00",
     "src/app/suppliers/purchases/[id]/record-payment-form.tsx":
       "e85494f37eee52dcd2fca726f0553b1f4e39a709823029d9815816b4c4b44c51",
     "src/app/suppliers/purchases/actions.ts":
       "2c4799a17a0a9f0a352fd5d0663f04a7e6e04a55c724ee86f90efa4de23f007a",
     "src/app/suppliers/purchases/new/new-purchase-form.tsx":
       "b21d88f494ffd5d66b91ddd6e30bab952a1ad378fb4fb74cd0b66cf7ab4f830b",
-    "src/app/expenses/actions.ts":
-      "48490a436d7a46bca149489c204af3366ca76bab747c4301ae86c790d7b82cd1",
-    "src/app/expenses/expense-form.tsx":
-      "ae4e83cfe1e5a0eea1813c5c30cf43281f87c17c68ea094204c2ebcb5344eec6",
-    "src/app/expenses/void-expense-form.tsx":
-      "24c63d1a5c27e5eba71996c88e6b392bb259b17a50d529527e69682d9c80d62c",
     "src/app/daily-closing/actions.ts":
       "949485fcd1480932369232ef99b188590ca0fa292f2bf7257fdf9d530da1c12d",
     "src/app/daily-closing/closing-form.tsx":
       "af5ef9003b57064874baf89928a8ad79a45a3f0c525312452cc08f1244dd3d74",
-    "src/app/repairs/actions.ts":
-      "38ccef01efabeafa4224cc555f2cd782b6f6d846d8ace9dcf5dffb8d727615b6",
-    "src/app/repairs/repair-form.tsx":
-      "2774a5968371859616911c3c95ac618d3e431a1b0686612cdb60d0839fefe446",
   };
 
   for (const [path, hash] of Object.entries(expected)) {
     assert.equal(sha256(path), hash, `${path} remains unchanged`);
   }
 
+  // Cash admission replaces these mutation paths; preserve their pending and durable-key contracts.
+  for (const path of [
+    "src/app/customers/[id]/settlement-form.tsx",
+    "src/app/customers/[id]/write-off-form.tsx",
+    "src/app/expenses/expense-form.tsx",
+    "src/app/repairs/repair-form.tsx",
+  ]) {
+    assert.match(source(path), /useOperationRequestKey/);
+    assert.match(source(path), /disabled=\{(?:pending|isPending)/);
+  }
+  assert.match(
+    source("src/app/expenses/void-expense-form.tsx"),
+    /useActionState\(voidExpenseAction/,
+  );
   const inventoryActions = source("src/app/products/inventory-actions.ts");
   const inventorySection = source("src/app/products/inventory-section.tsx");
   const immutableInventorySlices = {
     "inventory writer authorization": {
-      source: inventoryActions.match(/async function requireWriter\(\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+      source:
+        inventoryActions.match(
+          /async function requireWriter\(\) \{[\s\S]*?\n\}/,
+        )?.[0] ?? "",
       hash: "65f1ada7ed79f4e67a8543ba8402827ecee864c089a1a8cba1f6682c6a836c72",
     },
     "inventory adjustment server action": {
@@ -273,14 +277,21 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
       hash: "204045c7e9d25abacdc6f7d320273a14e8eab9522992942a7e055c841e75c250",
     },
     "adjustment form": {
-      source: inventorySection.match(/<form action=\{adjustAction\}[\s\S]*?<\/form>/)?.[0] ?? "",
+      source:
+        inventorySection.match(
+          /<form action=\{adjustAction\}[\s\S]*?<\/form>/,
+        )?.[0] ?? "",
       hash: "490559041bffcad30c5e74ddf169061f80bdabdf0bc68cdbe0eb762622a26c6e",
     },
   };
 
   for (const [label, contract] of Object.entries(immutableInventorySlices)) {
     assert.ok(contract.source, `${label} source is present`);
-    assert.equal(sha256Text(contract.source), contract.hash, `${label} remains unchanged`);
+    assert.equal(
+      sha256Text(contract.source),
+      contract.hash,
+      `${label} remains unchanged`,
+    );
   }
   // Restock normalization and modal handoff are intentionally covered by executed
   // schema/action tests rather than freezing the former broken optional-field UI.
@@ -288,6 +299,9 @@ test("reviewed high-risk mutation and pending paths remain byte-for-byte unchang
   assert.match(inventoryActions, /supabase.rpc\("add_stock_lot"/);
   assert.match(inventorySection, /lotState, lotAction, lotPending/);
   assert.match(inventorySection, /adjustState, adjustAction, adjustPending/);
-  assert.match(inventorySection, /const pending = lotPending \|\| adjustPending/);
+  assert.match(
+    inventorySection,
+    /const pending = lotPending \|\| adjustPending/,
+  );
   assert.match(inventorySection, /disabled=\{pending\}/);
 });

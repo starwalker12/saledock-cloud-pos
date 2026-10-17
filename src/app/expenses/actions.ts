@@ -1,31 +1,31 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canManageExpenses } from "@/lib/permissions";
 import { expenseSchema } from "@/lib/validation/expenses";
-import { logAudit } from "@/lib/audit";
-import { getSafeActionError } from "@/lib/errors/safe-action-error";
+import { operationRequestKey } from "@/lib/validation/operation-request-key";
+import { getCashShiftActionError } from "@/lib/errors/cash-shift-action-error";
 import { formatKarachiDateTimeLocal } from "@/lib/datetime";
 
-export type ActionState = { error: string | null; success: string | null };
-const ok = (msg: string): ActionState => ({ error: null, success: msg });
+export type ActionState = {
+  error: string | null;
+  success: string | null;
+  revision?: number;
+};
+const ok = (msg: string, revision?: number): ActionState => ({
+  error: null,
+  success: msg,
+  revision,
+});
 const err = (msg: string): ActionState => ({ error: msg, success: null });
 
 async function requireManager() {
   const ctx = await getCurrentContext();
   if (!ctx.user) redirect("/login");
   if (!ctx.profile?.organization_id) redirect("/setup");
-  if (!canManageExpenses(ctx.profile.role)) {
-    return { ctx, denied: true as const };
-  }
-  return { ctx, denied: false as const };
-}
-
-function fd(formData: FormData) {
-  return Object.fromEntries(formData.entries());
+  return { ctx, denied: !canManageExpenses(ctx.profile.role) };
 }
 
 export async function saveExpenseAction(
@@ -34,124 +34,105 @@ export async function saveExpenseAction(
 ): Promise<ActionState> {
   const w = await requireManager();
   if (w.denied) return err("You do not have permission to manage expenses.");
-
-  const parsed = expenseSchema.safeParse(fd(formData));
-  if (!parsed.success) return err(parsed.error.issues[0]?.message ?? "Invalid input.");
-
-  const id = (formData.get("id") as string | null) || null;
+  const input = Object.fromEntries(formData.entries());
+  input.vendor_name = String(input.vendor_name ?? "").trim() || "";
+  const parsed = expenseSchema.safeParse({
+    ...input,
+    vendor_name: input.vendor_name || null,
+    notes: String(input.notes ?? "").trim() || null,
+  });
+  if (!parsed.success)
+    return err(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const id = String(formData.get("id") ?? "") || null;
+  const key = operationRequestKey(formData);
+  if (!id && !key) return err("Please refresh the form and try again.");
   const supabase = await createClient();
-
-  const branchId = w.ctx.profile!.branch_id;
-  if (!branchId) return err("No branch assigned for your profile.");
-
-  let spentAt = parsed.data.spent_at ?? new Date().toISOString();
+  let spentAt: string | null = parsed.data.spent_at ?? null;
   if (id) {
-    const { data: existing, error: existingError } = await supabase
+    const { data: existing, error } = await supabase
       .from("expenses")
       .select("spent_at")
       .eq("id", id)
       .eq("organization_id", w.ctx.profile!.organization_id!)
       .maybeSingle();
-    if (existingError) {
-      return err(getSafeActionError(existingError, "We couldn't save this expense. Please try again."));
-    }
-    if (!existing) return err("We couldn't save this expense. Please try again.");
+    if (error || !existing) return err("This expense could not be found.");
     if (
-      !parsed.data.spent_at ||
+      !spentAt ||
       formatKarachiDateTimeLocal(existing.spent_at) ===
-        formatKarachiDateTimeLocal(parsed.data.spent_at)
+        formatKarachiDateTimeLocal(spentAt)
     ) {
       spentAt = existing.spent_at;
     }
   }
-
-  const payload = {
-    organization_id: w.ctx.profile!.organization_id!,
-    branch_id: branchId,
-    category: parsed.data.category,
-    amount: parsed.data.amount,
-    payment_method: parsed.data.payment_method,
-    vendor_name: parsed.data.vendor_name ?? null,
-    notes: parsed.data.notes ?? null,
-    spent_at: spentAt,
-  };
-
-  if (id) {
-    const { error } = await supabase
-      .from("expenses")
-      .update(payload)
-      .eq("id", id)
-      .eq("organization_id", w.ctx.profile!.organization_id!);
-    if (error) return err(getSafeActionError(error, "We couldn't save this expense. Please try again."));
-  } else {
-    const { error } = await supabase
-      .from("expenses")
-      .insert({ ...payload, created_by: w.ctx.profile!.id, status: "active" });
-    if (error) return err(getSafeActionError(error, "We couldn't save this expense. Please try again."));
-  }
-
-  logAudit({
-    module: "expenses",
-    action: id ? "expenses.updated" : "expenses.created",
-    details: `${id ? "Updated" : "Recorded"} expense: ${parsed.data.category} - ${parsed.data.amount}`,
-    metadata: { category: parsed.data.category, amount: parsed.data.amount, payment_method: parsed.data.payment_method },
+  const { data, error } = await supabase.rpc("save_cash_shift_expense", {
+    p_id: id,
+    p_request_key: key,
+    p_revision: id ? String(formData.get("revision") ?? "") : null,
+    p_category: parsed.data.category,
+    p_amount: String(formData.get("amount") ?? "").trim(),
+    p_method: parsed.data.payment_method,
+    p_vendor: parsed.data.vendor_name ?? null,
+    p_notes: parsed.data.notes ?? null,
+    p_spent_at: spentAt,
+    p_operation: "save",
   });
-
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  return ok(id ? "Expense updated." : "Expense recorded.");
+  if (error)
+    return err(
+      getCashShiftActionError(
+        error,
+        "We couldn't save this expense. Please try again.",
+      ),
+    );
+  return ok(
+    id ? "Expense updated." : "Expense recorded.",
+    Number(data?.revision ?? 0),
+  );
 }
 
-export async function voidExpenseAction(formData: FormData) {
+async function changeExpenseStatus(
+  formData: FormData,
+  operation: "void" | "restore",
+): Promise<ActionState> {
   const w = await requireManager();
-  if (w.denied) return;
-  const id = formData.get("id") as string;
-  if (!id) return;
+  if (w.denied) return err("You do not have permission to manage expenses.");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return err("Expense ID is missing.");
   const supabase = await createClient();
-  await supabase
-    .from("expenses")
-    .update({
-      status: "archived",
-      archived_at: new Date().toISOString(),
-      archived_by: w.ctx.profile!.id,
-    })
-    .eq("id", id)
-    .eq("organization_id", w.ctx.profile!.organization_id!);
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  logAudit({
-    module: "expenses",
-    action: "expenses.voided",
-    details: `Voided expense ${id}`,
-    metadata: { expense_id: id },
+  const { data, error } = await supabase.rpc("save_cash_shift_expense", {
+    p_id: id,
+    p_request_key: null,
+    p_revision: String(formData.get("revision") ?? ""),
+    p_category: null,
+    p_amount: null,
+    p_method: null,
+    p_vendor: null,
+    p_notes: null,
+    p_spent_at: null,
+    p_operation: operation,
   });
+  if (error)
+    return err(
+      getCashShiftActionError(
+        error,
+        "We couldn't update this expense. Please try again.",
+      ),
+    );
+  return ok(
+    operation === "void" ? "Expense voided." : "Expense restored.",
+    Number(data?.revision ?? 0),
+  );
 }
 
-export async function restoreExpenseAction(formData: FormData) {
-  const w = await requireManager();
-  if (w.denied) return;
-  const id = formData.get("id") as string;
-  if (!id) return;
-  const supabase = await createClient();
-  const { data: restored, error } = await supabase
-    .from("expenses")
-    .update({ status: "active", archived_at: null, archived_by: null })
-    .eq("id", id)
-    .eq("organization_id", w.ctx.profile!.organization_id!)
-    .eq("status", "archived")
-    .select("id")
-    .maybeSingle();
-  if (error || !restored) return;
-  await logAudit({
-    module: "expenses",
-    action: "expenses.restored",
-    details: `Restored expense ${restored.id}`,
-    metadata: {
-      expense_id: restored.id,
-      previous_status: "archived",
-      new_status: "active",
-    },
-  });
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
+export async function voidExpenseAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return changeExpenseStatus(formData, "void");
+}
+
+export async function restoreExpenseAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return changeExpenseStatus(formData, "restore");
 }

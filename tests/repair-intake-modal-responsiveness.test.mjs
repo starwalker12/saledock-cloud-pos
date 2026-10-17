@@ -25,12 +25,13 @@ test('form reuses body portal and keeps action, submit, pending and validation i
   const start = form.indexOf('<form');
   assert.ok(start > 0);
   assert.ok(form.indexOf('type="submit"', start) < form.indexOf('</form>', start));
-  assert.match(form, /useActionState\(saveRepairAction, defaultState\)/);
+  assert.match(form, /confirmingOperationAction/);
+  assert.match(form, /useOperationRequestKey/);
   assert.match(form, /disabled=\{isPending\}/);
   assert.match(form, /Saving\.\.\./);
   assert.match(form, /state\.success[\s\S]*?router\.replace\(/);
   assert.equal((form.match(/router\.replace\(/g) ?? []).length, 1);
-  assert.match(form, /disabled=\{isPending \|\| committed\}/);
+  assert.match(form, /disabled=\{isPending \|\| committed \|\| !requestKey\}/);
   assert.match(form, /closeDisabled=\{isPending\}/);
   assert.match(form, /submitLocked.current \|\| isPending \|\| committed/);
   assert.match(form, /state\.error &&[\s\S]*?role="alert"/);
