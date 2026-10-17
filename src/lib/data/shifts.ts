@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { cashShiftOpeningScope } from "@/lib/cash-shift-opening-scope";
 import {
   OPERATIONAL_HISTORY_MAX_ROWS,
   operationalHistoryResult,
@@ -59,6 +60,23 @@ export type ShiftHistoryFilters = {
   to?: string;
   limit?: number;
 };
+
+export async function getShiftOpeningScope(
+  organizationId: string,
+  branchId: string,
+): Promise<string> {
+  const supabase = await createClient();
+  // Complete count, independent of history filters, row caps and timestamps.
+  const { count, error } = await supabase
+    .from("cash_shifts")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("branch_id", branchId)
+    .eq("accounting_version", 2);
+  if (error || count === null)
+    throw new Error("Unable to establish the shift opening lifecycle.");
+  return cashShiftOpeningScope(organizationId, branchId, count);
+}
 
 export async function getCurrentShift(
   organizationId: string,

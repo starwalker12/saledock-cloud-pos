@@ -28,6 +28,7 @@ import {
 } from "@/lib/data/daily-closing";
 import {
   getCurrentShift,
+  getShiftOpeningScope,
   getShiftHistory,
   getShiftActivity,
   getShiftStaffSummary,
@@ -147,30 +148,37 @@ export default async function DailyClosingPage({
     totalCount: null,
     limitExceeded: false,
   };
-  const [activity, closing, recentResult, currentShift, shiftHistoryResult] =
-    await Promise.all([
-      getDayActivity(orgId, branchId, date),
-      getClosing(orgId, branchId, date),
-      historyRange.error
-        ? Promise.resolve(emptyHistoryResult)
-        : listRecentClosings(orgId, branchId, {
-            from: historyRange.from || undefined,
-            to: historyRange.to || undefined,
-            limit: historyRange.hasRange ? undefined : 14,
-          }),
-      getCurrentShift(orgId, branchId),
-      historyRange.error
-        ? Promise.resolve(emptyHistoryResult)
-        : getShiftHistory(orgId, branchId, {
-            from: historyRange.from
-              ? getKarachiDayStartIso(historyRange.from)
-              : undefined,
-            to: historyRange.to
-              ? getKarachiDayEndIso(historyRange.to)
-              : undefined,
-            limit: historyRange.hasRange ? undefined : 10,
-          }),
-    ]);
+  const [
+    activity,
+    closing,
+    recentResult,
+    currentShift,
+    shiftHistoryResult,
+    openingScope,
+  ] = await Promise.all([
+    getDayActivity(orgId, branchId, date),
+    getClosing(orgId, branchId, date),
+    historyRange.error
+      ? Promise.resolve(emptyHistoryResult)
+      : listRecentClosings(orgId, branchId, {
+          from: historyRange.from || undefined,
+          to: historyRange.to || undefined,
+          limit: historyRange.hasRange ? undefined : 14,
+        }),
+    getCurrentShift(orgId, branchId),
+    historyRange.error
+      ? Promise.resolve(emptyHistoryResult)
+      : getShiftHistory(orgId, branchId, {
+          from: historyRange.from
+            ? getKarachiDayStartIso(historyRange.from)
+            : undefined,
+          to: historyRange.to
+            ? getKarachiDayEndIso(historyRange.to)
+            : undefined,
+          limit: historyRange.hasRange ? undefined : 10,
+        }),
+    getShiftOpeningScope(orgId, branchId),
+  ]);
   const recent = recentResult.rows;
   const shiftHistory = shiftHistoryResult.rows;
 
@@ -401,7 +409,12 @@ export default async function DailyClosingPage({
               currency={currency}
             />
           ) : (
-            <OpenShiftForm canOpen={canOpen} startingCashDefault={0} />
+            <OpenShiftForm
+              key={openingScope}
+              operationScope={openingScope}
+              canOpen={canOpen}
+              startingCashDefault={0}
+            />
           )}
         </section>
 

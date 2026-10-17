@@ -160,27 +160,29 @@ export function RepairAdvanceSummary({
 }
 
 export function OpenShiftForm({
+  operationScope,
   canOpen,
   startingCashDefault,
   notesDefault,
 }: {
+  operationScope: string;
   canOpen: boolean;
   startingCashDefault?: number;
   notesDefault?: string | null;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(
-    confirmingOperationAction("shift-open", openShiftAction),
+    confirmingOperationAction(operationScope, openShiftAction),
     initial,
   );
   useEffect(() => {
-    if (!state.success) return;
+    if (!state.success && !state.refresh) return;
     const url = new URL(window.location.href);
     url.searchParams.set("shiftstate", crypto.randomUUID());
     router.replace(`${url.pathname}${url.search}`, { scroll: false });
   }, [router, state]);
   const requestKey = useOperationRequestKey(
-    "shift-open",
+    operationScope,
     state.success ? state : null,
   );
   const [starting, setStarting] = useState(
