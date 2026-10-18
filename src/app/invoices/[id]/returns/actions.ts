@@ -1,12 +1,17 @@
 "use server";
 
+import { operationRequestKey } from "@/lib/validation/operation-request-key";
+
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { getCurrentContext } from "@/lib/auth/session";
 import { canReturnNew } from "@/lib/staff-permissions";
 import { createClient } from "@/lib/supabase/server";
-import { createReturnSchema, type RefundMethod } from "@/lib/validation/returns";
+import {
+  createReturnSchema,
+  type RefundMethod,
+} from "@/lib/validation/returns";
 import { logAudit } from "@/lib/audit";
 import { getSafeActionError } from "@/lib/errors/safe-action-error";
 import { formatCurrency } from "@/lib/formatters";
@@ -36,7 +41,11 @@ export async function createInvoiceReturnAction(
     return { error: null, success: null, authRedirect: "/setup" };
   }
   if (!(await canReturnNew(ctx.profile))) {
-    logAudit({ module: "returns", action: "permission.denied", details: "Attempted return without return permission" });
+    logAudit({
+      module: "returns",
+      action: "permission.denied",
+      details: "Attempted return without return permission",
+    });
     return err("You do not have permission to process returns.");
   }
 
@@ -54,7 +63,8 @@ export async function createInvoiceReturnAction(
   const parsed = createReturnSchema.safeParse({
     invoice_id: invoiceId,
     refund_amount: formData.get("refund_amount") ?? "0",
-    refund_method: (formData.get("refund_method") as RefundMethod | null) || null,
+    refund_method:
+      (formData.get("refund_method") as RefundMethod | null) || null,
     reference_number: formData.get("reference_number"),
     notes: formData.get("notes"),
     items,
@@ -64,7 +74,10 @@ export async function createInvoiceReturnAction(
 
   const selectedItems = parsed.data.items.filter((item) => item.quantity > 0);
   const supabase = await createClient();
+  const requestKey = operationRequestKey(formData);
+  if (!requestKey) return err("Please refresh the form and try again.");
   const { data, error } = await supabase.rpc("create_invoice_return", {
+    p_idempotency_key: requestKey,
     p_invoice_id: parsed.data.invoice_id,
     p_items: selectedItems,
     p_refund_amount: parsed.data.refund_amount,
@@ -73,7 +86,13 @@ export async function createInvoiceReturnAction(
     p_notes: parsed.data.notes ?? null,
   });
 
-  if (error) return err(getSafeActionError(error, "We couldn't process this return. Please refresh and try again."));
+  if (error)
+    return err(
+      getSafeActionError(
+        error,
+        "We couldn't process this return. Please refresh and try again.",
+      ),
+    );
 
   const row = Array.isArray(data) ? data[0] : data;
   after(async () => {
@@ -84,6 +103,7 @@ export async function createInvoiceReturnAction(
     revalidatePath("/customers");
     revalidatePath("/dashboard");
 
+    if (row?.idempotent_replay) return;
     await logAudit({
       module: "returns",
       action: "returns.created",
@@ -99,7 +119,9 @@ export async function createInvoiceReturnAction(
 
   return {
     error: null,
-    success: row?.return_no ? `Return ${row.return_no} processed.` : "Return processed.",
+    success: row?.return_no
+      ? `Return ${row.return_no} processed.`
+      : "Return processed.",
     returnId: row?.return_id ?? null,
     returnNo: row?.return_no ?? null,
     refundAmount: row?.refund_amount != null ? Number(row.refund_amount) : null,

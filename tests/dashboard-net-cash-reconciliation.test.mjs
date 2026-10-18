@@ -106,7 +106,7 @@ test("Daily activity uses both Asia/Karachi day boundaries", () => {
 
 test("Daily and shift activity use identical physical-cash component semantics", () => {
   const formula =
-    /const expectedCash = paymentsByMethod\.cash - refundsByMethod\.cash - expensesCash \+ creditCollectionCash/;
+    /const expectedCash =\s*paymentsByMethod\.cash\s*-\s*refundsByMethod\.cash\s*-\s*expensesCash\s*\+\s*creditCollectionCash/;
   assert.match(daySource, formula);
   assert.match(shiftSource, formula);
 });
@@ -138,7 +138,11 @@ test("Cash customer settlements are included once and digital settlements stay s
     assert.match(source, /\.from\("credit_payments"\)/);
     assert.match(source, /if \(digitalMethods\.includes\(cp\.method\)\)/);
     assert.equal(
-      (source.match(/expectedCash = [^\n]*creditCollectionCash/g) ?? []).length,
+      (
+        source.match(
+          /expectedCash =\s*paymentsByMethod\.cash\s*-\s*refundsByMethod\.cash\s*-\s*expensesCash\s*\+\s*creditCollectionCash/g,
+        ) ?? []
+      ).length,
       1,
     );
     assert.doesNotMatch(
@@ -150,11 +154,17 @@ test("Cash customer settlements are included once and digital settlements stay s
 
 test("Starting and counted cash remain drawer reconciliation values only", () => {
   assert.doesNotMatch(todayNet, /starting_cash|counted_cash|cash_difference/);
-  assert.match(
-    shiftActions,
-    /const expected = shift\.starting_cash \+ activity\.expectedCash/,
+  assert.match(shiftActions, /rpc\("close_cash_shift"/);
+  assert.doesNotMatch(shiftActions, /getShiftActivity|const difference =/);
+  const migration = readFileSync(
+    "supabase/migrations/20261014100309_atomic_cash_shift_boundary.sql",
+    "utf8",
   );
-  assert.match(shiftActions, /const difference = counted - expected/);
+  assert.match(
+    migration,
+    /expected:=s.starting_cash\+\(activity->>'expectedCash'\)::numeric/,
+  );
+  assert.match(migration, /difference:=counted-expected/);
 });
 
 test("Dashboard change introduces no business mutation", () => {

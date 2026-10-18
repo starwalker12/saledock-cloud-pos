@@ -234,6 +234,8 @@ function createStatusHarness(options = {}) {
         throw new Error("status action must not use the fire-and-forget helper");
       },
     },
+    "@/lib/errors/cash-shift-action-error": { getCashShiftActionError: (_error, fallback) => fallback },
+    "@/lib/validation/operation-request-key": { operationRequestKey: () => "unused-status-key" },
     "@/lib/errors/safe-action-error": {
       getSafeActionError: (_error, fallback) => fallback,
     },
@@ -504,12 +506,10 @@ test("durable status audit is caller-local without privacy or protected-boundary
     digest(validationSource),
     "5a2b044a04f7d20e4ee980b3c3201867dd7473199e09dabc2500d8f68a616940",
   );
-  assert.equal(
-    digest(repairFormSource.slice(repairFormSource.indexOf("          {repair && <input"), repairFormSource.indexOf("          {state.error"))),
-    "f49f2a6b66424e37cf4aa6c4da472eba31ed1eeb908a657b0c5c05270107582e",
-  );
-  assert.match(repairFormSource, /useActionState\(saveRepairAction, defaultState\)/);
-  assert.match(repairFormSource, /disabled=\{isPending \|\| committed\}/);
+  assert.match(repairFormSource, /confirmingOperationAction/);
+  assert.match(repairFormSource, /useOperationRequestKey/);
+  assert.match(repairFormSource, /name="revision"/);
+  assert.match(repairFormSource, /disabled=\{isPending \|\| committed \|\| !requestKey\}/);
   assert.match(statusFormSource, /useActionState\(settleStatusAction, defaultState\)/);
   assert.match(statusFormSource, /name="old_status" value=\{repair.status\}/);
   assert.match(statusFormSource, /disabled=\{isPending \|\| waitingForRepair\}/);

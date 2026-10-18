@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  useOperationRequestKey,
+  confirmOperationRequestKey,
+} from "@/lib/hooks/use-operation-request-key";
+
+import {
   useActionState,
   useCallback,
   useEffect,
@@ -30,7 +35,10 @@ const METHOD_LABELS: Record<string, string> = {
 };
 const REFUND_OPTIONS = [
   { value: "", label: "No payout now" },
-  ...REFUND_METHODS.map((method) => ({ value: method, label: METHOD_LABELS[method] })),
+  ...REFUND_METHODS.map((method) => ({
+    value: method,
+    label: METHOD_LABELS[method],
+  })),
 ];
 
 export function ReturnForm({
@@ -47,12 +55,16 @@ export function ReturnForm({
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [outcomeUncertain, setOutcomeUncertain] = useState(false);
-  const [localSuccess, setLocalSuccess] = useState<ReturnActionState | null>(null);
+  const [localSuccess, setLocalSuccess] = useState<ReturnActionState | null>(
+    null,
+  );
   const outcomeUncertainRef = useRef(false);
   const returnAction = useCallback(
     async (previous: ReturnActionState, formData: FormData) => {
       try {
         const result = await createInvoiceReturnAction(previous, formData);
+        if (result.success)
+          confirmOperationRequestKey("invoice-return:" + invoiceId, formData);
         if (result.authRedirect) {
           router.replace(result.authRedirect);
           return result;
@@ -82,9 +94,13 @@ export function ReturnForm({
         return { error: UNCERTAIN_RESULT_MESSAGE, success: null };
       }
     },
-    [router, supabase],
+    [router, supabase, invoiceId],
   );
   const [state, action, pending] = useActionState(returnAction, initial);
+  const requestKey = useOperationRequestKey(
+    "invoice-return:" + invoiceId,
+    state.success ? state : null,
+  );
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const submissionLocked = useRef(false);
   const reconciledReturn = useRef<string | null>(null);
@@ -120,7 +136,8 @@ export function ReturnForm({
   const refundTotal = useMemo(
     () =>
       items.reduce(
-        (sum, item) => sum + (quantities[item.id] ?? 0) * item.return_unit_total,
+        (sum, item) =>
+          sum + (quantities[item.id] ?? 0) * item.return_unit_total,
         0,
       ),
     [items, quantities],
@@ -131,7 +148,9 @@ export function ReturnForm({
   if (!canProcess) {
     return (
       <section className="print-hidden mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-        <h2 className="text-sm font-black text-amber-900">Returns restricted</h2>
+        <h2 className="text-sm font-black text-amber-900">
+          Returns restricted
+        </h2>
         <p className="mt-1 text-sm text-amber-800">
           Owner, admin, or manager access is required to process returns.
         </p>
@@ -149,7 +168,9 @@ export function ReturnForm({
         <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 mb-3">
           <Check className="size-6 stroke-[3]" />
         </div>
-        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">Return Processed</h2>
+        <h2 className="text-lg font-black text-slate-950 dark:text-slate-50">
+          Return Processed
+        </h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           {successData.success}
         </p>
@@ -157,15 +178,24 @@ export function ReturnForm({
         {successData.returnNo && (
           <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 p-4 text-left w-full max-w-sm space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">Return No:</span>
-              <span className="font-bold text-slate-900 dark:text-slate-100">{successData.returnNo}</span>
+              <span className="text-slate-500 dark:text-slate-400">
+                Return No:
+              </span>
+              <span className="font-bold text-slate-900 dark:text-slate-100">
+                {successData.returnNo}
+              </span>
             </div>
-            {successData.refundAmount !== undefined && successData.refundAmount !== null && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">Refund Amount:</span>
-                <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(successData.refundAmount, currency)}</span>
-              </div>
-            )}
+            {successData.refundAmount !== undefined &&
+              successData.refundAmount !== null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Refund Amount:
+                  </span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">
+                    {formatCurrency(successData.refundAmount, currency)}
+                  </span>
+                </div>
+              )}
           </div>
         )}
 
@@ -229,6 +259,7 @@ export function ReturnForm({
           aria-busy={pending}
           className="mt-5 space-y-4"
         >
+          <input type="hidden" name="request_key" value={requestKey} />
           <input type="hidden" name="invoice_id" value={invoiceId} />
 
           <div className="overflow-x-auto rounded-xl border border-slate-200 md:border block md:table w-full">
@@ -247,13 +278,23 @@ export function ReturnForm({
                 {items.map((item) => {
                   const qty = quantities[item.id] ?? 0;
                   return (
-                    <tr key={item.id} className="border-t border-slate-100 block md:table-row bg-[#fff] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 md:p-0 md:border-0 md:border-t mb-3 md:mb-0 shadow-sm md:shadow-none">
+                    <tr
+                      key={item.id}
+                      className="border-t border-slate-100 block md:table-row bg-[#fff] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 md:p-0 md:border-0 md:border-t mb-3 md:mb-0 shadow-sm md:shadow-none"
+                    >
                       <td className="px-3 py-2 md:py-3 block md:table-cell border-b md:border-b-0 border-slate-100 dark:border-slate-800 pb-2 md:pb-3">
-                        <input type="hidden" name="invoice_item_id" value={item.id} />
-                        <div className="font-bold text-slate-900 dark:text-slate-100">{item.item_name}</div>
+                        <input
+                          type="hidden"
+                          name="invoice_item_id"
+                          value={item.id}
+                        />
+                        <div className="font-bold text-slate-900 dark:text-slate-100">
+                          {item.item_name}
+                        </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">
-                          {item.item_type === "service" ? "Service" : "Product"} ·{" "}
-                          {formatCurrency(item.return_unit_total, currency)} per returned unit
+                          {item.item_type === "service" ? "Service" : "Product"}{" "}
+                          · {formatCurrency(item.return_unit_total, currency)}{" "}
+                          per returned unit
                         </div>
                       </td>
                       <td className="px-3 py-1.5 md:py-3 block md:table-cell text-left md:text-right text-xs md:text-sm text-slate-500 dark:text-slate-400 before:content-['Sold:_'] before:font-bold before:text-slate-600 dark:before:text-slate-400 md:before:content-none flex justify-between items-center md:block">
@@ -265,7 +306,9 @@ export function ReturnForm({
                         <span>{item.quantity_returned}</span>
                       </td>
                       <td className="px-3 py-1.5 md:py-3 block md:table-cell text-left md:text-right flex justify-between items-center md:table-cell">
-                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 md:hidden">Return Qty:</span>
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 md:hidden">
+                          Return Qty:
+                        </span>
                         {item.quantity_returnable === 0 && (
                           <input type="hidden" name="quantity" value="0" />
                         )}
@@ -290,7 +333,9 @@ export function ReturnForm({
                         />
                       </td>
                       <td className="px-3 py-1.5 md:py-3 block md:table-cell text-left flex justify-between items-center md:table-cell">
-                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 md:hidden">Restock:</span>
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 md:hidden">
+                          Restock:
+                        </span>
                         {item.item_type === "product" ? (
                           <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                             <input
@@ -298,18 +343,29 @@ export function ReturnForm({
                               name="restock_item_id"
                               value={item.id}
                               defaultChecked
-                              disabled={pending || item.quantity_returnable === 0}
+                              disabled={
+                                pending || item.quantity_returnable === 0
+                              }
                               className="size-4 rounded border-slate-300 dark:border-slate-800 bg-[#fff] dark:bg-slate-900"
                             />
                             Restore stock
                           </label>
                         ) : (
-                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">No stock</span>
+                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            No stock
+                          </span>
                         )}
                       </td>
                       <td className="px-3 py-1.5 md:py-3 block md:table-cell text-right flex justify-between items-center md:table-cell font-bold text-slate-900 dark:text-slate-100">
-                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 md:hidden">Refund Value:</span>
-                        <span>{formatCurrency(qty * item.return_unit_total, currency)}</span>
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 md:hidden">
+                          Refund Value:
+                        </span>
+                        <span>
+                          {formatCurrency(
+                            qty * item.return_unit_total,
+                            currency,
+                          )}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -320,7 +376,9 @@ export function ReturnForm({
 
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="block">
-              <span className="text-xs font-bold text-slate-700">Refund amount</span>
+              <span className="text-xs font-bold text-slate-700">
+                Refund amount
+              </span>
               <input
                 name="refund_amount"
                 type="number"
@@ -333,7 +391,9 @@ export function ReturnForm({
               />
             </label>
             <label className="block">
-              <span className="text-xs font-bold text-slate-700">Refund method</span>
+              <span className="text-xs font-bold text-slate-700">
+                Refund method
+              </span>
               <AppSelect
                 name="refund_method"
                 disabled={pending}
@@ -343,7 +403,9 @@ export function ReturnForm({
               />
             </label>
             <label className="block">
-              <span className="text-xs font-bold text-slate-700">Reference</span>
+              <span className="text-xs font-bold text-slate-700">
+                Reference
+              </span>
               <input
                 name="reference_number"
                 disabled={pending}
@@ -380,7 +442,9 @@ export function ReturnForm({
 
           <button
             type="submit"
-            disabled={pending || refundTotal <= 0 || outcomeUncertain}
+            disabled={
+              pending || !requestKey || refundTotal <= 0 || outcomeUncertain
+            }
             className="inline-flex h-11 items-center justify-center gap-1.5 w-full rounded-lg bg-blue-700 text-sm font-black text-white transition hover:bg-blue-800 disabled:opacity-60 sm:w-auto sm:px-6 cursor-pointer"
           >
             {pending ? (

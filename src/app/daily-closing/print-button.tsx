@@ -3,9 +3,11 @@
 import { Printer } from "lucide-react";
 
 function printWithMode(mode: "a4" | "thermal" | "shift-thermal") {
+  document.body.dataset.cashDrawerPrint = "true";
   document.body.dataset.printMode = mode;
   const cleanup = () => {
     delete document.body.dataset.printMode;
+    delete document.body.dataset.cashDrawerPrint;
     window.removeEventListener("afterprint", cleanup);
   };
   window.addEventListener("afterprint", cleanup);

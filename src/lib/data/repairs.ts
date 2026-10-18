@@ -25,8 +25,15 @@ export type RepairRow = {
   diagnosis: string | null;
   estimated_cost: number;
   advance_paid: number;
+  repair_revision: number;
   final_cost: number;
-  status: "received" | "waiting_for_parts" | "in_progress" | "completed" | "delivered" | "cancelled";
+  status:
+    | "received"
+    | "waiting_for_parts"
+    | "in_progress"
+    | "completed"
+    | "delivered"
+    | "cancelled";
   expected_delivery_at: string | null;
   delivered_at: string | null;
   notes: string | null;
@@ -61,15 +68,17 @@ export async function listRepairs(
     search?: string;
     startDate?: string;
     endDate?: string;
-  }
+  },
 ): Promise<RepairRow[]> {
   const supabase = await createClient();
   let query = supabase
     .from("repairs")
-    .select(`
+    .select(
+      `
       *,
       profiles:created_by (full_name)
-    `)
+    `,
+    )
     .eq("organization_id", organizationId);
 
   if (filters?.status) {
@@ -78,7 +87,9 @@ export async function listRepairs(
 
   if (filters?.search) {
     const term = `%${escapeLike(filters.search)}%`;
-    query = query.or(`job_no.ilike.${term},customer_name.ilike.${term},customer_phone.ilike.${term},device_type.ilike.${term},device_model.ilike.${term},serial_imei.ilike.${term}`);
+    query = query.or(
+      `job_no.ilike.${term},customer_name.ilike.${term},customer_phone.ilike.${term},device_type.ilike.${term},device_model.ilike.${term},serial_imei.ilike.${term}`,
+    );
   }
 
   if (filters?.startDate) {
@@ -92,8 +103,13 @@ export async function listRepairs(
   if (error) throw new Error(error.message);
 
   return (data ?? []).map((r) => {
-    const prof = r.profiles as { full_name?: string } | { full_name?: string }[] | null;
-    const creatorName = Array.isArray(prof) ? prof[0]?.full_name ?? null : prof?.full_name ?? null;
+    const prof = r.profiles as
+      | { full_name?: string }
+      | { full_name?: string }[]
+      | null;
+    const creatorName = Array.isArray(prof)
+      ? (prof[0]?.full_name ?? null)
+      : (prof?.full_name ?? null);
 
     return {
       id: r.id,
@@ -110,6 +126,7 @@ export async function listRepairs(
       diagnosis: r.diagnosis,
       estimated_cost: Number(r.estimated_cost ?? 0),
       advance_paid: Number(r.advance_paid ?? 0),
+      repair_revision: Number(r.repair_revision ?? 0),
       final_cost: Number(r.final_cost ?? 0),
       status: r.status,
       expected_delivery_at: r.expected_delivery_at,
@@ -127,15 +144,17 @@ export async function listRepairs(
 
 export async function getRepairDetail(
   repairId: string,
-  organizationId: string
+  organizationId: string,
 ): Promise<{ repair: RepairRow; history: RepairHistoryRow[] } | null> {
   const supabase = await createClient();
   const { data: repair, error } = await supabase
     .from("repairs")
-    .select(`
+    .select(
+      `
       *,
       profiles:created_by (full_name)
-    `)
+    `,
+    )
     .eq("organization_id", organizationId)
     .eq("id", repairId)
     .maybeSingle();
@@ -143,8 +162,13 @@ export async function getRepairDetail(
   if (error) throw new Error(error.message);
   if (!repair) return null;
 
-  const prof = repair.profiles as { full_name?: string } | { full_name?: string }[] | null;
-  const creatorName = Array.isArray(prof) ? prof[0]?.full_name ?? null : prof?.full_name ?? null;
+  const prof = repair.profiles as
+    | { full_name?: string }
+    | { full_name?: string }[]
+    | null;
+  const creatorName = Array.isArray(prof)
+    ? (prof[0]?.full_name ?? null)
+    : (prof?.full_name ?? null);
 
   const repairRow: RepairRow = {
     id: repair.id,
@@ -161,6 +185,7 @@ export async function getRepairDetail(
     diagnosis: repair.diagnosis,
     estimated_cost: Number(repair.estimated_cost ?? 0),
     advance_paid: Number(repair.advance_paid ?? 0),
+    repair_revision: Number(repair.repair_revision ?? 0),
     final_cost: Number(repair.final_cost ?? 0),
     status: repair.status,
     expected_delivery_at: repair.expected_delivery_at,
@@ -176,10 +201,12 @@ export async function getRepairDetail(
 
   const { data: history, error: historyError } = await supabase
     .from("repair_status_history")
-    .select(`
+    .select(
+      `
       *,
       profiles:changed_by (full_name)
-    `)
+    `,
+    )
     .eq("organization_id", organizationId)
     .eq("repair_id", repairId)
     .order("created_at", { ascending: false });
@@ -187,8 +214,13 @@ export async function getRepairDetail(
   if (historyError) throw new Error(historyError.message);
 
   const historyRows = (history ?? []).map((h) => {
-    const hProf = h.profiles as { full_name?: string } | { full_name?: string }[] | null;
-    const changerName = Array.isArray(hProf) ? hProf[0]?.full_name ?? null : hProf?.full_name ?? null;
+    const hProf = h.profiles as
+      | { full_name?: string }
+      | { full_name?: string }[]
+      | null;
+    const changerName = Array.isArray(hProf)
+      ? (hProf[0]?.full_name ?? null)
+      : (hProf?.full_name ?? null);
 
     return {
       id: h.id,
@@ -205,15 +237,17 @@ export async function getRepairDetail(
 
 export async function listCustomerRepairs(
   customerId: string,
-  organizationId: string
+  organizationId: string,
 ): Promise<RepairRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("repairs")
-    .select(`
+    .select(
+      `
       *,
       profiles:created_by (full_name)
-    `)
+    `,
+    )
     .eq("organization_id", organizationId)
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false });
@@ -221,8 +255,13 @@ export async function listCustomerRepairs(
   if (error) throw new Error(error.message);
 
   return (data ?? []).map((r) => {
-    const prof = r.profiles as { full_name?: string } | { full_name?: string }[] | null;
-    const creatorName = Array.isArray(prof) ? prof[0]?.full_name ?? null : prof?.full_name ?? null;
+    const prof = r.profiles as
+      | { full_name?: string }
+      | { full_name?: string }[]
+      | null;
+    const creatorName = Array.isArray(prof)
+      ? (prof[0]?.full_name ?? null)
+      : (prof?.full_name ?? null);
 
     return {
       id: r.id,
@@ -239,6 +278,7 @@ export async function listCustomerRepairs(
       diagnosis: r.diagnosis,
       estimated_cost: Number(r.estimated_cost ?? 0),
       advance_paid: Number(r.advance_paid ?? 0),
+      repair_revision: Number(r.repair_revision ?? 0),
       final_cost: Number(r.final_cost ?? 0),
       status: r.status,
       expected_delivery_at: r.expected_delivery_at,

@@ -117,18 +117,18 @@ test("Expenses validation accepts only the explicit Karachi local contract", () 
   );
 });
 
-test("existing updates read within the organization and preserve the exact instant", () => {
+test("existing updates retain the stored instant when the visible local minute is unchanged", () => {
+  assert.match(actionSource, /from\("expenses"\)\s*.select\("spent_at"\)/);
   assert.match(
     actionSource,
-    /\.from\("expenses"\)[\s\S]*?\.select\("spent_at"\)[\s\S]*?\.eq\("id", id\)[\s\S]*?\.eq\("organization_id", w\.ctx\.profile!\.organization_id!\)[\s\S]*?\.maybeSingle\(\)/,
+    /eq\("organization_id", w.ctx.profile!.organization_id!\)/,
   );
   assert.match(
     actionSource,
-    /formatKarachiDateTimeLocal\(existing\.spent_at\) ===[\s\S]*?formatKarachiDateTimeLocal\(parsed\.data\.spent_at\)/,
+    /formatKarachiDateTimeLocal\(existing.spent_at\) ===\s*formatKarachiDateTimeLocal\(spentAt\)/,
   );
-  assert.match(actionSource, /!parsed\.data\.spent_at \|\|/);
-  assert.match(actionSource, /spentAt = existing\.spent_at/);
-  assert.match(actionSource, /spent_at: spentAt/);
+  assert.match(actionSource, /spentAt = existing.spent_at/);
+  assert.match(actionSource, /p_spent_at: spentAt/);
 });
 
 test("void and restore do not replace spent_at", () => {

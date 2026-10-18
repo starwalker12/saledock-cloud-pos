@@ -90,7 +90,7 @@ test("debt-ledger direction, running balance, and legitimate refund credits rema
 
 test("presentation sources do not alter customer, settlement, or return mutations", () => {
   assert.match(customerActionsSource, /\.rpc\("record_credit_payment"/);
-  assert.match(customerActionsSource, /\.rpc\("record_customer_write_off"/);
+  assert.match(customerActionsSource, /\.rpc\(\s*"record_customer_write_off"/);
   assert.match(returnActionsSource, /\.rpc\("create_invoice_return"/);
   assert.doesNotMatch(customerDataSource, /\.rpc\(/);
   assert.doesNotMatch(customerPageSource, /create_invoice_return/);

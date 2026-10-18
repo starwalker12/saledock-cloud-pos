@@ -25,6 +25,7 @@ function harness() {
     "next/navigation": { useRouter: () => router },
     "lucide-react": { X: "X", Search: "Search", Loader2: "Loader2" },
     "./actions": { saveRepairAction: action },
+    "@/lib/hooks/use-operation-request-key": { confirmingOperationAction: (_scope, fn) => fn, useOperationRequestKey: () => "test-key" },
     "@/components/ui/app-select": { AppSelect: "AppSelect" },
     "@/components/ui/form-modal": { FormModal: "FormModal" },
   };
@@ -103,21 +104,17 @@ test("manual dismissal stays separate from save settlement in the shared modal",
   cancel.props.onClick(); assert.equal(h.closes(), 1);
   assert.match(source, /<FormModal/);
   assert.doesNotMatch(source, /createPortal|repair-modal-controller|setTimeout|location.reload|router.refresh|catch\s*\(/);
-  assert.equal((source.match(/useActionState\(saveRepairAction/g) ?? []).length, 1);
+  assert.match(source, /confirmingOperationAction/);
+  assert.match(source, /useOperationRequestKey/);
 });
 
-test("the server correction preserves all mutation/history/audit code and the exact delivered status action", () => {
+test("the DB-authorized save replaces split writes and preserves the exact delivered status action", () => {
   const action = readFileSync(new URL("../src/app/repairs/actions.ts", import.meta.url), "utf8");
   const hash = value => createHash("sha256").update(value).digest("hex");
   const boundary = action.indexOf("export async function updateRepairStatusAction");
   assert.ok(boundary > 0);
   assert.equal(hash(action.slice(boundary)), "f6e95deb746420a2e0b54e9ca44d8e6372059dadb31629ec499d81c9a8f78537");
   const save = action.slice(0, boundary);
-  const deferred = save.match(/  \/\/ Settle the required save\/history\/audit result before route reconciliation\.\n  after\(\(\) => \{[\s\S]*?\n  \}\);\n\n/)?.[0];
-  assert.ok(deferred);
-  assert.equal((deferred.match(/revalidatePath\(/g) ?? []).length, 3);
-  assert.doesNotMatch(deferred, /supabase|\.insert\(|\.update\(|logAudit/);
-  assert.doesNotMatch(save.replace(deferred, ""), /revalidatePath\(/);
-  // Original main save body with only its inline invalidation block removed.
-  assert.equal(hash(save.replace(deferred, "")), "32383f6454b84219b5c0da1ead4cd59585a1f1bf5e2647db21bbcdeec8f8460a");
+  assert.match(save, /rpc\(\s*"save_cash_shift_repair"/);
+  assert.doesNotMatch(save, /\.from\("(?:repairs|repair_status_history|audit_logs)"\)|revalidatePath\(/);
 });

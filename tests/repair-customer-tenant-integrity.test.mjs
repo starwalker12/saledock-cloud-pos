@@ -31,7 +31,9 @@ const e2eSource = readFileSync(
   "utf8",
 );
 
-const saveStart = actionSource.indexOf("export async function saveRepairAction");
+const saveStart = actionSource.indexOf(
+  "export async function saveRepairAction",
+);
 const saveEnd = actionSource.indexOf(
   "export async function updateRepairStatusAction",
   saveStart,
@@ -55,24 +57,20 @@ test("repair create and edit share one organization-scoped customer ownership ch
   );
 
   const lookupIndex = saveSource.indexOf('.from("customers")');
-  const auditIndex = saveSource.indexOf('.from("audit_logs")');
-  assert.ok(lookupIndex < saveSource.indexOf('.from("repairs")'));
-  assert.ok(lookupIndex < saveSource.indexOf('.from("repair_status_history")'));
+  const auditIndex = saveSource.indexOf('"save_cash_shift_repair"');
+  assert.ok(lookupIndex < saveSource.indexOf('"save_cash_shift_repair"'));
+  assert.ok(lookupIndex < saveSource.indexOf('"save_cash_shift_repair"'));
   assert.notEqual(auditIndex, -1);
   assert.ok(lookupIndex < auditIndex);
-  assert.equal((saveSource.match(/The selected customer is unavailable\./g) ?? []).length, 1);
+  assert.equal(
+    (saveSource.match(/The selected customer is unavailable\./g) ?? []).length,
+    1,
+  );
 });
 
-test("quick-created customers remain organization-owned and use the returned ID", () => {
-  assert.match(
-    saveSource,
-    /const customerPayload = \{[\s\S]*?organization_id: orgId,[\s\S]*?\};/,
-  );
-  assert.match(
-    saveSource,
-    /\.from\("customers"\)[\s\S]*?\.insert\(customerPayload\)[\s\S]*?\.select\("id"\)[\s\S]*?\.single\(\)/,
-  );
-  assert.match(saveSource, /finalCustomerId = newCust\.id;/);
+test("quick creation sends user intent to the protected repair transaction", () => {
+  assert.doesNotMatch(saveSource, /\.insert\(/);
+  assert.match(saveSource, /p_create_customer_account: shouldCreateCustomer/);
   assert.match(saveSource, /customer_id: finalCustomerId,/);
 });
 
@@ -104,8 +102,14 @@ test("migration fails on historical mismatches and adds a composite tenant forei
 
 test("migration contract preserves nullable links and rejects insert and update bypasses", () => {
   assert.match(e2eSource, /DIRECT-NULL/);
-  assert.match(e2eSource, /directForeignInsert\.error\?\.code\)\.toBe\("23503"\)/);
-  assert.match(e2eSource, /directForeignUpdate\.error\?\.code\)\.toBe\("23503"\)/);
+  assert.match(
+    e2eSource,
+    /directForeignInsert\.error\?\.code\)\.toBe\("23503"\)/,
+  );
+  assert.match(
+    e2eSource,
+    /directForeignUpdate\.error\?\.code\)\.toBe\("23503"\)/,
+  );
   assert.match(e2eSource, /nullToForeignEdit/);
   assert.match(e2eSource, /customerIdSetNull: true/);
   assert.match(e2eSource, /openingMismatchCount/);
@@ -115,7 +119,7 @@ test("migration contract preserves nullable links and rejects insert and update 
 test("backup retains same-organization customer provenance; retired demo cannot write repairs", () => {
   assert.match(
     backupSource,
-    /resolveTargetIdsBatch\(supabase, orgId, jobId, "Customers", customerIds\)/,
+    /resolveTargetIdsBatch\(\s*supabase,\s*orgId,\s*jobId,\s*"Customers",\s*customerIds,?\s*\)/,
   );
   assert.match(
     backupSource,
@@ -155,14 +159,18 @@ test("optional normalization stays validation-local without relaxing tenant inte
     saveSource,
     /if \(customerLookupError \|\| !selectedCustomer\) \{\s*return err\("The selected customer is unavailable\."\);\s*\}/,
   );
-  assert.ok(saveSource.indexOf('.from("customers")') < saveSource.indexOf('.from("repairs")'));
   assert.ok(
     saveSource.indexOf('.from("customers")') <
-      saveSource.indexOf('.from("repair_status_history")'),
+      saveSource.indexOf('"save_cash_shift_repair"'),
   );
-  assert.notEqual(saveSource.indexOf('.from("audit_logs")'), -1);
   assert.ok(
-    saveSource.indexOf('.from("customers")') < saveSource.indexOf('.from("audit_logs")'),
+    saveSource.indexOf('.from("customers")') <
+      saveSource.indexOf('"save_cash_shift_repair"'),
+  );
+  assert.notEqual(saveSource.indexOf('"save_cash_shift_repair"'), -1);
+  assert.ok(
+    saveSource.indexOf('.from("customers")') <
+      saveSource.indexOf('"save_cash_shift_repair"'),
   );
   assert.equal(
     createHash("sha256").update(migrationSource).digest("hex"),

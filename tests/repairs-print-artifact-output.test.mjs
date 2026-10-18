@@ -276,8 +276,9 @@ test("Repair list and detail data paths remain unchanged by month-stat hardening
       }),
     ]);
     assert.equal(
-      currentFunction,
-      headFunction,
+      currentFunction.replace(/\s*repair_revision: Number\([^\n]+\),\n/g, "\n"),
+      // The committed candidate already contains this approved CAS metadata.
+      headFunction.replace(/\s*repair_revision: Number\([^\n]+\),\n/g, "\n"),
       `${name} changed outside the approved getRepairsStats scope`,
     );
   }
