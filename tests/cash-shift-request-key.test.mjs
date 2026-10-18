@@ -43,3 +43,27 @@ test("an older completion cannot retire a newer operation", () => {
   confirmOperationRequestKey("return", old);
   assert.equal(store.get("cash-operation-v2:return"), "new");
 });
+test("delayed opening completion leaves a newer unresolved lifecycle usable", async () => {
+  const old = attempt("shift-open:org:branch:0", "old-opening");
+  let settle;
+  const delayed = confirmingOperationAction(
+    "shift-open:org:branch:0",
+    () =>
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+  )({}, old);
+  const newer = attempt("shift-open:org:branch:1", "unresolved-opening");
+  settle({ success: "Opened" });
+  await delayed;
+  await assert.rejects(
+    confirmingOperationAction("shift-open:org:branch:1", async () => {
+      throw Error("Response lost");
+    })({}, newer),
+  );
+  assert.equal(
+    store.get("cash-operation-v2:shift-open:org:branch:1"),
+    newer.get("request_key"),
+  );
+  assert.equal(store.has("cash-operation-v2:shift-open:org:branch:0"), false);
+});

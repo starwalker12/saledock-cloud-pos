@@ -380,3 +380,52 @@ for (const secondFloat of ["100.00", "175.25"])
       }
     },
   );
+
+for (const reopen of [false, true])
+  test(
+    "opening confirmation fails safely after concurrent close" +
+      (reopen ? " and reopen" : ""),
+    { skip: !enabled },
+    async () => {
+      const f = fixture();
+      seed(f);
+      try {
+        const app = application(f);
+        const originalFrom = app.client.from;
+        app.client.from = (name) => {
+          const builder = originalFrom(name);
+          const read = builder.maybeSingle;
+          builder.maybeSingle = async () => {
+            // A real second transaction changes membership after the protected
+            // opening commits, before the action's actual confirmation query.
+            const a = JSON.parse(
+              sql(
+                `select to_jsonb(s) from public.cash_shifts s where organization_id='${f.org}' and status='open';`,
+              ),
+            );
+            app.execute(
+              `select public.close_cash_shift('${a.id}','${randomUUID()}','100',null);`,
+            );
+            if (reopen)
+              app.execute(
+                `select public.open_cash_shift('${randomUUID()}','175.25',null);`,
+              );
+            return read();
+          };
+          return builder;
+        };
+        const result = await app.action({}, form(randomUUID(), "100"));
+        assert.equal(result.success, null);
+        assert.equal(result.refresh, true);
+        const openCount = Number(
+          sql(
+            `select count(*) from public.cash_shifts where organization_id='${f.org}' and status='open';`,
+          ),
+        );
+        assert.equal(openCount, reopen ? 1 : 0);
+        record("confirmation-race-" + reopen, { result, openCount });
+      } finally {
+        cleanup(f);
+      }
+    },
+  );

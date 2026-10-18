@@ -175,16 +175,18 @@ export function OpenShiftForm({
     confirmingOperationAction(operationScope, openShiftAction),
     initial,
   );
+  // Action settlement precedes the authoritative navigation. This rendered
+  // form must not start another opening while that older render can replace it.
+  const reconciling = Boolean(state.success || state.refresh);
   useEffect(() => {
     if (!state.success && !state.refresh) return;
     const url = new URL(window.location.href);
     url.searchParams.set("shiftstate", crypto.randomUUID());
     router.replace(`${url.pathname}${url.search}`, { scroll: false });
   }, [router, state]);
-  const requestKey = useOperationRequestKey(
-    operationScope,
-    state.success ? state : null,
-  );
+  // A settled form stays fenced until replaced; only its replacement needs a
+  // new key. Unknown outcomes retain this key for durable replay.
+  const requestKey = useOperationRequestKey(operationScope, null);
   const [starting, setStarting] = useState(
     startingCashDefault !== undefined ? String(startingCashDefault) : "0",
   );
@@ -199,7 +201,14 @@ export function OpenShiftForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form
+      action={action}
+      aria-busy={pending || reconciling}
+      onSubmit={(event) => {
+        if (reconciling) event.preventDefault();
+      }}
+      className="space-y-4"
+    >
       <input type="hidden" name="request_key" value={requestKey} />
       <label className="block">
         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -213,7 +222,7 @@ export function OpenShiftForm({
           name="starting_cash"
           value={starting}
           onChange={(e) => setStarting(e.target.value)}
-          disabled={pending || !requestKey}
+          disabled={pending || reconciling || !requestKey}
           className="mt-1 h-11 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 outline-none focus:border-blue-600 dark:focus:border-blue-500"
         />
       </label>
@@ -231,7 +240,7 @@ export function OpenShiftForm({
           name="notes"
           rows={2}
           defaultValue={notesDefault ?? ""}
-          disabled={pending || !requestKey}
+          disabled={pending || reconciling || !requestKey}
           className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-[#fff] dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2 outline-none focus:border-blue-600 dark:focus:border-blue-500"
         />
       </label>
@@ -247,13 +256,27 @@ export function OpenShiftForm({
         </p>
       )}
 
+      {reconciling && (
+        <p
+          role="status"
+          className="rounded-lg bg-blue-50 dark:bg-blue-950/20 px-3 py-2 text-sm text-blue-800 dark:text-blue-300"
+        >
+          Confirming the drawer state. Please wait before opening another shift.
+          If this takes too long, refresh the page.
+        </p>
+      )}
+
       <button
         type="submit"
-        disabled={pending || !requestKey || startingNum < 0}
+        disabled={pending || reconciling || !requestKey || startingNum < 0}
         className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:opacity-60"
       >
         <Play className="size-4" />
-        {pending ? "Opening…" : "Open shift"}
+        {reconciling
+          ? "Refreshing drawer…"
+          : pending
+            ? "Opening…"
+            : "Open shift"}
       </button>
     </form>
   );
